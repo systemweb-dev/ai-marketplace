@@ -1,0 +1,2 @@
+# Plugins/skills publicados aparecem aqui (1 pasta por skill).
+# Use: make sync SKILL=<nome>

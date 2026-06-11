@@ -1,0 +1,26 @@
+# Claude Code (estado local de sessão — não versionar)
+.claude/settings.local.json
+
+# Diretórios de trabalho / eval das skills (nunca entram no repositório)
+*-workspace/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs e temporários
+*.log
+*.tmp
