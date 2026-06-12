@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,19 @@ README_END = "<!-- SKILLS:END -->"
 def flatten(text: str) -> str:
     """Colapsa qualquer whitespace/quebra de linha em espaços únicos."""
     return " ".join((text or "").split())
+
+
+# Nome de skill = slug seguro. Bloqueia '/', '..' e absolutos → nenhum path traversal.
+SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+
+def validate_name(name: str) -> str:
+    if ".." in name or "/" in name or not SAFE_NAME.match(name):
+        sys.exit(
+            f"ERRO: nome de skill inválido: '{name}'. Use apenas letras minúsculas, "
+            f"números, '.', '_' e '-' (sem '/', sem '..')."
+        )
+    return name
 
 
 def display(path) -> str:
@@ -130,7 +144,7 @@ def warn_personal_data(skill_dir: Path) -> list[str]:
 # Comandos
 # --------------------------------------------------------------------------- #
 def cmd_sync(args) -> None:
-    name = args.skill
+    name = validate_name(args.skill)
     src = Path(args.from_dir).expanduser() / name if args.from_dir else DEFAULT_SKILLS_DIR / name
     skill_md = src / "SKILL.md"
     if not skill_md.is_file():
@@ -204,7 +218,7 @@ def cmd_sync(args) -> None:
 
 def cmd_import(args) -> None:
     """Traz a skill do repositório de volta para ~/.claude/skills (para editar)."""
-    name = args.skill
+    name = validate_name(args.skill)
     src = PLUGINS_DIR / name / "skills" / name
     if not (src / "SKILL.md").is_file():
         sys.exit(
@@ -239,7 +253,7 @@ def cmd_import(args) -> None:
 
 
 def cmd_remove(args) -> None:
-    name = args.skill
+    name = validate_name(args.skill)
     plugin_dir = PLUGINS_DIR / name
     if args.dry_run:
         print(f"[dry-run] removeria {plugin_dir} e a entrada '{name}' do marketplace.")
