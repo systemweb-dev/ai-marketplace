@@ -1,11 +1,12 @@
 # ai-marketplace
 
-Meu **marketplace pessoal de skills do [Claude Code](https://claude.com/claude-code)**.
-Cada skill é publicada como um plugin instalável **individualmente** — você escolhe
-exatamente quais quer levar para cada máquina, e instala direto pelo Claude Code.
+**Marketplace de skills do [Claude Code](https://claude.com/claude-code) da systemweb** —
+uma coleção curada de **skills personalizadas** para acelerar o desenvolvimento no dia a dia.
+Cada skill é publicada como um plugin instalável **individualmente**: registre o marketplace
+uma vez e instale só o que precisar, direto pelo Claude Code.
 
 > Repositório: [`systemweb-dev/ai-marketplace`](https://github.com/systemweb-dev/ai-marketplace)
-> Documentação em PT-BR. As skills mantêm o idioma original do seu `SKILL.md`.
+> Mantido pela **systemweb**. Documentação em PT-BR; cada skill mantém o idioma do seu `SKILL.md`.
 
 ---
 

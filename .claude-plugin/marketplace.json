@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "ai-marketplace",
-  "description": "Marketplace pessoal de skills do Claude Code — instale individualmente apenas as skills que quiser, direto pelo Claude Code.",
+  "description": "Marketplace de skills do Claude Code da systemweb — coleção de skills personalizadas, instaláveis individualmente direto pelo Claude Code.",
   "owner": {
     "name": "systemweb-dev"
   },
