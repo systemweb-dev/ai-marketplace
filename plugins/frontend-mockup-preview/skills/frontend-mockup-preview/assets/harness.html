@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--
+  mockup-preview harness — copy this file, then fill the four marked regions.
+  It is THROWAWAY: it does not need to follow the project's CSS conventions
+  (kebab-case and inline styles are fine here). Only the code applied to the
+  real component later follows the project rules.
+
+  Regions to fill:
+    1. <title>           — name of the screen/component being explored
+    2. TOKENS            — paste the real design tokens extracted from the project
+    3. FONT <link>       — swap to the project's real font if not Inter
+    4. .stage            — one <section> per variation (see the example block)
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><!-- 1. COMPONENT NAME -->Mockup Preview</title>
+
+<!-- 3. FONT — replace href + family if the project uses another font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  /* ============================================================
+     2. TOKENS — paste the project's real values into BOTH blocks.
+     Light goes on .panel--light, dark on .panel--dark. This is what
+     makes the mockup faithful: same colors/spacing/radius as production.
+     ============================================================ */
+  .panel--light {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border-color: #e2e8f0;
+    --accent-primary: #3b82f6;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --font-sans: 'Inter', system-ui, sans-serif;
+  }
+  .panel--dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-card: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: #334155;
+    --accent-primary: #3b82f6;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --font-sans: 'Inter', system-ui, sans-serif;
+  }
+
+  /* ---- harness chrome (not part of the design) ---- */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #e9edf3; padding: 2rem; }
+  .variation { margin-bottom: 3.5rem; }
+  .variation_title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 0.2rem; }
+  .variation_desc { font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem; max-width: 760px; }
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .panels--single { grid-template-columns: 1fr; max-width: 520px; }
+  .panel { padding: 2rem; border-radius: 1rem; }
+  .panel--light { background: #f8fafc; border: 1px solid #e2e8f0; }
+  .panel--dark { background: #0f172a; }
+  .panel_label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+  .panel--light .panel_label { color: #94a3b8; }
+  .panel--dark .panel_label { color: #475569; }
+
+  /* ============================================================
+     Component styles go here, scoped under .mock so they don't leak.
+     Use the --tokens above (var(--bg-card), etc.) for fidelity.
+     ============================================================ */
+
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     4. VARIATIONS — duplicate this block per variation. Drop the
+     .panel--dark when the user asked for light only (and vice-versa);
+     add class "panels--single" to .panels if showing one theme.
+     ============================================================ -->
+
+<section class="variation">
+  <h2 class="variation_title">Variação 1 — Nome</h2>
+  <p class="variation_desc">Uma frase sobre a ideia desta variação e o trade-off.</p>
+  <div class="panels">
+    <div class="panel panel--light">
+      <div class="panel_label">☀️ Light</div>
+      <!-- <div class="mock"> ...component markup... </div> -->
+    </div>
+    <div class="panel panel--dark">
+      <div class="panel_label">🌙 Dark</div>
+      <!-- <div class="mock"> ...same component markup... </div> -->
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

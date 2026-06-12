@@ -5,5 +5,18 @@
   "owner": {
     "name": "systemweb-dev"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "frontend-component-kit",
+      "source": "./plugins/frontend-component-kit",
+      "description": "Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as convenções já existentes no projeto. Oferece combos de componentes (Essenciais, Formulários, Feedback & Overlay, Navegação & Dados, Dashboard, Marketing, Auth) e pergunta quais o usuário quer antes de gerar. Se o projeto não tem design system, faz um bootstrap guiado de tokens. Use SEMPRE que o usuário estiver começando um projeto frontend e precisar da base de componentes, ou disser coisas como \"cria os componentes do projeto\", \"kit de componentes\", \"componentes base\", \"scaffolding de UI\", \"monta a component library\", \"preciso de Button/Input/Modal padrão\", \"cria o design system com componentes\". Dispare mesmo sem a palavra \"kit\" quando a intenção for criar componentes reutilizáveis — vários de uma vez ou um único componente padrão que entra na biblioteca do projeto (ex.: \"cria um componente de Table reutilizável seguindo nossos tokens\"). NÃO usar para: mockup descartável (isso é a frontend-mockup-preview), tela/feature específica do app, nem instalar/configurar lib de componentes de terceiros (shadcn/ui, Vuetify, PrimeVue — isso é setup de dependência, não geração de kit próprio).",
+      "category": "design"
+    },
+    {
+      "name": "frontend-mockup-preview",
+      "source": "./plugins/frontend-mockup-preview",
+      "description": "Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload para iteração visual instantânea via URL no navegador, e ao aprovar converte a variação escolhida em código real seguindo as regras do projeto. Stack-agnostic (CSS variables, Tailwind, SCSS). Use SEMPRE que o usuário quiser ver/explorar/comparar um design antes de implementar — frases como \"cria um mockup\", \"preview da tela\", \"ver variações antes de codar\", \"mockup do card/modal/dashboard\", \"como ficaria se...\", \"me mostra umas opções de layout\", \"quero ver antes de aplicar\". Dispare mesmo que o usuário não diga \"mockup\" explicitamente, sempre que a intenção for visualizar um design antes de mexer no código de produção.",
+      "category": "design"
+    }
+  ]
 }

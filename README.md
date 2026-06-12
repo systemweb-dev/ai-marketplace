@@ -34,7 +34,10 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 
 <!-- SKILLS:START -->
 
-_Nenhuma skill publicada ainda. Use `make sync SKILL=<nome>` para adicionar a primeira._
+| Skill | Categoria | O que faz | Instalar |
+|-------|-----------|-----------|----------|
+| [`frontend-component-kit`](plugins/frontend-component-kit/) | design | Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as… | `/plugin install frontend-component-kit@ai-marketplace` |
+| [`frontend-mockup-preview`](plugins/frontend-mockup-preview/) | design | Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload… | `/plugin install frontend-mockup-preview@ai-marketplace` |
 
 <!-- SKILLS:END -->
 
@@ -102,13 +105,19 @@ ai-marketplace/
 │     ├─ .claude-plugin/plugin.json
 │     └─ skills/<skill>/SKILL.md   (+ references/, scripts/, assets/…)
 ├─ scripts/
-│  └─ sync_skill.py         # motor de sync local → repo
+│  ├─ sync_skill.py         # motor de sync local ↔ repo
+│  └─ scan_secrets.py       # gate de segurança (segredos / dados pessoais)
+├─ .githooks/               # pre-commit / pre-push (instala com `make hooks`)
 ├─ docs/estrutura.md        # formato oficial + decisões
-├─ Makefile                 # atalhos: make sync / list / remove
+├─ CLAUDE.md                # regras do projeto (segurança, fluxo)
+├─ Makefile                 # atalhos: sync / import / check / hooks / …
 ├─ CHANGELOG.md
 ├─ CONTRIBUTING.md
 └─ README.md
 ```
+
+> **Segurança:** rode `make hooks` uma vez por máquina para ativar o gate que
+> bloqueia commit/push com credenciais ou dados pessoais. Veja [`CLAUDE.md`](CLAUDE.md).
 
 ---
 

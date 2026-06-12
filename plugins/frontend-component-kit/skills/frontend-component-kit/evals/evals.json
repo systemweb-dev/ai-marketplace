@@ -1,0 +1,19 @@
+{
+  "skill_name": "frontend-component-kit",
+  "evals": [
+    {
+      "id": 0,
+      "name": "vue-fresh-bootstrap",
+      "prompt": "to começando esse projeto vue novo, cria os componentes base pra mim. quero os essenciais e os de formulário. a cor principal é roxo #7C3AED, bordas arredondadas, fonte Inter, e quero dark mode",
+      "expected_output": "Tokens criados no tailwind.config (escala da primária roxa, semânticas, dark mode), componentes dos combos Essenciais + Formulários em src/components/ui como SFCs Vue 3 script setup usando tokens (sem cor hardcoded), com variantes/estados/a11y e docblock, página de demo com rota /dev/components registrada no router",
+      "files": ["fixtures/vue-fresh"]
+    },
+    {
+      "id": 1,
+      "name": "react-conventions",
+      "prompt": "preciso dos componentes de feedback nesse projeto: modal, toast, alert, tooltip e spinner. segue o padrão que já tem aí",
+      "expected_output": "Detecta tokens em src/styles/tokens.css e a convenção dos componentes existentes (docblock com tabela de props, named export, par .jsx + .css com classes ui-*, barrel index.js). Pula Tooltip (já existe) e informa. Gera Modal, Toast, Alert e Spinner seguindo exatamente o padrão, usando var(--*) sem valores hardcoded, com a11y (role=dialog, aria-live), e atualiza o barrel",
+      "files": ["fixtures/react-existing"]
+    }
+  ]
+}
