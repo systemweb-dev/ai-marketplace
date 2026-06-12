@@ -9,6 +9,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ### Adicionado
 - Estrutura inicial do marketplace (formato oficial de plugins do Claude Code).
-- `marketplace.json` com catálogo vazio, pronto para receber skills via sync.
-- Script `scripts/sync_skill.py` + `Makefile` para sincronizar skills locais.
+- Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
+  (`repo → local`), `list`, `remove`, `readme`.
+- Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Gate de segurança `scripts/scan_secrets.py` + git hooks `pre-commit`/`pre-push`
+  (`make hooks` / `make check`): bloqueia commit/push com credenciais ou dados pessoais.
+- `CLAUDE.md` com as regras do projeto.
 - Documentação PT-BR: README, CONTRIBUTING e `docs/estrutura.md`.

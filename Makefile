@@ -9,6 +9,7 @@
 
 PY := python3
 SCRIPT := scripts/sync_skill.py
+SCAN := scripts/scan_secrets.py
 
 # Flags opcionais montadas a partir de CATEGORY / BUMP / FROM.
 FLAGS :=
@@ -22,7 +23,7 @@ ifdef FROM
 FLAGS += --from $(FROM)
 endif
 
-.PHONY: help list sync sync-dry import remove readme
+.PHONY: help list sync sync-dry import remove readme check hooks
 
 help:
 	@echo "make list                      - lista skills locais e quais estão publicadas"
@@ -31,6 +32,8 @@ help:
 	@echo "make import SKILL=<nome>       - traz a skill do repo p/ ~/.claude/skills editar (FORCE=1 sobrescreve)"
 	@echo "make remove SKILL=<nome>       - remove uma skill do marketplace"
 	@echo "make readme                    - regenera a tabela de skills do README"
+	@echo "make check                     - gate de segurança: escaneia o staged por segredos/dados pessoais"
+	@echo "make hooks                     - instala os git hooks (pre-commit/pre-push) deste repo"
 
 list:
 	@$(PY) $(SCRIPT) list
@@ -53,3 +56,11 @@ remove:
 
 readme:
 	@$(PY) $(SCRIPT) readme
+
+check:
+	@$(PY) $(SCAN) staged
+
+hooks:
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/pre-commit .githooks/pre-push
+	@echo "✓ git hooks instalados (core.hooksPath=.githooks): pre-commit + pre-push"

@@ -1,0 +1,21 @@
+#!/bin/sh
+# Gate de segurança — bloqueia push com credenciais ou dados pessoais.
+# Instale com:  make hooks   (configura core.hooksPath=.githooks)
+# Pular (use com MUITO cuidado):  git push --no-verify
+root="$(git rev-parse --show-toplevel)"
+empty="$(git hash-object -t tree /dev/null)"
+status=0
+
+# git envia em stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # branch sendo deletada (local sha só zeros) -> nada a escanear
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+  # branch nova no remoto (remote sha só zeros) -> compara com árvore vazia
+  case "$remote_sha" in
+    *[!0]*) base="$remote_sha" ;;
+    *)      base="$empty" ;;
+  esac
+  python3 "$root/scripts/scan_secrets.py" range "$base..$local_sha" || status=1
+done
+
+exit $status

@@ -56,14 +56,31 @@ plugins/minha-skill/
   `make sync SKILL=minha-skill BUMP=patch` (ou `minor` / `major`).
 - Anote o que mudou no [`CHANGELOG.md`](CHANGELOG.md).
 
-## 4. Commit e push
+## 4. Commit e push (com gate de segurança)
+
+Em máquina nova, ative os hooks **uma vez**:
+
+```bash
+make hooks      # instala pre-commit e pre-push (core.hooksPath=.githooks)
+```
+
+Como o repositório é **público**, todo commit/push passa por um gate que procura
+credenciais e dados pessoais (chaves, tokens, `.env`, caminhos do home, e-mail).
+Rode quando quiser, manualmente:
+
+```bash
+make check      # escaneia o conteúdo staged
+```
 
 Commits seguem [Conventional Commits](https://www.conventionalcommits.org/pt-br/):
 
 ```bash
 git add -A
-git commit -m "feat(minha-skill): publica skill no marketplace"
-git push
+make check
+git commit -m "feat(minha-skill): publica skill no marketplace"   # hook re-checa
+git push                                                          # hook re-checa
 ```
 
 > **Nada vai para o GitHub sem revisão.** O `push` é sempre uma ação explícita sua.
+> Se o gate acusar falso positivo, ajuste o padrão ou adicione `noscan` na linha;
+> só use `--no-verify` com certeza absoluta.
