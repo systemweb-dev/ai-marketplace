@@ -40,27 +40,28 @@ _Nenhuma skill publicada ainda. Use `make sync SKILL=<nome>` para adicionar a pr
 
 ---
 
-## Como sincronizar uma skill (local → repositório)
+## Como sincronizar skills (local ↔ repositório)
 
-As skills nascem e evoluem em `~/.claude/skills/`. Este repositório é a **vitrine
-distribuível** delas. Quando uma skill local muda, um *sync* a empacota como plugin
-aqui — **sem reescrever o conteúdo**.
+As skills nascem e evoluem em `~/.claude/skills/` (onde o Claude Code as carrega e você
+as edita). Este repositório é a **vitrine distribuível** delas. O fluxo tem dois sentidos:
 
 ```bash
 # Ver o que existe localmente e o que já foi publicado
 make list
 
-# Publicar / atualizar uma skill (troque pelo nome real da sua skill)
+# ── local → repo: publicar / atualizar uma skill ───────────────────
 make sync SKILL=minha-skill
+python3 scripts/sync_skill.py sync minha-skill --dry-run   # prévia, sem escrever
 
-# Pré-visualizar sem escrever nada
-python3 scripts/sync_skill.py sync minha-skill --dry-run
+# ── repo → local: trazer uma skill publicada para EDITAR ───────────
+make import SKILL=minha-skill            # copia para ~/.claude/skills/minha-skill
+make import SKILL=minha-skill FORCE=1    # sobrescreve a versão local existente
 
 # Remover uma skill do marketplace
 make remove SKILL=minha-skill
 ```
 
-O sync faz, de forma idempotente:
+O **sync** (`local → repo`) faz, de forma idempotente:
 
 1. lê `~/.claude/skills/<skill>/SKILL.md` e valida o frontmatter (`name`, `description`);
 2. avisa se houver caminho absoluto pessoal vazado no conteúdo;
@@ -70,7 +71,21 @@ O sync faz, de forma idempotente:
 5. registra a skill em `.claude-plugin/marketplace.json`;
 6. regenera a tabela de skills deste README.
 
-> O sync **nunca** faz commit nem push. Você revisa o diff e publica quando aprovar.
+### Melhorar uma skill já publicada (ciclo completo)
+
+Quando você instala uma skill via `/plugin install`, ela vai para o **cache de plugins**
+do Claude Code — um local não editável. Para melhorá-la, traga-a de volta ao local padrão:
+
+1. **Clone** este repositório (ou use o que você já tem).
+2. **`make import SKILL=<nome>`** → copia a versão publicada para `~/.claude/skills/<nome>`,
+   onde o Claude Code a carrega e você pode editar normalmente.
+3. **Melhore** a skill em `~/.claude/skills/<nome>`.
+4. **`make sync SKILL=<nome>`** → publica as melhorias de volta no repositório.
+5. **Revise o diff, faça commit e push.**
+
+> Nem o `sync` nem o `import` fazem commit ou push. Você revisa o diff e publica quando aprovar.
+> O `import` se recusa a sobrescrever uma skill local existente sem `FORCE=1`, para não
+> apagar trabalho não sincronizado.
 
 Detalhes do formato e do fluxo em [`docs/estrutura.md`](docs/estrutura.md).
 

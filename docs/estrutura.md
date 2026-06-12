@@ -67,17 +67,20 @@ ai-marketplace/
 }
 ```
 
-## Sync local → repositório
+## Sync local ↔ repositório
 
-O `scripts/sync_skill.py` é a única peça que move conteúdo de `~/.claude/skills/`
-para cá. Ele é **idempotente** e **não escreve no git** — só prepara o working tree.
-Veja o passo a passo no [README](../README.md#como-sincronizar-uma-skill-local--repositório).
+O `scripts/sync_skill.py` é a única peça que move conteúdo entre `~/.claude/skills/`
+e este repositório, nos dois sentidos. Ele é **idempotente** e **não escreve no git** —
+só prepara o working tree. Veja o passo a passo no
+[README](../README.md#como-sincronizar-skills-local--repositório).
 
-Regras de cópia:
-
-- espelha com `rsync -a --delete` (o repo reflete fielmente a skill local);
-- exclui `.venv/`, `node_modules/`, `__pycache__/`, `*-workspace/`, `.DS_Store`, etc.;
-- valida frontmatter (`name`, `description`) e avisa sobre caminhos pessoais vazados.
+- **`sync` (local → repo):** publica/atualiza a skill como plugin. Espelha com
+  `rsync -a --delete`, exclui `.venv/`, `node_modules/`, `__pycache__/`, `*-workspace/`,
+  `.DS_Store`, etc.; valida frontmatter (`name`, `description`) e avisa sobre caminhos
+  pessoais vazados.
+- **`import` (repo → local):** traz a skill publicada de volta para `~/.claude/skills/<nome>`
+  para edição (a versão instalada via `/plugin` fica no cache de plugins, não editável).
+  Recusa sobrescrever uma skill local existente sem `--force`.
 
 ## Categorias usadas
 

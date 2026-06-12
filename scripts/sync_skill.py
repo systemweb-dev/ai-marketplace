@@ -13,6 +13,7 @@ regenera a tabela de skills do README.md (entre os marcadores SKILLS:START/END).
 
 Uso:
     python3 scripts/sync_skill.py sync <skill> [--from DIR] [--category CAT] [--bump PART] [--dry-run]
+    python3 scripts/sync_skill.py import <skill> [--to DIR] [--force] [--dry-run]   # repo -> ~/.claude/skills
     python3 scripts/sync_skill.py remove <skill> [--dry-run]
     python3 scripts/sync_skill.py list
     python3 scripts/sync_skill.py readme        # só regenera a tabela do README
@@ -201,6 +202,42 @@ def cmd_sync(args) -> None:
     print(f"\nRevise o diff e, quando aprovar, faça commit (Conventional Commits) e push.")
 
 
+def cmd_import(args) -> None:
+    """Traz a skill do repositório de volta para ~/.claude/skills (para editar)."""
+    name = args.skill
+    src = PLUGINS_DIR / name / "skills" / name
+    if not (src / "SKILL.md").is_file():
+        sys.exit(
+            f"ERRO: skill '{name}' não está publicada no repositório "
+            f"({(src / 'SKILL.md').relative_to(ROOT)} ausente)."
+        )
+    dest_base = Path(args.to_dir).expanduser() if args.to_dir else DEFAULT_SKILLS_DIR
+    dest = dest_base / name
+
+    print(f"\n← Import '{name}'  (repositório → local, para edição)")
+    print(f"  origem: {src.relative_to(ROOT)}")
+    print(f"  destino: {display(dest)}")
+
+    if dest.exists() and not args.force:
+        sys.exit(
+            f"ERRO: {display(dest)} já existe. Edite direto nele, ou use --force para "
+            f"sobrescrever com a versão do repositório (descarta mudanças locais não sincronizadas)."
+        )
+    if args.dry_run:
+        print("  [dry-run] nada foi escrito.")
+        return
+
+    dest.mkdir(parents=True, exist_ok=True)
+    cmd = ["rsync", "-a", "--delete"]
+    for pat in RSYNC_EXCLUDES:
+        cmd += ["--exclude", pat]
+    cmd += [f"{src}/", f"{dest}/"]
+    subprocess.run(cmd, check=True)
+
+    print(f"  ✓ skill disponível em {display(dest)} — o Claude Code já a carrega de lá.")
+    print(f"\nMelhore a skill e depois publique de volta com:  make sync SKILL={name}")
+
+
 def cmd_remove(args) -> None:
     name = args.skill
     plugin_dir = PLUGINS_DIR / name
@@ -293,6 +330,13 @@ def main() -> None:
     p_sync.add_argument("--bump", choices=["major", "minor", "patch"], help="incrementa a versão do plugin")
     p_sync.add_argument("--dry-run", action="store_true")
     p_sync.set_defaults(func=cmd_sync)
+
+    p_imp = sub.add_parser("import", help="traz uma skill do repositório para ~/.claude/skills (para editar)")
+    p_imp.add_argument("skill")
+    p_imp.add_argument("--to", dest="to_dir", help="diretório base de destino (padrão: ~/.claude/skills)")
+    p_imp.add_argument("--force", action="store_true", help="sobrescreve a versão local existente")
+    p_imp.add_argument("--dry-run", action="store_true")
+    p_imp.set_defaults(func=cmd_import)
 
     p_rm = sub.add_parser("remove", help="remove um plugin do repositório")
     p_rm.add_argument("skill")

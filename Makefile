@@ -3,6 +3,7 @@
 #   make list
 #   make sync SKILL=minha-skill [CATEGORY=development] [BUMP=patch|minor|major]
 #   make sync-dry SKILL=minha-skill
+#   make import SKILL=minha-skill [FORCE=1]
 #   make remove SKILL=minha-skill
 #   make readme
 
@@ -21,12 +22,13 @@ ifdef FROM
 FLAGS += --from $(FROM)
 endif
 
-.PHONY: help list sync sync-dry remove readme
+.PHONY: help list sync sync-dry import remove readme
 
 help:
 	@echo "make list                      - lista skills locais e quais estão publicadas"
 	@echo "make sync SKILL=<nome>         - publica/atualiza uma skill (CATEGORY=, BUMP=, FROM= opcionais)"
 	@echo "make sync-dry SKILL=<nome>     - prévia do sync, sem escrever"
+	@echo "make import SKILL=<nome>       - traz a skill do repo p/ ~/.claude/skills editar (FORCE=1 sobrescreve)"
 	@echo "make remove SKILL=<nome>       - remove uma skill do marketplace"
 	@echo "make readme                    - regenera a tabela de skills do README"
 
@@ -40,6 +42,10 @@ sync:
 sync-dry:
 	@test -n "$(SKILL)" || { echo "Use: make sync-dry SKILL=<nome>"; exit 1; }
 	@$(PY) $(SCRIPT) sync $(SKILL) --dry-run $(FLAGS)
+
+import:
+	@test -n "$(SKILL)" || { echo "Use: make import SKILL=<nome> [FORCE=1]"; exit 1; }
+	@$(PY) $(SCRIPT) import $(SKILL) $(if $(FORCE),--force,)
 
 remove:
 	@test -n "$(SKILL)" || { echo "Use: make remove SKILL=<nome>"; exit 1; }
