@@ -245,18 +245,31 @@ regras do projeto valem integralmente**:
   `style.css`, nos dois temas claro/escuro), e o componente referencia a var —
   nunca cor/valor hardcoded, nunca CSS condicional por tema dentro do componente.
 - **Porte as interações com fidelidade ao framework**, não copie o JS vanilla do
-  mockup. Conecte o comportamento ao que já existe (ex.: no Vue, o toggle vira o
-  handler/estado real do componente — `toggleSource()` etc. — e não um
-  `addEventListener` solto). Eventos via emits/handlers do framework.
+  mockup. Conecte o comportamento ao que já existe (ex.: um toggle vira o
+  handler/estado real do componente — no Vue um método/`ref`, no React um
+  `state`/handler — e não um `addEventListener` solto). Eventos pela via idiomática
+  do framework (emits/props/handlers).
 - **Porte animações como classes CSS** (não inline), reusando/criando vars de
   tema, e **mantenha o guard `prefers-reduced-motion`** no código final.
 - Aplique no arquivo real do componente localizado no passo 1.
 - Cuide das pontas: se remover algo, cheque referências órfãs antes.
 
-### 8. Verificar
+### 8. Verificar fidelidade (não pule)
 
-Sugira rodar o build do projeto e, se disponível, o code-review, para validar
-que o resultado segue o padrão e não quebrou nada. Não force — ofereça.
+O risco nº1 ao aplicar é o resultado **não bater com o mockup aprovado** — em
+geral porque se *retrofita* o mockup na estrutura antiga do componente em vez de
+**reproduzir a estrutura do mockup**. Reproduza o mockup: se ele trocou facets
+rotulados por chips simples, um link por um botão, ou adicionou uma toolbar de
+busca/filtro, o componente real precisa refletir exatamente isso — não manter o
+layout velho com um remendo.
+
+Depois de aplicar, **compare lado a lado**: rode o app (ou reabra o preview) e
+confira elemento a elemento contra o mockup — estrutura, ordem, chips, botões,
+labels, seções e estados (carrosséis, abas, botões de ação, badges, overflow
+"+N", estados vazios). Se algo divergir, corrija até bater. Só então:
+
+- Rode o build do projeto e, se disponível, o code-review, pra validar padrão e
+  que nada quebrou. Não force — ofereça.
 
 ### 9. Encerrar
 
