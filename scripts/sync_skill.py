@@ -161,7 +161,12 @@ def cmd_sync(args) -> None:
     for w in warn_personal_data(src):
         print(w)
 
-    category = args.category or DEFAULT_CATEGORY
+    # Categoria: --category vence; senão preserva a já registrada; senão default.
+    if args.category:
+        category = args.category
+    else:
+        existing = next((p for p in load_marketplace()["plugins"] if p["name"] == name), None)
+        category = (existing or {}).get("category") or DEFAULT_CATEGORY
     plugin_dir = PLUGINS_DIR / name
     plugin_json_path = plugin_dir / ".claude-plugin" / "plugin.json"
     skill_dest = plugin_dir / "skills" / name

@@ -7,6 +7,12 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Alterado
+- `frontend-component-kit` (v0.1.1) e `frontend-mockup-preview` (v0.1.2): nova regra
+  "toda pergunta via `AskUserQuestion`" (menu clicável, sem pergunta em texto solto).
+- `scripts/sync_skill.py`: o sync agora **preserva a categoria** já registrada quando
+  `CATEGORY=` não é informado (antes revertia para o default `development`).
+
 ### Adicionado
 - Estrutura inicial do marketplace (formato oficial de plugins do Claude Code).
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`

@@ -31,6 +31,16 @@ depois de `make hooks`. Se ele apontar algo, **pare e reveja** — só prossiga 
 - **Não reescreva o conteúdo de uma skill** sem o dono pedir.
 - 1 plugin por skill; detalhes em [`docs/estrutura.md`](docs/estrutura.md).
 
+### Ao sincronizar/atualizar uma skill (regra)
+
+1. O `make sync` **já atualiza** `marketplace.json` e a tabela do `README.md` — não
+   edite esses dois à mão.
+2. A **categoria é preservada** automaticamente entre syncs; só informe `CATEGORY=`
+   para definir/alterar (skill nova entra como `development` se nada for passado).
+3. **Mudou o conteúdo de uma skill já publicada?** Faça bump de versão:
+   `make sync SKILL=<nome> BUMP=patch` (ou `minor`/`major`).
+4. Registre a mudança no [`CHANGELOG.md`](CHANGELOG.md) e rode `make check` antes de commitar.
+
 ## Git
 
 - Conventional Commits.
