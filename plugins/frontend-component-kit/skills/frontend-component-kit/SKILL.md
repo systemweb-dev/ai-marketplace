@@ -29,9 +29,21 @@ no repositório, seguindo o design system e as convenções do projeto. Esta ski
 (componentes, tokens, página de demo) é código de produção dentro do projeto —
 nada de artefatos descartáveis em `/tmp`.
 
+## Regra: TODA pergunta é via AskUserQuestion
+
+**Toda pergunta que você fizer ao usuário usa a ferramenta `AskUserQuestion` (menu
+clicável) — nunca texto solto pedindo pra ele digitar, e NUNCA termine um turno com uma
+pergunta em texto** (tipo "qual stack?" / "tirar ou adicionar algum componente?" / "uso a
+lib ou implementação própria?"). Vale para todos os pontos: stack (projeto novo), bootstrap
+de tokens (cor/raio/fonte/tema), escolha de combos, confirmação de escopo, lib vs
+implementação própria, onde montar a rota de demo. Para perguntas mais abertas (ex.: cor
+em hex), ofereça as opções prováveis e conte com o campo **"Other"**. Dá pra juntar até 4
+perguntas numa só chamada. Não pergunte o que dá pra inferir com segurança do código —
+aí só siga e mencione a suposição.
+
 ## Fluxo
 
-**Detectar → Tokens → Perguntar combos → Gerar → Demo + resumo**
+**Detectar → Tokens (+ direção via Button, em projeto novo) → Perguntar combos → Gerar → Demo + resumo**
 
 ### Fase 1: Detectar o projeto
 
@@ -73,6 +85,32 @@ inconsistente. Por isso esta fase vem antes da geração.
   semânticas (success/warning/error/info), espaçamento, raios, tipografia e
   sombras. Mostre os tokens criados antes de seguir para os componentes.
 
+**Definir a direção visual via Button (só no bootstrap).** Antes de gerar o kit
+inteiro, ofereça variações de **um componente-chave — o Button** — pra fixar a
+estética que todos os outros vão herdar. Em vez de gerar 3 versões de cada
+componente (desperdício), você explora a direção **uma vez**, no Button, e o resto
+nasce consistente.
+
+- **Dispare um `AskUserQuestion`**: *"Quer ver variações do Button pra definir o
+  estilo do kit?"* → **Não, segue um padrão neutro** / **Sim, 3 variações** /
+  **Sim, 5**. (Menu único — a quantidade já está nas opções, nada de pergunta
+  separada de "quantos".)
+- Se sim, gere as N variações em **direções genuinamente distintas** (ex.: A =
+  arredondado + sombra suave + fill sólido; B = reto + flat + borda fina; C = pill
+  + bold + alto contraste), todas usando os **tokens reais** já criados.
+- **A pessoa precisa VER pra escolher**: renderize as N variações (claro + escuro)
+  na **própria página de demo do projeto** (a mesma da Fase 5, só começando cedo) —
+  é **código do projeto, não `/tmp`**, e mostra o botão renderizado de verdade com
+  os tokens reais. Abra pela rota de dev do projeto. Depois da escolha, a demo passa
+  a mostrar só o Button final e evolui pro kit completo. A escolha em si é outro
+  `AskUserQuestion` (as variações como opções + "Other" pra misturar).
+- A direção escolhida (raio, sombra, preenchimento, peso, transições) vira **regra
+  para TODO o kit** — Card, Input, Modal, Tabs etc. herdam o mesmo tom. Só então
+  siga para a Fase 4.
+
+Pule esse passo quando o projeto **já tem design system**: a direção já existe, e
+variação só geraria inconsistência — gere seguindo o padrão.
+
 ### Fase 3: Perguntar quais componentes gerar
 
 Use AskUserQuestion (multiSelect: true) oferecendo os **combos**. Apresente os
@@ -90,9 +128,11 @@ pule a pergunta.
 | **Marketing/Landing** | Hero, Footer, PricingCard, TestimonialCard, Accordion/FAQ, CTASection |
 | **Auth & Conta** | LoginForm, RegisterForm, ForgotPasswordForm, UserMenu, ProfileCard |
 
-Depois da escolha dos combos, confirme o escopo em uma linha ("Vou gerar 18
-componentes: Essenciais + Formulários. Algum que queira tirar ou adicionar?")
-— é mais barato ajustar a lista agora do que apagar componente gerado.
+Depois da escolha dos combos, **confirme o escopo via `AskUserQuestion`** — mostre a lista
+("Vou gerar 18 componentes: Essenciais + Formulários") e ofereça **"Pode gerar"** /
+**"Quero ajustar a lista"** (no "Quero ajustar" / "Other" a pessoa diz o que tirar ou
+adicionar). É mais barato ajustar a lista agora do que apagar componente gerado — mas a
+confirmação é um menu clicável, não uma pergunta em texto.
 
 Dependências entre combos: Formulários, Auth e Dashboard pressupõem peças dos
 Essenciais (Button, Input). Se o usuário escolher um combo dependente sem os
@@ -143,8 +183,11 @@ Para cada componente:
 User: "cria os componentes base do projeto"
 → Detect: Vue 3 + Vite + Tailwind, sem theme customizado, zero componentes
 → Bootstrap: pergunta cor primária, raio, fonte, dark mode → estende tailwind.config
+→ Direção: AskUserQuestion "ver variações do Button? Não/3/5" → usuário pede 3
+  → renderiza 3 Buttons distintos (claro+escuro) na página de demo do projeto → escolhe a B
+  → a direção da B vira regra do kit
 → Pergunta combos → usuário marca Essenciais + Formulários
-→ Confirma: "16 componentes. Tirar ou adicionar algum?"
+→ Confirma o escopo via AskUserQuestion (16 componentes → Pode gerar / Quero ajustar)
 → Gera src/components/ui/*.vue + src/pages/dev/ComponentsDemo.vue + rota /dev/components
 → Resumo: tokens, 16 componentes, demo em http://localhost:5173/dev/components
 ```
@@ -173,3 +216,16 @@ User: "preciso dos componentes de feedback: modal, toast, essas coisas"
 - Em dúvida real de design (lib vs implementação própria, onde montar a rota
   de demo, paleta de cores), pergunte via AskUserQuestion com opções claras —
   não decida silenciosamente nem trave esperando texto livre.
+
+## Checklist de fidelidade (confira antes de fechar)
+
+Antes de dar o resumo final, releia e confirme cada item — é onde a execução costuma escapar:
+
+- [ ] **Leu 2–3 componentes existentes e copiou o padrão** (naming, estrutura de pasta, props, export)? Os novos parecem escritos pela mesma pessoa?
+- [ ] **Zero hardcode** — toda cor/espaçamento/raio/fonte referencia um token, nunca o valor literal?
+- [ ] **Nenhum componente existente sobrescrito** (listou os existentes e pulou)?
+- [ ] **Nenhuma dependência nova sem aprovação** explícita via AskUserQuestion?
+- [ ] **Acessibilidade real** em cada um (foco visível, `aria-*`, foco preso no modal, `aria-live` no toast, teclado em menus/tabs)?
+- [ ] **Dark mode** funciona nos componentes (se os tokens suportam)?
+- [ ] **Página de demo gerada** e citada no resumo (com a rota/URL)?
+- [ ] **Toda pergunta foi via `AskUserQuestion`** — nenhuma decisão em texto solto?

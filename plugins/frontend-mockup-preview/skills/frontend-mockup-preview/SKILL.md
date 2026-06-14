@@ -34,26 +34,34 @@ do projeto** (kebab-case e estilos inline são OK nele). Apenas o código aplica
 no passo final segue as regras e passa pelo code-review. Não gaste esforço
 "caprichando" no HTML do mockup — ele serve só para o olho.
 
-## Princípio: na dúvida, pergunte (AskUserQuestion)
+## Regra: TODA pergunta é via AskUserQuestion
 
-Sempre que houver **ambiguidade ou uma decisão que muda o rumo do trabalho**, use
-`AskUserQuestion` (múltipla escolha) em vez de adivinhar. Errar o palpite
-desperdiça o tempo do usuário e, no pior caso, mexe no projeto sem querer. Uma
-pergunta curta é barata; refazer não é.
+**Toda pergunta que você fizer ao usuário nesta skill usa a ferramenta `AskUserQuestion`
+(menu clicável) — nunca texto solto pedindo pra ele digitar a opção, e NUNCA termine um
+turno com uma pergunta em texto** (tipo "quer 3 ou 5 variações?" / "aplico no `X.vue`?").
+Errar o palpite desperdiça o tempo do usuário; e uma pergunta em texto solto trava o
+fluxo. Pergunta curta clicável é barata; refazer não é.
 
-Pontos típicos onde perguntar vence adivinhar:
+Vale para todos os pontos de decisão:
 
 - **Escopo ambíguo** — qual componente/tela exatamente, quando o pedido é vago.
-- **Sem print e estrutura incerta** — pedir referência ou confirmar o layout base.
+- **Sem print e estrutura incerta** — confirmar o layout base / pedir referência.
 - **Tokens não detectados** — confirmar onde está o arquivo de tema.
-- **Direção de design** — quando há caminhos divergentes ("mais sóbrio" vs "mais
-  ousado") e não dá pra inferir a preferência.
-- **Aplicar no código** — SEMPRE confirmar antes de tocar em qualquer arquivo do
-  projeto (ver passo 7). O usuário pode estar só explorando.
+- **Quantas variações e qual tema** (passo 3) — sempre menu.
+- **Direção de design** — caminhos divergentes ("mais sóbrio" vs "mais ousado").
+- **Escolher a variação vencedora** (passo 6b) — liste as variações como opções.
+- **Aplicar no código** (passo 7) — SEMPRE confirmar antes de tocar em qualquer arquivo.
 
-Não pergunte o que dá pra inferir com segurança do contexto/código (aí só siga e
-mencione a suposição). O alvo é: zero retrabalho por palpite errado em decisão
-que era do usuário.
+Para perguntas mais abertas (ex.: qual o componente), ofereça as opções mais prováveis e
+conte com o campo **"Other"** do `AskUserQuestion` pra resposta livre. Dá pra juntar até 4
+perguntas numa só chamada (ex.: variações + tema juntos) pra não perguntar duas vezes.
+
+**Única exceção:** o feedback livre de iteração (passo 6) — quando o usuário olha o preview
+e descreve o ajuste que quer ("aumenta o card", "tom mais sóbrio"). Isso é o usuário
+dirigindo, não você perguntando; não force menu aí.
+
+Não pergunte o que dá pra inferir com segurança do contexto/código (aí só siga e mencione a
+suposição). O alvo é: zero retrabalho por palpite errado, e zero pergunta em texto solto.
 
 ## Workflow
 
@@ -87,14 +95,15 @@ Para detalhes e exemplos de extração por stack, leia
 
 ### 3. Perguntar quantas variações e qual tema
 
-Antes de gerar, faça **duas perguntas de abertura** (múltipla escolha):
+Antes de gerar, **dispare um `AskUserQuestion`** com as duas perguntas de abertura numa só
+chamada (o tool aceita até 4 perguntas juntas):
 
-1. **Quantas variações** o usuário quer ver (ex.: 1, 3, 5). Default sugerido: 3.
+1. **Quantas variações** o usuário quer ver — opções ex.: **1** / **3** / **5** (sugira 3).
    Com 1, não há etapa de escolha depois — é só refinar sob demanda.
-2. Em qual(is) **tema(s)**: claro, escuro ou ambos.
+2. Em qual(is) **tema(s)** — opções: **Claro** / **Escuro** / **Ambos**.
 
-Perguntar isso evita gerar painéis/variações que o usuário não quer e mantém o
-preview enxuto.
+Menu clicável, nunca pergunta em texto. Isso evita gerar painéis/variações que o usuário não
+quer e mantém o preview enxuto.
 
 ### 4. Montar o mockup (scaffold)
 
@@ -221,8 +230,10 @@ O usuário olha no navegador e pede ajustes. Para cada pedido, **edite o
 
 ### 6b. Convergir numa variação (funil)
 
-Quando havia **mais de uma variação** e o usuário escolhe uma, **descarte as
-demais** e reescreva o canvas só com a vencedora — agora o foco é aprofundá-la.
+Quando havia **mais de uma variação**, **dispare um `AskUserQuestion`** ("Qual variação
+seguimos?") listando as variações como opções (+ "Other" pra misturar, ex.: "a 2 com o
+rodapé da 1"). Escolhida uma, **descarte as demais** e reescreva o canvas só com a vencedora
+— agora o foco é aprofundá-la.
 Ajuda a renderizá-la com vários itens de exemplo (estados variados) pra refinar
 no contexto real. Iterar com 3 variações vivas depois da escolha só dispersa.
 Com **uma só variação** desde o início, não há esse passo — vá refinando sob
@@ -276,6 +287,22 @@ labels, seções e estados (carrosséis, abas, botões de ação, badges, overfl
 Ao terminar, pare o servidor de preview matando o PID capturado no passo 5
 (`kill <MOCKUP_PREVIEW_PID>`). Os arquivos em `/tmp` podem ficar — somem no
 reboot e estão fora do repo.
+
+## Checklist de fidelidade (confira nos momentos-chave)
+
+Estas são as regras mais fáceis de atropelar na execução. Confira:
+
+**Ao montar/servir o mockup:**
+- [ ] **Tokens REAIS** do projeto (cores/espaçamento/fonte extraídos), não aproximados de memória?
+- [ ] **Ícones** colados do `node_modules` (SVG exato da versão instalada), não desenhados de cabeça?
+- [ ] **Porta e PID** lidos da saída do `serve.py` (não assumiu 8765)?
+
+**Antes de aplicar no código (passo 7):**
+- [ ] **Confirmou via `AskUserQuestion`** que é pra aplicar (aprovar no preview ≠ autorização)?
+- [ ] Vai **reproduzir a ESTRUTURA do mockup** no componente real (não retrofitar o mockup no layout velho)?
+- [ ] Tokens novos vão pro **arquivo de tema** primeiro; interações/animações portadas no idioma do framework (não o JS vanilla cru)?
+
+**Em qualquer pergunta:** foi via `AskUserQuestion` (menu), sem terminar turno em texto solto?
 
 ## Notas
 
