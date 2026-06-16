@@ -38,6 +38,7 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 |-------|-----------|-----------|----------|
 | [`frontend-component-kit`](plugins/frontend-component-kit/) | design | Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as… | `/plugin install frontend-component-kit@ai-marketplace` |
 | [`frontend-mockup-preview`](plugins/frontend-mockup-preview/) | design | Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload… | `/plugin install frontend-mockup-preview@ai-marketplace` |
+| [`git-commit`](plugins/git-commit/) | development | Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. | `/plugin install git-commit@ai-marketplace` |
 
 <!-- SKILLS:END -->
 

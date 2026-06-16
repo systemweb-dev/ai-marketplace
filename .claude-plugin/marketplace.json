@@ -17,6 +17,12 @@
       "source": "./plugins/frontend-mockup-preview",
       "description": "Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload para iteração visual instantânea via URL no navegador, e ao aprovar converte a variação escolhida em código real seguindo as regras do projeto. Stack-agnostic (CSS variables, Tailwind, SCSS). Use SEMPRE que o usuário quiser ver/explorar/comparar um design antes de implementar — frases como \"cria um mockup\", \"preview da tela\", \"ver variações antes de codar\", \"mockup do card/modal/dashboard\", \"como ficaria se...\", \"me mostra umas opções de layout\", \"quero ver antes de aplicar\". Dispare mesmo que o usuário não diga \"mockup\" explicitamente, sempre que a intenção for visualizar um design antes de mexer no código de produção.",
       "category": "design"
+    },
+    {
+      "name": "git-commit",
+      "source": "./plugins/git-commit",
+      "description": "Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. Use this skill whenever the user asks to commit, make commits, split commits, organize commits, \"separar em commits\", \"faz os commits\", \"commita isso\", \"prepara pra commit\", or mentions committing in any form — even if they don't explicitly ask for separation. Also trigger proactively when the user finishes implementing something substantial (multiple files, multiple concerns) and is clearly at a commit boundary. Never commits without showing the plan and getting explicit approval first.",
+      "category": "development"
     }
   ]
 }

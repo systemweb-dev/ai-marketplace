@@ -18,6 +18,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.
 - Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Skill publicada: `git-commit` (v0.1.0, categoria `development`) — split em Conventional
+  Commits, com split por hunk (Rule E), fallback p/ repo sem histórico, tratamento de hook
+  que reformata, `Co-Authored-By` conforme convenção e toda decisão via `AskUserQuestion`.
 - Gate de segurança `scripts/scan_secrets.py` + git hooks `pre-commit`/`pre-push`
   (`make hooks` / `make check`): bloqueia commit/push com credenciais ou dados pessoais.
 - `CLAUDE.md` com as regras do projeto.
