@@ -1,5 +1,5 @@
 ---
-name: frontend-mockup-preview
+name: sw-frontend-mockup-preview
 description: >-
   Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os
   design tokens REAIS do projeto (cores, espaçamento, fonte), serve com
@@ -31,7 +31,7 @@ usuário vê é o que vai aparecer no app.
 
 Princípio central: **o mockup é descartável e não precisa seguir as convenções
 do projeto** (kebab-case e estilos inline são OK nele). Apenas o código aplicado
-no passo final segue as regras e passa pelo code-review. Não gaste esforço
+no passo final segue as regras e passa pelo sw-code-review. Não gaste esforço
 "caprichando" no HTML do mockup — ele serve só para o olho.
 
 ## Regra: TODA pergunta é via AskUserQuestion
@@ -279,7 +279,7 @@ confira elemento a elemento contra o mockup — estrutura, ordem, chips, botões
 labels, seções e estados (carrosséis, abas, botões de ação, badges, overflow
 "+N", estados vazios). Se algo divergir, corrija até bater. Só então:
 
-- Rode o build do projeto e, se disponível, o code-review, pra validar padrão e
+- Rode o build do projeto e, se disponível, o sw-code-review, pra validar padrão e
   que nada quebrou. Não force — ofereça.
 
 ### 9. Encerrar

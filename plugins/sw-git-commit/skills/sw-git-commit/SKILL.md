@@ -1,5 +1,5 @@
 ---
-name: git-commit
+name: sw-git-commit
 description: Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. Use this skill whenever the user asks to commit, make commits, split commits, organize commits, "separar em commits", "faz os commits", "commita isso", "prepara pra commit", or mentions committing in any form — even if they don't explicitly ask for separation. Also trigger proactively when the user finishes implementing something substantial (multiple files, multiple concerns) and is clearly at a commit boundary. Never commits without showing the plan and getting explicit approval first.
 ---
 

@@ -1,0 +1,8 @@
+{
+  "name": "sw-skill-test",
+  "description": "Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark pesado, sem API key. Faz duas verificações: (1) COMPORTAMENTO — planta um fixture realista com casos claros + armadilhas (gabarito conhecido) no diretório temporário do SO, roda a skill-alvo nele COM e SEM a skill (baseline) e compara contra o gabarito; (2) DISPARO — gera frases que devem e não devem disparar a skill e checa, via juiz independente que vê só o nome+descrição, se ela ativa nas certas e fica quieta nas pegadinhas. Fecha com um relatório markdown de veredito + recomendações concretas (ex.: \"essa frase não dispara → adicione tal gatilho\"). Use SEMPRE que o usuário quiser validar/testar uma skill que ele criou — \"testa essa skill\", \"a skill X tá funcionando?\", \"valida a skill que acabei de fazer\", \"checa se a skill dispara certo\", \"será que a skill ficou boa?\", \"smoke test da skill\", \"minha skill tá pegando os casos?\". NÃO use para: criar ou melhorar uma skill (isso é o skill-creator), nem para testar o código de um app (isso é sw-auto-test) — aqui o alvo do teste é uma SKILL. Interação e relatório em português (PT-BR).",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

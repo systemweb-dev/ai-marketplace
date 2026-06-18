@@ -27,7 +27,10 @@ depois de `make hooks`. Se ele apontar algo, **pare e reveja** — só prossiga 
 ## Fluxo de skills
 
 - Skills evoluem em `~/.claude/skills/` e são publicadas como plugins via sync.
-- `make sync SKILL=<nome>` (local → repo) · `make import SKILL=<nome>` (repo → local).
+- **Convenção de nome: toda skill da systemweb usa o prefixo `sw-`** (ex.: `sw-git-commit`,
+  `sw-code-review`). Evita colisão com skills de outros marketplaces e marca a origem.
+  O `name` do frontmatter, o nome do diretório e o nome do plugin são sempre iguais.
+- `make sync SKILL=sw-<nome>` (local → repo) · `make import SKILL=sw-<nome>` (repo → local).
 - **Não reescreva o conteúdo de uma skill** sem o dono pedir.
 - 1 plugin por skill; detalhes em [`docs/estrutura.md`](docs/estrutura.md).
 

@@ -8,6 +8,12 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- **Convenção de nomes:** todas as skills passam a usar o prefixo `sw-` (systemweb) —
+  evita colisão com skills de outros marketplaces. As 5 publicadas foram renomeadas:
+  `frontend-component-kit`→`sw-frontend-component-kit`, `frontend-mockup-preview`→`sw-frontend-mockup-preview`,
+  `git-commit`→`sw-git-commit`, `dead-code-scan`→`sw-dead-code-scan`, `skill-test`→`sw-skill-test`.
+  ⚠️ Muda o comando de install (ex.: `/plugin install sw-git-commit@ai-marketplace`).
+  Cross-references entre skills atualizadas; caminhos internos da `sw-study-buddy` corrigidos.
 - `frontend-component-kit` (v0.1.1) e `frontend-mockup-preview` (v0.1.2): nova regra
   "toda pergunta via `AskUserQuestion`" (menu clicável, sem pergunta em texto solto).
 - `scripts/sync_skill.py`: o sync agora **preserva a categoria** já registrada quando

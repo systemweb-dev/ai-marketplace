@@ -1,5 +1,5 @@
 ---
-name: dead-code-scan
+name: sw-dead-code-scan
 description: >
   Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos,
   variáveis e parâmetros mortos, funções/métodos/classes nunca chamados, arquivos que
@@ -14,7 +14,7 @@ description: >
   segurança", "faz uma faxina/uma geral no projeto", "acha classes/métodos/variáveis/imports/
   arquivos sem uso", "dependências que não uso mais", "dead/unused code", "arquivos órfãos".
   Dispare mesmo sem a palavra "scan" — basta a intenção de descobrir o que está sem uso pra
-  limpar. NÃO use para: revisar bugs ou qualidade do código (isso é code-review), refatorar
+  limpar. NÃO use para: revisar bugs ou qualidade do código (isso é sw-code-review), refatorar
   uma função específica, tirar console.log/prints de debug pontuais, nem deletar um arquivo ou
   dependência que o usuário JÁ decidiu remover — aqui o foco é *descobrir por varredura* o que
   está morto, não executar uma remoção já decidida. Interação e relatório em português (PT-BR).

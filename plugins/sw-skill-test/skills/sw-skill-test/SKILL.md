@@ -1,5 +1,5 @@
 ---
-name: skill-test
+name: sw-skill-test
 description: >
   Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark
   pesado, sem API key. Faz duas verificações: (1) COMPORTAMENTO — planta um fixture realista
@@ -12,7 +12,7 @@ description: >
   essa skill", "a skill X tá funcionando?", "valida a skill que acabei de fazer", "checa se a
   skill dispara certo", "será que a skill ficou boa?", "smoke test da skill", "minha skill tá
   pegando os casos?". NÃO use para: criar ou melhorar uma skill (isso é o skill-creator), nem
-  para testar o código de um app (isso é auto-test) — aqui o alvo do teste é uma SKILL.
+  para testar o código de um app (isso é sw-auto-test) — aqui o alvo do teste é uma SKILL.
   Interação e relatório em português (PT-BR).
 ---
 
@@ -29,7 +29,7 @@ Uma skill pode falhar em qualquer uma das duas de forma independente (faz o trab
 
 - **Criar ou melhorar** uma skill → é o `skill-creator` (este teste é só pra *validar* uma que já está escrita).
 - **Avaliação rigorosa com benchmark/navegador** ou **otimização automática da descrição** → também é o `skill-creator` (eval-viewer, `run_loop`). Use lá quando quiser nota quantitativa e iteração formal.
-- **Testar código de um app** (gerar testes unit/integração/e2e) → é o `auto-test`.
+- **Testar código de um app** (gerar testes unit/integração/e2e) → é o `sw-auto-test`.
 
 Este teste é o **caminho leve**: fixture descartável + comparação com/sem + juiz de disparo, tudo no terminal, sem depender de API key.
 
@@ -51,7 +51,7 @@ Do domínio da skill, monte uma **lista de casos com resposta conhecida** (o gab
 - **Armadilhas** — coisas que *parecem* o caso mas não são, ou vice-versa. É aqui que skills medíocres caem. Pense no falso positivo/negativo típico do domínio.
 - Para cada caso, anote o **esperado** (o que a skill deveria fazer/dizer).
 
-> Exemplo (testando a `dead-code-scan`): casos claros = import não usado, função privada morta; armadilhas = função chamada por `getattr("handle_"+tipo)` (viva, parece morta) e classe registrada por string num YAML. Gabarito: os claros são "morto"; as armadilhas são "vivo, não remover".
+> Exemplo (testando a `sw-dead-code-scan`): casos claros = import não usado, função privada morta; armadilhas = função chamada por `getattr("handle_"+tipo)` (viva, parece morta) e classe registrada por string num YAML. Gabarito: os claros são "morto"; as armadilhas são "vivo, não remover".
 
 ### A2. Plantar o fixture (em diretório temporário, nunca no repo)
 

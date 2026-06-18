@@ -1,5 +1,5 @@
 ---
-name: frontend-component-kit
+name: sw-frontend-component-kit
 description: >-
   Gera o kit de componentes frontend de um projeto (Button, Input, Modal,
   Table, etc.) como código real de produção, seguindo o design system, os
@@ -15,7 +15,7 @@ description: >-
   for criar componentes reutilizáveis — vários de uma vez ou um único
   componente padrão que entra na biblioteca do projeto (ex.: "cria um
   componente de Table reutilizável seguindo nossos tokens"). NÃO usar para:
-  mockup descartável (isso é a frontend-mockup-preview), tela/feature
+  mockup descartável (isso é a sw-frontend-mockup-preview), tela/feature
   específica do app, nem instalar/configurar lib de componentes de terceiros
   (shadcn/ui, Vuetify, PrimeVue — isso é setup de dependência, não geração de
   kit próprio).
@@ -208,7 +208,7 @@ User: "preciso dos componentes de feedback: modal, toast, essas coisas"
 
 - Esta skill gera **código de produção no repositório** — não confundir com
   mockup descartável. Se o usuário quer só visualizar/explorar um design antes
-  de decidir, isso é caso para a frontend-mockup-preview, não para esta skill.
+  de decidir, isso é caso para a sw-frontend-mockup-preview, não para esta skill.
 - Skill autossuficiente: não invoque outras skills. Testes dos componentes,
   se o usuário quiser, são um pedido separado.
 - Nunca sobrescreva componente existente; nunca instale dependência sem

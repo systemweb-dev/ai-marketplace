@@ -1,0 +1,8 @@
+{
+  "name": "sw-frontend-component-kit",
+  "description": "Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as convenções já existentes no projeto. Oferece combos de componentes (Essenciais, Formulários, Feedback & Overlay, Navegação & Dados, Dashboard, Marketing, Auth) e pergunta quais o usuário quer antes de gerar. Se o projeto não tem design system, faz um bootstrap guiado de tokens. Use SEMPRE que o usuário estiver começando um projeto frontend e precisar da base de componentes, ou disser coisas como \"cria os componentes do projeto\", \"kit de componentes\", \"componentes base\", \"scaffolding de UI\", \"monta a component library\", \"preciso de Button/Input/Modal padrão\", \"cria o design system com componentes\". Dispare mesmo sem a palavra \"kit\" quando a intenção for criar componentes reutilizáveis — vários de uma vez ou um único componente padrão que entra na biblioteca do projeto (ex.: \"cria um componente de Table reutilizável seguindo nossos tokens\"). NÃO usar para: mockup descartável (isso é a sw-frontend-mockup-preview), tela/feature específica do app, nem instalar/configurar lib de componentes de terceiros (shadcn/ui, Vuetify, PrimeVue — isso é setup de dependência, não geração de kit próprio).",
+  "version": "0.1.1",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}
