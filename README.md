@@ -36,9 +36,11 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 
 | Skill | Categoria | O que faz | Instalar |
 |-------|-----------|-----------|----------|
+| [`dead-code-scan`](plugins/dead-code-scan/) | development | Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados… | `/plugin install dead-code-scan@ai-marketplace` |
 | [`frontend-component-kit`](plugins/frontend-component-kit/) | design | Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as… | `/plugin install frontend-component-kit@ai-marketplace` |
 | [`frontend-mockup-preview`](plugins/frontend-mockup-preview/) | design | Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload… | `/plugin install frontend-mockup-preview@ai-marketplace` |
 | [`git-commit`](plugins/git-commit/) | development | Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. | `/plugin install git-commit@ai-marketplace` |
+| [`skill-test`](plugins/skill-test/) | development | Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark pesado, sem API key. | `/plugin install skill-test@ai-marketplace` |
 
 <!-- SKILLS:END -->
 

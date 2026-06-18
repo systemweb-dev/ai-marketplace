@@ -18,6 +18,8 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.
 - Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Skills publicadas: `dead-code-scan` e `skill-test` (v0.1.0, categoria `development`) —
+  varredura de código morto com modelo de confiança; e teste leve de skills (comportamento + disparo).
 - Skill publicada: `git-commit` (v0.1.0, categoria `development`) — split em Conventional
   Commits, com split por hunk (Rule E), fallback p/ repo sem histórico, tratamento de hook
   que reformata, `Co-Authored-By` conforme convenção e toda decisão via `AskUserQuestion`.
