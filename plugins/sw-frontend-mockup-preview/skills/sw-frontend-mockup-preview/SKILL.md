@@ -50,6 +50,8 @@ Vale para todos os pontos de decisão:
 - **Quantas variações e qual tema** (passo 3) — sempre menu.
 - **Direção de design** — caminhos divergentes ("mais sóbrio" vs "mais ousado").
 - **Escolher a variação vencedora** (passo 6b) — liste as variações como opções.
+- **Auto-conferência do render** (passo 5b) — oferecer conferir por screenshot antes
+  de entregar a URL (só quando o Playwright está disponível).
 - **Aplicar no código** (passo 7) — SEMPRE confirmar antes de tocar em qualquer arquivo.
 
 Para perguntas mais abertas (ex.: qual o componente), ofereça as opções mais prováveis e
@@ -224,6 +226,34 @@ rodando) e **guarde o PID** para encerrar de forma confiável no passo 9 (em vez
 de `pkill -f`, que é frágil). Passe a URL ao usuário. Se ele acessa de outra
 máquina, ofereça `http://<ip-ou-host>:<porta>/` (escuta em 0.0.0.0).
 
+### 5b. Auto-conferência do render (opcional — pergunte via AskUserQuestion)
+
+Antes de entregar a URL, ofereça **conferir o render você mesma** — assim o primeiro
+preview que o usuário vê já vem decente, sem depender só do olho dele.
+
+**Requer o Playwright MCP.** Se ele **não** estiver disponível no ambiente, **pule este
+passo em silêncio** e entregue a URL como no passo 5 (não trave nem peça instalação).
+
+Se estiver disponível, **dispare um `AskUserQuestion`**:
+"Quer que eu confira o render por screenshot antes de te entregar?" →
+**Sim, confere** / **Não, só me dá a URL**.
+
+Se **Sim**:
+
+1. Abra a URL servida no Playwright e tire screenshot em **desktop** e **mobile**
+   (use o toggle de viewport; alterne o tema se for relevante).
+2. **Olhe os screenshots** e cace o óbvio: conteúdo estourando/cortado, render
+   vazio, ícone que não apareceu, grid que não colapsou no mobile (`@container`),
+   contraste ruim, sobreposição.
+3. **Conserte no `index.html`** o que estiver claramente quebrado (o live-reload
+   aplica) e tire novo screenshot pra confirmar.
+4. Só então entregue a URL, mencionando em uma linha o que conferiu.
+
+Mantenha leve: rode na **primeira renderização** (e depois de mudanças grandes),
+não a cada ajuste fino — o ciclo rápido com o olho do usuário (passo 6) continua
+sendo o principal. Isto é **complemento, não substituto**. Limpe os screenshots
+temporários ao terminar (eles não entram em repo nenhum).
+
 ### 6. Iterar
 
 O usuário olha no navegador e pede ajustes. Para cada pedido, **edite o
@@ -303,6 +333,7 @@ Estas são as regras mais fáceis de atropelar na execução. Confira:
 - [ ] **Variações em abas** (`data-title`/`data-desc`, uma por vez), não empilhadas verticalmente?
 - [ ] **Responsivo** com `@container` e conferido no **mobile** (toggle 📱), não só desktop?
 - [ ] **Porta e PID** lidos da saída do `serve.py` (não assumiu 8765)?
+- [ ] **Ofereceu a auto-conferência por screenshot** (passo 5b) quando o Playwright estava disponível?
 
 **Antes de aplicar no código (passo 7):**
 - [ ] **Confirmou via `AskUserQuestion`** que é pra aplicar (aprovar no preview ≠ autorização)?

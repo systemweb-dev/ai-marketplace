@@ -12,6 +12,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   (uma tela por vez, sem empilhar) e **preview responsivo** (toggle 📱/💻/🖥/⛶) com
   responsividade real via `@container`; tema vira toggle ao vivo (canvas único). SKILL.md
   atualizado e verificado por screenshot (Playwright).
+- `sw-frontend-mockup-preview` (v0.3.0): passo opcional de **auto-conferência do render**
+  (passo 5b) — quando o Playwright está disponível, a skill oferece via `AskUserQuestion`
+  tirar screenshot do mockup e conferir/consertar o óbvio antes de entregar a URL.
 - **Convenção de nomes:** todas as skills passam a usar o prefixo `sw-` (systemweb) —
   evita colisão com skills de outros marketplaces. As 5 publicadas foram renomeadas:
   `frontend-component-kit`→`sw-frontend-component-kit`, `frontend-mockup-preview`→`sw-frontend-mockup-preview`,
