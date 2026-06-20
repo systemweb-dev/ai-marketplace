@@ -234,25 +234,34 @@ preview que o usuário vê já vem decente, sem depender só do olho dele.
 **Requer o Playwright MCP.** Se ele **não** estiver disponível no ambiente, **pule este
 passo em silêncio** e entregue a URL como no passo 5 (não trave nem peça instalação).
 
-Se estiver disponível, **dispare um `AskUserQuestion`**:
-"Quer que eu confira o render por screenshot antes de te entregar?" →
-**Sim, confere** / **Não, só me dá a URL**.
+**Pergunte via `AskUserQuestion`** (uma chamada, as duas perguntas juntas):
+1. "Confiro o render por screenshot antes de te entregar?" → **Sim** / **Não, só a URL**.
+2. Se Sim, "Quais telas?" → **Mobile** / **Desktop** / **Ambos** / **Ambos + tema escuro**.
+   Deixe o usuário escolher a cobertura — não fixe um número de shots.
 
-Se **Sim**:
+**Captura rápida (é aqui que o Playwright fica lento se feito errado):**
 
-1. Abra a URL servida no Playwright e tire screenshot em **desktop** e **mobile**
-   (use o toggle de viewport; alterne o tema se for relevante).
-2. **Olhe os screenshots** e cace o óbvio: conteúdo estourando/cortado, render
-   vazio, ícone que não apareceu, grid que não colapsou no mobile (`@container`),
-   contraste ruim, sobreposição.
-3. **Conserte no `index.html`** o que estiver claramente quebrado (o live-reload
-   aplica) e tire novo screenshot pra confirmar.
-4. Só então entregue a URL, mencionando em uma linha o que conferiu.
+- **Sem cliques** — navegue direto ao estado pela **URL**: `…/?vw=mobile`,
+  `…/?vw=desktop&theme=dark`, `…/?v=2`. Cada shot = 1 navigate + 1 screenshot, zero cliques.
+- **Reuse o browser** — uma só sessão para todos os shots (o custo é o 1º launch; os
+  seguintes são rápidos). Não feche/reabra entre telas.
+- **Espere pouco** — `waitUntil: domcontentloaded` (conteúdo é local e a fonte é `swap`,
+  não precisa de `networkidle`).
+- **Screenshot do canvas** (elemento `.hz-frame`), não `fullPage`; `jpeg` codifica mais
+  rápido que `png`.
 
-Mantenha leve: rode na **primeira renderização** (e depois de mudanças grandes),
-não a cada ajuste fino — o ciclo rápido com o olho do usuário (passo 6) continua
-sendo o principal. Isto é **complemento, não substituto**. Limpe os screenshots
-temporários ao terminar (eles não entram em repo nenhum).
+Depois de capturar:
+
+3. **Olhe os screenshots** e cace o óbvio: conteúdo estourando/cortado, render vazio,
+   ícone que não apareceu, grid que não colapsou no mobile (`@container`), contraste
+   ruim, sobreposição.
+4. **Conserte no `index.html`** o que estiver claramente quebrado (o live-reload aplica)
+   e recapture só a tela afetada pra confirmar.
+5. Entregue a URL mencionando em uma linha o que conferiu.
+
+Mantenha leve: rode na **primeira renderização** (e após mudanças grandes), não a cada
+ajuste fino — o ciclo rápido com o olho do usuário (passo 6) continua sendo o principal.
+Complemento, não substituto. Limpe os screenshots temporários ao terminar.
 
 ### 6. Iterar
 

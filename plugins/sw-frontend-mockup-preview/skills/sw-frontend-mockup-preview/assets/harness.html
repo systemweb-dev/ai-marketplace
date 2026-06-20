@@ -19,6 +19,10 @@
   Responsive: the canvas (.hz-frame) is a CSS container. Write responsive rules with
   @container (max-width: ...) so the viewport toggle triggers REAL breakpoints. Prefer
   intrinsic layouts (auto-fit/minmax, flex-wrap, clamp) so it reflows cleanly.
+
+  URL state: open a specific state directly with ?vw=mobile|tablet|desktop|full,
+  ?theme=light|dark, ?v=<n> (1-based variation). Used for fast no-click screenshots
+  and for sharing a precise state.
 -->
 <html lang="pt-BR">
 <head>
@@ -208,11 +212,25 @@
 
   // Theme toggle (live, single canvas).
   const themeBtn = document.getElementById('hz-theme');
-  themeBtn.addEventListener('click', () => {
-    const dark = frame.dataset.theme !== 'dark';
-    frame.dataset.theme = dark ? 'dark' : 'light';
-    themeBtn.textContent = dark ? '🌙 Escuro' : '☀️ Claro';
-  });
+  function setTheme(t) {
+    frame.dataset.theme = t;
+    themeBtn.textContent = t === 'dark' ? '🌙 Escuro' : '☀️ Claro';
+  }
+  themeBtn.addEventListener('click', () => setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark'));
+
+  // Initial state from the URL — ?vw=mobile&theme=dark&v=2 — so a screenshot or a
+  // shared link opens straight in that state, with NO clicks (fast auto-checks).
+  const p = new URLSearchParams(location.search);
+  const vw = p.get('vw');
+  const vwBtn = vw && document.querySelector('.hz-btn[data-vw="' + vw + '"]');
+  if (vwBtn) {
+    document.querySelectorAll('.hz-btn[data-vw]').forEach(x => x.classList.remove('is-active'));
+    vwBtn.classList.add('is-active');
+    stage.dataset.vw = vw;
+  }
+  if (p.get('theme') === 'dark' || p.get('theme') === 'light') setTheme(p.get('theme'));
+  const vi = parseInt(p.get('v'), 10);
+  if (!Number.isNaN(vi) && variations[vi - 1]) activate(vi - 1);
 </script>
 
 </body>

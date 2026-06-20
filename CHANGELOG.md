@@ -15,6 +15,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - `sw-frontend-mockup-preview` (v0.3.0): passo opcional de **auto-conferência do render**
   (passo 5b) — quando o Playwright está disponível, a skill oferece via `AskUserQuestion`
   tirar screenshot do mockup e conferir/consertar o óbvio antes de entregar a URL.
+- `sw-frontend-mockup-preview` (v0.4.0): auto-conferência mais **rápida** — harness aceita
+  estado por URL (`?vw`/`?theme`/`?v`), então o 5b captura sem cliques (1 navigate + 1 shot),
+  reusa o browser, usa `domcontentloaded` e screenshot do canvas (não fullPage). E **pergunta
+  ao usuário quais telas** capturar em vez de fixar um número.
 - **Convenção de nomes:** todas as skills passam a usar o prefixo `sw-` (systemweb) —
   evita colisão com skills de outros marketplaces. As 5 publicadas foram renomeadas:
   `frontend-component-kit`→`sw-frontend-component-kit`, `frontend-mockup-preview`→`sw-frontend-mockup-preview`,
