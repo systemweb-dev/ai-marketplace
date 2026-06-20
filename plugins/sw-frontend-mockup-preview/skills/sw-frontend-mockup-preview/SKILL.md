@@ -249,6 +249,10 @@ passo em silêncio** e entregue a URL como no passo 5 (não trave nem peça inst
   não precisa de `networkidle`).
 - **Screenshot do canvas** (elemento `.hz-frame`), não `fullPage`; `jpeg` codifica mais
   rápido que `png`.
+- **Sem travar** — rode a conferência **sem interrupção**: deixe as ferramentas de leitura
+  do Playwright (navigate/screenshot/snapshot/close) **pré-autorizadas** nas configs
+  (`permissions.allow` em `~/.claude/settings.json`), senão cada ação pede permissão e
+  trava o fluxo. Não peça confirmação a cada passo da captura.
 
 Depois de capturar:
 
@@ -257,7 +261,8 @@ Depois de capturar:
    ruim, sobreposição.
 4. **Conserte no `index.html`** o que estiver claramente quebrado (o live-reload aplica)
    e recapture só a tela afetada pra confirmar.
-5. Entregue a URL mencionando em uma linha o que conferiu.
+5. **Feche o browser** (`browser_close`) — a conferência acabou; não deixe sessão aberta.
+6. Entregue a URL mencionando em uma linha o que conferiu.
 
 Mantenha leve: rode na **primeira renderização** (e após mudanças grandes), não a cada
 ajuste fino — o ciclo rápido com o olho do usuário (passo 6) continua sendo o principal.

@@ -1,7 +1,7 @@
 {
   "name": "sw-frontend-mockup-preview",
   "description": "Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload para iteração visual instantânea via URL no navegador, e ao aprovar converte a variação escolhida em código real seguindo as regras do projeto. Stack-agnostic (CSS variables, Tailwind, SCSS). Use SEMPRE que o usuário quiser ver/explorar/comparar um design antes de implementar — frases como \"cria um mockup\", \"preview da tela\", \"ver variações antes de codar\", \"mockup do card/modal/dashboard\", \"como ficaria se...\", \"me mostra umas opções de layout\", \"quero ver antes de aplicar\". Dispare mesmo que o usuário não diga \"mockup\" explicitamente, sempre que a intenção for visualizar um design antes de mexer no código de produção.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": {
     "name": "systemweb-dev"
   }
