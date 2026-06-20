@@ -102,8 +102,10 @@ chamada (o tool aceita até 4 perguntas juntas):
 
 1. **Quantas variações** o usuário quer ver — opções ex.: **1** / **3** / **5** (sugira 3).
    Com 1, não há etapa de escolha depois — é só refinar sob demanda.
-2. **Tema inicial** — opções: **Claro** / **Escuro**. (O canvas tem toggle de tema
-   sempre disponível na barra; isso só define qual abre primeiro.)
+2. **Tema** — opções: **Claro** / **Escuro** / **Ambos** (sugira **Ambos**). O canvas tem
+   toggle de tema sempre disponível na barra: **Ambos** abre no claro já com o toggle pronto
+   pra alternar (e, se houver auto-conferência, captura os dois temas); **Claro**/**Escuro**
+   apenas fixam qual abre primeiro.
 
 Menu clicável, nunca pergunta em texto. Isso evita gerar painéis/variações que o usuário não
 quer e mantém o preview enxuto.
@@ -166,6 +168,16 @@ padrão):**
 - **Use dados realistas e estados variados**, não um único caso feliz. Renderize
   vários itens de exemplo cobrindo casos-limite: nome longo, estado inativo/erro,
   número baixo, texto que quebra. É isso que revela problemas de layout cedo.
+- **Imagens reais quando ajudam.** Se o componente mostra foto (produto, avatar, capa,
+  banner), não deixe só um retângulo cinza — puxe de um serviço **público** de placeholder,
+  que deixa o mockup muito mais fiel:
+  - **Fotos**: `https://picsum.photos/seed/<algo>/400/300` (Lorem Picsum — o `seed` mantém
+    a mesma imagem entre reloads, evitando "piscar" diferente a cada refresh).
+  - **Avatares**: `https://i.pravatar.cc/80?img=<n>` ou DiceBear.
+  - **Caixa simples com rótulo**: `https://placehold.co/400x300`.
+  Hotlink direto já funciona (online). Se precisar que rode **offline** ou que as imagens
+  **apareçam nos screenshots da auto-conferência**, baixe pro dir do mockup
+  (`curl -o img/p1.jpg "<url>"`) e referencie local. Nunca use imagens com direitos/privadas.
 - **Fuja do visual genérico de IA.** Evite por padrão os clichês: "pill soup"
   cinza, toggle iOS padrão, sombra suave uniforme em tudo, cantos arredondados
   idênticos por toda parte. Busque personalidade — hierarquia tipográfica forte,

@@ -15,6 +15,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - `sw-frontend-mockup-preview` (v0.3.0): passo opcional de **auto-conferência do render**
   (passo 5b) — quando o Playwright está disponível, a skill oferece via `AskUserQuestion`
   tirar screenshot do mockup e conferir/consertar o óbvio antes de entregar a URL.
+- `sw-frontend-mockup-preview` (v0.5.0): pergunta de **tema com 3 opções** (Claro/Escuro/Ambos)
+  e orientação para usar **imagens de placeholder público** (Lorem Picsum, pravatar, placehold.co)
+  quando o componente mostra foto — hotlink ou baixar pro dir do mockup.
 - `sw-frontend-mockup-preview` (v0.4.1): a auto-conferência roda **sem interrupção**
   (ferramentas de leitura do Playwright pré-autorizadas, sem prompt a cada ação) e
   **fecha o browser** (`browser_close`) ao terminar.
