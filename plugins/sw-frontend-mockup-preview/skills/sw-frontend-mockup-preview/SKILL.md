@@ -100,7 +100,8 @@ chamada (o tool aceita até 4 perguntas juntas):
 
 1. **Quantas variações** o usuário quer ver — opções ex.: **1** / **3** / **5** (sugira 3).
    Com 1, não há etapa de escolha depois — é só refinar sob demanda.
-2. Em qual(is) **tema(s)** — opções: **Claro** / **Escuro** / **Ambos**.
+2. **Tema inicial** — opções: **Claro** / **Escuro**. (O canvas tem toggle de tema
+   sempre disponível na barra; isso só define qual abre primeiro.)
 
 Menu clicável, nunca pergunta em texto. Isso evita gerar painéis/variações que o usuário não
 quer e mantém o preview enxuto.
@@ -110,14 +111,23 @@ quer e mantém o preview enxuto.
 Copie `assets/harness.html` para o diretório de trabalho (passo 5) e preencha:
 
 - O `<title>` com o nome do componente.
-- O bloco TOKENS com os valores reais extraídos (light em `.panel--light`, dark
-  em `.panel--dark`).
+- O bloco TOKENS com os valores reais extraídos, nos **dois** blocos
+  `[data-theme="light"]` e `[data-theme="dark"]`.
 - O `<link>` da fonte, se diferente.
-- O número de **variações** definido no passo 3 (uma `<section>` cada). Cada
-  variação deve ser uma ideia genuinamente distinta — não versões quase iguais.
-  Dê a cada uma título curto e uma frase de trade-off.
-- Renderize no(s) tema(s) escolhido(s). Para um tema só, remova o painel não
-  usado e adicione `panels--single` ao `.panels`.
+- Uma **`<section class="variation">` por variação** (passo 3), cada uma com
+  `data-title` (rótulo da aba) e `data-desc` (a frase de trade-off). O harness as
+  exibe como **abas no topo — uma tela por vez, sem empilhar**. Com uma variação só,
+  a barra de abas some sozinha. Cada variação = ideia genuinamente distinta, não
+  quase-iguais.
+- **Não mexa na chrome do harness** — a barra de viewport (📱/💻/🖥/⛶), o toggle de
+  tema e as abas já vêm prontos. O tema abre no escolhido no passo 3; o usuário
+  alterna claro/escuro no próprio canvas.
+
+**Responsivo de verdade (novo).** O canvas (`.hz-frame`) é um *container* CSS.
+Escreva os breakpoints com `@container (max-width: 480px) { … }` (não `@media`) —
+assim o toggle 📱/💻/🖥 da barra dispara os breakpoints **ao vivo**. Prefira layouts
+intrínsecos (`auto-fit`/`minmax(min(100%, 380px), 1fr)`, `flex-wrap`, `clamp`) pra
+refluir limpo. **Confira no mobile antes de entregar**, não só no desktop.
 
 **Consistência com o app (princípio central).** O mockup deve refletir os mesmos
 ícones, tokens, componentes e padrões que o app já usa — não versões parecidas.
@@ -171,17 +181,10 @@ mais informada do que olhar algo parado. Mantenha o JS simples e inline no
 mockup (é descartável).
 
 Escreva o JS sempre com `querySelectorAll` + `closest()` (cada item cuida de si),
-nunca `id` ou `querySelector` singular. Isso importa porque há **múltiplas
-instâncias**: vários cards de exemplo e, no modo "ambos os temas", o componente
-aparece duplicado nos painéis light e dark — um seletor singular ligaria só um e
-o resto pareceria quebrado.
-
-Alternativa para "ambos os temas" com interatividade: em vez de dois painéis
-duplicados, considere um **canvas único com um botão que alterna o tema da página
-ao vivo** (toggle de `data-theme`). Evita markup duplicado, roda o JS num só
-lugar e deixa comparar o mesmo elemento trocando de tema. Use quando a
-interatividade for central; para mockups estáticos, os painéis lado a lado
-continuam mais diretos.
+nunca `id` ou `querySelector` singular. Há **múltiplas instâncias**: vários cards de
+exemplo, e o seu JS roda sobre todas as variações (inclusive as abas inativas no DOM) —
+um seletor singular ligaria só uma e o resto pareceria quebrado. (O harness já usa
+**canvas único com toggle de tema**, então não há mais painéis light/dark duplicados.)
 
 **Animações (quando pedidas ou quando agregam):**
 
@@ -262,6 +265,8 @@ regras do projeto valem integralmente**:
   do framework (emits/props/handlers).
 - **Porte animações como classes CSS** (não inline), reusando/criando vars de
   tema, e **mantenha o guard `prefers-reduced-motion`** no código final.
+- **Porte o responsivo**: os `@container` do mockup viram a abordagem do projeto
+  (`@media` ou `@container`, conforme a convenção) — mantendo os mesmos breakpoints.
 - Aplique no arquivo real do componente localizado no passo 1.
 - Cuide das pontas: se remover algo, cheque referências órfãs antes.
 
@@ -295,6 +300,8 @@ Estas são as regras mais fáceis de atropelar na execução. Confira:
 **Ao montar/servir o mockup:**
 - [ ] **Tokens REAIS** do projeto (cores/espaçamento/fonte extraídos), não aproximados de memória?
 - [ ] **Ícones** colados do `node_modules` (SVG exato da versão instalada), não desenhados de cabeça?
+- [ ] **Variações em abas** (`data-title`/`data-desc`, uma por vez), não empilhadas verticalmente?
+- [ ] **Responsivo** com `@container` e conferido no **mobile** (toggle 📱), não só desktop?
 - [ ] **Porta e PID** lidos da saída do `serve.py` (não assumiu 8765)?
 
 **Antes de aplicar no código (passo 7):**
