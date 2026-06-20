@@ -124,6 +124,35 @@ ai-marketplace/
 
 ---
 
+## Setup opcional por máquina
+
+A skill **`sw-frontend-mockup-preview`** pode conferir o render por screenshot
+(Playwright). Para isso rodar **sem pedir permissão a cada ação** (e não travar),
+pré-autorize as ferramentas de **leitura** do Playwright no `~/.claude/settings.json`
+**desta máquina**:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_close"
+    ]
+  }
+}
+```
+
+Só conveniência. As ferramentas que **executam código/enviam arquivo**
+(`browser_evaluate`, `browser_run_code_unsafe`, `browser_file_upload`) ficam **de fora
+de propósito** — continuam pedindo confirmação.
+
+---
+
 ## Versionamento
 
 - Cada plugin tem `version` (semver) em seu `plugin.json`. Atualize ao publicar
