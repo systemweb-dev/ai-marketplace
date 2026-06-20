@@ -7,6 +7,12 @@
   },
   "plugins": [
     {
+      "name": "sw-brainstorming",
+      "source": "./plugins/sw-brainstorming",
+      "description": "Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um spec aprovado. Use SEMPRE que o usuário for começar algo novo ou não-trivial — uma feature, um componente, um fluxo, uma integração ou uma mudança de comportamento — ou disser coisas como \"quero criar\", \"vamos construir\", \"preciso de uma feature\", \"como estruturar isso\", \"me ajuda a planejar\", \"bora pensar nessa ideia\", \"antes de codar\". Dispare mesmo sem a palavra \"brainstorm\", sempre que a intenção for desenhar/decidir O QUE construir antes de mexer no código. NÃO use para: tarefas triviais e já especificadas (corrigir typo, renomear, bump de dependência, ajuste óbvio pontual), nem depois que o design já foi aprovado (aí é a sw-writing-plans). Interação em português, via AskUserQuestion.",
+      "category": "productivity"
+    },
+    {
       "name": "sw-dead-code-scan",
       "source": "./plugins/sw-dead-code-scan",
       "description": "Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados, arquivos que ninguém importa e dependências do manifesto sem uso. Agnóstica a linguagem: usa a ferramenta nativa de dead-code quando existe (knip/ts-prune, vulture/ruff, deadcode/ staticcheck, PHPStan, cargo-machete, etc.) e cai pra heurística genérica quando não tem. Classifica cada achado por nível de confiança pra evitar falso positivo (pontos de entrada, API pública, reflexão/DI, mágica de framework, referências em strings/configs). Gera um relatório markdown e, com aprovação via menu, remove o código morto de forma guiada e verificada. Use SEMPRE que o usuário quiser uma VARREDURA de código não usado/morto no projeto — \"tem código morto?\", \"limpa o que não é usado\", \"o que dá pra remover com segurança\", \"faz uma faxina/uma geral no projeto\", \"acha classes/métodos/variáveis/imports/ arquivos sem uso\", \"dependências que não uso mais\", \"dead/unused code\", \"arquivos órfãos\". Dispare mesmo sem a palavra \"scan\" — basta a intenção de descobrir o que está sem uso pra limpar. NÃO use para: revisar bugs ou qualidade do código (isso é sw-code-review), refatorar uma função específica, tirar console.log/prints de debug pontuais, nem deletar um arquivo ou dependência que o usuário JÁ decidiu remover — aqui o foco é *descobrir por varredura* o que está morto, não executar uma remoção já decidida. Interação e relatório em português (PT-BR).",
@@ -35,6 +41,12 @@
       "source": "./plugins/sw-skill-test",
       "description": "Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark pesado, sem API key. Faz duas verificações: (1) COMPORTAMENTO — planta um fixture realista com casos claros + armadilhas (gabarito conhecido) no diretório temporário do SO, roda a skill-alvo nele COM e SEM a skill (baseline) e compara contra o gabarito; (2) DISPARO — gera frases que devem e não devem disparar a skill e checa, via juiz independente que vê só o nome+descrição, se ela ativa nas certas e fica quieta nas pegadinhas. Fecha com um relatório markdown de veredito + recomendações concretas (ex.: \"essa frase não dispara → adicione tal gatilho\"). Use SEMPRE que o usuário quiser validar/testar uma skill que ele criou — \"testa essa skill\", \"a skill X tá funcionando?\", \"valida a skill que acabei de fazer\", \"checa se a skill dispara certo\", \"será que a skill ficou boa?\", \"smoke test da skill\", \"minha skill tá pegando os casos?\". NÃO use para: criar ou melhorar uma skill (isso é o skill-creator), nem para testar o código de um app (isso é sw-auto-test) — aqui o alvo do teste é uma SKILL. Interação e relatório em português (PT-BR).",
       "category": "development"
+    },
+    {
+      "name": "sw-writing-plans",
+      "source": "./plugins/sw-writing-plans",
+      "description": "Transforma um spec/requisitos em um plano de implementação detalhado (estrutura de arquivos + tasks bite-sized com código e comandos exatos, qualidade de teste, sem placeholders) e ORQUESTRA a execução task-by-task com checkpoints de aprovação. Use quando já existe um design/spec/requisitos e é hora de planejar COMO construir e executar — frases como \"faz o plano\", \"plano de implementação\", \"como vou construir isso\", \"quebra em tasks\", \"monta o passo a passo\", \"bora implementar isso\", \"executa o plano\". É o passo depois da sw-brainstorming. NÃO use para: decidir O QUE construir do zero (isso é a sw-brainstorming), nem para uma edição trivial pontual. Interação em português, via AskUserQuestion.",
+      "category": "productivity"
     }
   ]
 }

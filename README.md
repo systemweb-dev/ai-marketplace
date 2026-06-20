@@ -36,11 +36,13 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 
 | Skill | Categoria | O que faz | Instalar |
 |-------|-----------|-----------|----------|
+| [`sw-brainstorming`](plugins/sw-brainstorming/) | productivity | Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um… | `/plugin install sw-brainstorming@ai-marketplace` |
 | [`sw-dead-code-scan`](plugins/sw-dead-code-scan/) | development | Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados… | `/plugin install sw-dead-code-scan@ai-marketplace` |
 | [`sw-frontend-component-kit`](plugins/sw-frontend-component-kit/) | design | Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as… | `/plugin install sw-frontend-component-kit@ai-marketplace` |
 | [`sw-frontend-mockup-preview`](plugins/sw-frontend-mockup-preview/) | design | Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload… | `/plugin install sw-frontend-mockup-preview@ai-marketplace` |
 | [`sw-git-commit`](plugins/sw-git-commit/) | development | Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. | `/plugin install sw-git-commit@ai-marketplace` |
 | [`sw-skill-test`](plugins/sw-skill-test/) | development | Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark pesado, sem API key. | `/plugin install sw-skill-test@ai-marketplace` |
+| [`sw-writing-plans`](plugins/sw-writing-plans/) | productivity | Transforma um spec/requisitos em um plano de implementação detalhado (estrutura de arquivos + tasks bite-sized com código e comandos exatos, qualidade de… | `/plugin install sw-writing-plans@ai-marketplace` |
 
 <!-- SKILLS:END -->
 

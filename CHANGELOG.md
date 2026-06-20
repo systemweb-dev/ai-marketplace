@@ -41,6 +41,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.
 - Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Skills publicadas: `sw-brainstorming` e `sw-writing-plans` (v0.1.0, categoria `productivity`) —
+  pipeline de design→plano: brainstorming (o quê, com resumo não-técnico opcional) e
+  writing-plans (como + executar, com tipos/qualidade de teste, aprovação de plano e commit nos checkpoints).
 - Skills publicadas: `dead-code-scan` e `skill-test` (v0.1.0, categoria `development`) —
   varredura de código morto com modelo de confiança; e teste leve de skills (comportamento + disparo).
 - Skill publicada: `git-commit` (v0.1.0, categoria `development`) — split em Conventional

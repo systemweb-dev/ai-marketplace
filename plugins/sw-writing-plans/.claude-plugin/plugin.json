@@ -1,0 +1,8 @@
+{
+  "name": "sw-writing-plans",
+  "description": "Transforma um spec/requisitos em um plano de implementação detalhado (estrutura de arquivos + tasks bite-sized com código e comandos exatos, qualidade de teste, sem placeholders) e ORQUESTRA a execução task-by-task com checkpoints de aprovação. Use quando já existe um design/spec/requisitos e é hora de planejar COMO construir e executar — frases como \"faz o plano\", \"plano de implementação\", \"como vou construir isso\", \"quebra em tasks\", \"monta o passo a passo\", \"bora implementar isso\", \"executa o plano\". É o passo depois da sw-brainstorming. NÃO use para: decidir O QUE construir do zero (isso é a sw-brainstorming), nem para uma edição trivial pontual. Interação em português, via AskUserQuestion.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

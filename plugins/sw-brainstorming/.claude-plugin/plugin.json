@@ -1,0 +1,8 @@
+{
+  "name": "sw-brainstorming",
+  "description": "Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um spec aprovado. Use SEMPRE que o usuário for começar algo novo ou não-trivial — uma feature, um componente, um fluxo, uma integração ou uma mudança de comportamento — ou disser coisas como \"quero criar\", \"vamos construir\", \"preciso de uma feature\", \"como estruturar isso\", \"me ajuda a planejar\", \"bora pensar nessa ideia\", \"antes de codar\". Dispare mesmo sem a palavra \"brainstorm\", sempre que a intenção for desenhar/decidir O QUE construir antes de mexer no código. NÃO use para: tarefas triviais e já especificadas (corrigir typo, renomear, bump de dependência, ajuste óbvio pontual), nem depois que o design já foi aprovado (aí é a sw-writing-plans). Interação em português, via AskUserQuestion.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}
