@@ -41,6 +41,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.
 - Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Skill publicada: `sw-code-review` (v0.1.0, categoria `development`) — review profundo
+  language-agnostic com princípio "zero falso positivo": roda linters/typecheckers reais
+  (Step 4c), verificação adversarial + nível de confiança (Step 5.5), supressão de FP, modo PR,
+  RBAC/info-disclosure/typo-cross-file/cross-repo. Catálogo de patterns em references/patterns.md.
 - Skills publicadas: `sw-brainstorming` e `sw-writing-plans` (v0.1.0, categoria `productivity`) —
   pipeline de design→plano: brainstorming (o quê, com resumo não-técnico opcional) e
   writing-plans (como + executar, com tipos/qualidade de teste, aprovação de plano e commit nos checkpoints).

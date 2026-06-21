@@ -13,6 +13,12 @@
       "category": "productivity"
     },
     {
+      "name": "sw-code-review",
+      "source": "./plugins/sw-code-review",
+      "description": "Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de catch, leitura de regras do projeto, modo PR (vs branch base) e reasoning enriquecido com truth tables e step-by-step proofs. Inclui analise de impacto, contrato, orfaos, cross-repo, supressao de falsos positivos. INVOCAR SOMENTE sob pedido explicito do usuario — via `/sw-code-review` ou frases como \"rodar/executar/fazer code review\", \"code review\", \"revisa as mudancas\", \"revisa meu diff\", \"revisa meu codigo\", \"review disso\". NAO auto-disparar a cada mudanca de codigo. Funciona em qualquer linguagem e framework. Output sempre em portugues.",
+      "category": "development"
+    },
+    {
       "name": "sw-dead-code-scan",
       "source": "./plugins/sw-dead-code-scan",
       "description": "Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados, arquivos que ninguém importa e dependências do manifesto sem uso. Agnóstica a linguagem: usa a ferramenta nativa de dead-code quando existe (knip/ts-prune, vulture/ruff, deadcode/ staticcheck, PHPStan, cargo-machete, etc.) e cai pra heurística genérica quando não tem. Classifica cada achado por nível de confiança pra evitar falso positivo (pontos de entrada, API pública, reflexão/DI, mágica de framework, referências em strings/configs). Gera um relatório markdown e, com aprovação via menu, remove o código morto de forma guiada e verificada. Use SEMPRE que o usuário quiser uma VARREDURA de código não usado/morto no projeto — \"tem código morto?\", \"limpa o que não é usado\", \"o que dá pra remover com segurança\", \"faz uma faxina/uma geral no projeto\", \"acha classes/métodos/variáveis/imports/ arquivos sem uso\", \"dependências que não uso mais\", \"dead/unused code\", \"arquivos órfãos\". Dispare mesmo sem a palavra \"scan\" — basta a intenção de descobrir o que está sem uso pra limpar. NÃO use para: revisar bugs ou qualidade do código (isso é sw-code-review), refatorar uma função específica, tirar console.log/prints de debug pontuais, nem deletar um arquivo ou dependência que o usuário JÁ decidiu remover — aqui o foco é *descobrir por varredura* o que está morto, não executar uma remoção já decidida. Interação e relatório em português (PT-BR).",
