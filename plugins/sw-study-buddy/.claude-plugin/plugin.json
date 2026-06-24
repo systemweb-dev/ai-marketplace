@@ -1,0 +1,8 @@
+{
+  "name": "sw-study-buddy",
+  "description": "Tutor de estudos para qualquer assunto de tecnologia — linguagens de programação, frameworks, bibliotecas, documentações, paradigmas (funcional, OO, reativo), design patterns, arquitetura, ferramentas. Acompanha do nível iniciante ao avançado com três modos: Aprender (trilha do zero), Explicar (tira-dúvida pontual) e Praticar (exercícios, quiz e mini-projetos). Use SEMPRE que o usuário quiser aprender, entender ou praticar algo técnico — frases como \"quero aprender X\", \"me ensina Y\", \"estudar Z\", \"me explica esse conceito\", \"não entendi como funciona W\", \"me dá uns exercícios de\", \"como funciona\", \"qual a diferença entre\", \"quero praticar\", \"estou estudando para\". Dispare mesmo que o usuário não diga \"estudar\" explicitamente, sempre que a intenção for aprender/entender/fixar um tópico de tecnologia em vez de só resolver uma tarefa pontual de código. Ao iniciar uma sessão, oferece (via AskUserQuestion) buscar novidades/mudanças recentes do tema na internet. Interação sempre em português (PT-BR).",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

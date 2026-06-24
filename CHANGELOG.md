@@ -41,6 +41,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.
 - Skills publicadas: `frontend-component-kit` e `frontend-mockup-preview` (categoria `design`).
+- Skill publicada: `sw-study-buddy` (v0.1.0, categoria `productivity`) — tutor de estudos de
+  tecnologia (modos Aprender/Explicar/Praticar, apostila viva em HTML, progresso). Ao iniciar,
+  oferece buscar novidades/mudanças recentes do tema na internet (foco "o que mudou", datado).
 - Skill publicada: `sw-design-studio` (v0.1.0, categoria `design`) — diretor de design
   interativo: decide a direção visual (8 eixos) fugindo dos clichês de IA, com modo de condução
   (guiado/autopilot/híbrido), modo didático (nomeia técnicas + glossário), e usa o design system
