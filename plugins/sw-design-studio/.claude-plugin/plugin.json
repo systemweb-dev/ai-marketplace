@@ -1,0 +1,8 @@
+{
+  "name": "sw-design-studio",
+  "description": "Diretor de design interativo: conduz o usuário, via AskUserQuestion, a DECIDIR a direção visual (referência/âncora, tom & ousadia, personalidade, paleta, tipografia, motion, efeitos/profundidade, densidade, qualidade-piso) fugindo dos clichês de IA, e produz design/layouts distintos e robustos — de um ajuste pontual a um sistema inteiro de dashboard. Use SEMPRE que o usuário quiser melhorar/refinar a APARÊNCIA de uma UI, dar personalidade, fugir do visual genérico de IA, definir a \"vibe\"/direção, ou robustecer o design — frases como \"deixa menos cara de IA\", \"tá genérico, dá personalidade\", \"refina o design/o layout\", \"melhora o visual/os efeitos/a animação\", \"moderniza essa tela\", \"define a direção de design\", \"que vibe dar nisso\", \"deixa esse dashboard mais bonito e consistente\". Dispare mesmo sem a palavra \"design\", sempre que a intenção for decidir COMO a interface deve parecer/sentir. NÃO use para: decidir O QUE construir (isso é a sw-brainstorming), nem é o mockup descartável em si (sw-frontend-mockup-preview) ou o kit de componentes (sw-frontend-component-kit) — embora esta skill possa chamá-los. Funciona **guiada** (menu por eixo) ou em **autopilot** (decide com bons defaults e você só revisa), e usa o **design system existente** do projeto como base. Interação em PT-BR.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}
