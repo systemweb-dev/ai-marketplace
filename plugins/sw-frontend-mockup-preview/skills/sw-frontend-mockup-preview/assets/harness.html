@@ -15,14 +15,15 @@
     • Variation tabs — appear automatically when there's >1 variation; show ONE at a time
     • Viewport       — 📱 mobile / 💻 tablet / 🖥 desktop / ⛶ full (constrains the canvas)
     • Theme          — ☀️/🌙 toggles the canvas theme live (single canvas, no duplicated panels)
+    • Font           — dropdown to preview the mockup with different fonts (loads Google Fonts on demand)
 
   Responsive: the canvas (.hz-frame) is a CSS container. Write responsive rules with
   @container (max-width: ...) so the viewport toggle triggers REAL breakpoints. Prefer
   intrinsic layouts (auto-fit/minmax, flex-wrap, clamp) so it reflows cleanly.
 
   URL state: open a specific state directly with ?vw=mobile|tablet|desktop|full,
-  ?theme=light|dark, ?v=<n> (1-based variation). Used for fast no-click screenshots
-  and for sharing a precise state.
+  ?theme=light|dark, ?v=<n> (1-based variation), ?font=<name>. Used for fast no-click
+  screenshots and for sharing a precise state.
 -->
 <html lang="pt-BR">
 <head>
@@ -87,6 +88,7 @@
   .hz-btn:hover { background: #eef2f7; }
   .hz-btn.is-active { background: #0f172a; border-color: #0f172a; color: #fff; }
   .hz-tab { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+  .hz-select { font: inherit; font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.6rem; border: 1px solid #d8dee8; border-radius: 0.5rem; background: #f8fafc; color: #475569; cursor: pointer; }
 
   .hz-caption { padding: 0.6rem 1rem 0; font-size: 0.82rem; color: #64748b; max-width: 820px; }
   .hz-caption b { color: #0f172a; }
@@ -137,6 +139,21 @@
   <div class="hz-group">
     <span class="hz-label">Tema</span>
     <button class="hz-btn" id="hz-theme">☀️ Claro</button>
+  </div>
+  <div class="hz-group">
+    <span class="hz-label">Fonte</span>
+    <select class="hz-select" id="hz-font" autocomplete="off" title="Trocar a fonte (só visualização)">
+      <option value="">Projeto</option>
+      <option value="Inter">Inter</option>
+      <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+      <option value="Sora">Sora</option>
+      <option value="Space Grotesk">Space Grotesk</option>
+      <option value="Manrope">Manrope</option>
+      <option value="Fraunces">Fraunces (serifa)</option>
+      <option value="Lora">Lora (serifa)</option>
+      <option value="JetBrains Mono">JetBrains Mono</option>
+      <option value="system-ui">Sistema</option>
+    </select>
   </div>
 </div>
 
@@ -218,6 +235,35 @@
   }
   themeBtn.addEventListener('click', () => setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark'));
 
+  // Font selector — preview the mockup with different fonts. Loads each Google Font on demand
+  // (only when first selected) and overrides --font-sans on the canvas. "Projeto" = the token font.
+  const FONTS = {
+    'Inter':             { stack: "'Inter', system-ui, sans-serif",             g: 'Inter:wght@400;500;600;700;800' },
+    'Plus Jakarta Sans': { stack: "'Plus Jakarta Sans', system-ui, sans-serif", g: 'Plus+Jakarta+Sans:wght@400;500;600;700' },
+    'Sora':              { stack: "'Sora', system-ui, sans-serif",              g: 'Sora:wght@400;500;600;700' },
+    'Space Grotesk':     { stack: "'Space Grotesk', system-ui, sans-serif",     g: 'Space+Grotesk:wght@400;500;600;700' },
+    'Manrope':           { stack: "'Manrope', system-ui, sans-serif",          g: 'Manrope:wght@400;500;600;700' },
+    'Fraunces':          { stack: "'Fraunces', Georgia, serif",                 g: 'Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600' },
+    'Lora':              { stack: "'Lora', Georgia, serif",                     g: 'Lora:wght@400;500;600;700' },
+    'JetBrains Mono':    { stack: "'JetBrains Mono', ui-monospace, monospace",  g: 'JetBrains+Mono:wght@400;500;700' },
+    'system-ui':         { stack: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif", g: null },
+  };
+  const fontSel = document.getElementById('hz-font');
+  const loadedFonts = new Set();
+  function applyFont(key) {
+    if (!key || !FONTS[key]) { frame.style.removeProperty('--font-sans'); return; } // Projeto = volta ao token
+    const f = FONTS[key];
+    if (f.g && !loadedFonts.has(key)) {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=' + f.g + '&display=swap';
+      document.head.appendChild(l);
+      loadedFonts.add(key);
+    }
+    frame.style.setProperty('--font-sans', f.stack);
+  }
+  fontSel.addEventListener('change', () => applyFont(fontSel.value));
+
   // Initial state from the URL — ?vw=mobile&theme=dark&v=2 — so a screenshot or a
   // shared link opens straight in that state, with NO clicks (fast auto-checks).
   const p = new URLSearchParams(location.search);
@@ -231,6 +277,8 @@
   if (p.get('theme') === 'dark' || p.get('theme') === 'light') setTheme(p.get('theme'));
   const vi = parseInt(p.get('v'), 10);
   if (!Number.isNaN(vi) && variations[vi - 1]) activate(vi - 1);
+  const fk = p.get('font');
+  if (fk !== null && FONTS[fk]) { fontSel.value = fk; applyFont(fk); }
 </script>
 
 </body>

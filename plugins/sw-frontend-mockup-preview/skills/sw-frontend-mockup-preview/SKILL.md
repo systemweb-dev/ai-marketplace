@@ -124,8 +124,13 @@ Copie `assets/harness.html` para o diretório de trabalho (passo 5) e preencha:
   a barra de abas some sozinha. Cada variação = ideia genuinamente distinta, não
   quase-iguais.
 - **Não mexa na chrome do harness** — a barra de viewport (📱/💻/🖥/⛶), o toggle de
-  tema e as abas já vêm prontos. O tema abre no escolhido no passo 3; o usuário
-  alterna claro/escuro no próprio canvas.
+  tema, o **seletor de fonte** e as abas já vêm prontos. O tema abre no escolhido no
+  passo 3; o usuário alterna claro/escuro no próprio canvas.
+- **Seletor de fonte (comparar fontes ao vivo).** A barra tem um dropdown **Fonte**: o
+  usuário troca a fonte do canvas pra ver o mockup com outra tipografia (carrega o Google
+  Font sob demanda; "Projeto" volta à fonte real dos tokens). Útil pra A/B de fonte sem mexer
+  no código. Não precisa configurar nada — já funciona. Se quiser oferecer fontes específicas,
+  é só citar no chat; pra screenshot de uma fonte, use `?font=<nome>` (ver passo 5b).
 
 **Responsivo de verdade (novo).** O canvas (`.hz-frame`) é um *container* CSS.
 Escreva os breakpoints com `@container (max-width: 480px) { … }` (não `@media`) —
@@ -254,7 +259,8 @@ passo em silêncio** e entregue a URL como no passo 5 (não trave nem peça inst
 **Captura rápida (é aqui que o Playwright fica lento se feito errado):**
 
 - **Sem cliques** — navegue direto ao estado pela **URL**: `…/?vw=mobile`,
-  `…/?vw=desktop&theme=dark`, `…/?v=2`. Cada shot = 1 navigate + 1 screenshot, zero cliques.
+  `…/?vw=desktop&theme=dark`, `…/?v=2`, `…/?font=Sora`. Cada shot = 1 navigate + 1 screenshot,
+  zero cliques (dá pra comparar fontes tirando shots com `?font=` diferentes).
 - **Reuse o browser** — uma só sessão para todos os shots (o custo é o 1º launch; os
   seguintes são rápidos). Não feche/reabra entre telas.
 - **Espere pouco** — `waitUntil: domcontentloaded` (conteúdo é local e a fonte é `swap`,
