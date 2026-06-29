@@ -1,4 +1,16 @@
-# Spec Document Reviewer Prompt Template
+# Reviewer Prompt Templates (brainstorming)
+
+Two variants, dispatched conforme o **nível de revisão** escolhido (ver "Revisor opcional" no SKILL.md):
+
+- **"spec"** — revisa o documento de spec completo (abaixo).
+- **"design/checkpoint"** — revisa o design acumulado num gate, antes de existir spec (no fim).
+
+O revisor é **consultivo**: retorna status + problemas + recomendações; **não edita nada e não
+aprova no lugar do usuário**.
+
+---
+
+## Variante "spec"
 
 Use this template when dispatching a spec document reviewer subagent.
 
@@ -47,3 +59,62 @@ Task tool (general-purpose):
 ```
 
 **Reviewer returns:** Status, Issues (if any), Recommendations
+
+---
+
+## Variante "design/checkpoint"
+
+Use this template when dispatching a reviewer **during** the design phase (after a gate),
+before a spec file exists.
+
+**Purpose:** Catch design flaws early — gaps, contradictions, missed edge cases, over-engineering —
+while the design is still cheap to change.
+
+**Dispatch after:** the design (or, no modo "cada checkpoint", o gate atual) foi aprovado pelo usuário.
+**Pass the accumulated design inline** (não há arquivo ainda) — e, em "cada checkpoint", inclua o
+design inteiro até aqui, nunca só a seção isolada.
+
+```
+Task tool (general-purpose):
+  description: "Review design (pre-spec)"
+  prompt: |
+    You are a design reviewer in a brainstorming session. The team is still shaping the
+    design — no spec exists yet. Review the design below with fresh eyes.
+
+    **Design so far:**
+    [PASTE ACCUMULATED DESIGN: problema, abordagem escolhida, seções aprovadas, restrições]
+
+    ## What to Check
+
+    | Category | What to Look For |
+    |----------|------------------|
+    | Gaps | Fluxos/estados/erros não cobertos; dependência não resolvida |
+    | Consistency | Decisões que se contradizem; abordagem que não bate com as restrições |
+    | Edge cases | Casos-limite e modos de falha plausíveis ignorados |
+    | Boundaries | Unidade fazendo coisa demais; fronteiras/interfaces confusas |
+    | YAGNI | Complexidade ou feature não pedida |
+    | Risk | A suposição mais arriscada — o que, se errado, derruba o design? |
+
+    ## Calibration
+
+    **Only flag what would cause real rework or a wrong build.** Não levante preferência de
+    estilo nem detalhe que cabe na fase de plano. Na dúvida sobre algo pequeno, deixe como
+    recomendação, não como bloqueio.
+
+    ## Output Format
+
+    ## Design Review
+
+    **Status:** Looks solid | Issues Found
+
+    **Issues (if any):**
+    - [Área]: [problema específico] - [por que importa agora]
+
+    **Open questions to resolve with the user (if any):**
+    - [pergunta]
+
+    **Recommendations (advisory):**
+    - [sugestões]
+```
+
+**Reviewer returns:** Status, Issues, Open questions, Recommendations

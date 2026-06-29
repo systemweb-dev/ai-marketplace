@@ -43,8 +43,9 @@ profundidade:
 
 Toda pergunta/decisão ao usuário usa a tool `AskUserQuestion` (menu clicável) — nunca texto
 solto, e **nunca termine um turno com pergunta em texto**. Vale para: clarificações (uma por
-chamada), **escolha de abordagem** (passo 3), **aprovação de cada seção do design** (passo 4),
-**gate de revisão do spec** (passo 7) e a **oferta do resumo não-técnico** (passo 8). Para
+chamada), **nível de revisão** (passo 3), **escolha de abordagem** (passo 4), **aprovação de
+cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a **oferta do resumo
+não-técnico** (passo 9). Para
 respostas abertas, ofereça as opções prováveis e use o campo **"Other"**. Exceção: o usuário
 descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu aí.
 
@@ -55,13 +56,18 @@ Crie uma task para cada item e cumpra na ordem (no caminho completo):
 1. **Explorar o contexto** — arquivos, docs, commits recentes.
 2. **Perguntas de clarificação** — uma por vez, via `AskUserQuestion`; entender propósito,
    restrições e critério de sucesso.
-3. **Propor 2-3 abordagens** — com trade-offs e sua recomendação; a escolha é um `AskUserQuestion`.
-4. **Apresentar o design** — em seções escaladas à complexidade; aprovação de cada via `AskUserQuestion`.
-5. **Escrever o spec** — em `~/.claude/projects/<cwd-slug>/specs/YYYY-MM-DD-<topic>-design.md`. NÃO commitar.
-6. **Auto-review do spec** — placeholders, contradições, escopo, ambiguidade (corrigir inline).
-7. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
-8. **Oferecer resumo não-técnico** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
-9. **Transição** — invocar a `sw-writing-plans` (se disponível) pra criar o plano de implementação.
+3. **Perguntar o nível de revisão** — uma vez, via `AskUserQuestion`; governa a sessão (ver
+   seção "Revisor opcional"). Só no fluxo completo.
+4. **Propor 2-3 abordagens** — com trade-offs e sua recomendação; a escolha é um `AskUserQuestion`.
+5. **Apresentar o design** — em seções escaladas à complexidade; aprovação de cada via
+   `AskUserQuestion`. Se o nível pedir, **revisor no design completo** (e, no modo "cada
+   checkpoint", após cada gate).
+6. **Escrever o spec** — em `~/.claude/projects/<cwd-slug>/specs/YYYY-MM-DD-<topic>-design.md`. NÃO commitar.
+7. **Auto-review do spec** — placeholders, contradições, escopo, ambiguidade (corrigir inline).
+   Se o nível incluir spec, **revisor subagent do spec**.
+8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
+9. **Oferecer resumo não-técnico** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
+10. **Transição** — invocar a `sw-writing-plans` (se disponível) pra criar o plano de implementação.
 
 ## Fluxo
 
@@ -71,6 +77,9 @@ digraph brainstorming {
     "Trivial e especificado?" [shape=diamond];
     "Design curto + aprovar" [shape=box];
     "Perguntas (AskUserQuestion)" [shape=box];
+    "Nivel de revisao (1x)" [shape=box];
+    "Revisor: design (se nivel)" [shape=box];
+    "Revisor: spec (se nivel)" [shape=box];
     "Propor 2-3 abordagens" [shape=box];
     "Apresentar design (secoes)" [shape=box];
     "Aprovou o design?" [shape=diamond];
@@ -85,13 +94,16 @@ digraph brainstorming {
     "Trivial e especificado?" -> "Design curto + aprovar" [label="sim"];
     "Trivial e especificado?" -> "Perguntas (AskUserQuestion)" [label="nao"];
     "Design curto + aprovar" -> "Invocar sw-writing-plans";
-    "Perguntas (AskUserQuestion)" -> "Propor 2-3 abordagens";
+    "Perguntas (AskUserQuestion)" -> "Nivel de revisao (1x)";
+    "Nivel de revisao (1x)" -> "Propor 2-3 abordagens";
     "Propor 2-3 abordagens" -> "Apresentar design (secoes)";
     "Apresentar design (secoes)" -> "Aprovou o design?";
     "Aprovou o design?" -> "Apresentar design (secoes)" [label="nao, revisa"];
-    "Aprovou o design?" -> "Escrever spec" [label="sim"];
+    "Aprovou o design?" -> "Revisor: design (se nivel)" [label="sim"];
+    "Revisor: design (se nivel)" -> "Escrever spec";
     "Escrever spec" -> "Auto-review (corrige inline)";
-    "Auto-review (corrige inline)" -> "Aprovou o spec?";
+    "Auto-review (corrige inline)" -> "Revisor: spec (se nivel)";
+    "Revisor: spec (se nivel)" -> "Aprovou o spec?";
     "Aprovou o spec?" -> "Escrever spec" [label="mudancas"];
     "Aprovou o spec?" -> "Resumo nao-tecnico?" [label="aprovado"];
     "Resumo nao-tecnico?" -> "Gerar resumo nao-tecnico" [label="sim"];
@@ -102,6 +114,33 @@ digraph brainstorming {
 
 **Estado terminal: invocar a `sw-writing-plans`.** Não invoque nenhuma outra skill de
 implementação — só a `sw-writing-plans` vem depois do brainstorming.
+
+## Revisor opcional (escalonável)
+
+No **início do fluxo completo** (passo 3, logo após as clarificações), pergunte **uma vez** via
+`AskUserQuestion` o nível de revisão por subagent. A resposta **governa a sessão toda** — não
+re-pergunte a cada gate. Ofereça os quatro níveis:
+
+- **Sem revisor** *(padrão)* — só o auto-review de olhos frescos que você já faz no spec.
+- **Só no spec** — depois de escrever e auto-revisar o spec, despache um subagent revisor antes
+  do gate do usuário.
+- **Design + spec** *(recomendado)* — revisor no **design completo** (depois de aprovado, antes
+  de escrever o spec) e de novo no **spec**.
+- **Em cada checkpoint** — revisor após **cada gate** (abordagem escolhida, cada seção do design,
+  spec). Mais minucioso, porém mais lento e caro — **avise isso ao usuário** na própria opção.
+
+**Como despachar:** Task tool (`general-purpose`), com o template em
+`spec-document-reviewer-prompt.md` (variante **"design/checkpoint"** ou **"spec"**). Sempre passe
+ao revisor o **material acumulado até ali** — no modo "cada checkpoint", inclua o design inteiro
+até a seção atual, nunca só o trecho isolado (review sem contexto não vale a pena).
+
+**O revisor é consultivo — não substitui o gate do usuário, e nunca implementa nada.** Quando
+ele voltar:
+- **Sem problemas sérios** → siga; registre "revisor: ok" no resumo do checkpoint.
+- **Com problemas** → corrija o que fizer sentido (ou explique por que não vale), e **só então**
+  apresente o gate de aprovação ao usuário, listando o que o revisor apontou.
+
+Vale só no **fluxo completo**. No caminho trivial (design de 1-2 frases) não há revisor.
 
 ## O processo
 
@@ -159,8 +198,10 @@ implementação — só a `sw-writing-plans` vem depois do brainstorming.
 3. **Escopo:** cabe num único plano, ou precisa decompor?
 4. **Ambiguidade:** algum requisito tem duas leituras? escolha uma e deixe explícito.
 
-Corrija inline. Para specs grandes, opcionalmente despache um **subagent revisor** usando o
-template `spec-document-reviewer-prompt.md`.
+Corrija inline. Se o **nível de revisão** (passo 3) incluir o spec ("Só no spec", "Design +
+spec" ou "Em cada checkpoint"), despache o **subagent revisor** do spec usando a variante
+"spec" do template `spec-document-reviewer-prompt.md` antes do gate do usuário (ver "Revisor
+opcional"). Para specs grandes, vale despachar mesmo que o nível seja "Sem revisor".
 
 **Gate de revisão do usuário:** peça via `AskUserQuestion` (**Aprovar / Pedir mudanças**) que
 o usuário revise o spec escrito antes de prosseguir. Se pedir mudanças, ajuste e repita o

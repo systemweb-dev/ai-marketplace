@@ -8,6 +8,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-brainstorming` (v0.2.0): **revisor opcional escalonável** — no início do fluxo completo
+  pergunta uma vez o nível de revisão (Sem revisor / Só no spec / Design + spec / Em cada
+  checkpoint); um subagent revisor **consultivo** (não edita, não aprova) entra no design e/ou
+  no spec conforme o nível. Novo template "design/checkpoint" no reviewer-prompt.
 - `sw-frontend-mockup-preview` (v0.2.0): harness redesenhado — **variações em abas no topo**
   (uma tela por vez, sem empilhar) e **preview responsivo** (toggle 📱/💻/🖥/⛶) com
   responsividade real via `@container`; tema vira toggle ao vivo (canvas único). SKILL.md
