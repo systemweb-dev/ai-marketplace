@@ -10,7 +10,7 @@ description: >-
   codar". Dispare mesmo sem a palavra "brainstorm", sempre que a intenção for
   desenhar/decidir O QUE construir antes de mexer no código. NÃO use para: tarefas
   triviais e já especificadas (corrigir typo, renomear, bump de dependência, ajuste
-  óbvio pontual), nem depois que o design já foi aprovado (aí é a sw-writing-plans).
+  óbvio pontual), nem depois que o design já foi aprovado (aí é a sw-plan).
   Interação em português, via AskUserQuestion.
 ---
 
@@ -44,8 +44,7 @@ profundidade:
 Toda pergunta/decisão ao usuário usa a tool `AskUserQuestion` (menu clicável) — nunca texto
 solto, e **nunca termine um turno com pergunta em texto**. Vale para: clarificações (uma por
 chamada), **nível de revisão** (passo 3), **escolha de abordagem** (passo 4), **aprovação de
-cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a **oferta do resumo
-não-técnico** (passo 9). Para
+cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a **oferta do Briefing** (passo 9). Para
 respostas abertas, ofereça as opções prováveis e use o campo **"Other"**. Exceção: o usuário
 descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu aí.
 
@@ -62,12 +61,12 @@ Crie uma task para cada item e cumpra na ordem (no caminho completo):
 5. **Apresentar o design** — em seções escaladas à complexidade; aprovação de cada via
    `AskUserQuestion`. Se o nível pedir, **revisor no design completo** (e, no modo "cada
    checkpoint", após cada gate).
-6. **Escrever o spec** — em `~/.claude/projects/<cwd-slug>/specs/YYYY-MM-DD-<topic>-design.md`. NÃO commitar.
+6. **Escrever o spec** — em `docs/specs/YYYY-MM-DD-<topic>-design.md` **no projeto** (default). NÃO commitar.
 7. **Auto-review do spec** — placeholders, contradições, escopo, ambiguidade (corrigir inline).
    Se o nível incluir spec, **revisor subagent do spec**.
 8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
-9. **Oferecer resumo não-técnico** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
-10. **Transição** — invocar a `sw-writing-plans` (se disponível) pra criar o plano de implementação.
+9. **Oferecer Briefing** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
+10. **Transição** — invocar a `sw-plan` (se disponível) pra criar o plano de implementação.
 
 ## Fluxo
 
@@ -86,14 +85,14 @@ digraph brainstorming {
     "Escrever spec" [shape=box];
     "Auto-review (corrige inline)" [shape=box];
     "Aprovou o spec?" [shape=diamond];
-    "Resumo nao-tecnico?" [shape=diamond];
-    "Gerar resumo nao-tecnico" [shape=box];
-    "Invocar sw-writing-plans" [shape=doublecircle];
+    "Briefing?" [shape=diamond];
+    "Gerar Briefing" [shape=box];
+    "Invocar sw-plan" [shape=doublecircle];
 
     "Explorar contexto" -> "Trivial e especificado?";
     "Trivial e especificado?" -> "Design curto + aprovar" [label="sim"];
     "Trivial e especificado?" -> "Perguntas (AskUserQuestion)" [label="nao"];
-    "Design curto + aprovar" -> "Invocar sw-writing-plans";
+    "Design curto + aprovar" -> "Invocar sw-plan";
     "Perguntas (AskUserQuestion)" -> "Nivel de revisao (1x)";
     "Nivel de revisao (1x)" -> "Propor 2-3 abordagens";
     "Propor 2-3 abordagens" -> "Apresentar design (secoes)";
@@ -105,15 +104,15 @@ digraph brainstorming {
     "Auto-review (corrige inline)" -> "Revisor: spec (se nivel)";
     "Revisor: spec (se nivel)" -> "Aprovou o spec?";
     "Aprovou o spec?" -> "Escrever spec" [label="mudancas"];
-    "Aprovou o spec?" -> "Resumo nao-tecnico?" [label="aprovado"];
-    "Resumo nao-tecnico?" -> "Gerar resumo nao-tecnico" [label="sim"];
-    "Resumo nao-tecnico?" -> "Invocar sw-writing-plans" [label="nao"];
-    "Gerar resumo nao-tecnico" -> "Invocar sw-writing-plans";
+    "Aprovou o spec?" -> "Briefing?" [label="aprovado"];
+    "Briefing?" -> "Gerar Briefing" [label="sim"];
+    "Briefing?" -> "Invocar sw-plan" [label="nao"];
+    "Gerar Briefing" -> "Invocar sw-plan";
 }
 ```
 
-**Estado terminal: invocar a `sw-writing-plans`.** Não invoque nenhuma outra skill de
-implementação — só a `sw-writing-plans` vem depois do brainstorming.
+**Estado terminal: invocar a `sw-plan`.** Não invoque nenhuma outra skill de
+implementação — só a `sw-plan` vem depois do brainstorming.
 
 ## Revisor opcional (escalonável)
 
@@ -141,6 +140,29 @@ ele voltar:
   apresente o gate de aprovação ao usuário, listando o que o revisor apontou.
 
 Vale só no **fluxo completo**. No caminho trivial (design de 1-2 frases) não há revisor.
+
+## Feature visual? Sugira as skills de design (arsenal)
+
+**Você analisa** se o que está sendo desenhado tem peso **visual/UI** (uma tela, um componente,
+um fluxo de interface). Se tiver, o *look & feel* não é trabalho do brainstorming — sugira, via
+`AskUserQuestion`, encaminhar a **direção visual** para as skills de design **se instaladas**:
+
+- **`sw-design-studio`** — decide a direção visual (paleta, tipografia, motion, anti-genérico).
+- **`sw-frontend-component-kit`** — se a feature precisa da **base de componentes** (Button,
+  Input, Modal, Table…), gerar o kit seguindo os tokens do projeto.
+- **`sw-frontend-mockup-preview`** — ver um preview antes de aplicar.
+
+Ordem natural: **direção (`sw-design-studio`) → kit (`sw-frontend-component-kit`) → preview
+(`sw-frontend-mockup-preview`)**. Você escolhe quais sugerir conforme a feature pede — nem toda
+UI precisa das três.
+
+**Regra:** sempre que envolver design (direção OU kit), **ofereça também ver no preview**
+(`sw-frontend-mockup-preview`) via `AskUserQuestion` — **visualizar antes de aplicar é o
+padrão**, não um extra. Cada oferta é um menu (Sim/Não), nunca texto solto.
+
+Se não estiverem instaladas, recomende `/plugin install <skill>@ai-marketplace`; se o usuário
+não quiser, siga sem elas. É **sugestão**, não obrigação — e **não** levante isso pra feature
+sem UI (ex.: um job, uma API interna).
 
 ## O processo
 
@@ -186,10 +208,11 @@ Vale só no **fluxo completo**. No caminho trivial (design de 1-2 frases) não h
 
 **Documentação (spec):**
 
-- Escreva o spec validado em `~/.claude/projects/<cwd-slug>/specs/YYYY-MM-DD-<topic>-design.md`.
-  - **Slug dinâmico**: derive do diretório atual com `pwd | sed 's|/|-|g'`. Ex.: cwd
-    `/var/www/challenge` → slug `-var-www-challenge`. Nunca use nome fixo.
-  - `mkdir -p` se o diretório não existir. (Preferência do usuário sobre o local sobrescreve este default.)
+- Escreva o spec validado **no projeto**: `docs/specs/YYYY-MM-DD-<topic>-design.md` (default —
+  fica versionável junto do código). `mkdir -p docs/specs` se não existir.
+  - **Fallback:** se o cwd não for um projeto/repo (sem `.git`, sem manifesto tipo `package.json`/
+    `composer.json`), salve em `~/.claude/projects/<cwd-slug>/specs/` (slug = `pwd | sed 's|/|-|g'`).
+  - A **preferência do usuário** sobre o local sempre sobrescreve o default.
 - **Não commitar** automaticamente — deixe o arquivo pro usuário commitar quando quiser.
 
 **Auto-review do spec:** com olhos frescos —
@@ -207,13 +230,13 @@ opcional"). Para specs grandes, vale despachar mesmo que o nível seja "Sem revi
 o usuário revise o spec escrito antes de prosseguir. Se pedir mudanças, ajuste e repita o
 auto-review. Só siga com a aprovação.
 
-**Implementação:** invoque a `sw-writing-plans` (se disponível) pra criar o plano detalhado.
+**Implementação:** invoque a `sw-plan` (se disponível) pra criar o plano detalhado.
 É o próximo passo — não invoque outra skill.
 
-## Resumo não-técnico (para apresentar a pessoas de negócio)
+## Briefing (para apresentar a pessoas de negócio)
 
 Depois do spec aprovado, **ofereça via `AskUserQuestion`** (Sim / Não):
-*"Quer que eu gere um resumo não-técnico desse desenvolvimento, pra apresentar a pessoas
+*"Quer que eu gere um Briefing desse desenvolvimento, pra apresentar a pessoas
 não-técnicas (cliente, gestor, stakeholder)?"*
 
 Se **sim**, conduza as escolhas — **todas via `AskUserQuestion`** — nesta ordem:
@@ -229,7 +252,7 @@ selecionáveis (multiSelect), sugerindo os mais relevantes ao spec:
 - **Custo / prazo simplificado** (esforço em alto nível: pequeno/médio/grande ou faixa)
 
 **b) Formato** (multiSelect — pode mais de um):
-- **Markdown** — `...-resumo.md` ao lado do spec.
+- **Markdown** — `...-briefing.md` ao lado do spec.
 - **One-pager HTML** — página única estilizada (bonita, pra mostrar/enviar/imprimir).
 - **Slides** — markdown de slides (Marp) pra reunião.
 - **PDF** — gerado a partir do HTML (headless Chromium / print-to-PDF). Se não houver browser
@@ -244,9 +267,9 @@ posicione no topo; grave a referência certinho. Se **não**, siga sem logo.
 - **Zero jargão** (nada de "endpoint", "schema", "deploy", "API"); analogia quando ajudar.
 - **Curto** — cabe numa página; escaneável.
 - Foco em **valor**, não em implementação. O **spec técnico continua a fonte da verdade** —
-  o resumo é complemento.
+  o Briefing é complemento.
 - Salve tudo ao lado do spec, mesmo nome-base por formato:
-  `~/.claude/projects/<cwd-slug>/specs/YYYY-MM-DD-<topic>-resumo.{md,html,pdf}`.
+  ao lado do spec — `docs/specs/YYYY-MM-DD-<topic>-briefing.{md,html,pdf}`.
 
 ## Princípios
 
