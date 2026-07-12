@@ -175,6 +175,12 @@ Para cada componente:
    - Componentes pulados (já existiam)
    - URL/rota da página de demo e como rodar o projeto para vê-la
    - Sugestões de próximo passo (combos não selecionados que façam sentido)
+3. **Ver os componentes — ofereça via `AskUserQuestion`** (visualizar é o padrão, não um extra):
+   - **Rodar a demo do projeto** — suba o app e abra a rota `/dev/components` gerada acima.
+   - **Preview isolado** — abrir os componentes num preview com live-reload via
+     **`sw-frontend-mockup-preview`** (bom pra ver isolado, comparar fontes/temas antes de usar no
+     app). Se não estiver instalada, recomende `/plugin install sw-frontend-mockup-preview@ai-marketplace`;
+     se o usuário não quiser, siga sem.
 
 ## Exemplos
 
