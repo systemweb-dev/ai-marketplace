@@ -1,5 +1,5 @@
 ---
-name: sw-writing-plans
+name: sw-plan
 description: >-
   Transforma um spec/requisitos em um plano de implementação detalhado (estrutura de
   arquivos + tasks bite-sized com código e comandos exatos, qualidade de teste, sem
@@ -12,7 +12,7 @@ description: >-
   AskUserQuestion.
 ---
 
-# Writing Plans
+# Plan — do spec ao build
 
 ## Overview
 
@@ -20,14 +20,29 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
-**Anuncie no início:** "Estou usando a skill sw-writing-plans para criar o plano de implementação."
+**Anuncie no início:** "Estou usando a skill sw-plan para criar o plano de implementação."
+
+## Stack-agnostic
+
+Funciona em **qualquer linguagem/framework**. Os exemplos deste guia usam Python/`pytest`
+apenas como **ilustração** — **detecte a stack real do projeto** e use o equivalente:
+
+- **Runner/comando de teste:** `pytest -q` é exemplo → use o real (`jest`, `vitest`,
+  `go test ./...`, `phpunit`, `cargo test`, `dotnet test`, `rspec`, `mvn test`…).
+- **Paths/extensões:** `.py` / `tests/…` → o layout do projeto (`.ts`, `.go`, `.php`;
+  `__tests__/`, `*_test.go`, `tests/`).
+- **Idioma/convenções nos steps** = os da base de código (nomenclatura, lint/format do projeto).
+
+Detecte pelos manifestos (`package.json`, `composer.json`, `go.mod`, `Cargo.toml`, `pom.xml`,
+`pyproject.toml`, `Gemfile`, `*.csproj`) e pelos scripts de teste já configurados. Na dúvida
+sobre o comando de teste, confirme via `AskUserQuestion`.
 
 **Regra:** toda decisão ao usuário é via `AskUserQuestion` (menu clicável) — nunca pergunta em texto solto.
 
 **Branch/worktree (se for git):** no início, se o diretório for um repositório git, **ofereça via `AskUserQuestion`** criar um branch ou worktree dedicado pra este trabalho — ex.: **branch `feat/<tópico>` / worktree dedicado / continuar no branch atual**. Não crie nada sem a escolha do usuário.
 
-**Save plans to:** `~/.claude/projects/<cwd-slug>/plans/YYYY-MM-DD-<feature-name>.md`
-- **Slug dinamico**: derivar do diretorio de trabalho atual rodando `pwd | sed 's|/|-|g'`. Ex: cwd `/var/www/challenge` → slug `-var-www-challenge` → path `~/.claude/projects/-var-www-challenge/plans/...`. NUNCA usar nome fixo de projeto.
+**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md` **no projeto** (default, versionavel junto do codigo). `mkdir -p docs/plans` se nao existir.
+- **Fallback:** se o cwd nao for um projeto/repo (sem `.git`/manifesto), salve em `~/.claude/projects/<cwd-slug>/plans/` (slug = `pwd | sed 's|/|-|g'`).
 - Criar o diretorio se nao existir (`mkdir -p`).
 - **NAO commitar automaticamente** o plano no git. Deixar o arquivo para o usuario commitar manualmente.
 - (User preferences for plan location override this default)
@@ -76,7 +91,7 @@ This structure informs the task decomposition. Each task should produce self-con
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **Execucao:** Implementar este plano task-by-task. Steps usam checkbox (`- [ ]`) para tracking. Ver secao "Execution Handoff" da skill `sw-writing-plans` para os 2 modos de execucao disponiveis.
+> **Execucao:** Implementar este plano task-by-task. Steps usam checkbox (`- [ ]`) para tracking. Ver secao "Execution Handoff" da skill `sw-plan` para os 2 modos de execucao disponiveis.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -194,6 +209,27 @@ Apos salvar o plano, via `AskUserQuestion`, perguntar qual modo de execucao o us
 > - **Subagent-Driven**: cada task roda num subagent novo (contexto limpo). Revisao entre tasks.
 > - **Inline**: execucao na mesma sessao, em batches com checkpoints."
 
+### Revisor de execução (juiz — escalonável)
+
+Junto com o modo, **pergunte via `AskUserQuestion`** o nível de revisão durante a execução (uma
+vez, governa a sessão):
+
+- **Sem revisor extra** *(padrão)* — só o Stage-1 self-review + o gate humano que já existem.
+- **Juiz por task/batch** *(recomendado p/ código sensível)* — após cada task (Modo Subagent) ou
+  batch (Inline), despache um **revisor subagent independente** (`Agent`, `general-purpose`)
+  **antes** do gate humano.
+- **Juiz no fim** — um revisor do resultado completo ao terminar tudo, antes do resumo final.
+
+**O que o juiz checa** (é **consultivo** — não edita, não aprova no lugar do usuário; passe a ele
+o material implementado + a task/plano relevante):
+- O código implementa **exatamente** a task/batch do plano (sem scope creep, sem refactor fora)?
+- Os testes rodam **verdes** e são de **qualidade** (AAA, sem teste falso/tautológico)?
+- Algum bug óbvio, regressão, ou ponta solta (referência órfã)?
+
+Ele retorna **ok** ou **problemas + recomendações**. Com problemas: corrija o que fizer sentido
+(ou explique por que não) e **só então** apresente o gate humano, listando o que o juiz apontou.
+Se a **`sw-code-review`** estiver instalada, ofereça-a (via menu) pra um pass mais profundo.
+
 ### Modo 1 — Subagent-Driven
 
 **Como orquestrar (instrucoes embutidas, sem depender de sub-skill):**
@@ -208,6 +244,7 @@ Apos salvar o plano, via `AskUserQuestion`, perguntar qual modo de execucao o us
      - Todos os steps marcados foram realmente executados?
      - Testes rodam verdes?
      - Codigo bate com o que o plano especificou?
+   - **[se nível = juiz por task/batch] Revisor-juiz**: despache o subagent revisor (ver "Revisor de execução") sobre esta task **antes** do Stage 2, e leve o que ele apontou pro gate humano.
    - **Stage 2 review (humano)**: apresentar ao usuario via `AskUserQuestion`: "Task N concluida. Aprovar e seguir? (sim / revisar / parar)".
    - Se aprovado, marcar checkbox no arquivo do plano (`- [x]`) e seguir para proxima task.
 3. Ao final de todas as tasks, reportar resumo consolidado.
@@ -224,6 +261,7 @@ Apos salvar o plano, via `AskUserQuestion`, perguntar qual modo de execucao o us
    - Executar todos os steps das tasks do batch diretamente (Read/Edit/Write/Bash).
    - Marcar checkboxes (`- [x]`) no arquivo do plano conforme conclui.
    - Ao final do batch, rodar a suite de testes relevante.
+   - **[se nível = juiz por task/batch] Revisor-juiz**: despache o subagent revisor sobre o batch **antes** do checkpoint, e leve o que ele apontou pro gate humano.
    - **Checkpoint**: parar e perguntar ao usuario via `AskUserQuestion`: "Batch N concluido (tasks X-Y). Aprovar e seguir pro proximo batch? (sim / revisar / parar)".
 4. Apos aprovacao, seguir pro proximo batch ate finalizar.
 
