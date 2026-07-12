@@ -1,5 +1,5 @@
 # Claude Code (estado local de sessão — não versionar)
-.claude/settings.local.json
+.claude/settings.local.json*
 
 # Diretórios de trabalho / eval das skills (nunca entram no repositório)
 *-workspace/

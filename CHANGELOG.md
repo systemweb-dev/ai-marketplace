@@ -8,6 +8,18 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- **Rename:** `sw-writing-plans` → **`sw-plan`** (pipeline mais claro: brainstorming → plan → build).
+  ⚠️ muda o comando de install (`/plugin install sw-plan@ai-marketplace`). Também: o plano salva
+  em `docs/plans/` do projeto (versionável, fallback `~/.claude`); **revisor-juiz de execução
+  escalonável** (Sem / por task-batch / no fim), consultivo, integrado nos dois modos; e nota
+  **Stack-agnostic** (detecta linguagem/runner de teste reais; Python/pytest é só ilustração).
+- `sw-brainstorming` (v0.3.0): o "resumo não-técnico" vira **"Briefing"**; o spec passa a salvar
+  em **`docs/specs/`** do projeto (default, versionável) com fallback; nova seção **"Feature
+  visual? Sugira as skills de design"** (arsenal: a skill analisa se é UI e sugere
+  `sw-design-studio`/`sw-frontend-mockup-preview` via menu). Refs à `sw-plan` atualizadas.
+- `sw-frontend-component-kit` (v0.2.0): na Fase 5, além da página de demo, **oferece via
+  `AskUserQuestion` ver os componentes** — rodar a demo (`/dev/components`) ou um **preview
+  isolado** via `sw-frontend-mockup-preview` (visualizar é o padrão).
 - `sw-brainstorming` (v0.2.0): **revisor opcional escalonável** — no início do fluxo completo
   pergunta uma vez o nível de revisão (Sem revisor / Só no spec / Design + spec / Em cada
   checkpoint); um subagent revisor **consultivo** (não edita, não aprova) entra no design e/ou
