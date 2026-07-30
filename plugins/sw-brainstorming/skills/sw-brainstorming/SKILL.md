@@ -42,9 +42,11 @@ profundidade:
 ## Regra: toda decisão é via AskUserQuestion
 
 Toda pergunta/decisão ao usuário usa a tool `AskUserQuestion` (menu clicável) — nunca texto
-solto, e **nunca termine um turno com pergunta em texto**. Vale para: clarificações (uma por
-chamada), **nível de revisão** (passo 3), **escolha de abordagem** (passo 4), **aprovação de
-cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a **oferta do Briefing** (passo 9). Para
+solto, e **nunca termine um turno com pergunta em texto**. Vale para: **profundidade** (passo 2,
+Direto/Explorar a fundo), clarificações (uma por chamada), **as lentes de exploração** (uma por
+chamada, quando ativo), **nível de revisão** (passo 3), **escolha de abordagem** (passo 4),
+**aprovação de cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a
+**oferta do Briefing** (passo 9). Para
 respostas abertas, ofereça as opções prováveis e use o campo **"Other"**. Exceção: o usuário
 descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu aí.
 
@@ -53,8 +55,10 @@ descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu a�
 Crie uma task para cada item e cumpra na ordem (no caminho completo):
 
 1. **Explorar o contexto** — arquivos, docs, commits recentes.
-2. **Perguntas de clarificação** — uma por vez, via `AskUserQuestion`; entender propósito,
-   restrições e critério de sucesso.
+2. **Profundidade + perguntas** — logo após o contexto, pergunte via `AskUserQuestion`:
+   **Direto** (segue direto pras clarificações) ou **Explorar a fundo** (roda o loop de lentes
+   divergentes — ver "Modo exploração"). Nos dois casos, as perguntas são **uma por vez** e
+   miram propósito, restrições e critério de sucesso.
 3. **Perguntar o nível de revisão** — uma vez, via `AskUserQuestion`; governa a sessão (ver
    seção "Revisor opcional"). Só no fluxo completo.
 4. **Propor 2-3 abordagens** — com trade-offs e sua recomendação; a escolha é um `AskUserQuestion`.
@@ -75,6 +79,9 @@ digraph brainstorming {
     "Explorar contexto" [shape=box];
     "Trivial e especificado?" [shape=diamond];
     "Design curto + aprovar" [shape=box];
+    "Profundidade?" [shape=diamond];
+    "Explorar a fundo (lentes)" [shape=box];
+    "Sintese: Exploracao & decisoes" [shape=box];
     "Perguntas (AskUserQuestion)" [shape=box];
     "Nivel de revisao (1x)" [shape=box];
     "Revisor: design (se nivel)" [shape=box];
@@ -91,8 +98,12 @@ digraph brainstorming {
 
     "Explorar contexto" -> "Trivial e especificado?";
     "Trivial e especificado?" -> "Design curto + aprovar" [label="sim"];
-    "Trivial e especificado?" -> "Perguntas (AskUserQuestion)" [label="nao"];
+    "Trivial e especificado?" -> "Profundidade?" [label="nao"];
     "Design curto + aprovar" -> "Invocar sw-plan";
+    "Profundidade?" -> "Perguntas (AskUserQuestion)" [label="direto"];
+    "Profundidade?" -> "Explorar a fundo (lentes)" [label="explorar"];
+    "Explorar a fundo (lentes)" -> "Sintese: Exploracao & decisoes";
+    "Sintese: Exploracao & decisoes" -> "Perguntas (AskUserQuestion)";
     "Perguntas (AskUserQuestion)" -> "Nivel de revisao (1x)";
     "Nivel de revisao (1x)" -> "Propor 2-3 abordagens";
     "Propor 2-3 abordagens" -> "Apresentar design (secoes)";
@@ -113,6 +124,31 @@ digraph brainstorming {
 
 **Estado terminal: invocar a `sw-plan`.** Não invoque nenhuma outra skill de
 implementação — só a `sw-plan` vem depois do brainstorming.
+
+## Modo exploração ("Explorar a fundo")
+
+Escolhido no **passo 2**, logo após o contexto, via `AskUserQuestion` (**Direto** / **Explorar
+a fundo**). Só no fluxo completo — no caminho trivial não aparece. **"Direto" é o padrão e não
+muda nada**; **"Explorar a fundo"** roda um **loop divergente** antes de convergir pro design —
+pra quando a ideia ainda está crua e vale abrir o espaço de possibilidades.
+
+**Como funciona:** a skill conduz **2-3 lentes** de ideação (técnicas nomeadas — JTBD, divergir,
+desafiar suposições, flip de restrições, referências, riscos), escolhendo as que a ideia pede.
+Cada lente é um mini-bloco de perguntas **uma por vez** (`AskUserQuestion`, sempre com **"Other"**
+e **"Pular esta lente"**). A cada ~2 lentes, oferece **convergir** ("Explorar mais uma lente" vs
+"Já dá — sintetiza") — o loop **nunca é infinito nem obrigatório** até o fim.
+
+Ao convergir, produz o bloco **"Exploração & decisões"** (problema enquadrado · ângulos
+levantados · suposições confirmadas/derrubadas · direção escolhida), que:
+- **alimenta as 2-3 abordagens** (passo 4), agora bem fundamentadas;
+- vira a seção **`## Exploração & decisões`** do spec;
+- entra também no **Briefing** (em linguagem de negócio), se o usuário pedir.
+
+**O catálogo completo das lentes** (exemplos de pergunta + quando usar cada) está em
+[`references/exploration-lenses.md`](references/exploration-lenses.md) — **leia antes de rodar o loop**.
+
+**Guarda-corpos:** escolha poucas lentes (não as seis); **não repita** o que já foi respondido; a
+saída "converge agora" está sempre disponível; sem arquivo novo (a síntese mora no spec).
 
 ## Revisor opcional (escalonável)
 
@@ -213,6 +249,9 @@ sem UI (ex.: um job, uma API interna).
   - **Fallback:** se o cwd não for um projeto/repo (sem `.git`, sem manifesto tipo `package.json`/
     `composer.json`), salve em `~/.claude/projects/<cwd-slug>/specs/` (slug = `pwd | sed 's|/|-|g'`).
   - A **preferência do usuário** sobre o local sempre sobrescreve o default.
+- Se o **modo exploração** ("Explorar a fundo") rodou, inclua a seção **`## Exploração &
+  decisões`** no spec (problema enquadrado, alternativas consideradas, direção escolhida e o
+  porquê) — é o registro do raciocínio por trás do design.
 - **Não commitar** automaticamente — deixe o arquivo pro usuário commitar quando quiser.
 
 **Auto-review do spec:** com olhos frescos —
@@ -250,6 +289,8 @@ selecionáveis (multiSelect), sugerindo os mais relevantes ao spec:
 - **Público-alvo / persona**
 - **Fora de escopo** (o que NÃO entra agora — alinha expectativa)
 - **Custo / prazo simplificado** (esforço em alto nível: pequeno/médio/grande ou faixa)
+- **Por que foi assim** (decisões da exploração: alternativas consideradas + motivo da escolha,
+  em linguagem de negócio) — sugira este campo **quando o modo exploração rodou**
 
 **b) Formato** (multiSelect — pode mais de um):
 - **Markdown** — `...-briefing.md` ao lado do spec.

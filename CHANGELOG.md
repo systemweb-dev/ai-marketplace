@@ -8,6 +8,12 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-brainstorming` (v0.4.0): **modo exploração ("Explorar a fundo")** — no passo 2, um loop
+  divergente **opcional** de ideação por **lentes** (JTBD, divergir, desafiar suposições, flip de
+  restrições, referências, riscos & bordas); a skill escolhe 2-3 conforme a ideia, pergunta uma a
+  uma (com "Pular"/"Other") e oferece **convergir** a cada ~2 lentes (sem loop infinito). A síntese
+  **"Exploração & decisões"** alimenta as abordagens, vira seção do spec e entra no Briefing.
+  Catálogo em `references/exploration-lenses.md`. "Direto" continua o padrão (retrocompatível).
 - **Rename:** `sw-writing-plans` → **`sw-plan`** (pipeline mais claro: brainstorming → plan → build).
   ⚠️ muda o comando de install (`/plugin install sw-plan@ai-marketplace`). Também: o plano salva
   em `docs/plans/` do projeto (versionável, fallback `~/.claude`); **revisor-juiz de execução
