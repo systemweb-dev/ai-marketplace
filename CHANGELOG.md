@@ -8,6 +8,21 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- **Trio de design — quick wins + consolidação de tokens** (`sw-design-studio`,
+  `sw-frontend-component-kit`, `sw-frontend-mockup-preview`):
+  - **Tokens (fonte única):** `token-extraction.md` da mockup-preview vira o guia **canônico**
+    (corrigido: usava seletores mortos `.panel--light/dark` → agora `[data-theme]`); studio e
+    component-kit apontam pra ele em vez de duplicar a lógica.
+  - **component-kit:** removida a contradição "autossuficiente, não invoque outras skills" (é um
+    trio); nota **Stack-agnostic** (idioma por stack: Vue/React/Svelte/Angular/vanilla); consome a
+    **Direção da design-studio/`DESIGN.md`** e pula a exploração via Button; corrigida a promessa
+    do preview (a mockup-preview não ingere componentes reais → ver o kit é pela demo do projeto);
+    `evals.json` com `skill_name` corrigido (pré-`sw-`) + **fixtures criadas** (eram inexistentes).
+  - **design-studio:** Step 2 deixa de abrir menu de referência em **Autopilot** (contradição) e a
+    referência entra junto de "tom & ousadia"; fallback de preview reaproveita o harness da irmã.
+  - **mockup-preview:** ganha **consciência do arsenal** (oferece design-studio antes / component-kit
+    depois); `serve.py` agora escuta em **`127.0.0.1`** por padrão (0.0.0.0 vira opt-in); notas sobre
+    `?font` fora do mapa, `overflow` do frame no 5b e animação de entrada × troca de aba.
 - `sw-brainstorming` (v0.4.0): **modo exploração ("Explorar a fundo")** — no passo 2, um loop
   divergente **opcional** de ideação por **lentes** (JTBD, divergir, desafiar suposições, flip de
   restrições, referências, riscos & bordas); a skill escolhe 2-3 conforme a ideia, pergunta uma a

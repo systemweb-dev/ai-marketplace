@@ -65,6 +65,20 @@ dirigindo, não você perguntando; não force menu aí.
 Não pergunte o que dá pra inferir com segurança do contexto/código (aí só siga e mencione a
 suposição). O alvo é: zero retrabalho por palpite errado, e zero pergunta em texto solto.
 
+## As skills irmãs (arsenal)
+
+Esta skill faz parte do **trio de design**. Ofereça as irmãs (via `AskUserQuestion`) nos dois
+momentos naturais — se instaladas; senão, recomende `/plugin install <skill>@ai-marketplace`:
+
+- **Antes (direção indefinida) → `sw-design-studio`.** No passo 1/3, se a **direção visual ainda
+  está crua** (o usuário não sabe a "vibe", paleta ou personalidade), ofereça decidir a direção
+  primeiro na `sw-design-studio` — evita gerar variações no escuro. Se ela já entregou uma Direção
+  com paleta/tokens **novos**, use esses tokens no mockup (marcados como novos), em vez de só
+  extrair os existentes.
+- **Depois (aprovou) → `sw-frontend-component-kit`.** No passo 7/9, quando o usuário aprova uma
+  variação, ofereça *"quer gerar o resto do kit de componentes nesse estilo?"* — a component-kit
+  materializa o padrão como código de produção no projeto.
+
 ## Workflow
 
 ### 1. Escopo
@@ -130,7 +144,9 @@ Copie `assets/harness.html` para o diretório de trabalho (passo 5) e preencha:
   usuário troca a fonte do canvas pra ver o mockup com outra tipografia (carrega o Google
   Font sob demanda; "Projeto" volta à fonte real dos tokens). Útil pra A/B de fonte sem mexer
   no código. Não precisa configurar nada — já funciona. Se quiser oferecer fontes específicas,
-  é só citar no chat; pra screenshot de uma fonte, use `?font=<nome>` (ver passo 5b).
+  é só citar no chat; pra screenshot de uma fonte, use `?font=<nome>` (ver passo 5b). O `?font=`
+  vale pras fontes do dropdown do harness — um nome fora do mapa é ignorado (cai na fonte do
+  projeto); pra comparar uma fonte nova, adicione-a ao mapa `FONTS` do harness antes.
 
 **Responsivo de verdade (novo).** O canvas (`.hz-frame`) é um *container* CSS.
 Escreva os breakpoints com `@container (max-width: 480px) { … }` (não `@media`) —
@@ -218,6 +234,11 @@ Toda animação no mockup deve vir embrulhada num guard de acessibilidade:
 Prefira movimento sutil e com propósito (entrada em cascata, transição de estado,
 indicador "ao vivo") a animação chamativa contínua.
 
+> **Animação de entrada × abas:** todas as variações moram no DOM e as abas alternam com
+> `is-active`. Uma animação de **entrada** roda no primeiro render e pode **não repetir** ao
+> trocar de aba — se o usuário quer rever a entrada, recarregue com `?v=<n>` (ou avise que a
+> entrada é one-shot). Não confie na troca de aba pra "re-tocar" a animação.
+
 ### 5. Servir com live-reload
 
 Trabalhe num diretório temporário **fora do repo** para nunca commitar mockups:
@@ -276,7 +297,9 @@ Depois de capturar:
 
 3. **Olhe os screenshots** e cace o óbvio: conteúdo estourando/cortado, render vazio,
    ícone que não apareceu, grid que não colapsou no mobile (`@container`), contraste
-   ruim, sobreposição.
+   ruim, sobreposição. *(O `.hz-frame` tem `overflow:hidden` pros cantos arredondados —
+   conteúdo que vaza aparece **cortado na borda do frame**; é justamente esse corte que você
+   quer flagrar. Se suspeitar de estouro escondido, confira o conteúdo sem o clip.)*
 4. **Conserte no `index.html`** o que estiver claramente quebrado (o live-reload aplica)
    e recapture só a tela afetada pra confirmar.
 5. **Feche o browser** (`browser_close`) — a conferência acabou; não deixe sessão aberta.

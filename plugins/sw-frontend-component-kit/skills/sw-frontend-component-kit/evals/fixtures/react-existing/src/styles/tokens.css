@@ -1,0 +1,29 @@
+/* Design tokens do projeto (fonte da verdade de cores/espaçamento/raio). */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f8fafc;
+  --color-text: #0f172a;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #2563eb;
+  --color-primary-contrast: #ffffff;
+  --color-danger: #dc2626;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="dark"] {
+  --color-bg: #0b1220;
+  --color-surface: #131c2e;
+  --color-text: #e8eef9;
+  --color-muted: #94a3b8;
+  --color-border: #24314b;
+  --color-primary: #60a5fa;
+  --color-primary-contrast: #0b1220;
+}

@@ -4,6 +4,11 @@ Guia de referência para o passo 2 do workflow. O objetivo é montar um bloco de
 CSS variables (light + dark) para injetar no harness, traduzindo o que o projeto
 usar para esse formato comum. Leia só a seção do stack detectado.
 
+> **Guia canônico de detecção de tokens do trio de design.** As skills irmãs
+> (`sw-design-studio`, `sw-frontend-component-kit`) apontam pra cá pra não duplicar a
+> lógica — a detecção por stack (CSS vars / Tailwind / SCSS / fonte) vive aqui. Se você
+> está numa delas e esta skill não estiver instalada, use o resumo inline que elas trazem.
+
 ## Como detectar o stack
 
 Verifique marcadores na raiz e em `src/`:
@@ -22,17 +27,18 @@ Procure o CSS global: `src/style.css`, `src/assets/*.css`, `app.css`,
 (`[data-theme="dark"]`, `.dark`, `@media (prefers-color-scheme: dark)`).
 
 Pegue: backgrounds, textos, bordas, acentos, `--spacing-*`, `--radius-*`,
-`--font-*`, sombras. Copie os valores **literalmente** para o harness — light no
-`.panel--light`, dark no `.panel--dark`.
+`--font-*`, sombras. Copie os valores **literalmente** para o harness — o harness é
+**canvas único** com toggle de tema, então light vai em `:root` e dark no override
+`[data-theme="dark"]` (não há mais painéis `.panel--light/dark` separados).
 
 ```
-/* projeto */                    →   /* harness .panel--light */
-:root {                              .panel--light {
+/* projeto */                    →   /* harness (canvas único) */
+:root {                              :root {
   --bg-card: #ffffff;                  --bg-card: #ffffff;
   --text-primary: #0f172a;             --text-primary: #0f172a;
   --accent-primary: #3b82f6;           --accent-primary: #3b82f6;
 }                                    }
-[data-theme="dark"] {                .panel--dark {
+[data-theme="dark"] {                [data-theme="dark"] {
   --bg-card: #1e293b;                  --bg-card: #1e293b;
   --text-primary: #f8fafc;             --text-primary: #f8fafc;
 }                                    }
@@ -73,14 +79,14 @@ Procure `_variables.scss`, `_tokens.scss`, `_colors.scss`. Variáveis SCSS
 CSS vars com o valor literal.
 
 ```
-// _variables.scss          →   harness .panel--light
+// _variables.scss          →   harness :root
 $bg-card: #ffffff;              --bg-card: #ffffff;
 $text-primary: #0f172a;         --text-primary: #0f172a;
 $radius-lg: 12px;               --radius-lg: 12px;
 ```
 
 Para temas em SCSS (mixins/mapas de tema), localize os dois conjuntos de valores
-(claro/escuro) e distribua entre `.panel--light` e `.panel--dark`.
+(claro/escuro) e distribua entre `:root` (claro) e `[data-theme="dark"]` (escuro).
 
 ## Fonte
 

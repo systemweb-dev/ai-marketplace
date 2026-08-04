@@ -1,0 +1,3 @@
+/* reset mínimo do scaffold — sem design system / tokens ainda (bootstrap esperado) */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; }

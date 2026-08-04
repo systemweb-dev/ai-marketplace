@@ -115,8 +115,9 @@ não reinvente do zero:
 
 - Detecte tokens/tema: **CSS vars** (`:root`, `[data-theme="dark"]`), **Tailwind**
   (`tailwind.config` → `theme.extend`), **SCSS** (`_variables`/`_tokens`), e a(s) **fonte(s)
-  reais** (link do Google Fonts no HTML, `font-family` no CSS). *(A `sw-frontend-mockup-preview`
-  tem um guia de extração por stack — reuse a mesma lógica.)*
+  reais** (link do Google Fonts no HTML, `font-family` no CSS). *(Guia canônico de detecção por
+  stack — a mesma lógica do trio — em `sw-frontend-mockup-preview/references/token-extraction.md`,
+  se instalada; o resumo acima basta sem ela.)*
 - Use cor / espaçamento / raio / fonte existentes como **base herdada**. A Direção **respeita o
   sistema** e só propõe token **novo** onde há lacuna ou onde o refino exige — e **marca
   claramente o que é novo** vs herdado.
@@ -130,8 +131,10 @@ não reinvente do zero:
 Antes de escolher estética, **fixe a âncora**: qual é o assunto/produto, o público e o trabalho
 que a tela tem que fazer. As escolhas distintas vêm do **mundo do assunto** (materiais,
 vocabulário, artefatos) — não de templates. Se o usuário tem uma **referência** (marca, site,
-imagem, "queria algo tipo X"), peça e use como norte. Pergunte via `AskUserQuestion` (com
-"Other" pra referência livre). Se nada for dado, proponha uma âncora e diga qual escolheu.
+imagem, "queria algo tipo X"), use-a como norte. **A pergunta da referência entra junto com
+"tom & ousadia" na primeira chamada dos eixos (Step 3)** — não abra um menu separado só pra ela.
+Em **Autopilot**, infira a âncora/referência e **declare como suposição** (sem menu). Se nada for
+dado, proponha uma âncora e diga qual escolheu.
 
 ### 3. Conduzir os eixos (o coração)
 
@@ -189,7 +192,9 @@ Apresente a direção e ofereça, por menu, como seguir:
 
 - **Ver antes** — quer ver num preview? → se `sw-frontend-mockup-preview` disponível, use-a com
   os tokens da direção; se não, recomende instalar (`/plugin install
-  sw-frontend-mockup-preview@ai-marketplace`) ou monte um mockup HTML simples inline.
+  sw-frontend-mockup-preview@ai-marketplace`). Só como último recurso monte um mockup inline —
+  e mesmo aí **reaproveite o harness dela** (`sw-frontend-mockup-preview/assets/harness.html`:
+  canvas único com toggle de tema/viewport/fonte) em vez de improvisar HTML do zero.
 - **Aplicar no código** — aplicar a direção no componente/tela/sistema (tokens no arquivo de
   tema primeiro; componentes referenciam o token, nunca valor hardcoded). Para gerar/atualizar
   vários componentes, ofereça a `sw-frontend-component-kit`.

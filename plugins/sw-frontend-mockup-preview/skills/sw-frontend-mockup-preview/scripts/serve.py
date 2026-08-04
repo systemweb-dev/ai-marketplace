@@ -10,7 +10,7 @@ mockup HTML in response to user feedback, and the user's browser refreshes on
 its own. The user never has to reload.
 
 Usage:
-    python3 serve.py <directory> [--port 8765] [--host 0.0.0.0]
+    python3 serve.py <directory> [--port 8765] [--host 127.0.0.1]   # --host 0.0.0.0 p/ acesso na rede
 """
 import argparse
 import http.server
@@ -135,7 +135,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("directory")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--host", default="0.0.0.0")
+    # Local por padrão (não expõe o preview na rede). Use --host 0.0.0.0 só se precisar
+    # abrir de outra máquina/celular na mesma rede.
+    ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
 
     root = Path(args.directory).resolve()

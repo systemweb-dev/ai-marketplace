@@ -24,10 +24,12 @@ description: >-
 # Frontend Component Kit
 
 Gerar a base de componentes reutilizáveis de um projeto frontend — código real,
-no repositório, seguindo o design system e as convenções do projeto. Esta skill
-é **autossuficiente**: não depende de nenhuma outra skill. Tudo que ela produz
-(componentes, tokens, página de demo) é código de produção dentro do projeto —
-nada de artefatos descartáveis em `/tmp`.
+no repositório, seguindo o design system e as convenções do projeto. Ela **roda
+sozinha** (não exige nenhuma outra skill), mas faz parte do **trio de design** —
+`sw-design-studio` decide a direção visual · `sw-frontend-mockup-preview` visualiza —
+e se integra a ele quando as irmãs estão disponíveis. Tudo que ela produz (componentes,
+tokens, página de demo) é **código de produção dentro do projeto** — nada de artefatos
+descartáveis em `/tmp`.
 
 ## Regra: TODA pergunta é via AskUserQuestion
 
@@ -56,7 +58,9 @@ Antes de gerar qualquer componente, mapeie:
    (`:root { --* }`), SCSS (`*.scss`), CSS Modules, styled-components.
 3. **Design tokens existentes**: procure `tailwind.config.*` com theme
    customizado, arquivos `tokens.*`, `variables.*`, `theme.*`, `:root` com
-   custom properties, `DESIGN.md`.
+   custom properties, `DESIGN.md`. *(Guia de detecção por stack — a mesma lógica
+   das skills irmãs — em `sw-frontend-mockup-preview/references/token-extraction.md`,
+   se instalada; o resumo acima basta se não estiver.)*
 4. **Convenções**: se já existem componentes, leia 2–3 deles e extraia o
    padrão — naming (PascalCase? prefixo tipo `App*`/`Base*`?), estrutura de
    diretórios (`src/components/ui/`?), como definem props, como exportam
@@ -64,6 +68,12 @@ Antes de gerar qualquer componente, mapeie:
    **Componentes novos devem parecer escritos pela mesma pessoa.**
 5. **Componentes já existentes**: liste-os. Nunca sobrescreva um componente
    existente — pule e informe no resumo final.
+
+> **Stack-agnostic — adapte a saída à stack detectada.** Os exemplos deste guia usam Vue/React
+> como ilustração, mas gere no **idioma do projeto**: **Vue** → `.vue` `<script setup>` · **React**
+> → `.jsx/.tsx` + hooks · **Svelte** → `.svelte` · **Angular** → componente *standalone* +
+> `.html/.scss` · **vanilla** → Web Component (`customElements`) ou template + CSS. Naming,
+> estrutura de pastas, barrel e a rota de demo seguem o que o projeto já usa.
 
 ### Fase 2: Garantir os tokens
 
@@ -85,8 +95,15 @@ inconsistente. Por isso esta fase vem antes da geração.
   semânticas (success/warning/error/info), espaçamento, raios, tipografia e
   sombras. Mostre os tokens criados antes de seguir para os componentes.
 
-**Definir a direção visual via Button (só no bootstrap).** Antes de gerar o kit
-inteiro, ofereça variações de **um componente-chave — o Button** — pra fixar a
+**Direção já decidida a montante?** Se a **`sw-design-studio`** já rodou nesta sessão,
+ou existe um **`DESIGN.md`/Direção** no projeto, **siga essa direção e PULE a exploração
+via Button abaixo** — a estética já foi decidida; refazê-la aqui gera conflito. E no
+**bootstrap de projeto novo**, se a `sw-design-studio` estiver instalada, **ofereça-a via
+`AskUserQuestion`** antes de materializar os tokens (evita o kit nascer com "cara de IA"
+genérica). Só caia no fluxo do Button quando não há direção nem design-studio à mão.
+
+**Definir a direção visual via Button (só no bootstrap, sem direção a montante).** Antes de
+gerar o kit inteiro, ofereça variações de **um componente-chave — o Button** — pra fixar a
 estética que todos os outros vão herdar. Em vez de gerar 3 versões de cada
 componente (desperdício), você explora a direção **uma vez**, no Button, e o resto
 nasce consistente.
@@ -176,11 +193,14 @@ Para cada componente:
    - URL/rota da página de demo e como rodar o projeto para vê-la
    - Sugestões de próximo passo (combos não selecionados que façam sentido)
 3. **Ver os componentes — ofereça via `AskUserQuestion`** (visualizar é o padrão, não um extra):
-   - **Rodar a demo do projeto** — suba o app e abra a rota `/dev/components` gerada acima.
-   - **Preview isolado** — abrir os componentes num preview com live-reload via
-     **`sw-frontend-mockup-preview`** (bom pra ver isolado, comparar fontes/temas antes de usar no
-     app). Se não estiver instalada, recomende `/plugin install sw-frontend-mockup-preview@ai-marketplace`;
-     se o usuário não quiser, siga sem.
+   - **Rodar a demo do projeto** — suba o app e abra a rota `/dev/components` gerada acima. É o
+     jeito real de ver o kit: código de produção renderizado com os tokens reais.
+   - Sem router/app pra subir? O `components-demo.html` estático (Fase 5) abre direto no navegador.
+
+   > **Não** ofereça a `sw-frontend-mockup-preview` pra "ver o kit gerado" — ela cria HTML
+   > **descartável do zero** e não ingere seus componentes Vue/React (seria reescrever tudo). O
+   > lugar dela é **antes**, pra explorar uma direção/variação nova; depois de gerar, quem mostra
+   > o kit é a demo do projeto.
 
 ## Exemplos
 
