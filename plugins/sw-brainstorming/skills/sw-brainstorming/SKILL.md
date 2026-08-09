@@ -224,7 +224,8 @@ sem UI (ex.: um job, uma API interna).
 - Apresente em seções escaladas à complexidade (poucas frases se simples, até 200-300
   palavras se sutil).
 - Pergunte (menu) a cada seção se está certo antes de seguir.
-- Cubra: arquitetura, componentes, fluxo de dados, tratamento de erro, testes.
+- Cubra: **objetivo & outcome**, arquitetura, componentes, fluxo de dados, tratamento de erro,
+  testes, **não-objetivos** e as **decisões estruturais** (com as alternativas descartadas).
 
 **Design para isolamento e clareza:**
 
@@ -254,11 +255,40 @@ sem UI (ex.: um job, uma API interna).
   porquê) — é o registro do raciocínio por trás do design.
 - **Não commitar** automaticamente — deixe o arquivo pro usuário commitar quando quiser.
 
+**Estrutura do spec (proporcional ao tamanho — feature pequena leva a versão enxuta):**
+
+Além de arquitetura / componentes / fluxo de dados / erro / testes, o spec **fecha** com as seções
+que evitam o **over-engineering e o scope-drift** — o modo de falha nº1 de quem executa o spec
+(agente ou dev tende a inflar). Escale ao porte: numa feature pequena, cada uma cabe em 1 linha.
+
+- **Objetivo & outcome** — o que resolve e **qual métrica/outcome** isso move (proporcional; nada
+  de "north star" pomposo pra feature pequena).
+- **Não-objetivos / Fora de escopo** — o que explicitamente **NÃO** entra agora. Corta scope-drift.
+- **Restrição de simplicidade** — "a **menor solução** que resolve o objetivo": diga o que **não**
+  construir por ora (sem abstração especulativa nem generalização prematura).
+- **Appetite** — quanto tempo/esforço isso merece (fixa o tempo, varia o escopo — Shape Up). É
+  restrição de design, não estimativa.
+- **MVP vs MLP** — validar rápido (viável) ou encantar (lovable)? Define o corte de escopo.
+- **Decisões (estilo ADR)** — pra cada decisão estrutural: **Contexto · Decisão · Alternativas
+  descartadas · Consequências**. Você já colheu isso na conversa (e na Exploração, se rodou) —
+  só registrar. Vira um corpus consultável de *por que* foi assim.
+- **Restrições verificáveis (fitness functions)** — **só em specs substanciais**: 2-4 critérios
+  **objetivos** que a `sw-plan` (ou um agente) possa **checar**, não só descritos — ex.: "o módulo
+  A não importa B", "p95 < 200ms", "camada de domínio sem import de infra", "cobertura mínima X".
+  Transforma "o design foi respeitado?" em teste, não opinião.
+
+**Escreva o spec como contexto pro agente executor, não prosa pra humano:** linguagem direta na
+**altitude certa**, princípios + poucos exemplos canônicos (**não** enumere todo edge case), e
+marque claramente o que é **hipótese/suposição a testar** vs decisão fechada.
+
 **Auto-review do spec:** com olhos frescos —
 1. **Placeholders:** "TBD"/"TODO"/seções incompletas/requisitos vagos → corrija.
 2. **Consistência interna:** seções se contradizem? a arquitetura bate com as features?
 3. **Escopo:** cabe num único plano, ou precisa decompor?
 4. **Ambiguidade:** algum requisito tem duas leituras? escolha uma e deixe explícito.
+5. **Simplicidade & escopo fechado:** tem **não-objetivos** explícitos? a solução é a **menor que
+   resolve** (cortou abstração especulativa)? as **fitness functions**, se houver, são de fato
+   **verificáveis** (não "deve ser rápido", e sim "p95 < 200ms")?
 
 Corrija inline. Se o **nível de revisão** (passo 3) incluir o spec ("Só no spec", "Design +
 spec" ou "Em cada checkpoint"), despache o **subagent revisor** do spec usando a variante

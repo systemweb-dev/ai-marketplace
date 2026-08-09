@@ -8,6 +8,15 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-brainstorming` (v0.5.0): **spec mais forte — anti-over-engineering + pronta pra execução**
+  (baseado em pesquisa web 2025–26: Spec Kit/Kiro, *Building Evolutionary Architectures* 2ª ed.,
+  Shape Up, context engineering da Anthropic). O spec passa a fechar com **Não-objetivos**,
+  **Restrição de simplicidade** ("a menor solução que resolve"), **Appetite** e **MVP vs MLP**;
+  ganha seção **Decisões (estilo ADR)** (contexto · decisão · alternativas descartadas ·
+  consequências) e **2-4 fitness functions verificáveis** em specs substanciais (ex.: "p95 <
+  200ms", "domínio sem import de infra"). Novo princípio "spec = contexto pro agente (altitude
+  certa), não prosa" + item no auto-review cobrando não-objetivos/simplicidade/fitness-functions.
+  Tudo proporcional ao tamanho (feature pequena leva versão enxuta).
 - **Trio de design — quick wins + consolidação de tokens** (`sw-design-studio`,
   `sw-frontend-component-kit`, `sw-frontend-mockup-preview`):
   - **Tokens (fonte única):** `token-extraction.md` da mockup-preview vira o guia **canônico**
