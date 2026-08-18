@@ -20,6 +20,7 @@
        -webkit-font-smoothing:antialiased}
   .green{--c:var(--ok);--c-soft:var(--ok-soft)} .yellow{--c:var(--warn);--c-soft:var(--warn-soft)}
   .red{--c:var(--bad);--c-soft:var(--bad-soft)}
+  .unknown{--c:var(--muted);--c-soft:var(--line2)}
 
   /* ---------- header ---------- */
   header{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:22px}
@@ -137,7 +138,7 @@
       </div>
     </div>
     <div class="hero %%VERDICT%%">
-      <div class="lbl">Saúde geral</div>
+      <div class="lbl">Estado do cluster</div>
       <div class="val">%%VERDICT_EMOJI%% %%VERDICT_LABEL%%</div>
       <div class="sub">%%VERDICT_ONELINE%%</div>
     </div>
@@ -150,7 +151,7 @@
   <div class="grid g4">%%KPIS%%</div>
 
   <h2>Notas por dimensão</h2>
-  <div class="grid g3">%%DIMENSIONS%%</div>
+  <div class="grid g4">%%DIMENSIONS%%</div>
 
   <h2>O que fazer — recomendações priorizadas</h2>
   %%RECOMMENDATIONS%%
@@ -164,7 +165,7 @@
   <h2>Por aplicação</h2>
   %%STACKS%%
 
-  <h2>Achados de segurança</h2>
+  <h2>Achados</h2>
   %%FINDINGS_GROUPED%%
 
   <h2>Infraestrutura</h2>

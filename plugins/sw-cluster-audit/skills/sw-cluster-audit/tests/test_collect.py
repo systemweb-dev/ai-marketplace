@@ -111,7 +111,7 @@ def test_degrada_com_run_none_sem_crashar():
                                 generated_at="2026-08-18T00:00:00Z", connected_node="n1")
     assert is_valid(r)
     assert r["services"]["status"] == "n/a" and r["nodes"]["status"] == "n/a"
-    assert r["health"]["verdict"] == "green"
+    assert r["health"]["verdict"] == "unknown"   # sem dados não vira alarme
 
 
 def test_no_worker_manager_status_null_nao_crasha():

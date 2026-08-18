@@ -16,7 +16,7 @@ import sys
 
 from lib.runner import run
 from lib.redact import redact_container, redact_service, scrub_info
-from lib.rules import findings_for_workload
+from lib.rules import findings_for_workload, findings_operational
 from lib.report import new_report, na, split_image
 from lib import metrics, discover, enrich
 from lib.http_get import host_of
@@ -160,10 +160,13 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
         "services": len(r["services"]) if isinstance(r["services"], list) else 0,
         "findings": len(r["findings"]),
     }
-    r["health"]["verdict"] = _verdict(r["findings"])
+    # achados OPERACIONAIS (nó fora, réplica não convergida) — é o que define a saúde
+    r["findings"].extend(findings_operational(r))
     m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
     r["dimensions"] = m["dimensions"]
     r["top_offenders"] = m["top_offenders"]
+    r["health"]["verdict"] = metrics.verdict(m["dimensions"])   # saúde = operação (não higiene)
+    r["health"]["counts"]["findings"] = len(r["findings"])
     return r
 
 
@@ -213,13 +216,7 @@ def _first_json(out):
     return json.loads(out) if out else None
 
 
-def _verdict(findings):
-    sev = {f.get("severity") for f in findings}
-    if "high" in sev:
-        return "red"
-    if "med" in sev:
-        return "yellow"
-    return "green"
+# (o veredito de saúde vive em lib.metrics.verdict — baseado em OPERAÇÃO, não em higiene)
 
 
 # ---------------------------------------------------------------- CLI

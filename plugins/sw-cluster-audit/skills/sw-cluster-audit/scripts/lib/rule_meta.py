@@ -33,5 +33,49 @@ RULE_META = {
 }
 
 
+RULE_META.update({
+    "SEC_DOCKER_SOCK_EXPECTED": {
+        "label": "docker.sock em ferramenta que precisa dele",
+        "what": "Monta o docker.sock — é assim que a ferramenta funciona (Traefik descobre serviços, "
+                "cAdvisor/Promtail leem containers, agentes gerenciam o host).",
+        "why": "Informativo, não é um desvio: sem o socket essas ferramentas não operam. Ainda assim o "
+               "acesso equivale a root no host — se quiser reduzir a superfície, um socket-proxy read-only resolve.",
+    },
+    "OPS_NODE_DOWN": {
+        "label": "Nó fora do ar",
+        "what": "Um nó do Swarm não está no estado Ready.",
+        "why": "As tasks daquele nó são reagendadas; se não houver capacidade sobrando, serviços ficam degradados.",
+    },
+    "OPS_NODE_DRAIN": {
+        "label": "Nó em drain",
+        "what": "O nó está marcado como Drain e não recebe novas tasks.",
+        "why": "Normal durante manutenção; vira problema se foi esquecido assim (capacidade ociosa).",
+    },
+    "OPS_SERVICE_DOWN": {
+        "label": "Serviço fora do ar",
+        "what": "O serviço está com 0 réplicas rodando, embora deseje mais de uma.",
+        "why": "Indisponibilidade real, agora. É a prioridade máxima de qualquer auditoria.",
+    },
+    "OPS_SERVICE_STOPPED": {
+        "label": "Serviço parado (0 réplicas)",
+        "what": "O serviço existe mas não tem nenhuma réplica no ar.",
+        "why": "Pode ser INTENCIONAL (escalado a zero, app desativado) ou uma falha de start — a "
+               "auditoria não distingue os dois. Vale confirmar: se era pra estar no ar, é incidente; "
+               "se não era, o service pode ser removido para reduzir ruído.",
+    },
+    "OPS_JOB_COMPLETED": {
+        "label": "Job de execução única concluído",
+        "what": "Serviço de migração/seed/manutenção (flyway, migrate, cron…) com 0 réplicas.",
+        "why": "Informativo: é o estado normal depois que o job roda e termina. Não indica problema.",
+    },
+    "OPS_REPLICAS_DEGRADED": {
+        "label": "Réplicas abaixo do desejado",
+        "what": "O serviço roda com menos réplicas do que a configuração pede.",
+        "why": "Capacidade reduzida e menor tolerância a falha; costuma indicar erro de start, "
+               "constraint impossível ou falta de recurso no nó.",
+    },
+})
+
+
 def meta(rule_id):
     return RULE_META.get(rule_id, {"label": rule_id, "what": "", "why": ""})

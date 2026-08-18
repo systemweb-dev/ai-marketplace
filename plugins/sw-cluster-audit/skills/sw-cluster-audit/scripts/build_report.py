@@ -20,9 +20,12 @@ from lib.rule_meta import meta as rule_meta
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "..", "assets", "report-template", "template.html")
 
-_VERDICT = {"green": ("●", "Saudável"), "yellow": ("●", "Atenção"), "red": ("●", "Crítico")}
-_NOTE_TXT = {"green": "OK", "yellow": "Atenção", "red": "Crítico"}
-_DIM_LABEL = {"seguranca": "Segurança", "disponibilidade": "Disponibilidade", "higiene": "Higiene"}
+_VERDICT = {"green": ("●", "Operacional"), "yellow": ("●", "Operacional com ressalvas"),
+            "red": ("●", "Degradado"), "unknown": ("○", "Sem dados")}
+_NOTE_TXT = {"green": "OK", "yellow": "Atenção", "red": "Crítico", "unknown": "sem dados"}
+_DIM_LABEL = {"operacao": "Operação", "disponibilidade": "Disponibilidade",
+              "seguranca": "Segurança", "higiene": "Higiene"}
+_DIM_ORDER = ("operacao", "disponibilidade", "seguranca", "higiene")
 
 CHROME_CANDIDATES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"]
 
@@ -146,28 +149,38 @@ def _kpis(report, groups):
 
 def _dim_cards(dims):
     out = []
-    for key in ("seguranca", "disponibilidade", "higiene"):
+    for key in _DIM_ORDER:
         d = (dims or {}).get(key) or {}
         note = d.get("note", "green")
-        if key == "seguranca":
-            total = (d.get("high", 0) or 0) + (d.get("med", 0) or 0)
-            pct = 0 if not total else max(0, 100 - min(100, (d.get("high", 0) * 8 + d.get("med", 0))))
-            bars = [("achados críticos", d.get("high", 0)), ("achados médios", d.get("med", 0))]
-            gauge = f'<div class="bar"><i style="width:{pct}%"></i></div>'
-            legend = "".join(f'<div class="barlbl"><span>{_e(l)}</span><span>{_e(v)}</span></div>' for l, v in bars)
+        if key == "operacao":
+            up, total = d.get("services_up", 0), d.get("services_total", 0)
+            pct = _pct(up, total)
+            legend = (f'<div class="barlbl"><span>serviços no ar</span><span>{up}/{total}</span></div>'
+                      f'<div class="barlbl"><span>parados / nós fora</span>'
+                      f'<span>{d.get("stopped", 0)} / {d.get("nodes_down", 0)}</span></div>')
         elif key == "disponibilidade":
             pct = d.get("ha_pct", 0)
-            gauge = f'<div class="bar"><i style="width:{pct}%"></i></div>'
             legend = (f'<div class="barlbl"><span>serviços com réplica &gt; 1</span><span>{pct}%</span></div>'
-                      f'<div class="barlbl"><span>SPOF com estado</span><span>{len(d.get("spof_stateful") or [])}</span></div>')
+                      f'<div class="barlbl"><span>sem redundância (estado/ingress)</span>'
+                      f'<span>{len(d.get("spof_stateful") or []) + len(d.get("spof_critical") or [])}</span></div>')
+        elif key == "seguranca":
+            high, med = d.get("high", 0), d.get("med", 0)
+            pct = max(0, 100 - min(100, high * 12 + med))
+            legend = (f'<div class="barlbl"><span>achados críticos</span><span>{high}</span></div>'
+                      f'<div class="barlbl"><span>achados médios</span><span>{med}</span></div>')
         else:
             pct = d.get("nonroot_pct", 0)
-            gauge = f'<div class="bar"><i style="width:{pct}%"></i></div>'
             legend = (f'<div class="barlbl"><span>containers não-root</span><span>{pct}%</span></div>'
-                      f'<div class="barlbl"><span>imagens com versão fixa</span><span>{d.get("pinned_pct", 0)}%</span></div>')
+                      f'<div class="barlbl"><span>imagens com versão fixa</span>'
+                      f'<span>{d.get("pinned_pct", 0)}%</span></div>')
+        gauge = f'<div class="bar"><i style="width:{pct}%"></i></div>'
         out.append(f'<div class="card dim {note}"><div class="t">{_DIM_LABEL[key]}</div>'
                    f'<div class="v">{_NOTE_TXT.get(note, "?")}</div>{gauge}{legend}</div>')
     return "".join(out)
+
+
+def _pct(x, total):
+    return round(100 * x / total) if total else 0
 
 
 def _recs(recs):
@@ -239,19 +252,21 @@ def _findings_grouped(findings):
     out = []
     for g in metrics.group_findings(findings):
         m = rule_meta(g["rule_id"])
-        objs = [o.split(".")[0] for o in g["objects"]]
-        uniq = sorted(set(objs))
+        uniq = sorted({o.split(".")[0] for o in g["objects"]})
         shown = uniq[:10]
         extra = len(uniq) - len(shown)
         objs_txt = ", ".join(shown) + (f" … +{extra}" if extra > 0 else "")
+        expected = g.get("expected")
+        badge = ('<span class="badge low">esperado</span>' if expected
+                 else f'<span class="badge {_e(g["severity"])}">{_e(g["severity"])}</span>')
+        fix_label = "Opcional" if expected else "Como corrigir"
         out.append(
-            f'<div class="card fg"><div class="fh">'
-            f'<span class="badge {_e(g["severity"])}">{_e(g["severity"])}</span>'
+            f'<div class="card fg"><div class="fh">{badge}'
             f'<span class="fn">{_e(m["label"])}</span><code>{_e(g["rule_id"])}</code>'
             f'<span class="cnt">{g["count"]} ocorrências</span></div>'
             f'<div class="row">{_e(m["what"])}</div>'
             f'<div class="row"><b>Por que importa:</b> {_e(m["why"])}</div>'
-            f'<div class="row"><b>Como corrigir:</b> {_e(g.get("fix"))}</div>'
+            f'<div class="row"><b>{fix_label}:</b> {_e(g.get("fix"))}</div>'
             f'<div class="objs">Afetados ({len(uniq)}): {_e(objs_txt)}</div></div>')
     return "".join(out)
 
@@ -267,8 +282,11 @@ def render_html(report):
     groups = stacks.group(report)
     comp_an = report.get("components_analysis") or {}
 
-    counts = (report.get("health") or {}).get("counts") or {}
-    oneline = f'{counts.get("findings", 0)} achados · {len(groups)} aplicações'
+    op = dims.get("operacao") or {}
+    av = dims.get("disponibilidade") or {}
+    sem_ha = len(av.get("spof_stateful") or []) + len(av.get("spof_critical") or [])
+    oneline = (f'{op.get("services_up", 0)}/{op.get("services_total", 0)} serviços no ar'
+               + (f' · {sem_ha} sem redundância' if sem_ha else ""))
 
     summary = report.get("summary") or ("Resumo ainda não escrito — o agente preenche <code>summary</code> "
                                         "explicando o porquê do veredito.")

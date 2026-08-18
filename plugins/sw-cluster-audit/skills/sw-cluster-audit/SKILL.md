@@ -93,6 +93,20 @@ Gera `$OUT/relatorio.html` (sempre) e `$OUT/relatorio.pdf` (se houver Chromium).
   de saúde, top achados de segurança priorizados, e os destaques por componente.
 - Confirme que `docs/infra/` está no `.gitignore` (o `collect.py` garante) — **não commite** o relatório.
 
+## Como a saúde é calculada (não confunda risco com falha)
+**Saúde = operação.** Um cluster que está rodando não vira "crítico" por higiene ruim.
+
+- 🔴 **Degradado** — só quando algo está **realmente fora do ar**: nó não-Ready.
+- 🟡 **Operacional com ressalvas** — está rodando, mas há risco conhecido: serviço parado a
+  confirmar, réplicas degradadas, SPOF (1 réplica em banco/fila/ingress) ou achado crítico de segurança.
+- 🟢 **Operacional** — convergido, redundante e sem achado crítico.
+- ⚪ **Sem dados** — a coleta falhou; a skill não inventa nota.
+
+Quatro dimensões separadas: **Operação · Disponibilidade · Segurança · Higiene**. Achados
+**esperados** (`expected: true`) não pesam na nota — ex.: Traefik/cAdvisor/Promtail montam o
+`docker.sock` porque é assim que funcionam; um `flyway`/`migrate` em 0 réplicas é job concluído,
+não serviço caído. Ao escrever a narrativa, **respeite essa distinção**: risco ≠ incidente.
+
 ## Honestidade (o que a skill NÃO afirma)
 - **Uso de CPU/mem por nó** não existe sem stack de métricas → aparece como `n/a`. Só **capacidade**.
 - **Checagens em nível de container** cobrem só o **nó conectado** (o `scope` do report diz isso);
