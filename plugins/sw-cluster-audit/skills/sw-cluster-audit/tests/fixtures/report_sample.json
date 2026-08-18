@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-18T14:32:00Z",
+  "cluster": {"context": "systemweb-prod", "engine_version": "25.0", "swarm": true},
+  "scope": {"connected_node": "mgr-1", "container_checks_cover": "only_connected_node"},
+  "health": {"verdict": "red", "counts": {"nodes": 3, "services": 12, "findings": 2}},
+  "nodes": [
+    {"hostname": "mgr-1", "role": "Leader", "availability": "Active", "state": "Ready",
+     "leader": true, "capacity": {"nano_cpus": 4000000000, "mem_bytes": 8000000000}}
+  ],
+  "services": [
+    {"name": "web", "image": "nginx", "tag": "latest", "digest": null, "replicas": "2/2",
+     "ports": [{"port": "80/tcp", "host_ip": "0.0.0.0", "host_port": "8080"}],
+     "env_keys": ["DB_PASSWORD", "PORT"]}
+  ],
+  "networks": [{"name": "ingress", "driver": "overlay", "scope": "swarm"}],
+  "secrets": [{"name": "db_password"}],
+  "configs": [{"name": "nginx_conf"}],
+  "findings": [
+    {"rule_id": "SEC_PRIVILEGED", "severity": "high", "object": "web",
+     "evidence": "Privileged=true", "fix": "remover --privileged", "scope": "cluster-wide"},
+    {"rule_id": "SEC_PORT_EXPOSED", "severity": "med", "object": "web",
+     "evidence": "porta publicada em 0.0.0.0", "fix": "restringir bind", "scope": "cluster-wide"}
+  ],
+  "not_collected": [{"what": "uso de CPU/mem por nó", "reason": "requer Prometheus"}]
+}

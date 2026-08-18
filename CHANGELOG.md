@@ -87,6 +87,14 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   `CATEGORY=` não é informado (antes revertia para o default `development`).
 
 ### Adicionado
+- Skill publicada: **`sw-cluster-audit`** (v0.1.0, categoria `development`) — auditoria **READ-ONLY**
+  de cluster Docker (context/Swarm) → relatório técnico **HTML + PDF** (opt-in) em `docs/infra/`.
+  Coleta via **allowlist `(noun,verb)`**, **redação field-allowlist positiva** (zero valor de
+  secret/env), **findings de segurança por regra determinística** (privileged, docker.sock, porta
+  0.0.0.0, imagem sem digest, root), **análise por componente app-aware** (detecta Traefik/filas/
+  bancos/cache e o agente analisa cada um — roteamento, HA, exposição), **degradação honesta** e
+  `.gitignore` não-opcional. **7 fitness functions verificáveis**, 63 testes. Desenhada via
+  `sw-brainstorming` → `sw-plan` (spec e plano em `docs/specs/` e `docs/plans/`).
 - Estrutura inicial do marketplace (formato oficial de plugins do Claude Code).
 - Script `scripts/sync_skill.py` + `Makefile`: sync `local → repo`, `import`
   (`repo → local`), `list`, `remove`, `readme`.

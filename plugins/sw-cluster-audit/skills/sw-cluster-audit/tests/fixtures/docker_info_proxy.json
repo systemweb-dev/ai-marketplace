@@ -1,0 +1,4 @@
+{
+  "ServerVersion": "25.0",
+  "RegistryConfig": {"Mirrors": ["http://user:pass@proxy:3128"]}
+}

@@ -37,6 +37,7 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 | Skill | Categoria | O que faz | Instalar |
 |-------|-----------|-----------|----------|
 | [`sw-brainstorming`](plugins/sw-brainstorming/) | productivity | Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um… | `/plugin install sw-brainstorming@ai-marketplace` |
+| [`sw-cluster-audit`](plugins/sw-cluster-audit/) | development | Audita um cluster Docker (context/Swarm) de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional) — saúde geral, nodes, services, segurança, rede e… | `/plugin install sw-cluster-audit@ai-marketplace` |
 | [`sw-code-review`](plugins/sw-code-review/) | development | Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de… | `/plugin install sw-code-review@ai-marketplace` |
 | [`sw-dead-code-scan`](plugins/sw-dead-code-scan/) | development | Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados… | `/plugin install sw-dead-code-scan@ai-marketplace` |
 | [`sw-design-studio`](plugins/sw-design-studio/) | design | Diretor de design interativo: conduz o usuário, via AskUserQuestion, a DECIDIR a direção visual (referência/âncora, tom & ousadia, personalidade, paleta… | `/plugin install sw-design-studio@ai-marketplace` |

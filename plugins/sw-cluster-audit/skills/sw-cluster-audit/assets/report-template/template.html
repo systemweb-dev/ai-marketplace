@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%%TITLE%%</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2b; --line:#26304a; --ink:#e8eef9; --muted:#93a0b8;
+    --green:#3fb768; --yellow:#e0a83b; --red:#e0556b; --accent:#4d8bf0;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;padding:28px}
+  h1{font-size:20px;margin:0 0 2px} h2{font-size:15px;margin:26px 0 10px;letter-spacing:.02em}
+  .sub{color:var(--muted);font:500 12px/1.4 var(--mono);margin-bottom:18px}
+  .verdict{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-weight:700}
+  .verdict.green{background:color-mix(in oklab,var(--green),transparent 82%);color:var(--green)}
+  .verdict.yellow{background:color-mix(in oklab,var(--yellow),transparent 82%);color:var(--yellow)}
+  .verdict.red{background:color-mix(in oklab,var(--red),transparent 82%);color:var(--red)}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:120px}
+  .card .n{font-size:22px;font-weight:700} .card .l{color:var(--muted);font:500 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+  tr:last-child td{border-bottom:0}
+  code{font-family:var(--mono);font-size:12px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font:700 11px/1.6 var(--mono);text-transform:uppercase}
+  .badge.high{background:color-mix(in oklab,var(--red),transparent 80%);color:var(--red)}
+  .badge.med{background:color-mix(in oklab,var(--yellow),transparent 80%);color:var(--yellow)}
+  .badge.low{background:color-mix(in oklab,var(--muted),transparent 80%);color:var(--muted)}
+  .muted{color:var(--muted)} .fix{color:var(--accent)}
+  .appendix{margin-top:26px;padding-top:14px;border-top:1px dashed var(--line);color:var(--muted);font-size:12.5px}
+  @media print{body{background:#fff;color:#111;padding:0}.card,table{border-color:#ddd;background:#fff}}
+</style>
+</head>
+<body>
+  <h1>%%TITLE%%</h1>
+  <div class="sub">context: %%CONTEXT%% · engine %%ENGINE%% · %%GENERATED_AT%% · %%SCOPE%%</div>
+  <div class="verdict %%VERDICT%%">%%VERDICT_EMOJI%% Saúde: %%VERDICT_LABEL%%</div>
+
+  <div class="cards">%%CARDS%%</div>
+
+  <h2>Achados de segurança</h2>
+  %%FINDINGS%%
+
+  <h2>Nodes</h2>
+  %%NODES%%
+
+  <h2>Services</h2>
+  %%SERVICES%%
+
+  <h2>Análise por componente</h2>
+  %%COMPONENTS%%
+
+  <h2>Rede</h2>
+  %%NETWORKS%%
+
+  <div class="appendix">
+    <strong>Escopo &amp; não coletado.</strong> Checagens de container cobrem só o nó conectado (%%CONNECTED_NODE%%).
+    %%NOT_COLLECTED%%
+    <br>Secrets/configs listados por NOME (nunca valores): %%SECRETS_CONFIGS%%
+  </div>
+</body>
+</html>
