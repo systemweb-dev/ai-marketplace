@@ -50,16 +50,24 @@ Isso grava `$OUT/report.json` (schema v1, com os **fatos** + **findings por regr
 `routing_labels` por service). Se o context não bater `--confirmed-context`, a coleta aborta (gate).
 
 ### 3. Analisar (você, agente) — leia o `report.json` e ENRIQUEÇA
-- **NÃO invente findings** — eles vêm por regra. Você **prioriza** (o que é mais grave/urgente) e
-  escreve a **prosa/recomendações**.
-- **Análise por componente:** para cada service, use o `kind` + `routing_labels` + réplicas/portas
-  e escreva a análise específica (você entende essas ferramentas) no campo `components_analysis`
-  do `report.json` (`{ "<service>": "texto" }`), ex.:
-  - **Traefik/proxy:** "roteia `Host(app.x)` → service `app-x` via `websecure` (TLS on); 1 réplica = ponto único".
-  - **Fila (rabbitmq/kafka):** "restarts altos / sem réplica = instável; consumidores?".
-  - **Banco:** "1 réplica = sem HA; volume presente (persistência ok)".
-  - **Cache/Redis:** "usado como cache vs fila; persistência?".
-- Grave o `report.json` de volta (só o `components_analysis` e, se quiser, um resumo em `health`).
+O `collect.py` já preencheu os **fatos**: `findings` (por regra), `dimensions` (notas de
+Segurança/Disponibilidade/Higiene), `top_offenders` e `history` (diff vs a auditoria anterior).
+Você escreve a **narrativa** — **NÃO invente findings** (eles vêm por regra); você **interpreta e
+prioriza**. Grave estes campos de volta no `report.json`:
+
+- **`summary`** — 2-4 frases dizendo **por que** o veredito é esse (a *situação*): ex. "Crítico
+  porque o Traefik é ponto único de 17 apps, 3 bancos + fila estão sem HA, e 45 containers rodam root."
+- **`strengths`** (lista) — o que está **bom** (nodes Ready, TLS Let's Encrypt, services com 2+ réplicas…).
+- **`weaknesses`** (lista) — o que **preocupa** (SPOFs stateful, root difundido, imagens sem digest…).
+- **`recommendations`** (lista de `{title, why, impact, effort}`) — as ações **priorizadas** por
+  impacto/esforço. Foque no que move o ponteiro (ex.: "2ª réplica do Traefik" antes de "renomear labels").
+- **`components_analysis`** (`{ "<service>": "texto" }`) — análise específica por componente, usando
+  `kind` + `routing_labels` + réplicas (você entende essas ferramentas):
+  - **Traefik/proxy:** "roteia `Host(app.x)` → `app-x` via websecure (TLS on); 1 réplica = ponto único".
+  - **Fila (rabbitmq/kafka):** "1 réplica = sem HA; se cair, mensageria para; confirmar persistência".
+  - **Banco:** "1 réplica = sem HA/failover; garantir backup + volume".
+  - **Cache/Redis:** "cache vs broker (Celery?) muda a criticidade; persistência?".
+- Grave o `report.json` de volta com esses campos preenchidos (o resto é determinístico, não mexa).
 
 ### 4. Gerar o relatório
 - **`AskUserQuestion`**: "Gerar PDF também, ou só o HTML?" (o PDF exige Chromium; sem ele, cai no HTML).

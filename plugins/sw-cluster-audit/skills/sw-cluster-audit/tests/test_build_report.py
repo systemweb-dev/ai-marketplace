@@ -13,9 +13,21 @@ def _report():
 def test_render_html_tem_semaforo_findings_e_self_contained():
     out = build_report.render_html(_report())
     assert "🔴" in out and "Crítico" in out                 # semáforo (verdict=red)
-    assert "SEC_PRIVILEGED" in out and "SEC_PORT_EXPOSED" in out  # findings na tabela
-    assert "DB_PASSWORD" in out                              # env por CHAVE aparece
+    assert "SEC_PRIVILEGED" in out and "SEC_PORT_EXPOSED" in out  # findings agrupados (rule_id)
     assert "http://" not in out and "https://" not in out    # self-contained (zero asset remoto)
+
+
+def test_render_html_secoes_novas():
+    out = build_report.render_html(_report())
+    # narrativa do agente
+    assert "ponto único" in out                                    # summary
+    assert "Todos os nodes Ready" in out                           # pontos fortes
+    assert "3 bancos sem HA" in out                                # pontos fracos
+    assert "Subir 2ª réplica do Traefik" in out                    # recomendação
+    # métricas por dimensão + explicação dos findings + histórico
+    assert "Segurança" in out and "Disponibilidade" in out and "Higiene" in out
+    assert "Container privilegiado" in out and "Por que importa:" in out  # finding agrupado + explicado
+    assert "vs auditoria anterior" in out and "resolvidos" in out   # diff histórico
 
 
 def test_render_html_escapa_e_nao_vaza_valor():

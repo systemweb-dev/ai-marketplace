@@ -14,6 +14,9 @@ import shutil
 import subprocess
 import sys
 
+from lib import metrics
+from lib.rule_meta import meta as rule_meta
+
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "..", "assets", "report-template", "template.html")
 
@@ -79,58 +82,125 @@ def _table(headers, rows):
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
 
+def _list(items):
+    items = [i for i in (items or []) if i]
+    if not items:
+        return '<p class="muted">—</p>'
+    return "<ul>" + "".join(f"<li>{_e(i)}</li>" for i in items) + "</ul>"
+
+
+_DIM_LABEL = {"seguranca": "Segurança", "disponibilidade": "Disponibilidade", "higiene": "Higiene"}
+_NOTE_BIG = {"green": "OK", "yellow": "Atenção", "red": "Crítico"}
+
+
+def _dim_cards(dims):
+    out = []
+    for key in ("seguranca", "disponibilidade", "higiene"):
+        d = (dims or {}).get(key) or {}
+        note = d.get("note", "green")
+        if key == "seguranca":
+            desc = f'{d.get("high", 0)} críticos · {d.get("med", 0)} médios'
+        elif key == "disponibilidade":
+            desc = f'{d.get("ha_pct", 0)}% com HA · {len(d.get("spof_stateful") or [])} SPOF stateful'
+        else:
+            desc = f'{d.get("pinned_pct", 0)}% imagem fixa · {d.get("nonroot_pct", 0)}% non-root'
+        out.append(f'<div class="dim {note}"><div class="t">{_DIM_LABEL[key]}</div>'
+                   f'<div class="s">{_NOTE_BIG.get(note, "?")}</div><div class="d">{_e(desc)}</div></div>')
+    return "".join(out)
+
+
+def _recs(recs):
+    if not recs:
+        return '<p class="muted">Sem recomendações registradas. (o agente preenche `recommendations`)</p>'
+    out = []
+    for r in recs:
+        imp = (r.get("impact") or "").lower()
+        icl = "hi" if imp.startswith("alt") else ("mid" if imp.startswith(("méd", "med")) else "lo")
+        out.append(f'<div class="rec"><div class="rt">{_e(r.get("title"))}</div>'
+                   f'<div class="rw">{_e(r.get("why"))}</div><div class="tags">'
+                   f'<span class="tag {icl}">impacto: {_e(r.get("impact") or "—")}</span>'
+                   f'<span class="tag">esforço: {_e(r.get("effort") or "—")}</span></div></div>')
+    return "".join(out)
+
+
+def _findings_grouped(findings):
+    if isinstance(findings, dict) and findings.get("status") == "n/a":
+        return f'<p class="muted">não coletado — {_e(findings.get("reason"))}</p>'
+    if not findings:
+        return '<p class="muted">Nenhum achado. 🎉</p>'
+    out = []
+    for g in metrics.group_findings(findings):
+        m = rule_meta(g["rule_id"])
+        objs = g["objects"][:8]
+        extra = g["count"] - len(objs)
+        objs_txt = ", ".join(objs) + (f" … +{extra}" if extra > 0 else "")
+        out.append(
+            f'<div class="fgroup"><div class="fh">'
+            f'<span class="badge {_e(g["severity"])}">{_e(g["severity"])}</span>'
+            f'<strong>{_e(m["label"])}</strong> <code>{_e(g["rule_id"])}</code>'
+            f'<span class="cnt">{g["count"]} afetados</span></div>'
+            f'<div class="what">{_e(m["what"])}</div>'
+            f'<div class="why"><strong>Por que importa:</strong> {_e(m["why"])}</div>'
+            f'<div class="fix"><strong>Como corrigir:</strong> {_e(g.get("fix"))}</div>'
+            f'<div class="objs">Afetados: {_e(objs_txt)}</div></div>')
+    return "".join(out)
+
+
 def render_html(report):
     ctx = (report.get("cluster") or {}).get("context")
     engine = (report.get("cluster") or {}).get("engine_version")
-    health = report.get("health") or {}
-    verdict = health.get("verdict", "green")
+    verdict = (report.get("health") or {}).get("verdict", "green")
     emoji, label = _VERDICT.get(verdict, ("⚪", "?"))
     scope = report.get("scope") or {}
-    counts = health.get("counts") or {}
 
-    cards = "".join(f'<div class="card"><div class="n">{_e(v)}</div><div class="l">{_e(k)}</div></div>'
-                    for k, v in counts.items())
-
-    findings = _na_or(report.get("findings"), lambda fs: _table(
-        ["Sev", "Regra", "Objeto", "Evidência", "Correção", "Escopo"],
-        [[f'<span class="badge {_e(f.get("severity"))}">{_e(f.get("severity"))}</span>',
-          f'<code>{_e(f.get("rule_id"))}</code>', _e(f.get("object")), _e(f.get("evidence")),
-          f'<span class="fix">{_e(f.get("fix"))}</span>', _e(f.get("scope"))] for f in fs]))
+    summary = report.get("summary") or "Resumo ainda não escrito (o agente preenche `summary` com o porquê do veredito)."
+    hist = report.get("history")
+    history = (f'<p class="hist">📊 vs auditoria anterior ({_e(hist.get("vs"))}): '
+               f'<strong>{hist.get("resolved", 0)}</strong> resolvidos · '
+               f'<strong>{hist.get("new", 0)}</strong> novos</p>') if hist else ""
 
     nodes = _na_or(report.get("nodes"), lambda ns: _table(
         ["Host", "Role", "Disp.", "Estado", "Leader", "Capacidade"],
         [[_e(n.get("hostname")), _e(n.get("role")), _e(n.get("availability")), _e(n.get("state")),
-          "sim" if n.get("leader") else "—", _e(_fmt_capacity(n.get("capacity")))]
-         for n in ns]))
+          "sim" if n.get("leader") else "—", _e(_fmt_capacity(n.get("capacity")))] for n in ns]))
 
     services = _na_or(report.get("services"), lambda ss: _table(
-        ["Service", "Imagem", "Réplicas", "Portas", "Env (chaves)"],
-        [[_e(s.get("name")),
-          _e(f'{s.get("image")}:{s.get("tag")}' + (f'@{s.get("digest")}' if s.get("digest") else "")),
-          _e(s.get("replicas")),
-          _e(_fmt_ports(s.get("ports"))),
-          _e(", ".join(s.get("env_keys") or []))] for s in ss]))
+        ["Service", "Tipo", "Imagem", "Réplicas", "Portas"],
+        [[_e(s.get("name")), _e(s.get("kind")),
+          _e(f'{s.get("image")}:{s.get("tag")}' + ("@…" if s.get("digest") else "")),
+          _e(s.get("replicas")), _e(_fmt_ports(s.get("ports")))] for s in ss]))
 
     comp_an = report.get("components_analysis") or {}
     components = _na_or(report.get("services"), lambda ss: _table(
         ["Componente", "Tipo", "Roteamento / portas", "Análise"],
         [[_e(s.get("name")), f'<span class="badge low">{_e(s.get("kind") or "app")}</span>',
-          _e(_routing_summary(s)), _e(comp_an.get(s.get("name"), "—"))] for s in ss]))
+          _e(_routing_summary(s)), _e(comp_an.get(s.get("name"), "—"))]
+         for s in ss if comp_an.get(s.get("name")) or s.get("kind") != "app"]) or '<p class="muted">—</p>')
 
     networks = _na_or(report.get("networks"), lambda ns: _table(
         ["Rede", "Driver", "Scope"], [[_e(n.get("name")), _e(n.get("driver")), _e(n.get("scope"))] for n in ns]))
 
+    offenders = report.get("top_offenders") or []
+    top = _table(["Service", "Findings"], [[_e(o.get("object")), _e(o.get("findings"))] for o in offenders]) \
+        if offenders else '<p class="muted">—</p>'
+
     nc = report.get("not_collected") or []
     not_collected = ("<br>Não coletado: " + "; ".join(f'{_e(x.get("what"))} ({_e(x.get("reason"))})' for x in nc)) if nc else ""
     sc = [s.get("name") for s in (report.get("secrets") or [])] + [c.get("name") for c in (report.get("configs") or [])]
-    secrets_configs = _e(", ".join(sc)) if sc else "nenhum"
+    secrets_configs = (f'{len(sc)} no total. <details><summary>ver nomes</summary>{_e(", ".join(sc))}</details>'
+                       if sc else "nenhum")
 
     repl = {
         "%%TITLE%%": _e(f"Auditoria de cluster — {ctx}"), "%%CONTEXT%%": _e(ctx), "%%ENGINE%%": _e(engine),
         "%%GENERATED_AT%%": _e(report.get("generated_at")), "%%SCOPE%%": _e(scope.get("container_checks_cover")),
         "%%VERDICT%%": _e(verdict), "%%VERDICT_EMOJI%%": emoji, "%%VERDICT_LABEL%%": _e(label),
-        "%%CARDS%%": cards, "%%FINDINGS%%": findings, "%%NODES%%": nodes, "%%SERVICES%%": services,
-        "%%COMPONENTS%%": components, "%%NETWORKS%%": networks,
+        "%%HISTORY%%": history, "%%SUMMARY%%": _e(summary),
+        "%%DIMENSIONS%%": _dim_cards(report.get("dimensions")),
+        "%%RECOMMENDATIONS%%": _recs(report.get("recommendations")),
+        "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
+        "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings")),
+        "%%COMPONENTS%%": components, "%%TOP_OFFENDERS%%": top,
+        "%%NODES%%": nodes, "%%SERVICES%%": services, "%%NETWORKS%%": networks,
         "%%CONNECTED_NODE%%": _e(scope.get("connected_node")),
         "%%NOT_COLLECTED%%": not_collected, "%%SECRETS_CONFIGS%%": secrets_configs,
     }

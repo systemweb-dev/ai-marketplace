@@ -6,57 +6,91 @@
 <title>%%TITLE%%</title>
 <style>
   :root{
-    --bg:#0f1420; --panel:#161d2b; --line:#26304a; --ink:#e8eef9; --muted:#93a0b8;
+    --bg:#0f1420; --panel:#161d2b; --panel2:#1b2436; --line:#26304a; --ink:#e8eef9; --muted:#93a0b8;
     --green:#3fb768; --yellow:#e0a83b; --red:#e0556b; --accent:#4d8bf0;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;padding:28px}
-  h1{font-size:20px;margin:0 0 2px} h2{font-size:15px;margin:26px 0 10px;letter-spacing:.02em}
-  .sub{color:var(--muted);font:500 12px/1.4 var(--mono);margin-bottom:18px}
-  .verdict{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-weight:700}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;padding:30px;max-width:1180px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 2px} h2{font-size:15px;margin:30px 0 12px;letter-spacing:.02em;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--muted);font:500 12px/1.4 var(--mono);margin-bottom:16px}
+  .verdict{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;font-weight:700;font-size:15px}
+  .green{--c:var(--green)} .yellow{--c:var(--yellow)} .red{--c:var(--red)}
   .verdict.green{background:color-mix(in oklab,var(--green),transparent 82%);color:var(--green)}
   .verdict.yellow{background:color-mix(in oklab,var(--yellow),transparent 82%);color:var(--yellow)}
   .verdict.red{background:color-mix(in oklab,var(--red),transparent 82%);color:var(--red)}
-  .cards{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:120px}
-  .card .n{font-size:22px;font-weight:700} .card .l{color:var(--muted);font:500 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em}
-  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{color:var(--muted);font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em}
-  tr:last-child td{border-bottom:0}
-  code{font-family:var(--mono);font-size:12px}
-  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font:700 11px/1.6 var(--mono);text-transform:uppercase}
+  .summary{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:12px;padding:16px 18px;margin:16px 0;font-size:15px;line-height:1.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+  .dim{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--c);border-radius:12px;padding:14px 16px}
+  .dim .t{font:700 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .dim .s{font-size:22px;font-weight:700;margin:6px 0 2px;color:var(--c)}
+  .dim .d{color:var(--muted);font-size:12.5px}
+  .rec{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .rec .rt{font-weight:700;margin-bottom:3px} .rec .rw{color:var(--muted);font-size:13px}
+  .tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font:700 10.5px/1.6 var(--mono);text-transform:uppercase;padding:2px 8px;border-radius:6px;background:var(--panel2);color:var(--muted)}
+  .tag.hi{color:var(--red)} .tag.mid{color:var(--yellow)} .tag.lo{color:var(--green)}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .col h3{margin:0 0 8px;font-size:13px}
+  .col ul{margin:0;padding-left:18px} .col li{margin:4px 0}
+  .col.good h3{color:var(--green)} .col.bad h3{color:var(--red)}
+  .fgroup{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .fgroup .fh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .fgroup .cnt{margin-left:auto;font:700 12px var(--mono);color:var(--muted)}
+  .fgroup .what{margin:8px 0 4px} .fgroup .why{color:var(--muted);font-size:13px}
+  .fgroup .fix{color:var(--accent);font-size:13px;margin-top:6px} .fgroup .objs{color:var(--muted);font:500 11.5px/1.5 var(--mono);margin-top:8px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:6px;font:700 11px/1.6 var(--mono);text-transform:uppercase}
   .badge.high{background:color-mix(in oklab,var(--red),transparent 80%);color:var(--red)}
   .badge.med{background:color-mix(in oklab,var(--yellow),transparent 80%);color:var(--yellow)}
   .badge.low{background:color-mix(in oklab,var(--muted),transparent 80%);color:var(--muted)}
-  .muted{color:var(--muted)} .fix{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px}
+  th{color:var(--muted);font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.06em}
+  tr:last-child td{border-bottom:0}
+  code{font-family:var(--mono);font-size:12px} .muted{color:var(--muted)}
+  .hist{color:var(--muted);font-size:13px;margin:6px 0 0}
   .appendix{margin-top:26px;padding-top:14px;border-top:1px dashed var(--line);color:var(--muted);font-size:12.5px}
-  @media print{body{background:#fff;color:#111;padding:0}.card,table{border-color:#ddd;background:#fff}}
+  details>summary{cursor:pointer;color:var(--muted);font-size:13px;margin:8px 0}
+  @media print{body{background:#fff;color:#111}.dim,.rec,.col,.fgroup,.summary,table{border-color:#ddd;background:#fff}}
 </style>
 </head>
 <body>
   <h1>%%TITLE%%</h1>
   <div class="sub">context: %%CONTEXT%% · engine %%ENGINE%% · %%GENERATED_AT%% · %%SCOPE%%</div>
-  <div class="verdict %%VERDICT%%">%%VERDICT_EMOJI%% Saúde: %%VERDICT_LABEL%%</div>
+  <div class="verdict %%VERDICT%%">%%VERDICT_EMOJI%% Saúde geral: %%VERDICT_LABEL%%</div>
+  %%HISTORY%%
 
-  <div class="cards">%%CARDS%%</div>
+  <div class="summary %%VERDICT%%">%%SUMMARY%%</div>
 
-  <h2>Achados de segurança</h2>
-  %%FINDINGS%%
+  <div class="grid3">%%DIMENSIONS%%</div>
 
-  <h2>Nodes</h2>
-  %%NODES%%
+  <h2>🎯 Recomendações priorizadas</h2>
+  %%RECOMMENDATIONS%%
 
-  <h2>Services</h2>
-  %%SERVICES%%
+  <h2>Pontos fortes × fracos</h2>
+  <div class="grid2">
+    <div class="col good"><h3>✓ Pontos fortes</h3>%%STRENGTHS%%</div>
+    <div class="col bad"><h3>△ Pontos fracos / riscos</h3>%%WEAKNESSES%%</div>
+  </div>
 
-  <h2>Análise por componente</h2>
+  <h2>🔐 Achados de segurança (agrupados)</h2>
+  %%FINDINGS_GROUPED%%
+
+  <h2>🧩 Análise por componente</h2>
   %%COMPONENTS%%
 
-  <h2>Rede</h2>
-  %%NETWORKS%%
+  <h2>Top ofensores</h2>
+  %%TOP_OFFENDERS%%
+
+  <details>
+    <summary>Detalhe técnico — nodes, services e rede</summary>
+    <h2>Nodes</h2>%%NODES%%
+    <h2>Services</h2>%%SERVICES%%
+    <h2>Rede</h2>%%NETWORKS%%
+  </details>
 
   <div class="appendix">
     <strong>Escopo &amp; não coletado.</strong> Checagens de container cobrem só o nó conectado (%%CONNECTED_NODE%%).

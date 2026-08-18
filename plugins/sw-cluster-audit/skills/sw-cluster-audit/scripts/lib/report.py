@@ -19,6 +19,15 @@ def new_report(generated_at, context):
         "secrets": [], "configs": [], "findings": [], "not_collected": [],
         # o agente preenche {service_name: "análise específica do componente"} após ler os fatos
         "components_analysis": {},
+        # --- narrativa escrita pelo AGENTE (fica vazia até ele analisar) ---
+        "summary": "",              # por que o veredito / a situação, em 2-4 frases
+        "strengths": [],            # pontos fortes (o que está bom)
+        "weaknesses": [],           # pontos fracos / riscos
+        "recommendations": [],      # [{title, why, impact: alto|médio|baixo, effort: alto|médio|baixo}]
+        # --- métricas determinísticas (preenchidas pelo collect via lib.metrics) ---
+        "dimensions": {},           # seguranca / disponibilidade / higiene (nota + números)
+        "top_offenders": [],        # services com mais findings
+        "history": None,            # {vs, resolved, new} vs a auditoria anterior (se houver)
     }
 
 

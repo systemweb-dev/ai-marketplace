@@ -18,6 +18,7 @@ from lib.runner import run
 from lib.redact import redact_container, redact_service, scrub_info
 from lib.rules import findings_for_workload
 from lib.report import new_report, na, split_image
+from lib import metrics
 
 DEFAULT_TIMEOUT = 15
 GITIGNORE_LINE = "docs/infra/"
@@ -159,7 +160,41 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
         "findings": len(r["findings"]),
     }
     r["health"]["verdict"] = _verdict(r["findings"])
+    m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
+    r["dimensions"] = m["dimensions"]
+    r["top_offenders"] = m["top_offenders"]
     return r
+
+
+def _finding_key(f):
+    return (f.get("rule_id"), f.get("object"))
+
+
+def find_previous_report(out_dir):
+    """Acha o report.json da auditoria anterior (dir irmão mais recente que não o atual)."""
+    parent = os.path.dirname(os.path.abspath(os.path.expanduser(out_dir)))
+    cur = os.path.basename(os.path.normpath(out_dir))
+    if not os.path.isdir(parent):
+        return None
+    sibs = sorted(d for d in os.listdir(parent)
+                  if d != cur and os.path.isfile(os.path.join(parent, d, "report.json")))
+    if not sibs:
+        return None
+    prev_dir = sibs[-1]
+    try:
+        with open(os.path.join(parent, prev_dir, "report.json"), encoding="utf-8") as f:
+            return {"stamp": prev_dir, "report": json.load(f)}
+    except (OSError, ValueError):
+        return None
+
+
+def diff_findings(prev, cur_report):
+    """Compara findings (por rule_id+object) com a auditoria anterior."""
+    prev_keys = {_finding_key(f) for f in (prev["report"].get("findings") or [])}
+    cur_keys = {_finding_key(f) for f in (cur_report.get("findings") or [])}
+    return {"vs": prev["stamp"],
+            "resolved": len(prev_keys - cur_keys),
+            "new": len(cur_keys - prev_keys)}
 
 
 def _first_json(out):
@@ -198,6 +233,9 @@ def main(argv=None):
     os.makedirs(out_dir, exist_ok=True)
 
     report = assemble_report(run, args.timeout, args.context, args.at, args.node)
+    prev = find_previous_report(out_dir)                 # diff com a auditoria anterior (se houver)
+    if prev:
+        report["history"] = diff_findings(prev, report)
     with open(os.path.join(out_dir, "report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print(os.path.join(out_dir, "report.json"))

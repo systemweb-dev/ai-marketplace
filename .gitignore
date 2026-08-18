@@ -27,3 +27,6 @@ Thumbs.db
 
 # Playwright (artefatos de teste)
 .playwright-mcp/
+
+# Relatórios da sw-cluster-audit (infra — NUNCA commitar num repo público)
+docs/infra/

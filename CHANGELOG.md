@@ -87,6 +87,13 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   `CATEGORY=` não é informado (antes revertia para o default `development`).
 
 ### Adicionado
+- `sw-cluster-audit` (v0.2.0): **relatório muito mais rico e amigável.** Além dos fatos, agora traz:
+  **resumo executivo** (o agente explica *por que* o veredito), **notas por dimensão**
+  (Segurança/Disponibilidade/Higiene, determinísticas), **recomendações priorizadas**
+  (impacto/esforço), **pontos fortes × fracos**, **findings agrupados por regra e explicados**
+  ("o que é / por que importa / como corrigir" em vez de tabela crua), **análise por componente**,
+  **top ofensores** e **diff com a auditoria anterior** (resolvidos/novos). Template redesenhado
+  (self-contained). +5 módulos/testes (métricas, rule_meta), 68 testes. Validado no cluster real.
 - Skill publicada: **`sw-cluster-audit`** (v0.1.0, categoria `development`) — auditoria **READ-ONLY**
   de cluster Docker (context/Swarm) → relatório técnico **HTML + PDF** (opt-in) em `docs/infra/`.
   Coleta via **allowlist `(noun,verb)`**, **redação field-allowlist positiva** (zero valor de

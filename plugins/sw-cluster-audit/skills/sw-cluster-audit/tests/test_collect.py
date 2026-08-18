@@ -57,6 +57,20 @@ def test_assemble_report_monta_sem_vazar_e_valido():
     assert svc["kind"] == "app"                             # 'web' não casa nenhum kind conhecido
     assert svc["routing_labels"]["traefik.http.routers.web.rule"] == "Host(`app.systemweb`)"
     assert r["health"]["verdict"] in {"green", "yellow", "red"}
+    assert "seguranca" in r["dimensions"]                  # métricas computadas no assemble
+    assert isinstance(r["top_offenders"], list)
+
+
+def test_history_diff(tmp_path):
+    base = tmp_path / "prod"
+    (base / "2026-08-17_1000").mkdir(parents=True)
+    (base / "2026-08-18_1000").mkdir(parents=True)
+    prev = {"findings": [{"rule_id": "A", "object": "x"}, {"rule_id": "B", "object": "y"}]}
+    (base / "2026-08-17_1000" / "report.json").write_text(json.dumps(prev))
+    cur = {"findings": [{"rule_id": "B", "object": "y"}, {"rule_id": "C", "object": "z"}]}
+    p = collect.find_previous_report(str(base / "2026-08-18_1000"))
+    assert p["stamp"] == "2026-08-17_1000"
+    assert collect.diff_findings(p, cur) == {"vs": "2026-08-17_1000", "resolved": 1, "new": 1}
 
 
 @pytest.mark.parametrize("image,kind", [
