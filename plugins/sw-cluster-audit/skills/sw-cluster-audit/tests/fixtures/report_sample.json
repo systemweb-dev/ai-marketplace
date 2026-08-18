@@ -3,39 +3,49 @@
   "generated_at": "2026-08-18T14:32:00Z",
   "cluster": {"context": "systemweb-prod", "engine_version": "25.0", "swarm": true},
   "scope": {"connected_node": "mgr-1", "container_checks_cover": "only_connected_node"},
-  "health": {"verdict": "red", "counts": {"nodes": 3, "services": 12, "findings": 2}},
-  "summary": "Crítico porque o ingress (Traefik) é ponto único e há bancos sem HA.",
-  "strengths": ["Todos os nodes Ready", "TLS via Let's Encrypt", "nginx com 2 réplicas"],
-  "weaknesses": ["Traefik 1/1 = SPOF do ingress", "3 bancos sem HA", "45 containers como root"],
+  "health": {"verdict": "red", "counts": {"nodes": 3, "services": 3, "findings": 2}},
+  "metrics_source": ["http://10.0.0.1:9090"],
+  "summary": "Crítico porque o ingress é ponto único e há banco sem HA.",
+  "strengths": ["Todos os nodes Ready", "TLS via Let's Encrypt"],
+  "weaknesses": ["Traefik 1/1 = SPOF do ingress", "banco sem HA"],
   "recommendations": [
-    {"title": "Subir 2ª réplica do Traefik", "why": "Ingress de 17 apps é ponto único de falha.", "impact": "alto", "effort": "baixo"},
-    {"title": "Fixar digest das imagens", "why": "Deploys reproduzíveis e sem surpresa.", "impact": "médio", "effort": "médio"}
+    {"title": "Subir 2ª réplica do Traefik", "why": "Ingress é ponto único de falha.",
+     "command": "docker service update --replicas 2 traefik_traefik",
+     "impact": "alto", "effort": "baixo", "scope": "traefik_traefik"},
+    {"title": "Fixar digest das imagens", "why": "Deploys reproduzíveis.", "impact": "médio", "effort": "médio"}
   ],
   "dimensions": {
     "seguranca": {"high": 1, "med": 1, "note": "red"},
-    "disponibilidade": {"ha_pct": 40, "spof_stateful": ["db"], "note": "red"},
+    "disponibilidade": {"ha_pct": 40, "spof_stateful": ["challenge-api_database"], "note": "red"},
     "higiene": {"pinned_pct": 30, "nonroot_pct": 20, "note": "red"}
   },
-  "top_offenders": [{"object": "web", "findings": 2}],
+  "top_offenders": [{"object": "traefik_traefik", "findings": 2}],
   "history": {"vs": "2026-08-17_1000", "resolved": 3, "new": 1},
   "nodes": [
     {"hostname": "mgr-1", "role": "Leader", "availability": "Active", "state": "Ready",
      "leader": true, "capacity": {"nano_cpus": 4000000000, "mem_bytes": 8000000000}}
   ],
   "services": [
-    {"name": "web", "image": "nginx", "tag": "latest", "digest": null, "replicas": "2/2",
-     "ports": [{"port": "80/tcp", "host_ip": "0.0.0.0", "host_port": "8080"}],
-     "env_keys": ["DB_PASSWORD", "PORT"], "kind": "proxy", "routing_labels": {}}
+    {"name": "traefik_traefik", "image": "traefik", "tag": "v3", "digest": null, "replicas": "1/1",
+     "ports": [{"port": "443/tcp", "host_ip": "0.0.0.0", "host_port": "443"}],
+     "env_keys": [], "kind": "ingress/proxy", "routing_labels": {},
+     "runtime": {"requests_24h": 128400, "errors_5xx_24h": 320, "p95_ms": 210.4}},
+    {"name": "challenge-api_api", "image": "challenge/api", "tag": "1.4", "digest": "sha256:a",
+     "replicas": "2/2", "ports": [], "env_keys": ["DB_PASSWORD"], "kind": "app",
+     "routing_labels": {"traefik.http.routers.challenge.rule": "Host(`api.challenge.com`)"},
+     "runtime": {"cpu_pct": 12.4, "mem_bytes": 268435456}},
+    {"name": "challenge-api_database", "image": "postgres", "tag": "16", "digest": "sha256:b",
+     "replicas": "1/1", "ports": [], "env_keys": [], "kind": "banco", "routing_labels": {}}
   ],
   "networks": [{"name": "ingress", "driver": "overlay", "scope": "swarm"}],
   "secrets": [{"name": "db_password"}],
   "configs": [{"name": "nginx_conf"}],
-  "components_analysis": {"web": "Proxy com 2 réplicas — ok em disponibilidade."},
+  "components_analysis": {"traefik_traefik": "Ingress com 1 réplica — ponto único do tráfego."},
   "findings": [
-    {"rule_id": "SEC_PRIVILEGED", "severity": "high", "object": "web",
+    {"rule_id": "SEC_PRIVILEGED", "severity": "high", "object": "traefik_traefik",
      "evidence": "Privileged=true", "fix": "remover --privileged", "scope": "cluster-wide"},
-    {"rule_id": "SEC_PORT_EXPOSED", "severity": "med", "object": "web",
+    {"rule_id": "SEC_PORT_EXPOSED", "severity": "med", "object": "traefik_traefik.1.abc",
      "evidence": "porta publicada em 0.0.0.0", "fix": "restringir bind", "scope": "cluster-wide"}
   ],
-  "not_collected": [{"what": "uso de CPU/mem por nó", "reason": "requer Prometheus"}]
+  "not_collected": [{"what": "uso de disco por nó", "reason": "requer node_exporter"}]
 }

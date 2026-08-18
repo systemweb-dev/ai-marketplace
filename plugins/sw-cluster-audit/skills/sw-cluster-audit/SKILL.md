@@ -38,6 +38,16 @@ Tira uma **fotografia técnica** do estado atual de um cluster Docker (context/S
 - **`AskUserQuestion`**: confirme QUAL context auditar (mostrando o alvo). **Sobretudo produção** —
   não assuma o context ativo. A confirmação vira o `--confirmed-context`.
 
+### 1b. Métricas de runtime — automático, nada fixo
+O `collect.py` **descobre sozinho** as fontes de métrica olhando os próprios fatos do cluster
+(quem é Prometheus/exporter, portas publicadas, host do context) e usa a melhor que responder:
+**servidor Prometheus** (janelas de 24h, taxas) → senão **exporter cru** (`/metrics`, valores
+instantâneos). Traz requests/24h e 5xx por app, profundidade de fila, CPU/memória.
+
+**Segurança:** a allowlist de rede é **derivada** — só o **host do context que você já confirmou**.
+Nenhum IP no código, nenhum host de fora do cluster auditado é alcançável. `--metrics off` desliga.
+Se nada responder (firewall, porta fechada), o relatório diz **por quê** e segue sem — sem inventar.
+
 ### 2. Coletar (read-only)
 Pegue o timestamp e monte o diretório de saída:
 ```bash
@@ -59,8 +69,10 @@ prioriza**. Grave estes campos de volta no `report.json`:
   porque o Traefik é ponto único de 17 apps, 3 bancos + fila estão sem HA, e 45 containers rodam root."
 - **`strengths`** (lista) — o que está **bom** (nodes Ready, TLS Let's Encrypt, services com 2+ réplicas…).
 - **`weaknesses`** (lista) — o que **preocupa** (SPOFs stateful, root difundido, imagens sem digest…).
-- **`recommendations`** (lista de `{title, why, impact, effort}`) — as ações **priorizadas** por
-  impacto/esforço. Foque no que move o ponteiro (ex.: "2ª réplica do Traefik" antes de "renomear labels").
+- **`recommendations`** (lista de `{title, why, command, impact, effort, scope}`) — as ações
+  **priorizadas**. **Sempre inclua `command`**: o comando/trecho pronto pra rodar (ex.:
+  `docker service update --replicas 2 traefik_traefik`), não só o "porquê". Multi-linha e
+  comentários (`#`) são suportados. Foque no que move o ponteiro.
 - **`components_analysis`** (`{ "<service>": "texto" }`) — análise específica por componente, usando
   `kind` + `routing_labels` + réplicas (você entende essas ferramentas):
   - **Traefik/proxy:** "roteia `Host(app.x)` → `app-x` via websecure (TLS on); 1 réplica = ponto único".

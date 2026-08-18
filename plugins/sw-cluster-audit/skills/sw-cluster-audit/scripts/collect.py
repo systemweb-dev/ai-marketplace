@@ -18,7 +18,8 @@ from lib.runner import run
 from lib.redact import redact_container, redact_service, scrub_info
 from lib.rules import findings_for_workload
 from lib.report import new_report, na, split_image
-from lib import metrics
+from lib import metrics, discover, enrich
+from lib.http_get import host_of
 
 DEFAULT_TIMEOUT = 15
 GITIGNORE_LINE = "docs/infra/"
@@ -166,6 +167,17 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     return r
 
 
+def host_from_context(ctx, timeout):
+    """Descobre o host do cluster pelo endpoint do context (pra propor URLs de métricas)."""
+    out = run(["docker", "context", "inspect", ctx], timeout)
+    try:
+        data = json.loads(out)[0] if out else {}
+        endpoint = ((data.get("Endpoints") or {}).get("docker") or {}).get("Host")
+    except (ValueError, IndexError, AttributeError, TypeError):
+        return None
+    return discover.host_from_context_endpoint(endpoint)
+
+
 def _finding_key(f):
     return (f.get("rule_id"), f.get("object"))
 
@@ -219,6 +231,14 @@ def main(argv=None):
     ap.add_argument("--node", default="connected")
     ap.add_argument("--confirmed-context", default=None,
                     help="repita o context aqui pra confirmar a auditoria (gate de segurança)")
+    ap.add_argument("--metrics", choices=["auto", "off"], default="auto",
+                    help="auto (padrão): descobre sozinho as fontes de métrica DENTRO do cluster "
+                         "confirmado e usa as que responderem. off: nenhuma requisição de rede.")
+    ap.add_argument("--metrics-endpoint", action="append", default=[],
+                    help="força um endpoint específico (opcional). Só é aceito se estiver no mesmo "
+                         "host do context confirmado.")
+    ap.add_argument("--discover-only", action="store_true",
+                    help="só coleta os fatos e imprime os candidatos a fonte de métricas (sem rede)")
     ap.add_argument("--at", required=True, help="timestamp ISO (o caller passa; scripts não geram data)")
     args = ap.parse_args(argv)
 
@@ -233,6 +253,53 @@ def main(argv=None):
     os.makedirs(out_dir, exist_ok=True)
 
     report = assemble_report(run, args.timeout, args.context, args.at, args.node)
+
+    # --- fontes de métricas: descobre (sem rede) e só consulta o que foi CONFIRMADO ---
+    endpoint_host = host_from_context(args.context, args.timeout)
+    report["metrics_candidates"] = discover.propose(report, endpoint_host)
+    if args.discover_only:
+        print(json.dumps({"host": endpoint_host, "candidates": report["metrics_candidates"]},
+                         ensure_ascii=False, indent=2))
+        return 0
+    if args.metrics == "off":
+        report["not_collected"].append(
+            {"what": "métricas de runtime (requests, filas, CPU/mem)", "reason": "--metrics off"})
+    elif not endpoint_host:
+        report["not_collected"].append(
+            {"what": "métricas de runtime", "reason": "não foi possível determinar o host do cluster"})
+    else:
+        # SEGURANÇA: a allowlist é derivada — só o host do context que o usuário já confirmou.
+        # Nada fixo no código e nenhum host de fora do cluster auditado é alcançável.
+        allowed = [endpoint_host]
+        urls = args.metrics_endpoint or [c["url"] for c in report["metrics_candidates"]
+                                         if c.get("url") and c.get("published")]
+        used = []
+        for url in urls:
+            if host_of(url) != endpoint_host:
+                report["not_collected"].append(
+                    {"what": f"métricas de {host_of(url)}", "reason": "host fora do cluster confirmado"})
+                continue
+            base = url.split("/api/")[0].split("/metrics")[0].rstrip("/")
+            if base in used:
+                continue
+            # 1ª escolha: servidor Prometheus (janelas de 24h, taxas). 2ª: exporter cru (/metrics).
+            if enrich.probe(base, allowed, args.timeout):
+                runtime = enrich.collect_runtime(base, allowed, args.timeout)
+            elif enrich.probe_exporter(base, allowed, args.timeout):
+                runtime = enrich.collect_from_exporter(base, allowed, args.timeout)
+            else:
+                report["not_collected"].append(
+                    {"what": f"métricas em {base}", "reason": "não respondeu ou não expõe métricas"})
+                continue
+            if runtime:
+                enrich.attach(report, runtime)
+                used.append(base)
+        report["metrics_source"] = used or None
+        if not used:
+            report["not_collected"].append(
+                {"what": "requests/filas/uso de recursos",
+                 "reason": "nenhuma fonte de métricas respondeu no cluster"})
+
     prev = find_previous_report(out_dir)                 # diff com a auditoria anterior (se houver)
     if prev:
         report["history"] = diff_findings(prev, report)
