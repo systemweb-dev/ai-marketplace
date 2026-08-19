@@ -123,6 +123,14 @@ def findings_operational(report):
             out.append(_f("OPS_NODE_DRAIN", "low", n.get("hostname"), "nó em drain (não recebe tasks)",
                           "confirmar se é intencional (manutenção)", "cluster-wide"))
 
+    # versões de engine divergentes entre os nós
+    engines = {n.get("engine") for n in (nodes if isinstance(nodes, list) else []) if n.get("engine")}
+    if len(engines) > 1:
+        out.append(_f("OPS_ENGINE_DRIFT", "low", "cluster",
+                      "versões do Docker Engine diferentes entre os nós: " + ", ".join(sorted(engines)),
+                      "padronizar a versão do engine nos nós (atualizações em janela, um nó por vez)",
+                      "cluster-wide"))
+
     services = report.get("services")
     for s in (services if isinstance(services, list) else []):
         name = s.get("name")
@@ -130,7 +138,7 @@ def findings_operational(report):
         if desired is None:
             continue
         if desired > 0 and running == 0:
-            if _is_job_like(name, s.get("image")):
+            if s.get("completed_job") or _is_job_like(name, s.get("image")):
                 out.append(_f("OPS_JOB_COMPLETED", "low", name,
                               f'0 réplicas ({s.get("replicas")}) — serviço de execução única já concluído',
                               "nenhuma ação: é o estado normal de um job de migração/manutenção",

@@ -107,6 +107,52 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
 
     # --- nodes (swarm; capacidade — uso real não existe sem métricas)
     nodes_raw = _run(["docker", "node", "ls", "--format", "{{json .}}"])
+
+    # UMA chamada traz as tasks de TODOS os nós (campos .Node/.Name/.CurrentState/.Error).
+    # Evita 1 chamada por serviço/nó — em cluster remoto isso era o gargalo.
+    all_tasks = []
+    if nodes_raw:
+        node_ids = [n.get("ID") or n.get("Hostname") for n in _jlines(nodes_raw)]
+        node_ids = [x for x in node_ids if x]
+        if node_ids:
+            # Chamada mais pesada da coleta (todas as tasks do cluster de uma vez).
+            # Precisa de folga: com dezenas de serviços passa fácil dos 15s padrão.
+            raw = _run(["docker", "node", "ps", *node_ids,
+                        "--format", "{{json .}}", "--no-trunc"], max(timeout * 4, 60))
+            if raw is None:
+                tasks_ok = False
+                r["not_collected"].append({"what": "tasks por nó/serviço",
+                                           "reason": _why("listagem de tasks indisponível")})
+            else:
+                tasks_ok = True
+                all_tasks = _jlines(raw)
+        else:
+            tasks_ok = False
+    else:
+        tasks_ok = False
+
+    def _state(t):
+        return str(t.get("CurrentState") or "").split()[0] if t.get("CurrentState") else ""
+
+    def _is_recent(t):
+        """CurrentState traz 'X minutes/hours/days ago' — só conta falha das últimas ~24h."""
+        cs = str(t.get("CurrentState") or "").lower()
+        return not any(w in cs for w in (" days ago", " weeks ago", " months ago", " years ago"))
+
+    # o `docker node ps` com vários nós repete a listagem — dedupe pelo ID da task
+    seen_ids, deduped = set(), []
+    for t in all_tasks:
+        tid = t.get("ID")
+        if tid and tid in seen_ids:
+            continue
+        seen_ids.add(tid)
+        deduped.append(t)
+    all_tasks = deduped
+
+    tasks_by_node, tasks_by_service = {}, {}
+    for t in all_tasks:
+        tasks_by_node.setdefault(t.get("Node"), []).append(t)
+        tasks_by_service.setdefault(str(t.get("Name") or "").split(".")[0], []).append(t)
     if nodes_raw is None:
         r["nodes"] = na(_why("node ls indisponível (não-swarm)"))
     else:
@@ -117,12 +163,10 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
             res = desc.get("Resources", {}) or {}
             plat = desc.get("Platform", {}) or {}
             mgr = insp.get("ManagerStatus") or {}
-            # tasks rodando/falhando neste nó (distribuição de carga + falhas recentes)
-            tasks = _jlines(_run(["docker", "node", "ps", nid, "--format", "{{json .}}",
-                                  "--no-trunc"]))
-            running = sum(1 for t in tasks if str(t.get("CurrentState", "")).startswith("Running"))
-            failed = [t for t in tasks
-                      if str(t.get("CurrentState", "")).split()[0] in ("Failed", "Rejected")]
+            # tasks deste nó (do índice montado numa única chamada)
+            tasks = tasks_by_node.get(n.get("Hostname"), [])
+            running = sum(1 for t in tasks if _state(t) == "Running")
+            failed = [t for t in tasks if _state(t) in ("Failed", "Rejected") and _is_recent(t)]
             r["nodes"].append({
                 "hostname": n.get("Hostname"), "role": n.get("ManagerStatus") or "worker",
                 "availability": n.get("Availability"), "state": n.get("Status"),
@@ -131,7 +175,8 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "engine": (desc.get("Engine", {}) or {}).get("EngineVersion"),
                 "platform": f'{plat.get("OS", "")}/{plat.get("Architecture", "")}'.strip("/"),
                 "capacity": {"nano_cpus": res.get("NanoCPUs"), "mem_bytes": res.get("MemoryBytes")},
-                "tasks_running": running, "tasks_failed": len(failed),
+                "tasks_running": running if tasks_ok else None,
+                "tasks_failed": len(failed) if tasks_ok else None,
                 "failed_examples": [f'{t.get("Name")}: {t.get("Error") or t.get("CurrentState")}'
                                     for t in failed[:3]],
             })
@@ -159,11 +204,13 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 continue
             red = redact_service(insp)
             img = split_image(red.get("image"))
-            # tasks recentes deste service: pega crash-loop que o "replicas ok" esconde
-            tasks = _jlines(_run(["docker", "service", "ps", name, "--format", "{{json .}}",
-                                  "--no-trunc"]))
-            failed = [t for t in tasks
-                      if str(t.get("CurrentState", "")).split()[0] in ("Failed", "Rejected")]
+            # tasks deste service (mesmo índice) — pega crash-loop que o "replicas ok" esconde
+            tasks = tasks_by_service.get(name, [])
+            failed = ([t for t in tasks if _state(t) in ("Failed", "Rejected") and _is_recent(t)]
+                      if tasks_ok else [])
+            # job de execução única: o Swarm marca a task como Complete (sinal infalível,
+            # independente do nome do serviço)
+            completed_job = any(_state(t) == "Complete" for t in tasks)
             r["services"].append({
                 "name": red.get("name"), "image": img["image"], "tag": img["tag"],
                 "digest": img["digest"], "replicas": s.get("Replicas"), "ports": red.get("ports"),
@@ -174,7 +221,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "has_healthcheck": red.get("has_healthcheck"),
                 "constraints": red.get("constraints"), "updated_at": red.get("updated_at"),
                 "mode": red.get("mode"),
-                "tasks_failed": len(failed),
+                "tasks_failed": len(failed) if tasks_ok else None, "completed_job": completed_job,
                 "failed_reason": (failed[0].get("Error") or failed[0].get("CurrentState")) if failed else None,
             })
             r["findings"].extend(findings_for_workload({**red, **img}, scope="cluster-wide"))

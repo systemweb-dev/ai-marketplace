@@ -59,6 +59,12 @@ RULE_META.update({
         "what": "Não foi possível conectar na API do Docker do host.",
         "why": "Sem acesso não há gestão remota nem auditoria. Pode ser firewall, rede ou dockerd fora do ar.",
     },
+    "OPS_ENGINE_DRIFT": {
+        "label": "Versões de engine divergentes",
+        "what": "Os nós do cluster rodam versões diferentes do Docker Engine.",
+        "why": "Comportamento e recursos variam entre versões; bugs aparecem só em alguns nós e "
+               "ficam difíceis de reproduzir. Convém padronizar, atualizando um nó por vez.",
+    },
     "OPS_NODE_DOWN": {
         "label": "Nó fora do ar",
         "what": "Um nó do Swarm não está no estado Ready.",

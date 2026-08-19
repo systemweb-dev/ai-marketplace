@@ -134,3 +134,30 @@ def test_certificado_ok_ou_ausente_nao_gera_achado():
     from lib.rules import findings_from_cert
     assert findings_from_cert({"status": "ok", "days_left": 300, "not_after": "x"}, "p") == []
     assert findings_from_cert(None, "p") == []          # context ssh:// não tem certificado
+
+
+def test_job_detectado_pelo_estado_complete_independente_do_nome():
+    """Sinal infalível: o Swarm marca replicated-job concluído como Complete."""
+    r = {"nodes": [], "services": [
+        {"name": "systemweb-payments-api_worker", "replicas": "0/1", "completed_job": True}]}
+    f = findings_operational(r)[0]
+    assert f["rule_id"] == "OPS_JOB_COMPLETED" and f["expected"] is True
+
+
+def test_servico_parado_sem_complete_continua_sendo_verificar():
+    r = {"nodes": [], "services": [
+        {"name": "loja_frontend", "replicas": "0/2", "completed_job": False}]}
+    assert findings_operational(r)[0]["rule_id"] == "OPS_SERVICE_STOPPED"
+
+
+def test_versoes_de_engine_divergentes_viram_achado():
+    r = {"nodes": [{"hostname": "a", "state": "Ready", "engine": "28.3.3"},
+                   {"hostname": "b", "state": "Ready", "engine": "29.5.0"}], "services": []}
+    f = [x for x in findings_operational(r) if x["rule_id"] == "OPS_ENGINE_DRIFT"][0]
+    assert f["severity"] == "low" and "28.3.3" in f["evidence"] and "29.5.0" in f["evidence"]
+
+
+def test_engine_uniforme_nao_gera_achado():
+    r = {"nodes": [{"hostname": "a", "state": "Ready", "engine": "28.3.3"},
+                   {"hostname": "b", "state": "Ready", "engine": "28.3.3"}], "services": []}
+    assert not any(x["rule_id"] == "OPS_ENGINE_DRIFT" for x in findings_operational(r))
