@@ -235,6 +235,28 @@ def _disk(disk):
                      [None, "num", "num", "num", "num"]))
 
 
+def _tls(tls):
+    """Validade dos certificados TLS do context — sempre exibida quando há TLS."""
+    if isinstance(tls, dict) and tls.get("status") == "n/a":
+        return ('<h2><span class="n">5c</span> Certificados TLS</h2>'
+                f'<p class="muted">{_e(tls.get("reason"))}</p>')
+    if not tls:
+        return ""
+    rows = []
+    for c in tls.get("certs", []):
+        st = c["status"]
+        badge = {"expired": '<span class="badge high">expirado</span>',
+                 "expiring": '<span class="badge med">vence em breve</span>',
+                 "ok": '<span class="badge ok">válido</span>'}.get(st, "")
+        dias = c["days_left"]
+        rows.append([f'<code>{_e(c["file"])}</code>', _e(c.get("label")), badge,
+                     _e(c["not_after"][:10]),
+                     _e(f'{dias} dias' if dias >= 0 else f'venceu há {abs(dias)} dias')])
+    return ('<h2><span class="n">5c</span> Certificados TLS do acesso ao cluster</h2>'
+            + _table(["Arquivo", "Papel", "Situação", "Válido até", "Restante"], rows,
+                     [None, None, None, None, "num"]))
+
+
 def _history(hist):
     """Histórico visível: o que foi resolvido desde a auditoria anterior."""
     if not hist:
@@ -408,7 +430,7 @@ def render_html(report):
         "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
         "%%STACKS%%": _stack_blocks(report, groups, comp_an),
         "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings"), new_rules),
-        "%%NODES%%": _node_cards(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")),
+        "%%NODES%%": _node_cards(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")) + _tls(report.get("tls")),
         "%%NETWORKS%%": networks,
         "%%CONNECTED_NODE%%": _e(scope.get("connected_node")),
         "%%NOT_COLLECTED%%": not_collected, "%%SECRETS_CONFIGS%%": secrets_configs,

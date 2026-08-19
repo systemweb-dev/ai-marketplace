@@ -1,8 +1,13 @@
-"""Validade do certificado TLS do context Docker — checagem proativa.
+"""Validade dos certificados TLS do context Docker — dado do relatório + alerta proativo.
 
-Lê **apenas o certificado público** (`cert.pem`) do context, e dele apenas a data de expiração.
-NUNCA toca em `key.pem` (chave privada). Se o context não usa TLS (ex.: ssh:// ou socket local),
-não há certificado e a checagem é silenciosamente ignorada.
+Lê **apenas os certificados públicos** (`ca.pem` e `cert.pem`) do diretório do context, e deles
+apenas as datas de validade. NUNCA toca em `key.pem` (chave privada).
+
+Checa a CA **e** o certificado de cliente: a CA costuma ter validade própria e, se ela vencer,
+tudo para junto — mesmo que o certificado de cliente ainda esteja válido.
+
+Context sem TLS (ex.: `ssh://`, socket local) não tem certificado → devolve None e a checagem
+é ignorada em silêncio.
 """
 import base64
 import datetime
@@ -10,15 +15,16 @@ import hashlib
 import os
 
 CONTEXTS_DIR = os.path.expanduser("~/.docker/contexts")
-PUBLIC_CERT = "cert.pem"          # único arquivo que este módulo abre
+PUBLIC_CERTS = ("ca.pem", "cert.pem")     # únicos arquivos que este módulo abre
+WARN_DAYS = 30
 
 
-def cert_path(context_name, base_dir=None):
-    """Caminho do certificado público do context (None se não existir/não usar TLS)."""
+def context_tls_dir(context_name, base_dir=None):
+    """Diretório TLS do context (None se o context não usa TLS)."""
     base = base_dir or CONTEXTS_DIR
     cid = hashlib.sha256((context_name or "").encode()).hexdigest()
-    p = os.path.join(base, "tls", cid, "docker", PUBLIC_CERT)
-    return p if os.path.isfile(p) else None
+    d = os.path.join(base, "tls", cid, "docker")
+    return d if os.path.isdir(d) else None
 
 
 def _parse_asn1_time(tag, value):
@@ -39,46 +45,73 @@ def _parse_asn1_time(tag, value):
         return None
 
 
-def not_after(path):
-    """Data de expiração do certificado PEM (datetime UTC) ou None se não der pra ler."""
+def validity(path):
+    """(notBefore, notAfter) do certificado PEM, em UTC. (None, None) se não der pra ler."""
     try:
         with open(path, encoding="utf-8", errors="ignore") as f:
             pem = f.read()
     except OSError:
-        return None
+        return None, None
     body = "".join(l for l in pem.splitlines() if "-----" not in l)
     try:
         der = base64.b64decode(body)
     except Exception:
-        return None
+        return None, None
 
     # As duas primeiras horas ASN.1 do certificado são o par Validity (notBefore, notAfter).
     times, i = [], 0
     while i < len(der) - 2 and len(times) < 2:
         tag, ln = der[i], der[i + 1]
         if tag in (0x17, 0x18) and ln < 0x80 and i + 2 + ln <= len(der):
-            val = der[i + 2:i + 2 + ln].decode("ascii", "ignore")
-            dt = _parse_asn1_time(tag, val)
+            dt = _parse_asn1_time(tag, der[i + 2:i + 2 + ln].decode("ascii", "ignore"))
             if dt:
                 times.append(dt)
                 i += 2 + ln
                 continue
         i += 1
-    return times[1] if len(times) == 2 else None
+    return (times[0], times[1]) if len(times) == 2 else (None, None)
 
 
-def check(context_name, now=None, warn_days=30, base_dir=None):
-    """Retorna {status, days_left, not_after} ou None quando não há certificado (ex.: ssh://).
+def _status(exp, now, warn_days):
+    if exp <= now:
+        return "expired"
+    return "expiring" if (exp - now).days < warn_days else "ok"
 
-    status: "expired" | "expiring" (< warn_days) | "ok"
+
+def check(context_name, now=None, warn_days=WARN_DAYS, base_dir=None):
+    """Dados dos certificados do context, ou None se o context não usa TLS.
+
+    {
+      "status": "expired|expiring|ok",     # o PIOR entre os certificados
+      "days_left": 123,                    # do que vence primeiro
+      "not_after": "...",                  # idem
+      "certs": [ {"file","status","days_left","not_before","not_after"} ]
+    }
     """
-    p = cert_path(context_name, base_dir)
-    if not p:
-        return None
-    exp = not_after(p)
-    if not exp:
+    d = context_tls_dir(context_name, base_dir)
+    if not d:
         return None
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    days = (exp - now).days
-    status = "expired" if exp <= now else ("expiring" if days < warn_days else "ok")
-    return {"status": status, "days_left": days, "not_after": exp.isoformat()}
+
+    certs = []
+    for name in PUBLIC_CERTS:
+        p = os.path.join(d, name)
+        if not os.path.isfile(p):
+            continue
+        nb, na_ = validity(p)
+        if not na_:
+            continue
+        certs.append({
+            "file": name,
+            "label": "autoridade (CA)" if name == "ca.pem" else "cliente",
+            "status": _status(na_, now, warn_days),
+            "days_left": (na_ - now).days,
+            "not_before": nb.isoformat() if nb else None,
+            "not_after": na_.isoformat(),
+        })
+    if not certs:
+        return None
+
+    pior = min(certs, key=lambda c: c["days_left"])     # o que vence primeiro manda
+    return {"status": pior["status"], "days_left": pior["days_left"],
+            "not_after": pior["not_after"], "certs": certs}

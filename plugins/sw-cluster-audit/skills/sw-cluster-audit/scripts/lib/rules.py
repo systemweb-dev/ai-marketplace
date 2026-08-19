@@ -216,11 +216,13 @@ def findings_from_cert(cert_info, context):
     if st == "expired":
         return [_f("OPS_TLS_EXPIRED", "high", f"daemon/{context}",
                    f"certificado do context expirou em {exp}",
-                   "renovar CA/servidor/cliente reutilizando as mesmas chaves privadas, ou migrar "
-                   "o context para ssh:// (sem certificado)", "cluster-wide")]
+                   "renovar CA/servidor/cliente reutilizando as mesmas chaves privadas (validar com "
+                   "openssl verify ANTES de aplicar), ou migrar o context para ssh:// — sem certificado, "
+                   "sem expiração. Runbook: references/tls-renewal.md", "cluster-wide")]
     if st == "expiring":
         return [_f("OPS_TLS_EXPIRING", "med", f"daemon/{context}",
                    f"certificado do context expira em {days} dia(s) ({exp})",
                    "renovar antes do vencimento — quando expira, todo acesso remoto (CLI, CI/CD, "
-                   "Portainer via TCP) para de funcionar", "cluster-wide")]
+                   "paineis via TCP) para de funcionar. Lembre de atualizar TODOS os clientes "
+                   "(incluindo secrets de CI/CD). Runbook: references/tls-renewal.md", "cluster-wide")]
     return []

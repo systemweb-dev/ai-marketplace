@@ -256,11 +256,13 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     }
     # achados OPERACIONAIS (nó fora, réplica não convergida) — é o que define a saúde
     r["findings"].extend(findings_operational(r))
-    # validade do certificado TLS do context (só a data; nunca a chave privada)
+    # validade dos certificados TLS do context (só as datas; nunca a chave privada)
     try:
-        r["findings"].extend(findings_from_cert(cert.check(context), context))
+        tls = cert.check(context)
     except OSError:
-        pass
+        tls = None
+    r["tls"] = tls if tls else na("context não usa TLS (ssh:// ou socket local)")
+    r["findings"].extend(findings_from_cert(tls, context))
     m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
     r["dimensions"] = m["dimensions"]
     r["top_offenders"] = m["top_offenders"]

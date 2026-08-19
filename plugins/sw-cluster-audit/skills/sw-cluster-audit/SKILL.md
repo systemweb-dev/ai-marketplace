@@ -120,13 +120,26 @@ do Traefik e análise) · 7. **Achados** agrupados e explicados · 8. **Redes** 
 controladas) — o Chrome não achata as cores e o layout não colapsa em uma coluna.
 
 ## Checagens além do estado atual
-- **Certificado TLS do context** (`lib/cert.py`): lê **só a data** de `cert.pem` (nunca a chave
-  privada) e avisa — crítico se expirado, atenção se faltam < 30 dias. Context `ssh://` não tem
-  certificado → ignora em silêncio.
+- **Certificados TLS do context** (`lib/cert.py`): lê **só as datas** de `ca.pem` **e** `cert.pem`
+  (nunca a chave privada) e publica em `report["tls"]` — a seção aparece **sempre** que há TLS,
+  não só quando há problema. Alerta: crítico se expirado, atenção se faltam < 30 dias. Reporta o
+  que vence **primeiro** (a CA tem validade própria e derruba tudo se vencer). Context `ssh://`
+  ou socket local → seção n/a, sem alarme.
+  **Ao recomendar renovação, leia [`references/tls-renewal.md`](references/tls-renewal.md)** — ele
+  traz o que dizer: renovar mantendo a mesma CA, validar antes de aplicar, avisar do impacto do
+  restart (o daemon só relê o certificado ao subir), lembrar dos outros clientes/CI-CD e as
+  checagens pós-restart.
 - **Falha de acesso vira achado:** se a coleta falhar por certificado expirado ou daemon
   inacessível, isso aparece como achado crítico com o motivo real (não um "indisponível" genérico).
 - **Confiabilidade por serviço:** sem limite de CPU/memória, sem healthcheck, tasks que falharam
   recentemente, constraints de placement.
+
+## Depois de um restart do daemon: réplicas N/N não provam funcionamento
+Serviços que mantêm **cluster interno próprio** (agentes de painel, service discovery, gossip)
+podem ficar com estado partido depois que o daemon reinicia — aparecendo como `4/4` saudáveis
+enquanto o painel alterna entre "vê tudo" e "vê nada". Se o usuário reiniciou o daemon
+recentemente e relata algo assim, sugira `docker service update --force <serviço-agente>`
+(seguro: proxy sem estado, não toca em container de aplicação).
 
 ## Honestidade (o que a skill NÃO afirma)
 - **Uso de CPU/mem por nó** não existe sem stack de métricas → aparece como `n/a`. Só **capacidade**.
