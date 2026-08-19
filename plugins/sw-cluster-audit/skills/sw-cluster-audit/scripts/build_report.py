@@ -304,7 +304,7 @@ def _recs(recs):
     return "".join(out)
 
 
-def _stack_blocks(report, groups, comp_an):
+def _stack_blocks(groups, comp_an):
     if not groups:
         return '<p class="muted">—</p>'
     out = []
@@ -428,14 +428,15 @@ def render_html(report):
         "%%DIMENSIONS%%": _dim_cards(dims),
         "%%RECOMMENDATIONS%%": _recs(report.get("recommendations")),
         "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
-        "%%STACKS%%": _stack_blocks(report, groups, comp_an),
+        "%%STACKS%%": _stack_blocks(groups, comp_an),
         "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings"), new_rules),
         "%%NODES%%": _node_cards(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")) + _tls(report.get("tls")),
         "%%NETWORKS%%": networks,
         "%%CONNECTED_NODE%%": _e(scope.get("connected_node")),
         "%%NOT_COLLECTED%%": not_collected, "%%SECRETS_CONFIGS%%": secrets_configs,
     }
-    page = open(TEMPLATE, encoding="utf-8").read()
+    with open(TEMPLATE, encoding="utf-8") as f:
+        page = f.read()
     for k, v in repl.items():
         page = page.replace(k, v)
     return page
@@ -467,7 +468,8 @@ def main(argv=None):
     ap.add_argument("--dir", required=True)
     args = ap.parse_args(argv)
     d = os.path.expanduser(args.dir)
-    report = json.loads(open(os.path.join(d, "report.json"), encoding="utf-8").read())
+    with open(os.path.join(d, "report.json"), encoding="utf-8") as f:
+        report = json.load(f)
     res = build(report, d)
     print(res["html"])
     if res["pdf"]:

@@ -100,6 +100,15 @@ def redact_labels(labels):
     return out
 
 
+def scrub_text(text, limit=200):
+    """Sanitiza texto livre vindo do daemon (ex.: erro de task) antes de entrar no relatório.
+
+    A coleta usa allowlist POSITIVA de campos; texto de erro é a única exceção — então passa
+    pelo mesmo scrub de credencial-em-URL e é truncado para não virar um dump.
+    """
+    return _CRED.sub("//***@", str(text or ""))[:limit]
+
+
 def scrub_info(info):
     mirrors = (info.get("RegistryConfig", {}) or {}).get("Mirrors") or []
     return {

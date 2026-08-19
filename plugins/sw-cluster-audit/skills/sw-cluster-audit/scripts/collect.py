@@ -10,12 +10,13 @@ Uso:
 - Nenhum import de rede.
 """
 import argparse
+import inspect
 import json
 import os
 import sys
 
 from lib.runner import run
-from lib.redact import redact_container, redact_service, scrub_info
+from lib.redact import redact_container, redact_service, scrub_info, scrub_text
 from lib.rules import (findings_for_workload, findings_operational,
                        findings_from_errors, findings_from_cert)
 from lib.report import new_report, na, split_image
@@ -60,7 +61,8 @@ def ensure_gitignore(repo, line=GITIGNORE_LINE):
     gi = os.path.join(str(repo), ".gitignore")
     existing = []
     if os.path.isfile(gi):
-        existing = open(gi, encoding="utf-8").read().splitlines()
+        with open(gi, encoding="utf-8") as f:
+            existing = f.read().splitlines()
     if line not in existing:
         with open(gi, "a", encoding="utf-8") as f:
             if existing and existing[-1].strip() != "":
@@ -82,15 +84,21 @@ def _first(out):
 
 
 def assemble_report(run_fn, timeout, context, generated_at, connected_node):
-    """Monta o report.json a partir de comandos read-only. `run_fn(cmd, timeout) -> str|None`."""
+    """Monta o report.json a partir de comandos read-only.
+
+    DÍVIDA TÉCNICA (code review 19/08/2026): complexidade ciclomática 25 (limite 10).
+    Quando for mexer aqui, extrair _collect_nodes / _collect_services / _collect_containers.
+    Adiado de propósito: é o coração da coleta e os testes cobrem o comportamento atual. `run_fn(cmd, timeout) -> str|None`."""
     r = new_report(generated_at=generated_at, context=context)
     errs = []                       # motivos reais das falhas (TLS expirado, timeout, etc.)
 
+    # Detecta a assinatura UMA vez. Usar try/except TypeError aqui seria perigoso: um
+    # TypeError vindo de DENTRO do runner (após o comando já ter rodado) causaria uma
+    # segunda execução — e ainda mascararia o bug real.
+    _accepts_errors = len(inspect.signature(run_fn).parameters) >= 3
+
     def _run(cmd, t=timeout):
-        try:
-            return run_fn(cmd, t, errs)          # runner novo aceita coletor de erros
-        except TypeError:
-            return run_fn(cmd, t)                # run_fn simples (usado nos testes)
+        return run_fn(cmd, t, errs) if _accepts_errors else run_fn(cmd, t)
 
     def _why(default):
         return errs[0]["reason"] if errs else default
@@ -133,6 +141,10 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
 
     def _state(t):
         return str(t.get("CurrentState") or "").split()[0] if t.get("CurrentState") else ""
+
+    def _task_err(t):
+        """Erro de task é texto livre do daemon — sanitiza e trunca (ver redact.scrub_text)."""
+        return scrub_text(t.get("Error") or t.get("CurrentState") or "")
 
     def _is_recent(t):
         """CurrentState traz 'X minutes/hours/days ago' — só conta falha das últimas ~24h."""
@@ -177,8 +189,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "capacity": {"nano_cpus": res.get("NanoCPUs"), "mem_bytes": res.get("MemoryBytes")},
                 "tasks_running": running if tasks_ok else None,
                 "tasks_failed": len(failed) if tasks_ok else None,
-                "failed_examples": [f'{t.get("Name")}: {t.get("Error") or t.get("CurrentState")}'
-                                    for t in failed[:3]],
+                "failed_examples": [f'{t.get("Name")}: {_task_err(t)}' for t in failed[:3]],
             })
         r["not_collected"].append({"what": "uso de CPU/mem em tempo real por nó",
                                    "reason": "requer Prometheus/cAdvisor (capacidade é reportada)"})
@@ -222,7 +233,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "constraints": red.get("constraints"), "updated_at": red.get("updated_at"),
                 "mode": red.get("mode"),
                 "tasks_failed": len(failed) if tasks_ok else None, "completed_job": completed_job,
-                "failed_reason": (failed[0].get("Error") or failed[0].get("CurrentState")) if failed else None,
+                "failed_reason": _task_err(failed[0]) if failed else None,
             })
             r["findings"].extend(findings_for_workload({**red, **img}, scope="cluster-wide"))
 

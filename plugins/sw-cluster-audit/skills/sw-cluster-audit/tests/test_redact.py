@@ -68,3 +68,12 @@ def test_scrub_info_redige_cred_do_proxy():
 def test_campo_desconhecido_e_descartado():
     out = redact_container({"Config": {"Image": "x"}, "CampoNovoDaAPI": {"secret": "leak-token-9f2a"}})
     assert "CampoNovoDaAPI" not in out and "leak-token-9f2a" not in json.dumps(out)
+
+
+def test_scrub_text_sanitiza_erro_de_task():
+    from lib.redact import scrub_text
+    # erro de task é texto livre do daemon: credencial em URL não pode passar
+    out = scrub_text('failed: pull from http://user:senha@registry.local/img')
+    assert "user:senha" not in out and "registry.local" in out
+    assert len(scrub_text("x" * 500)) == 200          # truncado
+    assert scrub_text(None) == ""                      # tolera ausência
