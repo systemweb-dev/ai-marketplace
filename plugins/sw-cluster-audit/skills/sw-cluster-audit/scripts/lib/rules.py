@@ -145,4 +145,74 @@ def findings_operational(report):
                           f'réplicas abaixo do desejado ({s.get("replicas")})',
                           f"docker service ps {name} --no-trunc para ver por que não converge",
                           "cluster-wide"))
+
+        # tasks que falharam recentemente — crash-loop que o "réplicas ok" esconde
+        if s.get("tasks_failed"):
+            out.append(_f("OPS_TASK_FAILING", "med", name,
+                          f'{s["tasks_failed"]} task(s) falharam recentemente'
+                          + (f': {s.get("failed_reason")}' if s.get("failed_reason") else ""),
+                          f"docker service ps {name} --no-trunc para ver o erro completo",
+                          "cluster-wide"))
+
+        # confiabilidade (higiene): sem limite de recurso e sem healthcheck
+        lim = s.get("limits") or {}
+        if not lim.get("nano_cpus") and not lim.get("mem_bytes"):
+            out.append(_f("OPS_NO_LIMITS", "low", name,
+                          "sem limite de CPU/memória definido",
+                          f"docker service update --limit-cpu 1 --limit-memory 512M {name}",
+                          "cluster-wide"))
+        if s.get("has_healthcheck") is False:
+            out.append(_f("OPS_NO_HEALTHCHECK", "low", name,
+                          "sem HEALTHCHECK definido",
+                          "definir HEALTHCHECK na imagem ou --health-cmd no service",
+                          "cluster-wide"))
     return out
+
+
+# ---------------------------------------------------------------- falhas de acesso ao cluster
+def findings_from_errors(errors, context):
+    """Transforma erros de coleta em achados quando revelam um problema REAL de infraestrutura.
+
+    Genérico: olha a mensagem do próprio docker, sem depender de plataforma.
+    """
+    out, seen = [], set()
+    for e in errors or []:
+        msg = str(e.get("reason") or "").lower()
+        if "certificate has expired" in msg or "certificate is not yet valid" in msg:
+            rid = "OPS_TLS_EXPIRED"
+            if rid in seen:
+                continue
+            seen.add(rid)
+            out.append(_f(rid, "high", f"daemon/{context}",
+                          f'certificado TLS do daemon inválido: {e.get("reason")}',
+                          "renovar os certificados do daemon (server + client) e recarregar o "
+                          "dockerd; até lá o acesso remoto (CLI, CI/CD, Portainer via TCP) fica quebrado",
+                          "cluster-wide"))
+        elif "connection refused" in msg or "no route to host" in msg or "i/o timeout" in msg:
+            rid = "OPS_DAEMON_UNREACHABLE"
+            if rid in seen:
+                continue
+            seen.add(rid)
+            out.append(_f(rid, "high", f"daemon/{context}",
+                          f'daemon inacessível: {e.get("reason")}',
+                          "verificar rede/firewall e se o dockerd está no ar no host",
+                          "cluster-wide"))
+    return out
+
+
+def findings_from_cert(cert_info, context):
+    """Achado proativo de validade do certificado TLS do daemon (None = context sem TLS)."""
+    if not cert_info:
+        return []
+    st, days, exp = cert_info["status"], cert_info["days_left"], cert_info["not_after"]
+    if st == "expired":
+        return [_f("OPS_TLS_EXPIRED", "high", f"daemon/{context}",
+                   f"certificado do context expirou em {exp}",
+                   "renovar CA/servidor/cliente reutilizando as mesmas chaves privadas, ou migrar "
+                   "o context para ssh:// (sem certificado)", "cluster-wide")]
+    if st == "expiring":
+        return [_f("OPS_TLS_EXPIRING", "med", f"daemon/{context}",
+                   f"certificado do context expira em {days} dia(s) ({exp})",
+                   "renovar antes do vencimento — quando expira, todo acesso remoto (CLI, CI/CD, "
+                   "Portainer via TCP) para de funcionar", "cluster-wide")]
+    return []

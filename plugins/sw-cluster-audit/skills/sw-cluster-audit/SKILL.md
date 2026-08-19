@@ -107,6 +107,27 @@ Quatro dimensões separadas: **Operação · Disponibilidade · Segurança · Hi
 `docker.sock` porque é assim que funcionam; um `flyway`/`migrate` em 0 réplicas é job concluído,
 não serviço caído. Ao escrever a narrativa, **respeite essa distinção**: risco ≠ incidente.
 
+## O que o relatório traz
+
+**Um único documento, tudo visível** (nada recolhível — no PDF não dá pra clicar):
+1. **Panorama** (nós, serviços, aplicações, requests) · 2. **Notas por dimensão** ·
+2b. **Desde a auditoria anterior** (resolvidos/novos) · 3. **Recomendações** com **comando pronto** ·
+4. **Fortes × atenção** · 5. **Nós do cluster** (card por master/worker: estado, engine, plataforma,
+capacidade, tasks rodando/falhadas) + **disco** · 6. **Por aplicação** (stacks agrupados com rotas
+do Traefik e análise) · 7. **Achados** agrupados e explicados · 8. **Redes** · 9. **Secrets/configs** (nomes).
+
+**PDF = HTML.** O template é *print-first* (`print-color-adjust:exact`, `@page A4`, quebras
+controladas) — o Chrome não achata as cores e o layout não colapsa em uma coluna.
+
+## Checagens além do estado atual
+- **Certificado TLS do context** (`lib/cert.py`): lê **só a data** de `cert.pem` (nunca a chave
+  privada) e avisa — crítico se expirado, atenção se faltam < 30 dias. Context `ssh://` não tem
+  certificado → ignora em silêncio.
+- **Falha de acesso vira achado:** se a coleta falhar por certificado expirado ou daemon
+  inacessível, isso aparece como achado crítico com o motivo real (não um "indisponível" genérico).
+- **Confiabilidade por serviço:** sem limite de CPU/memória, sem healthcheck, tasks que falharam
+  recentemente, constraints de placement.
+
 ## Honestidade (o que a skill NÃO afirma)
 - **Uso de CPU/mem por nó** não existe sem stack de métricas → aparece como `n/a`. Só **capacidade**.
 - **Checagens em nível de container** cobrem só o **nó conectado** (o `scope` do report diz isso);

@@ -77,7 +77,60 @@ def test_no_fora_do_ar_e_em_drain():
     assert ids == {"OPS_NODE_DOWN", "OPS_NODE_DRAIN"}
 
 
-def test_cluster_convergido_sem_findings_operacionais():
+def test_cluster_convergido_sem_findings_graves():
+    """Convergido = nenhum achado high/med. Dicas de higiene (low) podem existir."""
     r = {"nodes": [{"hostname": "n1", "state": "Ready", "availability": "Active"}],
          "services": [{"name": "api", "replicas": "3/3"}, {"name": "w", "replicas": "1/1"}]}
-    assert findings_operational(r) == []
+    fs = findings_operational(r)
+    assert [f for f in fs if f["severity"] in ("high", "med")] == []
+
+
+def test_sem_limites_e_sem_healthcheck_sao_dicas_low():
+    r = {"nodes": [], "services": [{"name": "api", "replicas": "1/1", "has_healthcheck": False,
+                                    "limits": {"nano_cpus": None, "mem_bytes": None}}]}
+    fs = {f["rule_id"]: f for f in findings_operational(r)}
+    assert fs["OPS_NO_LIMITS"]["severity"] == "low"
+    assert fs["OPS_NO_HEALTHCHECK"]["severity"] == "low"
+    assert "docker service update --limit-cpu" in fs["OPS_NO_LIMITS"]["fix"]
+
+
+def test_task_falhando_e_reportada():
+    r = {"nodes": [], "services": [{"name": "api", "replicas": "1/1", "tasks_failed": 2,
+                                    "failed_reason": "OOMKilled",
+                                    "limits": {"nano_cpus": 1}, "has_healthcheck": True}]}
+    f = [x for x in findings_operational(r) if x["rule_id"] == "OPS_TASK_FAILING"][0]
+    assert f["severity"] == "med" and "OOMKilled" in f["evidence"]
+
+
+# ---------------------------------------------------------------- falhas de acesso
+def test_certificado_expirado_vira_achado_critico():
+    from lib.rules import findings_from_errors
+    errs = [{"cmd": "docker info", "reason": 'tls: failed to verify certificate: x509: '
+             'certificate has expired or is not yet valid: current time ... is after ...'}]
+    f = findings_from_errors(errs, "prod")[0]
+    assert f["rule_id"] == "OPS_TLS_EXPIRED" and f["severity"] == "high"
+    assert "renovar os certificados" in f["fix"]
+
+
+def test_daemon_inacessivel():
+    from lib.rules import findings_from_errors
+    f = findings_from_errors([{"cmd": "docker info", "reason": "connection refused"}], "prod")[0]
+    assert f["rule_id"] == "OPS_DAEMON_UNREACHABLE" and f["severity"] == "high"
+
+
+def test_erro_generico_nao_vira_achado():
+    from lib.rules import findings_from_errors
+    assert findings_from_errors([{"cmd": "docker info", "reason": "algo estranho"}], "prod") == []
+
+
+def test_certificado_perto_de_expirar_avisa_antes():
+    from lib.rules import findings_from_cert
+    f = findings_from_cert({"status": "expiring", "days_left": 12,
+                            "not_after": "2026-09-01T00:00:00+00:00"}, "prod")[0]
+    assert f["rule_id"] == "OPS_TLS_EXPIRING" and f["severity"] == "med" and "12 dia" in f["evidence"]
+
+
+def test_certificado_ok_ou_ausente_nao_gera_achado():
+    from lib.rules import findings_from_cert
+    assert findings_from_cert({"status": "ok", "days_left": 300, "not_after": "x"}, "p") == []
+    assert findings_from_cert(None, "p") == []          # context ssh:// não tem certificado

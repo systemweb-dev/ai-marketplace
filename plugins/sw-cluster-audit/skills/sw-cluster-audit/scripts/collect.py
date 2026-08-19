@@ -16,9 +16,10 @@ import sys
 
 from lib.runner import run
 from lib.redact import redact_container, redact_service, scrub_info
-from lib.rules import findings_for_workload, findings_operational
+from lib.rules import (findings_for_workload, findings_operational,
+                       findings_from_errors, findings_from_cert)
 from lib.report import new_report, na, split_image
-from lib import metrics, discover, enrich
+from lib import metrics, discover, enrich, cert
 from lib.http_get import host_of
 
 DEFAULT_TIMEOUT = 15
@@ -83,61 +84,107 @@ def _first(out):
 def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     """Monta o report.json a partir de comandos read-only. `run_fn(cmd, timeout) -> str|None`."""
     r = new_report(generated_at=generated_at, context=context)
+    errs = []                       # motivos reais das falhas (TLS expirado, timeout, etc.)
+
+    def _run(cmd, t=timeout):
+        try:
+            return run_fn(cmd, t, errs)          # runner novo aceita coletor de erros
+        except TypeError:
+            return run_fn(cmd, t)                # run_fn simples (usado nos testes)
+
+    def _why(default):
+        return errs[0]["reason"] if errs else default
     r["scope"] = {"connected_node": connected_node, "container_checks_cover": "only_connected_node"}
 
     # --- health / info (cluster)
-    info = _first_json(run_fn(["docker", "info", "--format", "{{json .}}"], timeout))
+    info = _first_json(_run(["docker", "info", "--format", "{{json .}}"]))
     if info is not None:
         r["cluster"]["engine_version"] = info.get("ServerVersion")
         r["cluster"]["swarm"] = (info.get("Swarm", {}) or {}).get("LocalNodeState") == "active"
         r["health"]["info"] = scrub_info(info)
     else:
-        r["not_collected"].append({"what": "docker info", "reason": "indisponível/timeout"})
+        r["not_collected"].append({"what": "docker info", "reason": _why("indisponível")})
 
     # --- nodes (swarm; capacidade — uso real não existe sem métricas)
-    nodes_raw = run_fn(["docker", "node", "ls", "--format", "{{json .}}"], timeout)
+    nodes_raw = _run(["docker", "node", "ls", "--format", "{{json .}}"])
     if nodes_raw is None:
-        r["nodes"] = na("node ls indisponível (não-swarm ou timeout)")
+        r["nodes"] = na(_why("node ls indisponível (não-swarm)"))
     else:
         for n in _jlines(nodes_raw):
-            insp = _first(run_fn(["docker", "node", "inspect", n.get("ID") or n.get("Hostname")], timeout))
-            desc = (insp or {}).get("Description", {}) or {}
+            nid = n.get("ID") or n.get("Hostname")
+            insp = _first(_run(["docker", "node", "inspect", nid])) or {}
+            desc = insp.get("Description", {}) or {}
             res = desc.get("Resources", {}) or {}
+            plat = desc.get("Platform", {}) or {}
+            mgr = insp.get("ManagerStatus") or {}
+            # tasks rodando/falhando neste nó (distribuição de carga + falhas recentes)
+            tasks = _jlines(_run(["docker", "node", "ps", nid, "--format", "{{json .}}",
+                                  "--no-trunc"]))
+            running = sum(1 for t in tasks if str(t.get("CurrentState", "")).startswith("Running"))
+            failed = [t for t in tasks
+                      if str(t.get("CurrentState", "")).split()[0] in ("Failed", "Rejected")]
             r["nodes"].append({
                 "hostname": n.get("Hostname"), "role": n.get("ManagerStatus") or "worker",
                 "availability": n.get("Availability"), "state": n.get("Status"),
-                "leader": bool(((insp or {}).get("ManagerStatus") or {}).get("Leader", False)),
+                "leader": bool(mgr.get("Leader", False)),
+                "reachability": mgr.get("Reachability"),
+                "engine": (desc.get("Engine", {}) or {}).get("EngineVersion"),
+                "platform": f'{plat.get("OS", "")}/{plat.get("Architecture", "")}'.strip("/"),
                 "capacity": {"nano_cpus": res.get("NanoCPUs"), "mem_bytes": res.get("MemoryBytes")},
+                "tasks_running": running, "tasks_failed": len(failed),
+                "failed_examples": [f'{t.get("Name")}: {t.get("Error") or t.get("CurrentState")}'
+                                    for t in failed[:3]],
             })
-        r["not_collected"].append({"what": "uso de CPU/mem/disco por nó", "reason": "requer Prometheus/cAdvisor"})
+        r["not_collected"].append({"what": "uso de CPU/mem em tempo real por nó",
+                                   "reason": "requer Prometheus/cAdvisor (capacidade é reportada)"})
+
+    # --- disco (nó conectado): imagens/containers/volumes/cache e o que dá pra recuperar
+    df_raw = _run(["docker", "system", "df", "--format", "{{json .}}"])
+    df = _jlines(df_raw)
+    if df:
+        r["disk"] = [{"tipo": d.get("Type"), "total": d.get("TotalCount"), "ativo": d.get("Active"),
+                      "tamanho": d.get("Size"), "recuperavel": d.get("Reclaimable")} for d in df]
+    else:
+        r["disk"] = na(_why("docker system df indisponível"))
 
     # --- services (cluster-wide — achados de segurança confiáveis)
-    svc_raw = run_fn(["docker", "service", "ls", "--format", "{{json .}}"], timeout)
+    svc_raw = _run(["docker", "service", "ls", "--format", "{{json .}}"])
     if svc_raw is None:
-        r["services"] = na("service ls indisponível (não-swarm ou timeout)")
+        r["services"] = na(_why("service ls indisponível (não-swarm)"))
     else:
         for s in _jlines(svc_raw):
             name = s.get("Name") or s.get("ID")
-            insp = _first(run_fn(["docker", "service", "inspect", name], timeout))
+            insp = _first(_run(["docker", "service", "inspect", name]))
             if insp is None:
                 continue
             red = redact_service(insp)
             img = split_image(red.get("image"))
+            # tasks recentes deste service: pega crash-loop que o "replicas ok" esconde
+            tasks = _jlines(_run(["docker", "service", "ps", name, "--format", "{{json .}}",
+                                  "--no-trunc"]))
+            failed = [t for t in tasks
+                      if str(t.get("CurrentState", "")).split()[0] in ("Failed", "Rejected")]
             r["services"].append({
                 "name": red.get("name"), "image": img["image"], "tag": img["tag"],
                 "digest": img["digest"], "replicas": s.get("Replicas"), "ports": red.get("ports"),
                 "env_keys": red.get("env_keys"),        # só CHAVES (seguro), útil no relatório
                 "kind": detect_kind(red.get("image")),  # tipo detectado (traefik/fila/banco/…)
                 "routing_labels": red.get("routing_labels") or {},
+                "limits": red.get("limits"), "reservations": red.get("reservations"),
+                "has_healthcheck": red.get("has_healthcheck"),
+                "constraints": red.get("constraints"), "updated_at": red.get("updated_at"),
+                "mode": red.get("mode"),
+                "tasks_failed": len(failed),
+                "failed_reason": (failed[0].get("Error") or failed[0].get("CurrentState")) if failed else None,
             })
             r["findings"].extend(findings_for_workload({**red, **img}, scope="cluster-wide"))
 
     # --- containers (SÓ o nó conectado — escopo anotado em scope)
-    ps_raw = run_fn(["docker", "ps", "--format", "{{json .}}"], timeout)
+    ps_raw = _run(["docker", "ps", "--format", "{{json .}}"])
     if ps_raw is None:
-        r["not_collected"].append({"what": "containers (docker ps)", "reason": "indisponível/timeout"})
+        r["not_collected"].append({"what": "containers (docker ps)", "reason": _why("indisponível")})
     for c in _jlines(ps_raw):
-        insp = _first(run_fn(["docker", "container", "inspect", c.get("ID") or c.get("Names")], timeout))
+        insp = _first(_run(["docker", "container", "inspect", c.get("ID") or c.get("Names")]))
         if insp is None:
             continue
         red = redact_container(insp)
@@ -146,13 +193,13 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
         r["findings"].extend(findings_for_workload({**red, **img}, scope=connected_node))
 
     # --- networks
-    net_raw = run_fn(["docker", "network", "ls", "--format", "{{json .}}"], timeout)
+    net_raw = _run(["docker", "network", "ls", "--format", "{{json .}}"])
     for n in _jlines(net_raw):
         r["networks"].append({"name": n.get("Name"), "driver": n.get("Driver"), "scope": n.get("Scope")})
 
     # --- secrets / configs (NOMES only)
-    r["secrets"] = [{"name": s.get("Name")} for s in _jlines(run_fn(["docker", "secret", "ls", "--format", "{{json .}}"], timeout))]
-    r["configs"] = [{"name": c.get("Name")} for c in _jlines(run_fn(["docker", "config", "ls", "--format", "{{json .}}"], timeout))]
+    r["secrets"] = [{"name": s.get("Name")} for s in _jlines(_run(["docker", "secret", "ls", "--format", "{{json .}}"]))]
+    r["configs"] = [{"name": c.get("Name")} for c in _jlines(_run(["docker", "config", "ls", "--format", "{{json .}}"]))]
 
     # --- counts + verdict
     r["health"]["counts"] = {
@@ -162,11 +209,22 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     }
     # achados OPERACIONAIS (nó fora, réplica não convergida) — é o que define a saúde
     r["findings"].extend(findings_operational(r))
+    # validade do certificado TLS do context (só a data; nunca a chave privada)
+    try:
+        r["findings"].extend(findings_from_cert(cert.check(context), context))
+    except OSError:
+        pass
     m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
     r["dimensions"] = m["dimensions"]
     r["top_offenders"] = m["top_offenders"]
     r["health"]["verdict"] = metrics.verdict(m["dimensions"])   # saúde = operação (não higiene)
     r["health"]["counts"]["findings"] = len(r["findings"])
+    if errs:
+        r["collection_errors"] = errs[:10]
+        r["findings"].extend(findings_from_errors(errs, context))
+        m = metrics.compute(r)
+        r["dimensions"], r["top_offenders"] = m["dimensions"], m["top_offenders"]
+        r["health"]["verdict"] = metrics.verdict(m["dimensions"])
     return r
 
 
@@ -204,12 +262,19 @@ def find_previous_report(out_dir):
 
 
 def diff_findings(prev, cur_report):
-    """Compara findings (por rule_id+object) com a auditoria anterior."""
+    """Compara findings (por rule_id+object) com a auditoria anterior.
+
+    Devolve também as LISTAS — assim o relatório mostra o que foi resolvido (histórico visível)
+    e marca os achados novos, em vez de só um número.
+    """
     prev_keys = {_finding_key(f) for f in (prev["report"].get("findings") or [])}
     cur_keys = {_finding_key(f) for f in (cur_report.get("findings") or [])}
+    resolved, new = prev_keys - cur_keys, cur_keys - prev_keys
+    fmt = lambda ks: sorted(f"{r} · {o}" for r, o in ks if r)
     return {"vs": prev["stamp"],
-            "resolved": len(prev_keys - cur_keys),
-            "new": len(cur_keys - prev_keys)}
+            "resolved": len(resolved), "new": len(new),
+            "resolved_items": fmt(resolved)[:40],
+            "new_keys": [list(k) for k in sorted(new, key=lambda k: (k[0] or "", k[1] or ""))]}
 
 
 def _first_json(out):

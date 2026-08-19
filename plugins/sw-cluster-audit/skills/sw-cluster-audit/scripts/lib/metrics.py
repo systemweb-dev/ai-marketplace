@@ -41,6 +41,9 @@ def compute(report):
     root_objs = {f["object"] for f in findings if f.get("rule_id") == "SEC_USER_ROOT"}
     pinned = sum(1 for s in services if s.get("digest"))
     non_root = sum(1 for s in services if s.get("name") not in root_objs)
+    with_limits = sum(1 for s in services
+                      if (s.get("limits") or {}).get("nano_cpus") or (s.get("limits") or {}).get("mem_bytes"))
+    with_hc = sum(1 for s in services if s.get("has_healthcheck"))
 
     ha, spof_stateful, spof_critical = 0, [], []
     for s in services:
@@ -84,6 +87,7 @@ def compute(report):
         # HIGIENE — boas práticas de imagem/usuário.
         "higiene": {
             "pinned_pct": pinned_pct, "nonroot_pct": nonroot_pct,
+            "limits_pct": _pct(with_limits, n), "healthcheck_pct": _pct(with_hc, n),
             "note": "red" if (nonroot_pct < 25 and pinned_pct < 50)
                     else ("yellow" if (nonroot_pct < 80 or pinned_pct < 90) else "green"),
         },

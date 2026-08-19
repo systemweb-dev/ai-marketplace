@@ -39,11 +39,27 @@ def redact_container(insp):
     }
 
 
+def _res(block):
+    """Limits/Reservations do TaskTemplate → só os números (nunca outros campos)."""
+    b = block or {}
+    return {"nano_cpus": b.get("NanoCPUs"), "mem_bytes": b.get("MemoryBytes")}
+
+
 def redact_service(insp):
     spec = insp.get("Spec", {}) or {}
-    cs = (spec.get("TaskTemplate", {}) or {}).get("ContainerSpec", {}) or {}
+    tt = spec.get("TaskTemplate", {}) or {}
+    cs = tt.get("ContainerSpec", {}) or {}
     ep = spec.get("EndpointSpec", {}) or {}
+    res = tt.get("Resources", {}) or {}
     return {
+        # --- confiabilidade (números e booleanos; nada de conteúdo de comando) ---
+        "limits": _res(res.get("Limits")),
+        "reservations": _res(res.get("Reservations")),
+        # Healthcheck.Test pode conter credencial → guarda só SE existe, nunca o comando
+        "has_healthcheck": bool((cs.get("Healthcheck") or {}).get("Test")),
+        "constraints": list((tt.get("Placement") or {}).get("Constraints") or []),
+        "updated_at": insp.get("UpdatedAt"),
+        "mode": "global" if "Global" in (spec.get("Mode") or {}) else "replicated",
         "name": spec.get("Name"),
         "image": cs.get("Image"),
         "user": cs.get("User") or None,

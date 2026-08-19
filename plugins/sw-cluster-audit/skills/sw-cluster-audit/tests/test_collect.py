@@ -70,7 +70,10 @@ def test_history_diff(tmp_path):
     cur = {"findings": [{"rule_id": "B", "object": "y"}, {"rule_id": "C", "object": "z"}]}
     p = collect.find_previous_report(str(base / "2026-08-18_1000"))
     assert p["stamp"] == "2026-08-17_1000"
-    assert collect.diff_findings(p, cur) == {"vs": "2026-08-17_1000", "resolved": 1, "new": 1}
+    d = collect.diff_findings(p, cur)
+    assert d["vs"] == "2026-08-17_1000" and d["resolved"] == 1 and d["new"] == 1
+    assert d["resolved_items"] == ["A · x"]          # histórico visível: o que saiu
+    assert d["new_keys"] == [["C", "z"]]             # e o que entrou
 
 
 @pytest.mark.parametrize("image,kind", [

@@ -41,6 +41,24 @@ RULE_META.update({
         "why": "Informativo, não é um desvio: sem o socket essas ferramentas não operam. Ainda assim o "
                "acesso equivale a root no host — se quiser reduzir a superfície, um socket-proxy read-only resolve.",
     },
+    "OPS_TLS_EXPIRED": {
+        "label": "Certificado TLS do daemon expirado",
+        "what": "O certificado que protege a API do Docker (porta 2376) expirou ou ainda não é válido.",
+        "why": "Bloqueia TODO acesso remoto ao cluster: docker context, deploys de CI/CD, Portainer "
+               "via TCP e a própria auditoria. Os containers continuam rodando, mas ninguém consegue "
+               "gerenciá-los remotamente até renovar.",
+    },
+    "OPS_TLS_EXPIRING": {
+        "label": "Certificado TLS perto de expirar",
+        "what": "O certificado do context Docker vence em menos de 30 dias.",
+        "why": "No dia do vencimento todo acesso remoto ao cluster para de uma vez — CLI, deploys "
+               "de CI/CD e Portainer via TCP. Renovar antes evita uma parada de gestão inesperada.",
+    },
+    "OPS_DAEMON_UNREACHABLE": {
+        "label": "Daemon inacessível",
+        "what": "Não foi possível conectar na API do Docker do host.",
+        "why": "Sem acesso não há gestão remota nem auditoria. Pode ser firewall, rede ou dockerd fora do ar.",
+    },
     "OPS_NODE_DOWN": {
         "label": "Nó fora do ar",
         "what": "Um nó do Swarm não está no estado Ready.",
@@ -67,6 +85,24 @@ RULE_META.update({
         "label": "Job de execução única concluído",
         "what": "Serviço de migração/seed/manutenção (flyway, migrate, cron…) com 0 réplicas.",
         "why": "Informativo: é o estado normal depois que o job roda e termina. Não indica problema.",
+    },
+    "OPS_TASK_FAILING": {
+        "label": "Tasks falhando",
+        "what": "O serviço teve tasks em estado Failed/Rejected recentemente.",
+        "why": "Indica crash-loop ou erro de agendamento — o número de réplicas pode parecer OK "
+               "enquanto o container reinicia sem parar por baixo.",
+    },
+    "OPS_NO_LIMITS": {
+        "label": "Sem limite de CPU/memória",
+        "what": "O serviço roda sem --limit-cpu / --limit-memory.",
+        "why": "Um vazamento de memória ou pico de CPU consome o nó inteiro e derruba os vizinhos. "
+               "Limite é o cinto de segurança do nó.",
+    },
+    "OPS_NO_HEALTHCHECK": {
+        "label": "Sem healthcheck",
+        "what": "A imagem/serviço não define HEALTHCHECK.",
+        "why": "Sem ele o Swarm só sabe se o processo existe, não se a aplicação responde — "
+               "um app travado continua recebendo tráfego.",
     },
     "OPS_REPLICAS_DEGRADED": {
         "label": "Réplicas abaixo do desejado",

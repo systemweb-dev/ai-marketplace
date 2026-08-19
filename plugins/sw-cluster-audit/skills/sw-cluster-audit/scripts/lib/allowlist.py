@@ -8,10 +8,11 @@ class NotAllowed(Exception):
 # "-" = verbo ausente (comando de 1 token após `docker`, ex.: `docker info`).
 ALLOW = {
     ("context", "ls"), ("context", "inspect"), ("info", "-"), ("version", "-"),
-    ("node", "ls"), ("node", "inspect"), ("service", "ls"), ("service", "ps"),
+    ("node", "ls"), ("node", "inspect"), ("node", "ps"),
+    ("service", "ls"), ("service", "ps"),
     ("service", "inspect"), ("ps", "-"), ("container", "inspect"),
     ("network", "ls"), ("network", "inspect"), ("secret", "ls"),
-    ("config", "ls"), ("image", "ls"),
+    ("config", "ls"), ("image", "ls"), ("system", "df"),
 }
 
 

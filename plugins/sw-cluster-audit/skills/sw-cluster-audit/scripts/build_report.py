@@ -183,6 +183,78 @@ def _pct(x, total):
     return round(100 * x / total) if total else 0
 
 
+def _node_cards(nodes):
+    """Um card por nó (master/worker) com saúde, capacidade e carga."""
+    if isinstance(nodes, dict) and nodes.get("status") == "n/a":
+        return f'<p class="muted">não coletado — {_e(nodes.get("reason"))}</p>'
+    if not nodes:
+        return '<p class="muted">nenhum nó (cluster não-Swarm).</p>'
+    out = []
+    for n in nodes:
+        state = str(n.get("state") or "").lower()
+        failed = n.get("tasks_failed") or 0
+        note = "green" if state == "ready" and not failed else ("yellow" if state == "ready" else "red")
+        role = "manager" if n.get("leader") or n.get("reachability") else (n.get("role") or "worker")
+        badges = f'<span class="badge kind">{_e(role)}</span>'
+        if n.get("leader"):
+            badges += '<span class="badge ok">líder</span>'
+        if str(n.get("availability") or "").lower() != "active":
+            badges += f'<span class="badge med">{_e(n.get("availability"))}</span>'
+        rows = [
+            ("Estado", n.get("state") or "—"),
+            ("Disponibilidade", n.get("availability") or "—"),
+            ("Engine", n.get("engine") or "—"),
+            ("Plataforma", n.get("platform") or "—"),
+            ("Capacidade", _fmt_capacity(n.get("capacity"))),
+            ("Tasks rodando", n.get("tasks_running") if n.get("tasks_running") is not None else "—"),
+            ("Tasks falhadas", failed or "0"),
+        ]
+        if n.get("reachability"):
+            rows.insert(2, ("Alcance (raft)", n.get("reachability")))
+        dl = "".join(f"<dt>{_e(k)}</dt><dd>{_e(v)}</dd>" for k, v in rows)
+        warn = ""
+        if n.get("failed_examples"):
+            warn = ('<div class="warn">' + "<br>".join(_e(x) for x in n["failed_examples"]) + "</div>")
+        out.append(f'<div class="card node {note}"><div class="nh">'
+                   f'<span class="nn">{_e(n.get("hostname"))}</span>{badges}</div>'
+                   f'<dl>{dl}</dl>{warn}</div>')
+    return "".join(out)
+
+
+def _disk(disk):
+    """Uso de disco do nó conectado (docker system df)."""
+    if isinstance(disk, dict) and disk.get("status") == "n/a":
+        return ('<h2><span class="n">5b</span> Disco</h2>'
+                f'<p class="muted">não coletado — {_e(disk.get("reason"))}</p>')
+    if not disk:
+        return ""
+    rows = [[_e(d.get("tipo")), _e(d.get("total")), _e(d.get("ativo")),
+             _e(d.get("tamanho")), _e(d.get("recuperavel"))] for d in disk]
+    return ('<h2><span class="n">5b</span> Disco — nó conectado</h2>'
+            + _table(["Tipo", "Total", "Ativos", "Tamanho", "Recuperável"], rows,
+                     [None, "num", "num", "num", "num"]))
+
+
+def _history(hist):
+    """Histórico visível: o que foi resolvido desde a auditoria anterior."""
+    if not hist:
+        return ""
+    resolved, new = hist.get("resolved", 0), hist.get("new", 0)
+    items = hist.get("resolved_items") or []
+    lst = ""
+    if items:
+        shown = items[:12]
+        extra = len(items) - len(shown)
+        lst = ("<ul>" + "".join(f"<li>{_e(i)}</li>" for i in shown)
+               + (f"<li>… +{extra}</li>" if extra > 0 else "") + "</ul>")
+    return ('<h2><span class="n">2b</span> Desde a auditoria anterior</h2>'
+            f'<div class="card hist">Comparado a <b>{_e(hist.get("vs"))}</b>: '
+            f'<span class="badge ok">{resolved} resolvidos</span> '
+            f'<span class="badge new">{new} novos</span>'
+            + (f'<div style="margin-top:8px">Resolvidos:</div>{lst}' if lst else "")
+            + "</div>")
+
+
 def _recs(recs):
     if not recs:
         return '<p class="muted">Sem recomendações registradas (o agente preenche <code>recommendations</code>).</p>'
@@ -218,14 +290,26 @@ def _stack_blocks(report, groups, comp_an):
         rows = []
         for s in sorted(g["services"], key=lambda x: x.get("name") or ""):
             img = f'{s.get("image")}:{s.get("tag")}' if s.get("tag") else f'{s.get("image")}'
+            sinais = []
+            if s.get("has_healthcheck") is False:
+                sinais.append("sem healthcheck")
+            lim = s.get("limits") or {}
+            if not lim.get("nano_cpus") and not lim.get("mem_bytes"):
+                sinais.append("sem limites")
+            if s.get("tasks_failed"):
+                sinais.append(f'{s["tasks_failed"]} task(s) falharam')
+            if s.get("constraints"):
+                sinais.append("· ".join(s["constraints"][:2]))
             rows.append([
                 f'<b>{_e(stacks.short_name(s.get("name")))}</b>',
                 f'<span class="badge kind">{_e(s.get("kind") or "app")}</span>',
                 f'<code>{_e(img)}</code>',
                 _e(s.get("replicas") or "—"),
                 _e(_runtime_cells(s)),
+                _e(" · ".join(sinais) or "ok"),
             ])
-        tbl = _table(["Serviço", "Tipo", "Imagem", "Réplicas", "Runtime"], rows, [None, None, None, "num", None])
+        tbl = _table(["Serviço", "Tipo", "Imagem", "Réplicas", "Runtime", "Observações"], rows,
+                     [None, None, None, "num", None, None])
         routes = " · ".join(g["routes"][:3]) + (f' +{len(g["routes"]) - 3}' if len(g["routes"]) > 3 else "")
         badges = ""
         if g["findings_high"]:
@@ -244,7 +328,7 @@ def _stack_blocks(report, groups, comp_an):
     return "".join(out)
 
 
-def _findings_grouped(findings):
+def _findings_grouped(findings, new_rules=frozenset()):
     if isinstance(findings, dict) and findings.get("status") == "n/a":
         return f'<p class="muted">não coletado — {_e(findings.get("reason"))}</p>'
     if not findings:
@@ -260,6 +344,8 @@ def _findings_grouped(findings):
         badge = ('<span class="badge low">esperado</span>' if expected
                  else f'<span class="badge {_e(g["severity"])}">{_e(g["severity"])}</span>')
         fix_label = "Opcional" if expected else "Como corrigir"
+        if g["rule_id"] in new_rules:
+            badge += '<span class="badge new">novo</span>' 
         out.append(
             f'<div class="card fg"><div class="fh">{badge}'
             f'<span class="fn">{_e(m["label"])}</span><code>{_e(g["rule_id"])}</code>'
@@ -290,25 +376,12 @@ def render_html(report):
 
     summary = report.get("summary") or ("Resumo ainda não escrito — o agente preenche <code>summary</code> "
                                         "explicando o porquê do veredito.")
-    hist = report.get("history")
-    history = (f'<p class="hist">Comparado à auditoria anterior ({_e(hist.get("vs"))}): '
-               f'<b>{hist.get("resolved", 0)}</b> resolvidos · <b>{hist.get("new", 0)}</b> novos.</p>') if hist else ""
+    # regras que apareceram só nesta auditoria (histórico visível)
+    new_rules = {k[0] for k in ((report.get("history") or {}).get("new_keys") or [])}
 
     src = report.get("metrics_source")
-    metrics_src = (f'· métricas de runtime: {_e(", ".join(src))}' if src
-                   else '· sem fonte de métricas de runtime')
-
-    nodes = _na_or(report.get("nodes"), lambda ns: _table(
-        ["Host", "Papel", "Disponibilidade", "Estado", "Líder", "Capacidade"],
-        [[f'<b>{_e(n.get("hostname"))}</b>', _e(n.get("role")), _e(n.get("availability")),
-          _e(n.get("state")), "sim" if n.get("leader") else "—", _e(_fmt_capacity(n.get("capacity")))]
-         for n in ns]))
-
-    services = _na_or(report.get("services"), lambda ss: _table(
-        ["Serviço", "Tipo", "Imagem", "Réplicas", "Portas"],
-        [[_e(s.get("name")), _e(s.get("kind")),
-          _e(f'{s.get("image")}:{s.get("tag")}'), _e(s.get("replicas")), _e(_fmt_ports(s.get("ports")))]
-         for s in ss]))
+    metrics_src = (f'métricas: <b>{_e(", ".join(src))}</b>' if src
+                   else 'sem fonte de métricas de runtime')
 
     networks = _na_or(report.get("networks"), lambda ns: _table(
         ["Rede", "Driver", "Escopo"],
@@ -317,8 +390,9 @@ def render_html(report):
     nc = report.get("not_collected") or []
     not_collected = ("<br>Não coletado: " + "; ".join(f'{_e(x.get("what"))} ({_e(x.get("reason"))})' for x in nc)) if nc else ""
     sc = [s.get("name") for s in (report.get("secrets") or [])] + [c.get("name") for c in (report.get("configs") or [])]
-    secrets_configs = (f'{len(sc)} no total. <details><summary>ver nomes</summary>{_e(", ".join(sc))}</details>'
-                       if sc else "nenhum")
+    # sem <details>: no PDF não dá pra clicar, então tudo aparece
+    secrets_configs = (f'<div class="names">{_e(", ".join(sc))}</div>' if sc
+                       else '<p class="muted">nenhum.</p>')
 
     repl = {
         "%%TITLE%%": _e(f"Auditoria de cluster — {ctx}"), "%%CONTEXT%%": _e(ctx), "%%ENGINE%%": _e(engine),
@@ -326,14 +400,16 @@ def render_html(report):
         "%%METRICS_SOURCE%%": metrics_src,
         "%%VERDICT%%": _e(verdict), "%%VERDICT_EMOJI%%": emoji, "%%VERDICT_LABEL%%": _e(label),
         "%%VERDICT_ONELINE%%": _e(oneline),
-        "%%HISTORY%%": history, "%%SUMMARY%%": summary if summary.startswith("Resumo ainda") else _rich(summary),
+        "%%HISTORY%%": _history(report.get("history")),
+        "%%SUMMARY%%": summary if summary.startswith("Resumo ainda") else _rich(summary),
         "%%KPIS%%": _kpis(report, groups),
         "%%DIMENSIONS%%": _dim_cards(dims),
         "%%RECOMMENDATIONS%%": _recs(report.get("recommendations")),
         "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
         "%%STACKS%%": _stack_blocks(report, groups, comp_an),
-        "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings")),
-        "%%NODES%%": nodes, "%%SERVICES%%": services, "%%NETWORKS%%": networks,
+        "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings"), new_rules),
+        "%%NODES%%": _node_cards(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")),
+        "%%NETWORKS%%": networks,
         "%%CONNECTED_NODE%%": _e(scope.get("connected_node")),
         "%%NOT_COLLECTED%%": not_collected, "%%SECRETS_CONFIGS%%": secrets_configs,
     }

@@ -81,3 +81,42 @@ def test_comando_multilinha_quebra_de_verdade():
     out = build_report.render_html(r)
     assert "\\n" not in out.split('class="cmd"')[1][:300]      # nada de \n literal
     assert "docker service update --replicas 2 x" in out
+
+
+def test_sem_details_no_pdf_e_cores_impressas():
+    """No papel não dá pra clicar: nada de <details>; e o Chrome precisa de print-color-adjust."""
+    out = build_report.render_html(_report())
+    assert "<details" not in out
+    assert "print-color-adjust:exact" in out.replace(" ", "")
+    assert "@page" in out
+
+
+def test_cards_de_no_com_detalhes():
+    r = _report()
+    r["nodes"] = [{"hostname": "mgr-1", "role": "Leader", "availability": "Active", "state": "Ready",
+                   "leader": True, "reachability": "reachable", "engine": "25.0",
+                   "platform": "linux/x86_64", "tasks_running": 12, "tasks_failed": 1,
+                   "failed_examples": ["api.1: OOMKilled"],
+                   "capacity": {"nano_cpus": 4000000000, "mem_bytes": 8000000000}}]
+    out = build_report.render_html(r)
+    assert "mgr-1" in out and "líder" in out
+    assert "linux/x86_64" in out and "25.0" in out          # engine e plataforma
+    assert "OOMKilled" in out                                # falha recente visível
+    assert "4 vCPU" in out and "7.5 GB" in out               # capacidade formatada
+
+
+def test_disco_e_historico_resolvidos():
+    r = _report()
+    r["disk"] = [{"tipo": "Images", "total": 40, "ativo": 30, "tamanho": "12GB", "recuperavel": "4GB"}]
+    r["history"] = {"vs": "2026-08-17_1000", "resolved": 2, "new": 1,
+                    "resolved_items": ["SEC_USER_ROOT · api"], "new_keys": [["SEC_PORT_EXPOSED", "web"]]}
+    out = build_report.render_html(r)
+    assert "12GB" in out and "Recuperável" in out
+    assert "SEC_USER_ROOT · api" in out                      # o que foi resolvido aparece
+    assert "novo" in out                                     # e o novo é marcado
+
+
+def test_colapso_de_grade_e_so_na_tela():
+    """No A4 a largura dispara o breakpoint mobile — o colapso precisa ser só de tela."""
+    out = build_report.render_html(_report())
+    assert "@media screen and (max-width:780px)" in out

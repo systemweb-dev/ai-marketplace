@@ -1,7 +1,7 @@
 {
   "name": "sw-cluster-audit",
   "description": "Audita um cluster Docker (context/Swarm) de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional) — saúde geral, nodes, services, segurança, rede e ANÁLISE POR COMPONENTE (identifica genericamente Traefik/nginx/filas/bancos/cache/etc. e analisa cada um: roteamento, réplicas, HA, exposição). Use SEMPRE que o usuário quiser um raio-x/auditoria/relatório do cluster ou da infra — \"analisa meu cluster\", \"auditar o docker context systemweb-prod\", \"como está a infra/o swarm\", \"saúde do cluster\", \"relatório do cluster\", \"como o traefik está roteando pro app X\", \"como está a fila/o banco\", \"o cluster está ok?\". Dispare mesmo sem a palavra \"auditar\" — basta a intenção de entender o ESTADO ATUAL de um cluster/infra Docker. É SÓ LEITURA: nunca altera, reinicia, escala ou mexe no cluster; nunca expõe valores de secret/env. NÃO use para: fazer deploy ou alterar/criar serviços/stacks, nem para código de app local (não é infra). Interação e relatório em português (PT-BR).",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "systemweb-dev"
   }
