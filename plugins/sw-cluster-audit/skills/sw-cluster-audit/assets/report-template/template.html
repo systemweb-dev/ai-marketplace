@@ -61,8 +61,7 @@
   .grid{display:grid;gap:11px}
   .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)}
   .g4{grid-template-columns:repeat(4,1fr)}
-  @media screen and (max-width:780px){.g2,.g3,.g4,.nodes{grid-template-columns:1fr}}
-  @media screen and (min-width:781px) and (max-width:1100px){.nodes{grid-template-columns:repeat(2,1fr)}}
+  @media screen and (max-width:780px){.g2,.g3,.g4{grid-template-columns:1fr}}
 
   /* ---------------- KPIs ---------------- */
   .kpi{padding:15px 16px} .kpi .n{font-size:21px;font-weight:750;letter-spacing:-.02em}
@@ -80,6 +79,49 @@
   .barlbl span:last-child{flex:none;white-space:nowrap} /* …sem empurrar o número */
   .barlbl span:last-child{font-family:var(--mono);color:var(--ink2);font-weight:600}
   .dim{display:flex;flex-direction:column}
+
+
+  /* ---------------- nós: tabela comparativa ---------------- */
+  .ndt{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+       border-radius:var(--r);overflow:hidden}
+  .ndt thead th{background:var(--paper);border-bottom:1px solid var(--line);
+                font:700 11.5px/1.4 var(--sans);color:var(--ink);text-align:right;
+                padding:11px 14px;white-space:nowrap}
+  .ndt thead th:first-child{width:23%}
+  .ndt thead th.lead{color:var(--accent)}
+  .ndt thead th.lead::before{content:"● ";font-size:9px;vertical-align:middle}
+  .ndt tbody th{font:700 9.5px/1.4 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+                color:var(--muted);text-align:left;padding:10px 14px;white-space:nowrap;
+                border-bottom:1px solid var(--line2);vertical-align:top}
+  .ndt tbody td{font:500 12px/1.45 var(--mono);color:var(--ink);text-align:right;
+                padding:10px 14px;border-bottom:1px solid var(--line2);vertical-align:top}
+  .ndt tbody tr:last-child th,.ndt tbody tr:last-child td{border-bottom:0}
+  .ndt .nsub{color:var(--muted);font-size:11px}
+  /* signature: a célula que foge da maioria — é o que dá razão à comparação existir.
+     Tom NEUTRO de propósito: divergir não é sinônimo de risco (o manager ter mais CPU
+     que os workers é normal). O risco de verdade, como o drift de engine, tem achado
+     próprio na seção 7 — aqui a marca só diz 'repare nisto'. */
+  .ndt td.dv{background:var(--info-soft);color:var(--info);font-weight:700;
+             box-shadow:inset 2px 0 0 var(--info)}
+  .ndnote{margin:6px 2px 0;font:500 10.5px/1.5 var(--mono);color:var(--muted)}
+  .ndnote::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;
+                  background:var(--info-soft);box-shadow:inset 2px 0 0 var(--info);
+                  margin-right:6px;vertical-align:-1px}
+
+  /* falhas agrupadas por código, fora da tabela */
+  .nfail{margin-top:14px;background:var(--card);border:1px solid var(--line);
+         border-radius:var(--r);padding:14px 16px}
+  .nfh{font:700 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+       color:var(--muted);margin-bottom:11px}
+  .nfrow{padding:9px 0;border-top:1px solid var(--line2)}
+  .nfrow:first-of-type{border-top:0;padding-top:0}
+  .nfhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .nfcode{font:800 11px/1.6 var(--mono);color:var(--bad);background:var(--bad-soft);
+          border-radius:5px;padding:1px 8px;white-space:nowrap}
+  .nfhint{font-size:12px;color:var(--ink2)}
+  .nfmulti{font:600 10.5px/1.6 var(--mono);color:var(--warn);background:var(--warn-soft);
+           border-radius:99px;padding:1px 9px;white-space:nowrap}
+  .nfsvcs{margin-top:5px;font:500 11px/1.7 var(--mono);color:var(--muted);word-break:break-word}
 
   /* ---------------- recomendações ---------------- */
   .rec{padding:16px 18px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start}
@@ -112,14 +154,6 @@
   .col.good h3{color:var(--ok)} .col.bad h3{color:var(--bad)}
 
   /* ---------------- nós ---------------- */
-  .node{padding:15px 17px;border-left:3px solid var(--c)}
-  .node .nh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
-  .node .nn{font-size:14px;font-weight:750}
-  .node dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:11.5px}
-  .node dt{color:var(--muted)}
-  .node dd{margin:0;font-family:var(--mono);color:var(--ink2);text-align:right;font-size:11px}
-  .node .warn{margin-top:9px;padding:6px 9px;background:var(--bad-soft);color:var(--bad);
-              border-radius:7px;font-size:10.5px;line-height:1.5;font-family:var(--mono)}
 
   /* ---------------- stacks ---------------- */
   .stack{padding:0;overflow:hidden;margin-bottom:11px}
@@ -168,20 +202,25 @@
          background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:11px 14px;line-height:1.8}
 
   /* ---------------- quebras de página ---------------- */
-  .rec,.fg,.stack,.dim,.node,.card{break-inside:avoid;page-break-inside:avoid}
+  .rec,.fg,.stack,.dim,.card{break-inside:avoid;page-break-inside:avoid}
   /* Blocos de texto longo (impacto, recomendação, achados, stack) NÃO cabem numa página
      parcial. Marcá-los indivisíveis empurrava o bloco inteiro e abandonava ~40% de papel
      em branco. Eles podem fluir entre páginas; o que continua indivisível é a unidade
      atômica de leitura: um passo, um bloco de comando, uma linha de tabela. */
   .imp,.rec,.fg,.stack,.col,.grid{break-inside:auto;page-break-inside:auto}
   .imp .ic,.rec .body>b,.stack .sh{break-after:avoid;page-break-after:avoid}
-  .iplan ol>li,.ipre,.cmd,.dim,.node,.kpi{break-inside:avoid;page-break-inside:avoid}
+  .iplan ol>li,.ipre,.cmd,.dim,.kpi,.nfrow{break-inside:avoid;page-break-inside:avoid}
+  /* a tabela dos nós pode quebrar, DESDE QUE o cabeçalho se repita — sem os nomes dos nós
+     no topo, a metade que cai na página seguinte vira uma coluna de números sem dono.
+     table-header-group faz o Chrome repetir o thead a cada página. */
+  .ndt{break-inside:auto;page-break-inside:auto}
+  .ndt thead{display:table-header-group}
+  .ndt tr{break-inside:avoid;page-break-inside:avoid}
   table{break-inside:auto} tr{break-inside:avoid}
   @media print{
     body{max-width:none;padding:0;background:#fff;font-size:12px;line-height:1.62}
     .head{margin-bottom:13px} h1{font-size:22px} h2{margin:19px 0 9px}
     .g4{grid-template-columns:repeat(4,1fr)}   /* mantém as 4 colunas no papel */
-    .nodes{grid-template-columns:repeat(4,1fr)}
     .grid{gap:10px}
     h2{margin:22px 0 11px}
     .routes{max-width:40%}
@@ -242,7 +281,7 @@
   </div>
 
   <h2><span class="n">6</span> Nós do cluster</h2>
-  <div class="grid g4 nodes">%%NODES%%</div>
+  %%NODES%%
   %%DISK%%
 
   <h2><span class="n">7</span> Por aplicação</h2>

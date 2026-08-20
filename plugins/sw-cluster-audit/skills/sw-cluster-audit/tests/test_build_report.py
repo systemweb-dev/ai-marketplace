@@ -91,18 +91,19 @@ def test_sem_details_no_pdf_e_cores_impressas():
     assert "@page" in out
 
 
-def test_cards_de_no_com_detalhes():
+def test_tabela_de_nos_traz_os_detalhes_do_no():
     r = _report()
     r["nodes"] = [{"hostname": "mgr-1", "role": "Leader", "availability": "Active", "state": "Ready",
                    "leader": True, "reachability": "reachable", "engine": "25.0",
                    "platform": "linux/x86_64", "tasks_running": 12, "tasks_failed": 1,
-                   "failed_examples": ["api.1: OOMKilled"],
+                   "failed_examples": ['api.1: "task: non-zero exit (137)"'],
                    "capacity": {"nano_cpus": 4000000000, "mem_bytes": 8000000000}}]
     out = build_report.render_html(r)
     assert "mgr-1" in out and "líder" in out
     assert "linux/x86_64" in out and "25.0" in out          # engine e plataforma
-    assert "OOMKilled" in out                                # falha recente visível
     assert "4 vCPU" in out and "7.5 GB" in out               # capacidade formatada
+    # a falha aparece agrupada pelo código, com o serviço — não como despejo de texto cru
+    assert "exit 137" in out and "api" in out and "SIGKILL" in out
 
 
 def test_disco_e_historico_resolvidos():
@@ -141,3 +142,58 @@ def test_saude_verde_mostra_saudavel():
                                    "stopped": 0, "failing": 0, "nodes_down": 0}
     out = build_report.render_html(r)
     assert "Saudável" in out and "56/56 serviços no ar" in out
+
+
+# --------------------------- nós: tabela comparativa ---------------------------
+def test_diverge_marca_so_quem_foge_da_maioria():
+    from build_report import _diverge
+    assert _diverge(["28.3.3", "28.3.3", "28.5.1", "29.5.0"]) == {2, 3}
+    assert _diverge(["Ready"] * 4) == set()              # todos iguais: nada a marcar
+    assert _diverge(["a", "b", "c", "d"]) == set()       # sem maioria, marcar tudo não informa
+    assert _diverge(["x", "—", "x", "y"]) == {3}         # ausência não conta como divergência
+
+
+def test_exit_code_extrai_servico_e_codigo():
+    from build_report import _exit_code
+    assert _exit_code('chatwoot_db.1: "task: non-zero exit (137)"') == ("chatwoot_db", "137")
+    assert _exit_code("sem codigo aqui")[1] is None      # tolera formato inesperado
+
+
+def test_falhas_agrupam_por_codigo_e_sinalizam_evento_unico():
+    """Mesmo exit em serviços não relacionados de vários nós é UM evento (um restart),
+    não N problemas — a listagem por nó escondia exatamente isso."""
+    from build_report import _node_failures
+    nodes = [{"hostname": "n1", "failed_examples": ['a.1: "task: non-zero exit (137)"',
+                                                    'b.1: "task: non-zero exit (137)"']},
+             {"hostname": "n2", "failed_examples": ['c.1: "task: non-zero exit (137)"']}]
+    html = _node_failures(nodes)
+    assert "exit 137" in html and "SIGKILL" in html
+    assert "3 serviços de 2 nós" in html
+    assert html.count("exit 137") == 1                   # agrupado, não repetido por nó
+
+
+def test_falha_num_no_so_nao_ganha_selo_de_evento_amplo():
+    from build_report import _node_failures
+    html = _node_failures([{"hostname": "n1", "failed_examples": ['a.1: "task: non-zero exit (1)"']}])
+    assert "exit 1" in html and "nós" not in html
+
+
+def test_tabela_de_nos_tem_um_rotulo_por_linha_e_marca_divergencia():
+    from build_report import _node_table
+    nodes = [{"hostname": "mgr", "leader": True, "state": "Ready", "engine": "28.3.3",
+              "platform": "linux/x86_64", "capacity": {"nano_cpus": 4_000_000_000}},
+             {"hostname": "w1", "state": "Ready", "engine": "28.3.3",
+              "platform": "linux/x86_64", "capacity": {"nano_cpus": 2_000_000_000}},
+             {"hostname": "w2", "state": "Ready", "engine": "29.5.0",
+              "platform": "linux/x86_64", "capacity": {"nano_cpus": 2_000_000_000}}]
+    html = _node_table(nodes)
+    assert html.count(">engine<") == 1        # rótulo aparece 1x, não 1x por nó
+    assert 'class="dv"' in html and "divergem" in html
+    assert html.count('class="dv"') == 2      # engine 29.5.0 e a capacidade do manager
+    assert "mgr" in html and "w2" in html
+
+
+def test_tabela_de_nos_tolera_coleta_ausente():
+    from build_report import _node_table
+    assert "não coletado" in _node_table({"status": "n/a", "reason": "sem acesso"})
+    assert "nenhum nó" in _node_table([])

@@ -183,42 +183,115 @@ def _pct(x, total):
     return round(100 * x / total) if total else 0
 
 
-def _node_cards(nodes):
-    """Um card por nó (master/worker) com saúde, capacidade e carga."""
+def _diverge(valores):
+    """Índices cujo valor foge da maioria.
+
+    É o que dá razão de existir à comparação lado a lado: uma tabela que só repete
+    `Ready · Ready · Ready · Ready` gasta tinta sem informar. O que informa é a célula
+    que destoa — engine atrasada, nó com metade da memória.
+    """
+    limpos = [v for v in valores if v not in ("—", "", None)]
+    if len(set(limpos)) < 2:
+        return set()
+    freq = {}
+    for v in limpos:
+        freq[v] = freq.get(v, 0) + 1
+    maioria = max(freq.values())
+    # sem maioria clara (todos diferentes), nada a destacar: destacar tudo não diz nada
+    if maioria == 1:
+        return set()
+    comum = [v for v, c in freq.items() if c == maioria]
+    return {i for i, v in enumerate(valores) if v not in ("—", "", None) and v not in comum}
+
+
+def _exit_code(txt):
+    """'svc.1: "task: non-zero exit (137)"' -> ('svc', '137')."""
+    import re
+    svc = str(txt).split(":", 1)[0].rsplit(".", 1)[0]
+    m = re.search(r"exit \((\d+)\)", str(txt))
+    return svc, (m.group(1) if m else None)
+
+
+def _node_failures(nodes):
+    """Falhas agrupadas por código de saída, fora da tabela.
+
+    Antes cada nó carregava 3 linhas de texto cru dentro da própria célula, quebradas a cada
+    ~20 caracteres. Agrupar por código revela o que a listagem escondia: um mesmo exit em
+    vários serviços não relacionados é UM evento (um restart), não N problemas.
+    """
+    por_code = {}
+    for n in nodes:
+        for ex in (n.get("failed_examples") or []):
+            svc, code = _exit_code(ex)
+            por_code.setdefault(code or "?", []).append((svc, n.get("hostname")))
+    if not por_code:
+        return ""
+    PISTA = {"137": "SIGKILL — processo terminado de fora (restart do daemon, OOM ou limite)",
+             "143": "SIGTERM — parada solicitada",
+             "1": "erro da aplicação",
+             "255": "erro da aplicação (código genérico)"}
+    blocos = []
+    for code, itens in sorted(por_code.items(), key=lambda kv: -len(kv[1])):
+        nos = sorted({h for _, h in itens})
+        servicos = sorted({s for s, _ in itens})
+        pista = PISTA.get(code, "")
+        multi = (' <span class="nfmulti">mesmo código em '
+                 f'{len(servicos)} serviços de {len(nos)} nós</span>') if len(nos) > 1 else ""
+        blocos.append(
+            f'<div class="nfrow"><div class="nfhead"><span class="nfcode">exit {_e(code)}</span>'
+            f'<span class="nfhint">{_e(pista)}</span>{multi}</div>'
+            f'<div class="nfsvcs">{_e(" · ".join(servicos))}</div></div>')
+    return ('<div class="nfail"><div class="nfh">Falhas recentes por código de saída</div>'
+            + "".join(blocos) + "</div>")
+
+
+def _node_table(nodes):
+    """Nós como colunas de uma tabela comparativa.
+
+    Em cards, cada rótulo se repetia uma vez por nó e a maioria dos valores era idêntica —
+    a repetição consumia a largura que faltava aos valores. Na tabela o rótulo aparece uma
+    vez e a leitura vira horizontal, que é como se compara nó com nó.
+    """
     if isinstance(nodes, dict) and nodes.get("status") == "n/a":
         return f'<p class="muted">não coletado — {_e(nodes.get("reason"))}</p>'
     if not nodes:
         return '<p class="muted">nenhum nó (cluster não-Swarm).</p>'
-    out = []
-    for n in nodes:
-        state = str(n.get("state") or "").lower()
-        failed = n.get("tasks_failed") or 0
-        note = "green" if state == "ready" and not failed else ("yellow" if state == "ready" else "red")
-        role = "manager" if n.get("leader") or n.get("reachability") else (n.get("role") or "worker")
-        badges = f'<span class="badge kind">{_e(role)}</span>'
-        if n.get("leader"):
-            badges += '<span class="badge ok">líder</span>'
-        if str(n.get("availability") or "").lower() != "active":
-            badges += f'<span class="badge med">{_e(n.get("availability"))}</span>'
-        rows = [
-            ("Estado", n.get("state") or "—"),
-            ("Disponibilidade", n.get("availability") or "—"),
-            ("Engine", n.get("engine") or "—"),
-            ("Plataforma", n.get("platform") or "—"),
-            ("Capacidade", _fmt_capacity(n.get("capacity"))),
-            ("Tasks rodando", n.get("tasks_running") if n.get("tasks_running") is not None else "—"),
-            ("Tasks falhadas", failed or "0"),
-        ]
-        if n.get("reachability"):
-            rows.insert(2, ("Alcance (raft)", n.get("reachability")))
-        dl = "".join(f"<dt>{_e(k)}</dt><dd>{_e(v)}</dd>" for k, v in rows)
-        warn = ""
-        if n.get("failed_examples"):
-            warn = ('<div class="warn">' + "<br>".join(_e(x) for x in n["failed_examples"]) + "</div>")
-        out.append(f'<div class="card node {note}"><div class="nh">'
-                   f'<span class="nn">{_e(n.get("hostname"))}</span>{badges}</div>'
-                   f'<dl>{dl}</dl>{warn}</div>')
-    return "".join(out)
+
+    def cap(n):
+        c = n.get("capacity") or {}
+        cpu, mem = c.get("nano_cpus"), c.get("mem_bytes")
+        if not cpu and not mem:
+            return "—"
+        return (f'{cpu // 1_000_000_000} vCPU' if cpu else "—") + \
+               (f'<br><span class="nsub">{mem / 1_073_741_824:.1f} GB</span>' if mem else "")
+
+    linhas = [
+        ("papel", [("líder" if n.get("leader") else (n.get("role") or "worker")).lower() for n in nodes], False),
+        ("estado", [n.get("state") or "—" for n in nodes], False),
+        ("disponibilidade", [n.get("availability") or "—" for n in nodes], False),
+        ("engine", [n.get("engine") or "—" for n in nodes], True),
+        ("plataforma", [n.get("platform") or "—" for n in nodes], True),
+        ("capacidade", [cap(n) for n in nodes], True),
+        ("tasks rodando", [str(n.get("tasks_running")) if n.get("tasks_running") is not None else "—" for n in nodes], False),
+        ("falhas 24h", [str(n.get("tasks_failed") or 0) for n in nodes], False),
+    ]
+    if any(n.get("reachability") for n in nodes):
+        linhas.insert(3, ("alcance (raft)", [n.get("reachability") or "—" for n in nodes], False))
+
+    head = "".join(
+        f'<th class="{"lead" if n.get("leader") else ""}">{_e(n.get("hostname"))}</th>' for n in nodes)
+    corpo = []
+    for rotulo, valores, marcar in linhas:
+        fora = _diverge(valores) if marcar else set()
+        tds = "".join(
+            f'<td class="{"dv" if i in fora else ""}">{v if rotulo == "capacidade" else _e(v)}</td>'
+            for i, v in enumerate(valores))
+        corpo.append(f'<tr><th scope="row">{_e(rotulo)}</th>{tds}</tr>')
+
+    nota = ('<div class="ndnote">células marcadas divergem do resto do cluster</div>'
+            if any(_diverge(v) for _, v, m in linhas if m) else "")
+    return (f'<table class="ndt"><thead><tr><th></th>{head}</tr></thead>'
+            f'<tbody>{"".join(corpo)}</tbody></table>{nota}' + _node_failures(nodes))
 
 
 def _disk(disk):
@@ -474,7 +547,7 @@ def render_html(report):
         "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
         "%%STACKS%%": _stack_blocks(groups, comp_an),
         "%%FINDINGS_GROUPED%%": _findings_grouped(report.get("findings"), new_rules),
-        "%%NODES%%": _node_cards(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")) + _tls(report.get("tls")),
+        "%%NODES%%": _node_table(report.get("nodes")), "%%DISK%%": _disk(report.get("disk")) + _tls(report.get("tls")),
         "%%NETWORKS%%": networks,
         "%%CONNECTED_NODE%%": _e(scope.get("connected_node")),
         "%%NOT_COLLECTED%%": not_collected, "%%SECRETS_CONFIGS%%": secrets_configs,

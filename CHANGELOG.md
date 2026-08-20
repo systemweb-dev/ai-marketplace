@@ -8,6 +8,17 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-cluster-audit` (v0.10.0): **nós do cluster viram tabela comparativa** (direção de design
+  definida com a `sw-design-studio`). Em cards, cada rótulo se repetia uma vez por nó e metade
+  dos valores era idêntica (`Ready`, `Active`, `linux/x86_64`) — a repetição consumia a largura
+  que faltava aos valores, e "4 vCPU · 7.8 GB" quebrava no meio. Agora o rótulo aparece 1×, a
+  leitura é horizontal (que é como se compara nó com nó) e **células que divergem da maioria são
+  marcadas** em tom neutro — divergir não é sinônimo de risco, o manager ter mais CPU é normal.
+  As falhas saíram de dentro das células e viraram lista agrupada **por código de saída**, com a
+  pista do que cada código significa: revela que o mesmo `exit 137` em serviços não relacionados
+  de vários nós é UM evento (um restart), não N problemas. A tabela quebra entre páginas com o
+  cabeçalho repetido (`table-header-group`), senão a metade seguinte vira coluna de números sem
+  dono. Removidos `_node_cards` e o CSS `.node`, agora órfãos.
 - `sw-cluster-audit` (v0.9.0): **layout do PDF — mesmo conteúdo em 14 páginas em vez de 19**,
   com mais respiro. Margem do papel de 10mm→7mm nas laterais (+6mm de largura útil), padding e
   entrelinha maiores nos cards, e cards de nó em 4 colunas no papel (2 colunas deixavam a linha
