@@ -244,6 +244,9 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "limits": red.get("limits"), "reservations": red.get("reservations"),
                 "has_healthcheck": red.get("has_healthcheck"),
                 "constraints": red.get("constraints"), "updated_at": red.get("updated_at"),
+                # tipo/origem/destino apenas (redact_service já filtra) — o storage do ACME
+                # do ingress é o que decide se ele pode ou não ser escalado
+                "mounts": red.get("mounts"),
                 "mode": red.get("mode"),
                 "tasks_failed": len(failed) if tasks_ok else None, "completed_job": completed_job,
                 "nodes": sorted({t.get("Node") for t in tasks

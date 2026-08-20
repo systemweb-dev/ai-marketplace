@@ -12,9 +12,82 @@ INGRESS = {"ingress/proxy", "proxy", "api-gateway"}
 _ORDER = {"alto": 0, "médio": 1, "baixo": 2}
 
 
-def _p(cenario, consequencia, impacto, esforco, alvos=(), fix=None):
+def _p(cenario, consequencia, impacto, esforco, alvos=(), fix=None, plano=()):
+    """Um ponto de impacto.
+
+    `plano` é o que diferencia conselho de instrução: lista ordenada de
+    {passo, comando, porque}. Cada passo precisa ser executável como está — "distribuir
+    réplicas entre nós" não é passo, é desejo.
+    """
     return {"cenario": cenario, "consequencia": consequencia, "impacto": impacto,
-            "esforco": esforco, "alvos": list(alvos)[:8], "fix": fix}
+            "esforco": esforco, "alvos": list(alvos)[:8], "fix": fix,
+            "plano": [dict(x) for x in plano]}
+
+
+def _step(passo, comando=None, porque=None):
+    return {"passo": passo, "comando": comando, "porque": porque}
+
+
+def _managers(nodes):
+    return [n for n in (nodes or []) if str(n.get("role") or "").lower() in ("manager", "leader")]
+
+
+def _acme_local(svc):
+    """Traefik com storage do ACME em volume/bind LOCAL não escala: cada réplica emitiria
+    o próprio certificado, batendo no rate limit do Let's Encrypt e servindo certs diferentes."""
+    for m in (svc.get("mounts") or []):
+        alvo = str(m.get("target") or "")
+        if "letsencrypt" in alvo.lower() or "acme" in alvo.lower():
+            return m
+    return None
+
+
+def _plano_ingress(ingress, nodes, n_apps):
+    """Plano concreto pra tirar o ingress de ponto único — os passos dependem do que existe."""
+    mgrs = _managers(nodes)
+    nome = ingress.get("name")
+    passos = []
+
+    if len(mgrs) < 3:
+        faltam = 3 - len(mgrs)
+        alvos = [n.get("hostname") for n in (nodes or [])
+                 if str(n.get("role") or "").lower() == "worker"][:faltam]
+        passos.append(_step(
+            f"Promover {faltam} worker(s) a manager (quórum de 3)",
+            "docker node promote " + " ".join(alvos or ["<worker>"]),
+            f"Hoje há {len(mgrs)} manager. Com um só, perder esse nó derruba o control plane "
+            "junto: você não consegue nem rodar `service update` pra consertar. Três managers "
+            "toleram a perda de um. Isso também faz a constraint `node.role == manager` do "
+            f"{nome} passar a ser satisfeita em 3 nós em vez de 1."))
+
+    acme = _acme_local(ingress)
+    if acme:
+        origem = acme.get("source") or "volume local"
+        passos.append(_step(
+            "Tirar a emissão de certificado de dentro do ingress",
+            "# opção A (recomendada em cloud): terminar TLS num load balancer gerenciado\n"
+            "#   e deixar o ingress só roteando HTTP — o storage do ACME deixa de existir.\n"
+            "# opção B: manter o ACME, porém com desafio DNS-01 e storage compartilhado\n"
+            "#   entre as réplicas (mais peças, mais chance de conflito de escrita).",
+            f"É este o bloqueio pra escalar: o {nome} guarda o ACME em `{origem}`, que é "
+            "local do nó. Com 2 réplicas, cada uma emitiria o próprio certificado — rate "
+            "limit do Let's Encrypt e clientes recebendo certs diferentes. Escalar antes de "
+            "resolver isso quebra o TLS."))
+
+    passos.append(_step(
+        f"Só então escalar o {nome}",
+        f"docker service update --replicas 2 {nome}\n"
+        f"docker service ps {nome}   # confirmar que caíram em nós diferentes",
+        "Com o storage resolvido e 3 managers, a segunda réplica tem onde rodar."))
+
+    passos.append(_step(
+        "Colocar um load balancer na frente apontando pra todos os nós",
+        "# alvos: todos os nós do cluster, na porta publicada do ingress\n"
+        "# health check: HTTP na mesma porta — o LB tira do rodízio o nó que não responder",
+        "A malha de roteamento do Swarm entrega em qualquer nó, mas ela precisa de uma réplica "
+        f"viva pra entregar. Por isso o LB sozinho não resolveria: sem o passo anterior, ele só "
+        "distribuiria tráfego entre nós que encaminham para um ingress que não existe mais."))
+    return passos
 
 
 def _replicas(rep):
@@ -41,6 +114,7 @@ def build(report):
             for n in (s.get("nodes") or []):
                 por_no.setdefault(n, []).append(s)
 
+    nodes = report.get("nodes") or []
     for no, svcs in sorted(por_no.items(), key=lambda kv: -len(kv[1])):
         rotas = sum(len([k for k in (s.get("routing_labels") or {}) if k.endswith(".rule")])
                     for s in svcs)
@@ -58,15 +132,32 @@ def build(report):
         outros = len(svcs) - len(ingress) - len(estado)
         if outros > 0:
             partes.append(f"mais {outros} serviço(s) sem réplica de reserva")
+        n_apps = sum(1 for x in services if x.get("routing_labels"))
+        plano = _plano_ingress(ingress[0], nodes, n_apps) if ingress else []
+        if estado:
+            plano.append(_step(
+                "Tratar os serviços com estado à parte — LB e réplica não resolvem",
+                "# 1. confirme que o volume de cada um tem backup testado (restaurar, não só copiar)\n"
+                "# 2. para os que suportam, avalie serviço gerenciado ou replicação nativa\n"
+                "# 3. o que sobrar sem HA: fixe o nó e documente o RTO honesto\n"
+                + "\n".join(f"docker service ps {s['name']}" for s in estado[:3]),
+                "Subir uma segunda réplica de banco não dá alta disponibilidade — dá duas "
+                "instâncias brigando pelo mesmo volume. Aqui a proteção real é backup restaurável "
+                f"({', '.join(s['name'] for s in estado[:3])}); redundância exige replicação do "
+                "próprio motor, que é decisão de arquitetura, não de `service update`."))
+        if not plano:
+            plano.append(_step(
+                "Subir uma segunda réplica dos serviços sem reserva",
+                "\n".join(f"docker service update --replicas 2 {s['name']}" for s in svcs[:3]),
+                "São serviços sem estado — escalar é seguro e a malha do Swarm já balanceia."))
+
         pontos.append(_p(
             f"Se o nó {no} cair",
             "; ".join(partes) + ".",
             "alto" if (ingress or estado) else "médio",
             "alto" if ingress else "médio",
             [s["name"] for s in svcs],
-            "distribuir réplicas entre nós; para o ingress, promover outro manager e "
-            "compartilhar o storage do ACME antes de escalar" if ingress else
-            "subir uma segunda réplica onde o serviço permitir",
+            plano=plano,
         ))
 
     # ---- 2. serviços parados (faxina, não incidente)

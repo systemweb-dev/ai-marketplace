@@ -8,6 +8,13 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-cluster-audit` (v0.8.0): **pontos de impacto passam a trazer plano de execução, não dica.**
+  Cada ponto ganha uma lista ordenada de passos com comando pronto e o porquê da ordem, derivada
+  dos fatos coletados: nº de managers reais (`docker node promote` já com os hostnames), storage
+  do ACME do ingress (volume local vira passo bloqueante ANTES de escalar, senão o TLS quebra),
+  e serviço com estado ganha passo próprio — nunca "suba 2 réplicas" para um banco, que daria
+  duas instâncias brigando pelo mesmo volume. `mounts` passou a ser gravado por serviço para
+  viabilizar a detecção do ACME.
 - `scripts/sync_skill.py`: **o aviso de dado pessoal passou a respeitar os excludes do rsync.**
   Ele varria a origem inteira, incluindo `__pycache__`/`.ruff_cache`, e cuspia dezenas de avisos
   por sync sobre arquivos que nunca são publicados — gate que grita à toa é gate que se aprende

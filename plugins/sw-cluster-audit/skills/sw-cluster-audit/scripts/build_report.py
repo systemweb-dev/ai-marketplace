@@ -257,6 +257,22 @@ def _tls(tls):
                      [None, None, None, None, "num"]))
 
 
+def _plano(passos):
+    """Plano de execução: passos numerados com comando pronto e o porquê de cada um.
+
+    É o que separa relatório de conselho — sem isso o card diz "distribua as réplicas" e
+    deixa a parte difícil (em que ordem, e por que essa ordem) por conta do leitor.
+    """
+    if not passos:
+        return ""
+    itens = []
+    for i, p in enumerate(passos, 1):
+        cmd = (f'<pre class="ipre">{_e(p["comando"])}</pre>' if p.get("comando") else "")
+        why = (f'<div class="iwhy">{_e(p["porque"])}</div>' if p.get("porque") else "")
+        itens.append(f'<li><b>{_e(p.get("passo"))}</b>{why}{cmd}</li>')
+    return f'<div class="iplan"><div class="iplanh">Como resolver</div><ol>{"".join(itens)}</ol></div>'
+
+
 def _impact(pontos):
     """Cenário → consequência. É aqui que mora o risco (a saúde só fala do que quebrou)."""
     if not pontos:
@@ -266,10 +282,11 @@ def _impact(pontos):
     for p in pontos:
         alvos = (f'<div class="ial">{_e(", ".join(p["alvos"]))}</div>' if p.get("alvos") else "")
         fix = (f'<div class="ifix">→ {_e(p["fix"])}</div>' if p.get("fix") else "")
+        plano = _plano(p.get("plano"))
         out.append(
             f'<div class="card imp {cls.get(p["impacto"], "yellow")}">'
             f'<div class="ic">{_e(p["cenario"])} <span class="arrow">→</span></div>'
-            f'<div class="icons">{_e(p["consequencia"])}</div>{fix}{alvos}'
+            f'<div class="icons">{_e(p["consequencia"])}</div>{fix}{plano}{alvos}'
             f'<div class="tags"><span class="tag {"hi" if p["impacto"]=="alto" else "mid"}">'
             f'impacto {_e(p["impacto"])}</span>'
             f'<span class="tag">esforço {_e(p["esforco"])}</span></div></div>')

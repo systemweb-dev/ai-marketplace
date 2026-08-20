@@ -68,3 +68,63 @@ def test_certificado_de_vida_longa_vira_ponto_de_impacto():
 def test_certificado_curto_nao_gera_ponto():
     r = _rep(); r["tls"] = {"days_left": 300, "status": "ok"}
     assert not any("certificado" in x["cenario"] for x in impact.build(r))
+
+
+def _cluster(n_managers=1, acme=True):
+    nodes = [{"hostname": "mgr-1", "role": "Leader"}]
+    nodes += [{"hostname": f"mgr-{i}", "role": "manager"} for i in range(2, n_managers + 1)]
+    nodes += [{"hostname": f"w-{i}", "role": "worker"} for i in range(1, 4)]
+    tk = {"name": "traefik_traefik", "kind": "ingress/proxy", "replicas": "1/1",
+          "nodes": ["mgr-1"], "routing_labels": {"traefik.http.routers.a.rule": "Host(`a`)"},
+          "mounts": ([{"type": "volume", "source": "letsencrypt", "target": "/letsencrypt"}]
+                     if acme else [])}
+    return {"nodes": nodes, "services": [tk], "findings": [], "dimensions": {}}
+
+
+def _plano_do_no(rep):
+    p = [x for x in impact.build(rep) if x["cenario"].startswith("Se o nó")][0]
+    return p["plano"]
+
+
+def test_plano_manda_promover_manager_quando_so_ha_um():
+    passos = _plano_do_no(_cluster(n_managers=1))
+    promover = passos[0]
+    assert "Promover" in promover["passo"] and "quórum de 3" in promover["passo"]
+    assert promover["comando"].startswith("docker node promote w-")   # nomes REAIS dos workers
+    assert "control plane" in promover["porque"]
+
+
+def test_plano_nao_manda_promover_quando_ja_ha_quorum():
+    passos = _plano_do_no(_cluster(n_managers=3))
+    assert not any("Promover" in p["passo"] for p in passos)
+
+
+def test_acme_em_volume_local_vira_passo_bloqueante_antes_de_escalar():
+    passos = _plano_do_no(_cluster(acme=True))
+    titulos = [p["passo"] for p in passos]
+    i_acme = next(i for i, t in enumerate(titulos) if "certificado" in t)
+    i_escala = next(i for i, t in enumerate(titulos) if "escalar" in t)
+    assert i_acme < i_escala, "resolver o ACME tem que vir ANTES de escalar, senão quebra o TLS"
+    assert "letsencrypt" in passos[i_acme]["porque"]      # cita o volume que ele achou
+
+
+def test_sem_acme_local_nao_inventa_o_passo():
+    passos = _plano_do_no(_cluster(acme=False))
+    assert not any("certificado" in p["passo"] for p in passos)
+
+
+def test_load_balancer_vem_depois_de_escalar_e_explica_por_que():
+    passos = _plano_do_no(_cluster())
+    lb = [p for p in passos if "load balancer" in p["passo"]][0]
+    assert passos.index(lb) == len(passos) - 1
+    assert "réplica" in lb["porque"] and "viva" in lb["porque"]
+
+
+def test_servico_com_estado_ganha_passo_proprio_sem_falar_em_replica():
+    rep = _cluster()
+    rep["services"].append({"name": "app_db", "kind": "banco", "replicas": "1/1",
+                            "nodes": ["mgr-1"], "mounts": []})
+    passos = _plano_do_no(rep)
+    est = [p for p in passos if "estado" in p["passo"]][0]
+    assert "backup" in est["porque"] and "app_db" in est["porque"]
+    assert "--replicas 2 app_db" not in (est["comando"] or "")   # nunca sugerir isso p/ banco
