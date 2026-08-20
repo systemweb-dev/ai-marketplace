@@ -45,7 +45,7 @@ def test_group_ordena_pior_primeiro():
 
 # ---------------------------------------------------------------- discover
 def test_host_from_context_endpoint():
-    assert discover.host_from_context_endpoint("tcp://143.198.106.223:2376") == "143.198.106.223"
+    assert discover.host_from_context_endpoint("tcp://203.0.113.10:2376") == "203.0.113.10"
     assert discover.host_from_context_endpoint("unix:///var/run/docker.sock") == "localhost"
 
 
@@ -55,11 +55,11 @@ def test_propose_encontra_prometheus_e_prioriza_publicado():
          "ports": [{"port": "9090/tcp", "host_ip": "0.0.0.0", "host_port": "9090"}]},
         {"name": "monitoring_cadvisor", "image": "gcr.io/cadvisor/cadvisor", "ports": []},
     ]}
-    props = discover.propose(rep, "1.2.3.4")
+    props = discover.propose(rep, "198.51.100.9")
     assert props[0]["kind_hint"] == "prometheus"
-    assert props[0]["url"] == "http://1.2.3.4:9090/api/v1/query?query=up"
+    assert props[0]["url"] == "http://198.51.100.9:9090/api/v1/query?query=up"
     assert props[0]["published"] is True
-    assert discover.best(rep, "1.2.3.4")["service"] == "monitoring_prometheus"
+    assert discover.best(rep, "198.51.100.9")["service"] == "monitoring_prometheus"
 
 
 def test_propose_detecta_identificador_na_tag_ou_no_nome():
@@ -69,7 +69,7 @@ def test_propose_detecta_identificador_na_tag_ou_no_nome():
          "tag": "prometheus-v2.44.0",
          "ports": [{"port": "9090/tcp", "host_ip": "0.0.0.0", "host_port": "9090"}]},
     ]}
-    props = discover.propose(rep, "1.2.3.4")
+    props = discover.propose(rep, "198.51.100.9")
     assert props and props[0]["kind_hint"] == "prometheus"
     assert props[0]["url"].endswith(":9090/api/v1/query?query=up")
 

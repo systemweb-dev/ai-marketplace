@@ -36,7 +36,7 @@ def test_template_sem_asset_remoto():
 @pytest.mark.parametrize("url", [
     "http://evil.com/x",                    # host não confirmado
     "file:///etc/passwd",                   # esquema não permitido
-    "ftp://1.2.3.4/x",
+    "ftp://198.51.100.9/x",
 ])
 def test_bloqueia_url_nao_confirmada(url):
     with pytest.raises(NotConfirmed):
@@ -50,7 +50,7 @@ def test_permite_apenas_host_confirmado():
 def test_allowlist_derivada_do_cluster_bloqueia_host_de_fora():
     """No modo auto a allowlist é [host do context confirmado]; qualquer outro host é barrado —
     mesmo que um service do cluster anuncie uma URL apontando pra fora."""
-    cluster_host = "143.198.106.223"
+    cluster_host = "203.0.113.10"
     with pytest.raises(NotConfirmed):
         check_allowed("http://attacker.example.com:9090/api/v1/query", [cluster_host])
     assert check_allowed(f"http://{cluster_host}:9090/api/v1/query", [cluster_host]) is True

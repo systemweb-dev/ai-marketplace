@@ -44,6 +44,20 @@ RULES: list[tuple[str, re.Pattern]] = [
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
     ("OpenAI/Anthropic key", re.compile(r"\b(sk|sk-ant)-[A-Za-z0-9_\-]{20,}\b")),
     ("JWT", re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b")),
+    ("IP público (endereço real de infra)", re.compile(
+        r"""(?x)
+        \b(?!
+            10\.                                   # RFC1918 privada
+          | 127\.                                  # loopback
+          | 0\.                                    # não-roteável
+          | 169\.254\.                             # link-local
+          | 192\.168\.                             # RFC1918 privada
+          | 172\.(?:1[6-9]|2\d|3[01])\.            # RFC1918 privada
+          | 255\.                                  # broadcast
+          | 192\.0\.2\. | 198\.51\.100\. | 203\.0\.113\.   # RFC5737: docs, uso livre
+        )
+        (?:\d{1,3}\.){3}\d{1,3}\b
+        """)),
     ("caminho /home", re.compile(r"/home/[A-Za-z][A-Za-z0-9._-]*")),
     ("caminho /Users", re.compile(r"/Users/[A-Za-z][A-Za-z0-9._-]*")),
 ]

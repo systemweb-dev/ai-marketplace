@@ -38,7 +38,7 @@ def _published_ports(svc):
 
 
 def host_from_context_endpoint(endpoint):
-    """'tcp://143.198.106.223:2376' -> '143.198.106.223'. unix:// -> 'localhost'."""
+    """'tcp://203.0.113.10:2376' -> '203.0.113.10'. unix:// -> 'localhost'."""
     if not endpoint:
         return None
     if endpoint.startswith("unix://") or endpoint.startswith("npipe://"):

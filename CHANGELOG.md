@@ -8,6 +8,12 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- **Segurança:** o gate (`scripts/scan_secrets.py`) passou a detectar **IP público** em conteúdo
+  publicável, e `sw-cluster-audit` (v0.10.1) teve o IP real do cluster de produção — que havia
+  ficado numa docstring e em fixtures de teste — trocado pelas faixas reservadas para
+  documentação (RFC 5737). Num repositório público, o IP do host onde a API do Docker escuta na
+  2376 é superfície de ataque, mesmo com mTLS. A regra ignora faixas privadas, loopback,
+  link-local e as próprias faixas de documentação, então não gera ruído.
 - `sw-cluster-audit` (v0.10.0): **nós do cluster viram tabela comparativa** (direção de design
   definida com a `sw-design-studio`). Em cards, cada rótulo se repetia uma vez por nó e metade
   dos valores era idêntica (`Ready`, `Active`, `linux/x86_64`) — a repetição consumia a largura
