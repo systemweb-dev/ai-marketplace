@@ -8,6 +8,11 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `scripts/sync_skill.py`: **o aviso de dado pessoal passou a respeitar os excludes do rsync.**
+  Ele varria a origem inteira, incluindo `__pycache__`/`.ruff_cache`, e cuspia dezenas de avisos
+  por sync sobre arquivos que nunca são publicados — gate que grita à toa é gate que se aprende
+  a ignorar. Agora só olha o que de fato vai pro repo, e pula binário em vez de lê-lo com
+  `errors="ignore"`. `.ruff_cache`/`.mypy_cache` entraram na lista de exclusão.
 - `sw-cluster-audit` (v0.7.3): **saúde para de acusar migration como serviço caído.**
   `is_job_service` passa a aceitar task `Complete` em serviço cujo `kind` **não roda
   continuamente** — banco, fila, cache, busca e ingress ficam fora da exceção, então um postgres

@@ -26,6 +26,7 @@ import argparse
 import json
 import re
 import shutil
+from fnmatch import fnmatch
 import subprocess
 import sys
 from pathlib import Path
@@ -46,7 +47,8 @@ OWNER = {"name": "systemweb-dev"}
 # Itens que nunca devem ir para o repositório ao copiar uma skill.
 RSYNC_EXCLUDES = [
     ".git", ".venv", "venv", "node_modules", "__pycache__", "*.pyc",
-    ".pytest_cache", ".DS_Store", "*.swp", "*.swo", "*.log", "*-workspace",
+    ".pytest_cache", ".ruff_cache", ".mypy_cache", ".DS_Store", "*.swp", "*.swo",
+    "*.log", "*-workspace",
 ]
 
 # Categoria padrão aplicada a cada skill (sobrescreva por sync com --category).
@@ -123,19 +125,31 @@ def save_marketplace(data: dict) -> None:
     )
 
 
+def _is_excluded(rel: Path) -> bool:
+    """Casa o caminho contra os mesmos padrões que o rsync usa."""
+    return any(fnmatch(part, pat) for part in rel.parts for pat in RSYNC_EXCLUDES)
+
+
 def warn_personal_data(skill_dir: Path) -> list[str]:
-    """Heurística leve: avisa sobre caminhos absolutos pessoais vazados."""
+    """Heurística leve: avisa sobre caminhos absolutos pessoais vazados.
+
+    Só olha o que de fato vai ser publicado. Varrer também os caches (`__pycache__`,
+    `.ruff_cache`) gerava dezenas de avisos por sync sobre arquivos que o rsync nem copia —
+    e um gate que grita à toa é um gate que se aprende a ignorar.
+    """
     warnings = []
     home = str(Path.home())
     for path in skill_dir.rglob("*"):
         if not path.is_file():
             continue
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+        rel = path.relative_to(skill_dir)
+        if _is_excluded(rel):
             continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue                      # binário ou ilegível: nada de texto pra vazar
         if home in text:
-            rel = path.relative_to(skill_dir)
             warnings.append(f"  ⚠ {rel} contém caminho absoluto do seu diretório home — sanitize antes de publicar")
     return warnings
 
