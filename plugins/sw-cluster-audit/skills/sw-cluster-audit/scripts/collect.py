@@ -83,6 +83,24 @@ def _first(out):
     return data[0] if isinstance(data, list) and data else (data or None)
 
 
+def _state(t):
+    """Primeira palavra de CurrentState: 'Running 3 days ago' -> 'Running'."""
+    return str(t.get("CurrentState") or "").split()[0] if t.get("CurrentState") else ""
+
+
+def _completed_job(tasks):
+    """Terminou com sucesso E não há nada rodando agora.
+
+    Só `any(Complete)` seria largo demais: um worker que roda 4/4 e reinicia saindo com 0
+    também acumula tasks Complete, e ficaria isento do check de serviço parado no dia em
+    que caísse de verdade. Exigir zero tasks Running fecha essa brecha.
+    """
+    if not tasks:
+        return False
+    return (any(_state(t) == "Complete" for t in tasks)
+            and not any(_state(t) == "Running" for t in tasks))
+
+
 def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     """Monta o report.json a partir de comandos read-only.
 
@@ -138,9 +156,6 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
             tasks_ok = False
     else:
         tasks_ok = False
-
-    def _state(t):
-        return str(t.get("CurrentState") or "").split()[0] if t.get("CurrentState") else ""
 
     def _task_err(t):
         """Erro de task é texto livre do daemon — sanitiza e trunca (ver redact.scrub_text)."""
@@ -219,9 +234,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
             tasks = tasks_by_service.get(name, [])
             failed = ([t for t in tasks if _state(t) in ("Failed", "Rejected") and _is_recent(t)]
                       if tasks_ok else [])
-            # job de execução única: o Swarm marca a task como Complete (sinal infalível,
-            # independente do nome do serviço)
-            completed_job = any(_state(t) == "Complete" for t in tasks)
+            completed_job = _completed_job(tasks)
             r["services"].append({
                 "name": red.get("name"), "image": img["image"], "tag": img["tag"],
                 "digest": img["digest"], "replicas": s.get("Replicas"), "ports": red.get("ports"),

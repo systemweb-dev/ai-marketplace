@@ -127,3 +127,15 @@ def test_no_worker_manager_status_null_nao_crasha():
         return ""
     r = collect.assemble_report(frun, 5, "prod", "2026-08-18T00:00:00Z", "n1")
     assert r["nodes"][0]["leader"] is False and r["nodes"][0]["hostname"] == "w1"
+
+
+def test_completed_job_exige_que_nada_esteja_rodando():
+    """Worker que roda e reinicia saindo com 0 acumula task Complete — não pode virar
+    'job', senão fica isento do check de serviço parado no dia em que cair de verdade."""
+    from collect import _completed_job
+    rodando = {"CurrentState": "Running 3 days ago"}
+    concluida = {"CurrentState": "Complete 2 hours ago"}
+    assert _completed_job([concluida, concluida]) is True     # job de fato: nada ativo
+    assert _completed_job([concluida, rodando]) is False      # ainda serve → não é job
+    assert _completed_job([rodando]) is False
+    assert _completed_job([]) is False                        # sem dado, não inventa

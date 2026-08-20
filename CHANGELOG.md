@@ -8,13 +8,15 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
-- `sw-cluster-audit` (v0.7.2): **saúde para de acusar migration como serviço caído.**
+- `sw-cluster-audit` (v0.7.3): **saúde para de acusar migration como serviço caído.**
   `is_job_service` passa a aceitar task `Complete` em serviço cujo `kind` **não roda
   continuamente** — banco, fila, cache, busca e ingress ficam fora da exceção, então um postgres
   fora do ar continua sendo reportado. Certificado de cliente com validade > 3 anos virou
   **ponto de impacto** (credencial root-equivalente, sem revogação em `--tlsverify`; `ssh://`
   como saída para CI/CD), e a recomendação de **fechar a porta 2376 no firewall deixou de ser
-  padrão** — quebra CI/CD hospedado e o mTLS já é a barreira.
+  padrão** — quebra CI/CD hospedado e o mTLS já é a barreira. `completed_job` passou a exigir
+  **nenhuma task ativa**: só `any(Complete)` isentava também worker que roda e reinicia saindo
+  com 0, que ficaria mudo no dia em que caísse de verdade.
 - `sw-brainstorming` (v0.5.0): **spec mais forte — anti-over-engineering + pronta pra execução**
   (baseado em pesquisa web 2025–26: Spec Kit/Kiro, *Building Evolutionary Architectures* 2ª ed.,
   Shape Up, context engineering da Anthropic). O spec passa a fechar com **Não-objetivos**,
