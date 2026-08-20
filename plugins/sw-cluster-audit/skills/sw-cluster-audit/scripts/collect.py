@@ -20,7 +20,7 @@ from lib.redact import redact_container, redact_service, scrub_info, scrub_text
 from lib.rules import (findings_for_workload, findings_operational,
                        findings_from_errors, findings_from_cert)
 from lib.report import new_report, na, split_image
-from lib import metrics, discover, enrich, cert
+from lib import metrics, discover, enrich, cert, impact
 from lib.http_get import host_of
 
 DEFAULT_TIMEOUT = 15
@@ -233,6 +233,8 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "constraints": red.get("constraints"), "updated_at": red.get("updated_at"),
                 "mode": red.get("mode"),
                 "tasks_failed": len(failed) if tasks_ok else None, "completed_job": completed_job,
+                "nodes": sorted({t.get("Node") for t in tasks
+                                 if _state(t) == "Running" and t.get("Node")}),
                 "failed_reason": _task_err(failed[0]) if failed else None,
             })
             r["findings"].extend(findings_for_workload({**red, **img}, scope="cluster-wide"))
@@ -277,7 +279,8 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
     r["dimensions"] = m["dimensions"]
     r["top_offenders"] = m["top_offenders"]
-    r["health"]["verdict"] = metrics.verdict(m["dimensions"])   # saúde = operação (não higiene)
+    r["health"]["verdict"] = metrics.verdict(m["dimensions"])   # saúde = só falha ativa
+    r["impact_points"] = impact.build(r)                        # risco/pendência (cenário → consequência)
     r["health"]["counts"]["findings"] = len(r["findings"])
     if errs:
         r["collection_errors"] = errs[:10]

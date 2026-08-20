@@ -120,3 +120,24 @@ def test_colapso_de_grade_e_so_na_tela():
     """No A4 a largura dispara o breakpoint mobile — o colapso precisa ser só de tela."""
     out = build_report.render_html(_report())
     assert "@media screen and (max-width:780px)" in out
+
+
+def test_secao_pontos_de_impacto_com_cenario_e_consequencia():
+    r = _report()
+    r["impact_points"] = [{"cenario": "Se o nó mgr-1 cair",
+                           "consequencia": "o ingress cai e 18 aplicações ficam inacessíveis.",
+                           "impacto": "alto", "esforco": "alto",
+                           "alvos": ["traefik_traefik"], "fix": "promover outro manager"}]
+    out = build_report.render_html(r)
+    assert "Pontos de impacto" in out
+    assert "Se o nó mgr-1 cair" in out and "18 aplicações ficam inacessíveis" in out
+    assert "promover outro manager" in out and "impacto alto" in out
+
+
+def test_saude_verde_mostra_saudavel():
+    r = _report()
+    r["health"]["verdict"] = "green"
+    r["dimensions"]["operacao"] = {"note": "green", "services_up": 56, "services_total": 56,
+                                   "stopped": 0, "failing": 0, "nodes_down": 0}
+    out = build_report.render_html(r)
+    assert "Saudável" in out and "56/56 serviços no ar" in out

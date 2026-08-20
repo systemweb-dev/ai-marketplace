@@ -29,6 +29,7 @@ def new_report(generated_at, context):
         "top_offenders": [],        # services com mais findings
         "history": None,            # {vs, resolved, new} vs a auditoria anterior (se houver)
         "tls": None,                # validade dos certificados do context (CA + cliente)
+        "impact_points": [],        # cenário → consequência (risco, não saúde)
     }
 
 

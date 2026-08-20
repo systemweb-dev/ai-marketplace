@@ -20,7 +20,7 @@ from lib.rule_meta import meta as rule_meta
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "..", "assets", "report-template", "template.html")
 
-_VERDICT = {"green": ("●", "Operacional"), "yellow": ("●", "Operacional com ressalvas"),
+_VERDICT = {"green": ("●", "Saudável"), "yellow": ("●", "Atenção"),
             "red": ("●", "Degradado"), "unknown": ("○", "Sem dados")}
 _NOTE_TXT = {"green": "OK", "yellow": "Atenção", "red": "Crítico", "unknown": "sem dados"}
 _DIM_LABEL = {"operacao": "Operação", "disponibilidade": "Disponibilidade",
@@ -257,6 +257,25 @@ def _tls(tls):
                      [None, None, None, None, "num"]))
 
 
+def _impact(pontos):
+    """Cenário → consequência. É aqui que mora o risco (a saúde só fala do que quebrou)."""
+    if not pontos:
+        return '<p class="muted">Nenhum ponto de impacto relevante — cluster redundante e com boa higiene.</p>'
+    cls = {"alto": "red", "médio": "yellow", "baixo": "green"}
+    out = []
+    for p in pontos:
+        alvos = (f'<div class="ial">{_e(", ".join(p["alvos"]))}</div>' if p.get("alvos") else "")
+        fix = (f'<div class="ifix">→ {_e(p["fix"])}</div>' if p.get("fix") else "")
+        out.append(
+            f'<div class="card imp {cls.get(p["impacto"], "yellow")}">'
+            f'<div class="ic">{_e(p["cenario"])} <span class="arrow">→</span></div>'
+            f'<div class="icons">{_e(p["consequencia"])}</div>{fix}{alvos}'
+            f'<div class="tags"><span class="tag {"hi" if p["impacto"]=="alto" else "mid"}">'
+            f'impacto {_e(p["impacto"])}</span>'
+            f'<span class="tag">esforço {_e(p["esforco"])}</span></div></div>')
+    return "".join(out)
+
+
 def _history(hist):
     """Histórico visível: o que foi resolvido desde a auditoria anterior."""
     if not hist:
@@ -393,8 +412,15 @@ def render_html(report):
     op = dims.get("operacao") or {}
     av = dims.get("disponibilidade") or {}
     sem_ha = len(av.get("spof_stateful") or []) + len(av.get("spof_critical") or [])
-    oneline = (f'{op.get("services_up", 0)}/{op.get("services_total", 0)} serviços no ar'
-               + (f' · {sem_ha} sem redundância' if sem_ha else ""))
+    falhando, parados = op.get("failing", 0), op.get("stopped", 0)
+    oneline = f'{op.get("services_up", 0)}/{op.get("services_total", 0)} serviços no ar'
+    if falhando:
+        oneline += f' · {falhando} falhando'
+    elif parados:
+        oneline += f' · {parados} parados a confirmar'
+    if sem_ha:
+        oneline += f' · {sem_ha} sem redundância'
+    _ = sem_ha
 
     summary = report.get("summary") or ("Resumo ainda não escrito — o agente preenche <code>summary</code> "
                                         "explicando o porquê do veredito.")
@@ -426,6 +452,7 @@ def render_html(report):
         "%%SUMMARY%%": summary if summary.startswith("Resumo ainda") else _rich(summary),
         "%%KPIS%%": _kpis(report, groups),
         "%%DIMENSIONS%%": _dim_cards(dims),
+        "%%IMPACT%%": _impact(report.get("impact_points")),
         "%%RECOMMENDATIONS%%": _recs(report.get("recommendations")),
         "%%STRENGTHS%%": _list(report.get("strengths")), "%%WEAKNESSES%%": _list(report.get("weaknesses")),
         "%%STACKS%%": _stack_blocks(groups, comp_an),

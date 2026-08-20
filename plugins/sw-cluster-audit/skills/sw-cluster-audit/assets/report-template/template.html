@@ -93,6 +93,14 @@
   .tag.mid{color:var(--warn);border-color:var(--warn);background:var(--warn-soft)}
   .tag.lo{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
 
+  /* ---------------- pontos de impacto ---------------- */
+  .imp{padding:13px 16px;margin-bottom:9px;border-left:3px solid var(--c)}
+  .imp .ic{font-size:14px;font-weight:750;margin-bottom:3px}
+  .imp .icons{color:var(--ink2);font-size:13px}
+  .imp .ifix{margin-top:7px;font-size:12px;color:var(--accent)}
+  .imp .ial{margin-top:7px;font:500 10.5px/1.6 var(--mono);color:var(--muted)}
+  .arrow{color:var(--muted);font-weight:400}
+
   /* ---------------- fortes / fracos ---------------- */
   .col{padding:14px 16px} .col h3{margin:0 0 8px;font-size:12.5px}
   .col ul{margin:0;padding-left:16px;color:var(--ink2)} .col li{margin:5px 0}
@@ -193,29 +201,32 @@
 
   %%HISTORY%%
 
-  <h2><span class="n">3</span> O que fazer — recomendações priorizadas</h2>
+  <h2><span class="n">3</span> Pontos de impacto — o que me derruba e quanto dói</h2>
+  %%IMPACT%%
+
+  <h2><span class="n">4</span> O que fazer — recomendações priorizadas</h2>
   %%RECOMMENDATIONS%%
 
-  <h2><span class="n">4</span> Leitura rápida</h2>
+  <h2><span class="n">5</span> Leitura rápida</h2>
   <div class="grid g2">
     <div class="card col good"><h3>✓ Pontos fortes</h3>%%STRENGTHS%%</div>
     <div class="card col bad"><h3>△ Pontos de atenção</h3>%%WEAKNESSES%%</div>
   </div>
 
-  <h2><span class="n">5</span> Nós do cluster</h2>
+  <h2><span class="n">6</span> Nós do cluster</h2>
   <div class="grid g2">%%NODES%%</div>
   %%DISK%%
 
-  <h2><span class="n">6</span> Por aplicação</h2>
+  <h2><span class="n">7</span> Por aplicação</h2>
   %%STACKS%%
 
-  <h2><span class="n">7</span> Achados</h2>
+  <h2><span class="n">8</span> Achados</h2>
   %%FINDINGS_GROUPED%%
 
-  <h2><span class="n">8</span> Redes</h2>
+  <h2><span class="n">9</span> Redes</h2>
   %%NETWORKS%%
 
-  <h2><span class="n">9</span> Secrets e configs (apenas nomes)</h2>
+  <h2><span class="n">10</span> Secrets e configs (apenas nomes)</h2>
   %%SECRETS_CONFIGS%%
 
   <div class="appendix">

@@ -103,6 +103,29 @@ def _is_job_like(name, image=""):
     return any(t in hay for t in _JOB_LIKE)
 
 
+# Tipos que rodam CONTINUAMENTE — se um deles termina, é problema, não conclusão.
+_LONG_RUNNING = {"banco", "fila", "cache", "cache/fila", "busca", "ingress/proxy",
+                 "proxy", "api-gateway", "object-storage"}
+
+
+def is_job_service(svc):
+    """Serviço de execução única (terminar é o comportamento correto dele).
+
+    Três sinais, do mais forte ao mais fraco:
+      1. modo *-job do Swarm — inequívoco;
+      2. nome/imagem de job (flyway, migrate, seed…);
+      3. a task terminou com sucesso (Complete) E o serviço NÃO é de um tipo que roda
+         continuamente. É isso que separa "app_database rodando migration numa imagem
+         própria" de "postgres que parou" — o segundo tem kind=banco e continua sendo
+         reportado. Sem essa checagem de tipo, um banco fora do ar ficaria escondido.
+    """
+    if str(svc.get("mode") or "").endswith("-job"):
+        return True
+    if _is_job_like(svc.get("name"), svc.get("image")):
+        return True
+    return bool(svc.get("completed_job")) and svc.get("kind") not in _LONG_RUNNING
+
+
 def findings_operational(report):
     """Achados de OPERAÇÃO.
 
@@ -138,14 +161,19 @@ def findings_operational(report):
         if desired is None:
             continue
         if desired > 0 and running == 0:
-            if s.get("completed_job") or _is_job_like(name, s.get("image")):
+            # O que faz ser JOB é o modo do Swarm (*-job) ou o nome/imagem. O estado "Complete"
+            # NÃO basta: um `replicated` comum também fica Complete quando o container sai com 0
+            # e não é reiniciado — e aí é um serviço PARADO (já escondeu banco fora do ar).
+            if is_job_service(s):
                 out.append(_f("OPS_JOB_COMPLETED", "low", name,
                               f'0 réplicas ({s.get("replicas")}) — serviço de execução única já concluído',
                               "nenhuma ação: é o estado normal de um job de migração/manutenção",
                               "cluster-wide", expected=True))
             else:
+                _how = ("concluiu e não foi reiniciado" if s.get("completed_job")
+                        else "nenhuma réplica subiu")
                 out.append(_f("OPS_SERVICE_STOPPED", "med", name,
-                              f'0 réplicas no ar ({s.get("replicas")}) — parado',
+                              f'0 réplicas no ar ({s.get("replicas")}) — {_how}',
                               f"confirmar se é intencional: docker service ps {name} --no-trunc",
                               "cluster-wide"))
         elif running is not None and running < desired:

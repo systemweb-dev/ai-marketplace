@@ -45,6 +45,16 @@ def _res(block):
     return {"nano_cpus": b.get("NanoCPUs"), "mem_bytes": b.get("MemoryBytes")}
 
 
+def _mode(mode_spec):
+    """replicated | global | replicated-job | global-job (o sufixo -job importa pras regras)."""
+    m = mode_spec or {}
+    for key, name in (("ReplicatedJob", "replicated-job"), ("GlobalJob", "global-job"),
+                      ("Global", "global")):
+        if key in m:
+            return name
+    return "replicated"
+
+
 def redact_service(insp):
     spec = insp.get("Spec", {}) or {}
     tt = spec.get("TaskTemplate", {}) or {}
@@ -59,7 +69,7 @@ def redact_service(insp):
         "has_healthcheck": bool((cs.get("Healthcheck") or {}).get("Test")),
         "constraints": list((tt.get("Placement") or {}).get("Constraints") or []),
         "updated_at": insp.get("UpdatedAt"),
-        "mode": "global" if "Global" in (spec.get("Mode") or {}) else "replicated",
+        "mode": _mode(spec.get("Mode")),
         "name": spec.get("Name"),
         "image": cs.get("Image"),
         "user": cs.get("User") or None,

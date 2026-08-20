@@ -5,6 +5,8 @@ dimensões separadas — importantes, mas não derrubam a saúde de um cluster q
 """
 from collections import Counter
 
+from lib.rules import is_job_service
+
 STATEFUL = {"banco", "fila", "cache/fila", "cache", "busca"}
 CRITICAL_PATH = {"ingress/proxy", "proxy", "api-gateway"}
 
@@ -20,6 +22,24 @@ def _pct(x, total):
     return round(100 * x / total) if total else 0
 
 
+def _sem_replica(svc):
+    """0 réplicas rodando com desejado > 0 — está fora do ar."""
+    try:
+        run_, des = str(svc.get("replicas")).split("/")
+        return int(des) > 0 and int(run_) == 0
+    except (ValueError, AttributeError):
+        return False
+
+
+def _abaixo_do_desejado(svc):
+    """running < desired (e desired > 0) — divergência do que foi pedido."""
+    try:
+        run_, des = str(svc.get("replicas")).split("/")
+        return int(des) > 0 and int(run_) < int(des)
+    except (ValueError, AttributeError):
+        return False
+
+
 def compute(report):
     services = report.get("services")
     services = services if isinstance(services, list) else []
@@ -32,9 +52,16 @@ def compute(report):
     sec_real = [f for f in sec if not f.get("expected")]
     ops_real = [f for f in ops if not f.get("expected")]
 
-    ops_high = sum(1 for f in ops_real if f.get("severity") == "high")
-    ops_med = sum(1 for f in ops_real if f.get("severity") == "med")
+    # SAÚDE = só o que está QUEBRADO AGORA. Serviço parado de forma estável e réplica
+    # faltando sem erro NÃO são doença — viram pontos de impacto (lib/impact.py).
+    nodes_down = sum(1 for f in ops_real if f.get("rule_id") == "OPS_NODE_DOWN")
     stopped = {f["object"] for f in ops_real if f.get("rule_id") == "OPS_SERVICE_STOPPED"}
+    # Falha ativa = abaixo do desejado E falhando agora. Jobs ficam de fora (terminar é o
+    # comportamento correto deles). Distingue "fora do ar" (0 réplicas) de "parcial".
+    ativos = [s for s in services if not is_job_service(s) and s.get("tasks_failed")]
+    fora_do_ar = {s.get("name") for s in ativos if _sem_replica(s)}
+    parciais = {s.get("name") for s in ativos if _abaixo_do_desejado(s) and not _sem_replica(s)}
+    falhando = fora_do_ar | parciais
     sec_high = sum(1 for f in sec_real if f.get("severity") == "high")
     sec_med = sum(1 for f in sec_real if f.get("severity") == "med")
 
@@ -70,8 +97,10 @@ def compute(report):
         # OPERAÇÃO — a saúde de verdade: só fica vermelho se algo está fora do ar.
         "operacao": {
             "services_up": n - len(stopped), "services_total": n,
-            "stopped": len(stopped), "degraded": ops_med - len(stopped), "nodes_down": ops_high,
-            "note": "red" if ops_high else ("yellow" if ops_med else "green"),
+            "stopped": len(stopped), "failing": len(falhando), "nodes_down": nodes_down,
+            "down": sorted(fora_do_ar), "partial": sorted(parciais),
+            "note": ("red" if (nodes_down or fora_do_ar)
+                     else ("yellow" if parciais else "green")),
         },
         # DISPONIBILIDADE — risco se algo cair (não é falha atual).
         "disponibilidade": {
@@ -98,21 +127,15 @@ def compute(report):
 def verdict(dims):
     """Veredito de SAÚDE do cluster.
 
-    red    = algo REALMENTE fora do ar (nó down, serviço sem réplica). Só isso é "crítico".
-    yellow = está rodando, mas com ressalvas conhecidas (réplica degradada, SPOF, achado de
-             segurança crítico). Risco ≠ falha.
-    green  = rodando, redundante e sem achado crítico.
+    A saúde reflete APENAS operação — o que está quebrado agora:
+      red    = nó fora do ar, ou serviço com 0 réplicas falhando (algo está FORA DO AR).
+      yellow = serviço parcialmente degradado e falhando (serve, mas não converge).
+      green  = tudo que deve rodar está rodando.
+    Risco (SPOF), pendência (serviço parado) e higiene NÃO derrubam a saúde: viram
+    "pontos de impacto". Um cluster com 1 réplica de banco funciona 100% — é risco, não doença.
     """
     op = (dims.get("operacao") or {}).get("note", "green")
-    if op == "unknown":
-        return "unknown"                     # sem dados → não afirma nada
-    if op == "red":
-        return "red"
-    av = (dims.get("disponibilidade") or {}).get("note", "green")
-    sec = (dims.get("seguranca") or {}).get("note", "green")
-    if op == "yellow" or av not in ("green", "unknown") or sec == "red":
-        return "yellow"
-    return "green"
+    return op if op in ("unknown", "red", "yellow") else "green"
 
 
 def top_offenders(findings, k=5):

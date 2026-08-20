@@ -38,11 +38,21 @@ réplica**, o tráfego externo de *todas* as aplicações cai por ~30–60s. Rec
 painéis. Painéis que usam o socket local (`/var/run/docker.sock`) **não** precisam.
 
 **4. Sugerir que isso não se repita:**
-- **Validade longa** na reemissão (10–20 anos numa CA privada é aceitável; avise que
-  certificado eterno que vaze é acesso eterno).
-- **Trocar TLS por `ssh://`** — sem certificado, sem expiração, e revogar é remover a chave do
-  `authorized_keys`: `docker context create <nome> --docker "host=ssh://user@host"`.
-- **Restringir a porta 2376** no firewall se estiver aberta (a API é root-equivalente no host).
+- **Validade longa** na reemissão (10–20 anos numa CA privada é aceitável).
+- **Cuidado com o que a validade longa custa.** O certificado de cliente é uma credencial
+  *root-equivalente no host* e neste modelo **não há revogação** — não existe CRL/OCSP no
+  `--tlsverify`. Uma cópia que vaze (secret de CI, máquina de dev, backup) vale pelos N anos
+  inteiros, e a única saída é gerar CA nova e atualizar **todos** os clientes. Então:
+  quanto mais cópias espalhadas, maior o preço da validade longa.
+- **Trocar TLS por `ssh://`** — é a recomendação forte quando há CI/CD: sem certificado, sem
+  expiração, e revogar é apagar uma linha do `authorized_keys` (por chave, sem tocar em ninguém
+  mais): `docker context create <nome> --docker "host=ssh://user@host"`.
+
+**Não recomende fechar a porta 2376 no firewall como ação padrão.** Em cluster com CI/CD
+hospedado (GitHub Actions, GitLab.com) o runner vem de faixas de IP amplas e rotativas —
+restringir quebra o deploy. Com `--tlsverify` o mTLS *é* a barreira; o risco mora em quem tem
+cópia do certificado, não na porta estar acessível. Só sugira o firewall quando a coleta indicar
+que **não há** consumidor externo (runner self-hosted / deploy por SSH).
 
 **5. Checagens pós-restart.** Réplicas `N/N` não provam funcionamento. Depois de reiniciar o
 daemon, mande conferir os componentes que mantêm **cluster interno próprio** (agentes de

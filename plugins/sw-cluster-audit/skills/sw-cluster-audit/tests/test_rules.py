@@ -136,10 +136,12 @@ def test_certificado_ok_ou_ausente_nao_gera_achado():
     assert findings_from_cert(None, "p") == []          # context ssh:// não tem certificado
 
 
-def test_job_detectado_pelo_estado_complete_independente_do_nome():
-    """Sinal infalível: o Swarm marca replicated-job concluído como Complete."""
+def test_complete_num_app_comum_e_execucao_unica():
+    """App (imagem própria) que roda e termina com sucesso: one-shot legítimo — ex.: um
+    worker/migration que a esteira dispara. Só não vale para tipos que rodam continuamente."""
     r = {"nodes": [], "services": [
-        {"name": "systemweb-payments-api_worker", "replicas": "0/1", "completed_job": True}]}
+        {"name": "payments_worker", "kind": "app", "replicas": "0/1",
+         "completed_job": True, "mode": "replicated"}]}
     f = findings_operational(r)[0]
     assert f["rule_id"] == "OPS_JOB_COMPLETED" and f["expected"] is True
 
@@ -161,3 +163,38 @@ def test_engine_uniforme_nao_gera_achado():
     r = {"nodes": [{"hostname": "a", "state": "Ready", "engine": "28.3.3"},
                    {"hostname": "b", "state": "Ready", "engine": "28.3.3"}], "services": []}
     assert not any(x["rule_id"] == "OPS_ENGINE_DRIFT" for x in findings_operational(r))
+
+
+def test_complete_em_servico_que_roda_continuamente_e_PARADO():
+    """Complete num tipo que roda sempre (banco/fila/ingress) = parou. Tratar como
+    'esperado' esconderia um banco fora do ar há semanas — já aconteceu."""
+    for kind in ("banco", "fila", "ingress/proxy", "cache/fila"):
+        r = {"nodes": [], "services": [
+            {"name": f"app_{kind}", "kind": kind, "replicas": "0/1",
+             "completed_job": True, "mode": "replicated"}]}
+        f = findings_operational(r)[0]
+        assert f["rule_id"] == "OPS_SERVICE_STOPPED", kind
+        assert f["expected"] is False and "concluiu e não foi reiniciado" in f["evidence"]
+
+
+def test_complete_em_modo_job_e_esperado():
+    r = {"nodes": [], "services": [
+        {"name": "app_seedloader", "replicas": "0/1", "completed_job": True, "mode": "replicated-job"}]}
+    assert findings_operational(r)[0]["rule_id"] == "OPS_JOB_COMPLETED"
+
+
+def test_migration_em_imagem_propria_e_job_mas_banco_real_nao_e():
+    """O que separa 'app rodando migration' de 'banco parado' é o TIPO, não o nome."""
+    from lib.rules import is_job_service
+    migration = {"name": "challenge-api_database", "image": "registry.io/challenge-database",
+                 "kind": "app", "completed_job": True, "mode": "replicated"}
+    banco = {"name": "umami_database", "image": "postgres", "kind": "banco",
+             "completed_job": True, "mode": "replicated"}
+    assert is_job_service(migration) is True
+    assert is_job_service(banco) is False        # banco que terminou = problema, não conclusão
+
+
+def test_banco_parado_continua_sendo_reportado():
+    r = {"nodes": [], "services": [{"name": "app_db", "kind": "banco", "replicas": "0/1",
+                                    "completed_job": True, "mode": "replicated"}]}
+    assert findings_operational(r)[0]["rule_id"] == "OPS_SERVICE_STOPPED"

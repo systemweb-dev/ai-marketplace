@@ -105,7 +105,14 @@ Gera `$OUT/relatorio.html` (sempre) e `$OUT/relatorio.pdf` (se houver Chromium).
 Quatro dimensões separadas: **Operação · Disponibilidade · Segurança · Higiene**. Achados
 **esperados** (`expected: true`) não pesam na nota — ex.: Traefik/cAdvisor/Promtail montam o
 `docker.sock` porque é assim que funcionam; um `flyway`/`migrate` em 0 réplicas é job concluído,
-não serviço caído. Ao escrever a narrativa, **respeite essa distinção**: risco ≠ incidente.
+não serviço caído.
+
+**Execução única vs. serviço caído** (`is_job_service`): vale como job o modo `*-job` do Swarm,
+o nome/imagem de job (flyway, migrate, seed…) **ou** uma task que terminou com `Complete` num
+serviço cujo `kind` **não** roda continuamente. Essa última condição é o que evita os dois erros
+opostos: sem ela, um `app_database` que roda migration em imagem própria vira falso alarme toda
+auditoria; sem a checagem de `kind`, um **postgres fora do ar** fica escondido como "job
+concluído". Bancos, filas, cache, busca e ingress **nunca** são tratados como job. Ao escrever a narrativa, **respeite essa distinção**: risco ≠ incidente.
 
 ## O que o relatório traz
 
@@ -125,6 +132,9 @@ controladas) — o Chrome não achata as cores e o layout não colapsa em uma co
   não só quando há problema. Alerta: crítico se expirado, atenção se faltam < 30 dias. Reporta o
   que vence **primeiro** (a CA tem validade própria e derruba tudo se vencer). Context `ssh://`
   ou socket local → seção n/a, sem alarme.
+  Certificado de validade muito longa (> 3 anos) vira **ponto de impacto**, não achado: é
+  credencial root-equivalente sem revogação. **Não recomende fechar a 2376 no firewall por
+  padrão** — quebra CI/CD hospedado, e com `--tlsverify` o mTLS já é a barreira.
   **Ao recomendar renovação, leia [`references/tls-renewal.md`](references/tls-renewal.md)** — ele
   traz o que dizer: renovar mantendo a mesma CA, validar antes de aplicar, avisar do impacto do
   restart (o daemon só relê o certificado ao subir), lembrar dos outros clientes/CI-CD e as
