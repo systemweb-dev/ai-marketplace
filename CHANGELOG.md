@@ -8,6 +8,16 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-cluster-audit` (v0.9.0): **layout do PDF — mesmo conteúdo em 14 páginas em vez de 19**,
+  com mais respiro. Margem do papel de 10mm→7mm nas laterais (+6mm de largura útil), padding e
+  entrelinha maiores nos cards, e cards de nó em 4 colunas no papel (2 colunas deixavam a linha
+  do grid alta demais e desperdiçavam página). O ganho maior veio da paginação: blocos de texto
+  longo (impacto, recomendação, achados, stack) deixaram de ser indivisíveis — marcá-los assim
+  empurrava o bloco inteiro e abandonava até 40% de papel em branco; agora fluem entre páginas e
+  o que continua atômico é a unidade de leitura (um passo, um bloco de comando, uma linha de
+  tabela). O plano perdeu o fundo preenchido: retângulo colorido cortado por quebra de página
+  deixava faixa vazia no rodapé — virou régua lateral. Rodapé vazio médio: 9%, pior caso 16%.
+  Corrigido também o rótulo colidindo com o número nos cards de dimensão.
 - `sw-cluster-audit` (v0.8.0): **pontos de impacto passam a trazer plano de execução, não dica.**
   Cada ponto ganha uma lista ordenada de passos com comando pronto e o porquê da ordem, derivada
   dos fatos coletados: nº de managers reais (`docker node promote` já com os hostnames), storage

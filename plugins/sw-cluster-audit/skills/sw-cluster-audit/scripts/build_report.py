@@ -160,8 +160,8 @@ def _dim_cards(dims):
                       f'<span>{d.get("stopped", 0)} / {d.get("nodes_down", 0)}</span></div>')
         elif key == "disponibilidade":
             pct = d.get("ha_pct", 0)
-            legend = (f'<div class="barlbl"><span>serviços com réplica &gt; 1</span><span>{pct}%</span></div>'
-                      f'<div class="barlbl"><span>sem redundância (estado/ingress)</span>'
+            legend = (f'<div class="barlbl"><span>com 2+ réplicas</span><span>{pct}%</span></div>'
+                      f'<div class="barlbl"><span>sem redundância</span>'
                       f'<span>{len(d.get("spof_stateful") or []) + len(d.get("spof_critical") or [])}</span></div>')
         elif key == "seguranca":
             high, med = d.get("high", 0), d.get("med", 0)

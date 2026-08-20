@@ -10,7 +10,7 @@
      print-color-adjust:exact impede o Chrome de apagar os fundos.
      Sem seções recolhíveis — no papel não dá pra clicar.
      ============================================================ */
-  @page { size: A4; margin: 12mm 10mm 14mm; }
+  @page { size: A4; margin: 11mm 7mm 12mm; }
 
   :root{
     --paper:#f5f7fa; --card:#ffffff; --ink:#0d1526; --ink2:#3a4658; --muted:#6b7789;
@@ -55,29 +55,34 @@
   h2 .n{display:inline-flex;width:17px;height:17px;border-radius:5px;background:var(--accent);
         color:#fff;align-items:center;justify-content:center;font:800 9.5px/1 var(--mono)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
-  .summary{padding:16px 20px;font-size:14.5px;line-height:1.6;color:var(--ink2);
+  .summary{padding:19px 22px;font-size:14.5px;line-height:1.68;color:var(--ink2);
            border-left:4px solid var(--c,var(--accent))}
   .summary strong{color:var(--ink);font-weight:650}
   .grid{display:grid;gap:11px}
   .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)}
   .g4{grid-template-columns:repeat(4,1fr)}
-  @media screen and (max-width:780px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  @media screen and (max-width:780px){.g2,.g3,.g4,.nodes{grid-template-columns:1fr}}
+  @media screen and (min-width:781px) and (max-width:1100px){.nodes{grid-template-columns:repeat(2,1fr)}}
 
   /* ---------------- KPIs ---------------- */
-  .kpi{padding:12px 14px} .kpi .n{font-size:21px;font-weight:750;letter-spacing:-.02em}
+  .kpi{padding:15px 16px} .kpi .n{font-size:21px;font-weight:750;letter-spacing:-.02em}
   .kpi .l{font:700 9.5px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 
   /* ---------------- dimensões ---------------- */
-  .dim{padding:13px 15px;border-top:3px solid var(--c)}
+  .dim{padding:15px 17px 16px;border-top:3px solid var(--c)}
   .dim .t{font:700 9.5px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .dim .v{font-size:17px;font-weight:750;color:var(--c);margin:6px 0 8px}
   .bar{height:6px;border-radius:99px;background:var(--line2);overflow:hidden;margin:7px 0 5px}
   .bar>i{display:block;height:100%;background:var(--c);border-radius:99px}
-  .barlbl{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);line-height:1.55}
+  .barlbl{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+         font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px}
+  .barlbl span:first-child{flex:1;min-width:0}          /* rótulo pode quebrar… */
+  .barlbl span:last-child{flex:none;white-space:nowrap} /* …sem empurrar o número */
   .barlbl span:last-child{font-family:var(--mono);color:var(--ink2);font-weight:600}
+  .dim{display:flex;flex-direction:column}
 
   /* ---------------- recomendações ---------------- */
-  .rec{padding:14px 16px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+  .rec{padding:16px 18px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-start}
   .rec .num{flex:none;width:23px;height:23px;border-radius:50%;background:var(--accent);color:#fff;
             display:flex;align-items:center;justify-content:center;font:800 11px/1 var(--mono)}
   .rec .body{flex:1;min-width:0}
@@ -94,7 +99,7 @@
   .tag.lo{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
 
   /* ---------------- pontos de impacto ---------------- */
-  .imp{padding:13px 16px;margin-bottom:9px;border-left:3px solid var(--c)}
+  .imp{padding:16px 18px;margin-bottom:12px;border-left:3px solid var(--c)}
   .imp .ic{font-size:14px;font-weight:750;margin-bottom:3px}
   .imp .icons{color:var(--ink2);font-size:13px}
   .imp .ifix{margin-top:7px;font-size:12px;color:var(--accent)}
@@ -102,12 +107,12 @@
   .arrow{color:var(--muted);font-weight:400}
 
   /* ---------------- fortes / fracos ---------------- */
-  .col{padding:14px 16px} .col h3{margin:0 0 8px;font-size:12.5px}
+  .col{padding:16px 18px} .col h3{margin:0 0 8px;font-size:12.5px}
   .col ul{margin:0;padding-left:16px;color:var(--ink2)} .col li{margin:5px 0}
   .col.good h3{color:var(--ok)} .col.bad h3{color:var(--bad)}
 
   /* ---------------- nós ---------------- */
-  .node{padding:13px 15px;border-left:3px solid var(--c)}
+  .node{padding:15px 17px;border-left:3px solid var(--c)}
   .node .nh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
   .node .nn{font-size:14px;font-weight:750}
   .node dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:11.5px}
@@ -128,7 +133,7 @@
              border-top:1px solid var(--line2)}
 
   /* ---------------- achados ---------------- */
-  .fg{padding:14px 16px;margin-bottom:10px}
+  .fg{padding:16px 18px;margin-bottom:12px}
   .fg .fh{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
   .fg .fn{font-size:14px;font-weight:750}
   .fg .cnt{margin-left:auto;font:800 10.5px var(--mono);color:var(--muted);
@@ -149,7 +154,7 @@
   /* ---------------- tabelas ---------------- */
   table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
         border-radius:var(--r);overflow:hidden}
-  th,td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line2);font-size:12px;vertical-align:middle}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line2);font-size:12px;vertical-align:middle}
   th{color:var(--muted);font:700 9.5px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.08em;background:var(--paper)}
   tr:last-child td{border-bottom:0}
   td.num{font-family:var(--mono);font-size:11.5px;text-align:right;white-space:nowrap}
@@ -164,21 +169,32 @@
 
   /* ---------------- quebras de página ---------------- */
   .rec,.fg,.stack,.dim,.node,.card{break-inside:avoid;page-break-inside:avoid}
+  /* Blocos de texto longo (impacto, recomendação, achados, stack) NÃO cabem numa página
+     parcial. Marcá-los indivisíveis empurrava o bloco inteiro e abandonava ~40% de papel
+     em branco. Eles podem fluir entre páginas; o que continua indivisível é a unidade
+     atômica de leitura: um passo, um bloco de comando, uma linha de tabela. */
+  .imp,.rec,.fg,.stack,.col,.grid{break-inside:auto;page-break-inside:auto}
+  .imp .ic,.rec .body>b,.stack .sh{break-after:avoid;page-break-after:avoid}
+  .iplan ol>li,.ipre,.cmd,.dim,.node,.kpi{break-inside:avoid;page-break-inside:avoid}
   table{break-inside:auto} tr{break-inside:avoid}
   @media print{
-    body{max-width:none;padding:0;background:#fff;font-size:11.5px}
+    body{max-width:none;padding:0;background:#fff;font-size:12px;line-height:1.62}
     .head{margin-bottom:13px} h1{font-size:22px} h2{margin:19px 0 9px}
     .g4{grid-template-columns:repeat(4,1fr)}   /* mantém as 4 colunas no papel */
-    .grid{gap:8px}
+    .nodes{grid-template-columns:repeat(4,1fr)}
+    .grid{gap:10px}
+    h2{margin:22px 0 11px}
     .routes{max-width:40%}
   }
 
-    .iplan{margin:14px 0 10px;padding:12px 14px;background:var(--accent-soft);border-radius:8px;
-           border-left:3px solid var(--accent)}
+    /* sem fundo preenchido: o bloco pode quebrar entre páginas, e um retângulo colorido
+       cortado deixa uma faixa vazia no rodapé. A régua lateral quebra sem deixar rastro. */
+    .iplan{margin:16px 0 12px;padding:2px 0 2px 15px;border-left:2px solid var(--accent-soft)}
     .iplanh{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
             font-weight:700;margin-bottom:8px}
     .iplan ol{margin:0;padding-left:20px}
-    .iplan ol>li{margin:0 0 12px;padding:0;break-inside:avoid}
+    .iplan ol>li{margin:0 0 15px;padding:0;break-inside:avoid}
+    .iplan ol>li::marker{color:var(--accent);font-weight:700}
     .iplan ol>li:last-child{margin-bottom:0}
     .iwhy{color:var(--muted);font-size:13px;margin:3px 0 6px;line-height:1.5}
     .ipre{margin:0;padding:8px 10px;background:#0d1526;color:#dfe6f0;border-radius:6px;
@@ -226,7 +242,7 @@
   </div>
 
   <h2><span class="n">6</span> Nós do cluster</h2>
-  <div class="grid g2">%%NODES%%</div>
+  <div class="grid g4 nodes">%%NODES%%</div>
   %%DISK%%
 
   <h2><span class="n">7</span> Por aplicação</h2>
