@@ -7,6 +7,21 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-flow-diagram` (v0.1.0): **publicada no marketplace**, com o editor de canvas reescrito.
+  O `flow_editor.js` (281 linhas, 40 delas acima de 160 caracteres, variáveis de 1-2 letras)
+  virou `scripts/editor/*.js` em módulos por responsabilidade, concatenados e **embutidos** no
+  `flow.html` pelo build — o HTML gerado passou a ser um arquivo único, que abre até direto do
+  disco (módulos ES não carregariam via `file://`).
+  Novidades: **desfazer/refazer** por snapshot, **multi-seleção** (Shift, laço, Ctrl+A) com
+  arrasto em grupo, **painel de propriedades**, **guias de alinhamento** magnéticas,
+  **paleta lateral que se arrasta** pro diagrama, **21 formas de fluxograma** (decisão, banco,
+  documento, subprocesso…), **4 portas de conexão por nó** (cima/baixo/lados, com o lado
+  gravado na aresta), **busca de nó** (Ctrl+F), **grupos recolhíveis** que religam as arestas
+  à caixa, e **modo apresentação** passo-a-passo em ordem topológica (`?present=N` abre direto).
+  Corrigido o packet que piscava no canto: `animateMotion` soma translação sobre `cx`/`cy`, então
+  o círculo fica em (0,0) e nasce invisível até a sua vez.
+
 ### Alterado
 - **Segurança:** o gate (`scripts/scan_secrets.py`) passou a detectar **IP público** em conteúdo
   publicável, e `sw-cluster-audit` (v0.10.1) teve o IP real do cluster de produção — que havia

@@ -1,0 +1,8 @@
+{
+  "name": "sw-flow-diagram",
+  "description": "Monta diagramas de fluxo/arquitetura visuais a partir de uma descrição em linguagem natural — pra apresentação, explicação ou documentação. Genérica para QUALQUER fluxo (arquitetura web, pipeline de dados, jornada de usuário, processo de negócio): você descreve \"request → Cloudflare → load balancer → servidores → banco\" e sai um diagrama bonito, com ícones, animado (o request percorrendo o caminho) e exportável. Motor próprio em HTML/SVG (não Mermaid/D2): gera um flow.json editável + renderiza HTML standalone com live-reload no navegador. Use SEMPRE que o usuário quiser desenhar/visualizar um fluxo ou arquitetura — \"monta um diagrama de fluxo\", \"desenha a arquitetura\", \"diagrama do request passando por X, Y, Z\", \"fluxograma pra apresentação\", \"como o pedido percorre o sistema\", \"mostra o caminho dos dados\", \"diagrama de microserviços\", \"cria um fluxo visual de A→B→C\". Dispare mesmo sem a palavra \"diagrama\" — basta a intenção de visualizar como as coisas se conectam/fluem. Editor de canvas completo: paleta lateral que se ARRASTA pro diagrama, formas de fluxograma (decisão, processo, banco, documento, início/fim…), multi-seleção, desfazer/refazer, painel de propriedades, guias de alinhamento, busca, grupos recolhíveis e modo apresentação passo-a-passo — serve tanto pra 5 caixas quanto pra um diagrama grande de processo de negócio. NÃO é um editor de imagem livre/desenho gráfico, não gera código de verdade de uma arquitetura, nem revisa/analisa código. Interação e saída em PT-BR.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

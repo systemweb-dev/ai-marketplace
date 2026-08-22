@@ -1,0 +1,32 @@
+{
+  "title": "Request HTTP — arquitetura web",
+  "layout": "flow",
+  "accent": "#2f6bf0",
+  "animation": { "mode": "packet", "speed": 1 },
+  "groups": [
+    { "id": "edge", "label": "Edge", "color": "#e8743b" },
+    { "id": "app", "label": "Aplicação", "color": "#2f6bf0" },
+    { "id": "data", "label": "Dados", "color": "#37a86b" }
+  ],
+  "nodes": [
+    { "id": "user", "label": "Usuário", "icon": "user", "group": "edge" },
+    { "id": "cdn", "label": "CDN", "icon": "cdn", "group": "edge", "note": "Cacheia estáticos na borda" },
+    { "id": "waf", "label": "WAF", "icon": "shield", "group": "edge", "note": "Filtra tráfego malicioso" },
+    { "id": "lb", "label": "Load Balancer", "icon": "balancer", "group": "app" },
+    { "id": "api", "label": "API Gateway", "icon": "gateway", "group": "app" },
+    { "id": "s1", "label": "App Server", "icon": "server", "group": "app" },
+    { "id": "auth", "label": "Auth", "icon": "lock", "group": "app", "note": "Valida o token" },
+    { "id": "cache", "label": "Redis", "icon": "cache", "group": "data" },
+    { "id": "db", "label": "PostgreSQL", "icon": "database", "group": "data" }
+  ],
+  "edges": [
+    { "from": "user", "to": "cdn", "label": "HTTPS", "animated": true },
+    { "from": "cdn", "to": "waf", "animated": true },
+    { "from": "waf", "to": "lb", "label": "443", "animated": true },
+    { "from": "lb", "to": "api", "animated": true },
+    { "from": "api", "to": "auth", "label": "verifica", "animated": true },
+    { "from": "api", "to": "s1", "animated": true },
+    { "from": "s1", "to": "cache", "label": "get", "animated": true },
+    { "from": "s1", "to": "db", "label": "SQL", "animated": true }
+  ]
+}
