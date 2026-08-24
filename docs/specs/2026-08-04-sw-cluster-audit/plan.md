@@ -3,6 +3,8 @@
 > **Execução:** Implementar este plano task-by-task. Steps usam checkbox (`- [ ]`) para tracking.
 > Ver seção "Execution Handoff" da skill `sw-plan` para os 2 modos de execução disponíveis.
 
+> Design aprovado: [`spec.md`](spec.md)
+
 **Goal:** Uma skill read-only que audita um cluster Docker (context/Swarm) e gera um relatório
 técnico (HTML + PDF opt-in), sem mutar nada e sem vazar segredo.
 

@@ -54,6 +54,9 @@ descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu a�
 
 Crie uma task para cada item e cumpra na ordem (no caminho completo):
 
+0. **Ver o que já existe** — rode `python3 <skill-dir>/scripts/dossie.py listar`. Havendo
+   dossiê **em rascunho ou em execução** que case com o pedido, ofereça via `AskUserQuestion`
+   **continuar** aquele em vez de abrir outro. Ninguém quer dois specs do mesmo assunto.
 1. **Explorar o contexto** — arquivos, docs, commits recentes.
 2. **Profundidade + perguntas** — logo após o contexto, pergunte via `AskUserQuestion`:
    **Direto** (segue direto pras clarificações) ou **Explorar a fundo** (roda o loop de lentes
@@ -65,12 +68,13 @@ Crie uma task para cada item e cumpra na ordem (no caminho completo):
 5. **Apresentar o design** — em seções escaladas à complexidade; aprovação de cada via
    `AskUserQuestion`. Se o nível pedir, **revisor no design completo** (e, no modo "cada
    checkpoint", após cada gate).
-6. **Escrever o spec** — em `docs/specs/YYYY-MM-DD-<topic>-design.md` **no projeto** (default). NÃO commitar.
+6. **Escrever o spec** — em `docs/specs/<data>-<slug>/spec.md` (dossiê criado pelo script). NÃO commitar.
 7. **Auto-review do spec** — placeholders, contradições, escopo, ambiguidade (corrigir inline).
    Se o nível incluir spec, **revisor subagent do spec**.
 8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
 9. **Oferecer Briefing** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
-10. **Transição** — invocar a `sw-plan` (se disponível) pra criar o plano de implementação.
+10. **Transição** — marque o dossiê como aprovado
+    (`dossie.py estado <slug> aprovado`) e invoque a `sw-plan` (se disponível).
 
 ## Fluxo
 
@@ -245,11 +249,31 @@ sem UI (ex.: um job, uma API interna).
 
 **Documentação (spec):**
 
-- Escreva o spec validado **no projeto**: `docs/specs/YYYY-MM-DD-<topic>-design.md` (default —
-  fica versionável junto do código). `mkdir -p docs/specs` se não existir.
+- **Um dossiê por trabalho.** Crie com o script — ele já monta a pasta, o esqueleto do
+  `spec.md` com frontmatter e regenera o índice:
+
+  ```bash
+  python3 <skill-dir>/scripts/dossie.py novo --titulo "Auditoria de cluster"
+  # imprime: docs/specs/2026-08-04-auditoria-de-cluster
+  ```
+
+  ```
+  docs/specs/<AAAA-MM-DD>-<slug>/
+    spec.md         ← o design (fonte da verdade)
+    plan.md         ← a sw-plan grava aqui
+    briefing.*      ← versão para negócio, se pedida
+    referencias/    ← prints, PDFs, exports, diagramas, links salvos
+  ```
+
+  **Tudo que apoiar a decisão vai em `referencias/`** — print da tela atual, PDF que o cliente
+  mandou, export de um diagrama, trecho de log. Cite o arquivo no spec (`referencias/x.png`)
+  em vez de descrever de memória; quem for executar precisa ver o mesmo que você viu.
   - **Fallback:** se o cwd não for um projeto/repo (sem `.git`, sem manifesto tipo `package.json`/
-    `composer.json`), salve em `~/.claude/projects/<cwd-slug>/specs/` (slug = `pwd | sed 's|/|-|g'`).
+    `composer.json`), use `--raiz ~/.claude/projects/<cwd-slug>/specs`.
   - A **preferência do usuário** sobre o local sempre sobrescreve o default.
+  - **Estado do dossiê** (`rascunho` → `aprovado` → `em-execucao` → `concluido`): atualize com
+    `dossie.py estado <slug> <estado>`; ele regenera o índice em `docs/specs/README.md`.
+    Não edite a tabela do índice à mão.
 - Se o **modo exploração** ("Explorar a fundo") rodou, inclua a seção **`## Exploração &
   decisões`** no spec (problema enquadrado, alternativas consideradas, direção escolhida e o
   porquê) — é o registro do raciocínio por trás do design.
@@ -287,8 +311,17 @@ marque claramente o que é **hipótese/suposição a testar** vs decisão fechad
 3. **Escopo:** cabe num único plano, ou precisa decompor?
 4. **Ambiguidade:** algum requisito tem duas leituras? escolha uma e deixe explícito.
 5. **Simplicidade & escopo fechado:** tem **não-objetivos** explícitos? a solução é a **menor que
-   resolve** (cortou abstração especulativa)? as **fitness functions**, se houver, são de fato
-   **verificáveis** (não "deve ser rápido", e sim "p95 < 200ms")?
+   resolve** (cortou abstração especulativa)?
+6. **O que ainda melhoraria este spec** — não implemente por conta própria; **aponte ao usuário**
+   e deixe ele decidir:
+   - **Fitness functions frouxas.** Alguma restrição está descrita mas não dá pra checar
+     ("deve ser rápido", "código limpo")? Diga qual e sugira a versão verificável
+     ("p95 < 200ms", "o módulo A não importa B").
+   - **Vale um diagrama?** Se o design tem fluxo, várias partes conversando ou ordem que importa,
+     um diagrama explica melhor que três parágrafos — sugira gerar com a **`sw-flow-diagram`**
+     e guardar em `referencias/`. Não gere sem o usuário pedir.
+   - **Referência faltando.** Você citou tela, documento ou dado que não está em `referencias/`?
+     Peça o arquivo — quem for executar não tem a sua memória.
 
 Corrija inline. Se o **nível de revisão** (passo 3) incluir o spec ("Só no spec", "Design +
 spec" ou "Em cada checkpoint"), despache o **subagent revisor** do spec usando a variante
@@ -339,8 +372,7 @@ posicione no topo; grave a referência certinho. Se **não**, siga sem logo.
 - **Curto** — cabe numa página; escaneável.
 - Foco em **valor**, não em implementação. O **spec técnico continua a fonte da verdade** —
   o Briefing é complemento.
-- Salve tudo ao lado do spec, mesmo nome-base por formato:
-  ao lado do spec — `docs/specs/YYYY-MM-DD-<topic>-briefing.{md,html,pdf}`.
+- Salve **dentro do dossiê**, como `briefing.{md,html,pdf}` — ao lado do `spec.md`.
 
 ## Princípios
 

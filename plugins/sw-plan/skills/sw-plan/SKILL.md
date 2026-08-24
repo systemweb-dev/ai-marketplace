@@ -41,11 +41,27 @@ sobre o comando de teste, confirme via `AskUserQuestion`.
 
 **Branch/worktree (se for git):** no início, se o diretório for um repositório git, **ofereça via `AskUserQuestion`** criar um branch ou worktree dedicado pra este trabalho — ex.: **branch `feat/<tópico>` / worktree dedicado / continuar no branch atual**. Não crie nada sem a escolha do usuário.
 
-**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md` **no projeto** (default, versionavel junto do codigo). `mkdir -p docs/plans` se nao existir.
-- **Fallback:** se o cwd nao for um projeto/repo (sem `.git`/manifesto), salve em `~/.claude/projects/<cwd-slug>/plans/` (slug = `pwd | sed 's|/|-|g'`).
-- Criar o diretorio se nao existir (`mkdir -p`).
-- **NAO commitar automaticamente** o plano no git. Deixar o arquivo para o usuario commitar manualmente.
-- (User preferences for plan location override this default)
+**Onde salvar o plano:** dentro do **dossiê do trabalho**, como `plan.md` — ao lado do
+`spec.md` que originou o plano:
+
+```
+docs/specs/<AAAA-MM-DD>-<slug>/
+  spec.md        ← o design aprovado (veio da sw-brainstorming)
+  plan.md        ← ESTE arquivo
+  referencias/   ← material de apoio; leia antes de planejar
+```
+
+- **Veio de um spec?** Grave o plano na MESMA pasta dele, e comece o plano com um link
+  `[spec.md](spec.md)`. Não crie pasta nova — spec e plano do mesmo trabalho separados é
+  como isso vira bagunça.
+- **Não veio de spec** (o usuário chegou direto com requisitos): crie o dossiê com
+  `python3 ~/.claude/skills/sw-brainstorming/scripts/dossie.py novo --titulo "<tema>"`
+  se a skill estiver instalada; senão, `docs/specs/<AAAA-MM-DD>-<slug>/plan.md` na mão.
+- **Leia `referencias/`** antes de escrever as tasks — print, PDF ou export guardado ali é
+  contexto que o spec assume conhecido.
+- **Fallback:** cwd sem `.git`/manifesto → `~/.claude/projects/<cwd-slug>/specs/<slug>/plan.md`.
+- **NAO commitar automaticamente** o plano. Deixe o arquivo para o usuario commitar.
+- (Preferencia do usuario sobre o local sobrescreve este default.)
 
 ## Tipos de teste (pergunte antes de definir as tasks)
 
@@ -266,6 +282,17 @@ Se a **`sw-code-review`** estiver instalada, ofereça-a (via menu) pra um pass m
 4. Apos aprovacao, seguir pro proximo batch ate finalizar.
 
 **Vantagem**: mais rapido, mantem contexto. Desvantagem: contexto cresce, pode compactar em planos grandes.
+
+### Estado do dossiê
+
+Se o plano vive num dossiê (`docs/specs/<slug>/`), mantenha o estado em dia — é o que faz o
+índice em `docs/specs/README.md` dizer a verdade sobre o que está em andamento:
+
+```bash
+D=~/.claude/skills/sw-brainstorming/scripts/dossie.py
+python3 $D estado <slug> em-execucao   # ao iniciar a execução
+python3 $D estado <slug> concluido     # ao terminar todas as tasks
+```
 
 ### Regras comuns aos dois modos
 

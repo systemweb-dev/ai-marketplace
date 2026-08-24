@@ -7,6 +7,21 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Alterado
+- `sw-brainstorming` (v0.6.0) e `sw-plan` (v0.3.0): **spec, plano, briefing e referências passam
+  a viver num dossiê único por trabalho** — `docs/specs/<data>-<slug>/` com `spec.md`, `plan.md`,
+  `briefing.*` e `referencias/`. Antes o mesmo trabalho ficava partido entre `docs/specs/` e
+  `docs/plans/`, com nomes diferentes e nada ligando os dois. `referencias/` é onde entra o
+  material de apoio (print, PDF do cliente, export de diagrama) que o spec cita em vez de
+  descrever de memória.
+  Novo `scripts/dossie.py` (`novo`/`listar`/`estado`/`indice`): cria o dossiê, controla o estado
+  (rascunho → aprovado → em-execucao → concluido) e regenera o índice em `docs/specs/README.md`.
+  É script e não instrução porque um índice mantido à mão passa a mentir no primeiro esquecimento.
+  A brainstorming agora **oferece continuar um dossiê existente** antes de abrir outro, e o
+  auto-review passa a **apontar** fitness functions frouxas, referência citada mas ausente, e
+  quando o design ganharia um diagrama — sugerindo, sem gerar por conta própria.
+  O dossiê do `sw-cluster-audit` foi migrado com `git mv` (histórico preservado).
+
 ### Adicionado
 - `sw-flow-diagram` (v0.1.0): **publicada no marketplace**, com o editor de canvas reescrito.
   O `flow_editor.js` (281 linhas, 40 delas acima de 160 caracteres, variáveis de 1-2 letras)

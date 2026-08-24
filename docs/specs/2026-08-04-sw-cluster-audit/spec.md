@@ -1,3 +1,10 @@
+---
+titulo: sw-cluster-audit — auditoria read-only de cluster → relatório
+slug: 2026-08-04-sw-cluster-audit
+criado: 2026-08-04
+estado: concluido
+---
+
 # sw-cluster-audit — auditoria read-only de cluster → relatório
 
 > Spec de design de uma skill nova do marketplace. Snapshot on-demand, técnico, de um cluster
@@ -230,3 +237,7 @@ agente (prioriza/prosa) → build_report.py → HTML/PDF em docs/infra/`. O `rep
 - O alvo é **Swarm multi-nó** — se for docker standalone, node/service viram `n/a` (tratado).
 - **`service inspect` cobre os achados de segurança cluster-wide** o suficiente pra não depender do
   `ps` por-nó — validar num Swarm real; se não, o relatório assume o escopo "só o nó conectado".
+
+---
+
+**Plano de execução:** [`plan.md`](plan.md)
