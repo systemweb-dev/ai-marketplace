@@ -23,6 +23,16 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   O dossiê do `sw-cluster-audit` foi migrado com `git mv` (histórico preservado).
 
 ### Adicionado
+- `sw-pr-message` (v0.1.0): **gera o `PR-MESSAGE.md` de uma branch com as mudanças agrupadas por
+  tipo** — Novas funcionalidades, Ajustes, Correções, Removido, Segurança, Interno, Como testar e,
+  em hotfix, causa/impacto/rollback. Substitui a `sw-git-pr-generator`, que listava um item por
+  commit, lia só o assunto e escolhia a base em ordem fixa `main → master → develop` (num caso
+  medido, descreveria 205 commits em vez de 9). A base agora é o candidato com menos commits à
+  frente, parando quando a branch já está contida num deles; os commits vêm sem merges e o diff a
+  partir do merge-base. Script coleta e valida, agente interpreta: o render recusa commit esquecido
+  e garante ordem, títulos, idioma e ausência de emoji. Os scripts só executam git de leitura (lista
+  fechada, recusa por prefixo, `--end-of-options`), não acessam a rede e só escrevem no `git-path`,
+  no `info/exclude` e no `PR-MESSAGE.md` — as quatro restrições têm teste.
 - `sw-flow-diagram` (v0.1.0): **publicada no marketplace**, com o editor de canvas reescrito.
   O `flow_editor.js` (281 linhas, 40 delas acima de 160 caracteres, variáveis de 1-2 letras)
   virou `scripts/editor/*.js` em módulos por responsabilidade, concatenados e **embutidos** no

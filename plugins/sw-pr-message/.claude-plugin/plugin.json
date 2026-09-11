@@ -1,0 +1,8 @@
+{
+  "name": "sw-pr-message",
+  "description": "Gera o PR-MESSAGE.md de uma branch — a descrição do pull request pronta para colar no GitHub, com as mudanças agrupadas por tipo (Novas funcionalidades, Ajustes, Correções, Removido, Segurança, Interno), \"Como testar\" e, em hotfix, causa, impacto e rollback. Detecta sozinha a branch base certa (inclusive em fluxo develop + master), lê commits e diff, junta commits da mesma mudança num item só e não deixa commit de fora. Use SEMPRE que o usuário quiser descrever ou preparar um PR, ou resumir o que fez na branch — \"gera a mensagem do PR\", \"cria a descrição do pull request\", \"resume o que fiz nessa branch\", \"o que mudou nessa branch\", \"prepara a branch pra review\", \"monta o PR\", e em inglês \"generate a PR message\", \"write the PR description\", \"summarize my branch\". Dispare mesmo sem a palavra \"PR\". NÃO cria nem edita PR no GitHub e não dá push — só gera o arquivo local. NÃO use para escrever mensagem de commit (sw-git-commit) nem para revisar código (sw-code-review).",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}
