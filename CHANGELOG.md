@@ -35,7 +35,7 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   partir do merge-base. Script coleta e valida, agente interpreta: o render recusa commit esquecido
   e garante ordem, títulos, idioma e ausência de emoji. Os scripts só executam git de leitura (lista
   fechada, recusa por prefixo, `--end-of-options`), não acessam a rede e só escrevem no `git-path`,
-  no `info/exclude` e no `PR-MESSAGE.md` — as quatro restrições têm teste.
+  no `info/exclude` e no `PR-MESSAGE.md`, e o render é determinístico — as quatro restrições têm teste.
 - `sw-flow-diagram` (v0.1.0): **publicada no marketplace**, com o editor de canvas reescrito.
   O `flow_editor.js` (281 linhas, 40 delas acima de 160 caracteres, variáveis de 1-2 letras)
   virou `scripts/editor/*.js` em módulos por responsabilidade, concatenados e **embutidos** no
