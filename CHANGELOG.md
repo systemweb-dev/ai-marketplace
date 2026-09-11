@@ -8,6 +8,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-plan` (v0.4.0): ao concluir todas as tasks, oferece gerar a descrição do PR com a
+  `sw-pr-message` quando a branch tem commits fora da base.
+- `sw-code-review` (v0.1.1): passa a indicar a `sw-pr-message` para gerar a mensagem do PR.
 - `sw-brainstorming` (v0.6.0) e `sw-plan` (v0.3.0): **spec, plano, briefing e referências passam
   a viver num dossiê único por trabalho** — `docs/specs/<data>-<slug>/` com `spec.md`, `plan.md`,
   `briefing.*` e `referencias/`. Antes o mesmo trabalho ficava partido entre `docs/specs/` e

@@ -302,6 +302,9 @@ python3 $D estado <slug> concluido     # ao terminar todas as tasks
   (ela separa em Conventional Commits bem escopados); senão, faça um Conventional Commit
   simples só dos arquivos daquele checkpoint. **Nunca commite sem o "sim"** — fora dos
   checkpoints não há commit automático.
+- **Mensagem de PR ao concluir (se for git):** ao terminar todas as tasks, se a branch atual
+  tiver commits que ainda não estão na base, **ofereça via `AskUserQuestion`** gerar a descrição
+  do PR com a skill **`sw-pr-message`** (se estiver disponível). Só oferece — não gera sem o "sim".
 - **Plano é a fonte da verdade:** atualize os checkboxes (`- [x]`) conforme as tasks terminam.
   Se durante a execução o plano se mostrar **errado/incompleto** (a realidade divergiu),
   **atualize o arquivo do plano** (ajuste/insira tasks) em vez de improvisar fora do escopo —
