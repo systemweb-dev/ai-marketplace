@@ -1,0 +1,8 @@
+{
+  "name": "sw-auto-test",
+  "description": "Automatically generates tests for any project, regardless of language or framework. Detects project structure (monorepo, frontend/backend, microservices), identifies programming languages, finds existing test frameworks, and generates appropriate tests for features being implemented. Use this skill whenever the user asks to generate tests, create test coverage, write tests for a feature, test a file or directory, or mentions \"auto-test\", \"test-gen\", \"generate tests\", \"write tests\", \"add tests\", \"test coverage\". Also use for \"test this\", \"cover this with tests\", \"what's untested\", and for judging an existing suite: \"are my tests any good?\", \"review my test suite\". Covers unit, integration and e2e — it asks which type and adapts framework, analysis and generated code to it and to the stack. Dispara também em português: \"cria os testes\", \"escreve os testes de\", \"cobre com testes\", \"gera teste unitário\", \"meus testes estão bons?\", \"diagnostica os testes\", \"a suíte presta?\", \"revisa a bateria de testes\", \"que teste está faltando\".",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

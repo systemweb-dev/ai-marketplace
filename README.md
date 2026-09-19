@@ -36,6 +36,7 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 
 | Skill | Categoria | O que faz | Instalar |
 |-------|-----------|-----------|----------|
+| [`sw-auto-test`](plugins/sw-auto-test/) | development | Automatically generates tests for any project, regardless of language or framework. | `/plugin install sw-auto-test@ai-marketplace` |
 | [`sw-brainstorming`](plugins/sw-brainstorming/) | productivity | Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um… | `/plugin install sw-brainstorming@ai-marketplace` |
 | [`sw-cluster-audit`](plugins/sw-cluster-audit/) | development | Audita um cluster Docker (context/Swarm) de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional) — saúde geral, nodes, services, segurança, rede e… | `/plugin install sw-cluster-audit@ai-marketplace` |
 | [`sw-code-review`](plugins/sw-code-review/) | development | Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de… | `/plugin install sw-code-review@ai-marketplace` |

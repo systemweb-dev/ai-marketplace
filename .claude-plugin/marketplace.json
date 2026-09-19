@@ -7,6 +7,12 @@
   },
   "plugins": [
     {
+      "name": "sw-auto-test",
+      "source": "./plugins/sw-auto-test",
+      "description": "Automatically generates tests for any project, regardless of language or framework. Detects project structure (monorepo, frontend/backend, microservices), identifies programming languages, finds existing test frameworks, and generates appropriate tests for features being implemented. Use this skill whenever the user asks to generate tests, create test coverage, write tests for a feature, test a file or directory, or mentions \"auto-test\", \"test-gen\", \"generate tests\", \"write tests\", \"add tests\", \"test coverage\". Also use for \"test this\", \"cover this with tests\", \"what's untested\", and for judging an existing suite: \"are my tests any good?\", \"review my test suite\". Covers unit, integration and e2e — it asks which type and adapts framework, analysis and generated code to it and to the stack. Dispara também em português: \"cria os testes\", \"escreve os testes de\", \"cobre com testes\", \"gera teste unitário\", \"meus testes estão bons?\", \"diagnostica os testes\", \"a suíte presta?\", \"revisa a bateria de testes\", \"que teste está faltando\".",
+      "category": "development"
+    },
+    {
       "name": "sw-brainstorming",
       "source": "./plugins/sw-brainstorming",
       "description": "Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um spec aprovado. Use SEMPRE que o usuário for começar algo novo ou não-trivial — uma feature, um componente, um fluxo, uma integração ou uma mudança de comportamento — ou disser coisas como \"quero criar\", \"vamos construir\", \"preciso de uma feature\", \"como estruturar isso\", \"me ajuda a planejar\", \"bora pensar nessa ideia\", \"antes de codar\". Dispare mesmo sem a palavra \"brainstorm\", sempre que a intenção for desenhar/decidir O QUE construir antes de mexer no código. NÃO use para: tarefas triviais e já especificadas (corrigir typo, renomear, bump de dependência, ajuste óbvio pontual), nem depois que o design já foi aprovado (aí é a sw-plan). Interação em português, via AskUserQuestion.",

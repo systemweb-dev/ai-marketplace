@@ -26,6 +26,20 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   O dossiê do `sw-cluster-audit` foi migrado com `git mv` (histórico preservado).
 
 ### Adicionado
+- `sw-auto-test` (v0.1.0): **publicada, com um modo novo de diagnóstico da suíte de testes**.
+  Além de gerar testes, ela agora avalia os que já existem: apura os fatos com a ferramenta nativa
+  da stack (pytest, vitest/jest, phpunit), o agente julga só os arquivos suspeitos, e sai um
+  `test-health-report.md` com notas por dimensão (confiabilidade, isolamento, cobertura,
+  legibilidade, velocidade) e achados por confiança, seguido de correção guiada em lotes. Dimensão
+  sem dado fica `⚪ sem dados` em vez de estimativa, e não existe nota agregada — número único vira
+  meta, e meta de cobertura não mede teste bom. A execução da suíte é opt-in: descoberta primeiro,
+  comando à vista antes de confirmar, e parada quando há banco no ambiente de teste (inclusive
+  declarado no `phpunit.xml`). No modo gerar entraram baseline, **prova do vermelho** (quebra o
+  código de propósito para confirmar que o teste acusa, com backup e varredura de resíduo abrindo
+  toda execução), determinismo por padrão e a proibição de forçar verde. O `SKILL.md` caiu de 411
+  para 219 linhas, com o resto em `references/`, e ganhou gatilhos em português. Quatro restrições
+  com teste: escrita confinada, nada executa sem aprovação, restauração garantida por hash e
+  relatório determinístico — as três primeiras provadas por mutação.
 - `sw-pr-message` (v0.1.0): **gera o `PR-MESSAGE.md` de uma branch com as mudanças agrupadas por
   tipo** — Novas funcionalidades, Ajustes, Correções, Removido, Segurança, Interno, Como testar e,
   em hotfix, causa/impacto/rollback. Substitui a `sw-git-pr-generator`, que listava um item por
