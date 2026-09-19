@@ -1,9 +1,9 @@
 # Padrões da sw-infra-audit. Não edite este arquivo: o que você quer diferente vai no
-# ~/.config/sw-infra-audit/alvos.toml (infra) ou no .sw-infra-audit.toml do projeto.
+# docs/infra/alvos.toml (os alvos, fora do git) ou no .sw-infra-audit.toml do projeto.
 # Serve também de documentação: tudo que dá para ajustar está aqui, com o valor de fábrica.
 
 [relatorio]
-pasta = "docs/infra"          # onde o relatório é gravado, dentro do projeto
+pasta = "docs/infra"          # relatório E alvos.toml, dentro do projeto e fora do git
 ignorar_em = "gitignore"      # "gitignore" (vale para o time) ou "exclude" (só sua máquina)
 formato = "html"              # "html" ou "html+pdf"
 

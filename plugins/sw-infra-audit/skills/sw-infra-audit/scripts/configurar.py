@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from lib import alvos as alvos_mod
-from lib.config import ConfigInvalida, carregar
+from lib.config import ConfigInvalida, caminho_dos_alvos, carregar, exigir_pasta_protegida
 
 EXIT_OK, EXIT_ERRO = 0, 2
 
@@ -17,19 +17,22 @@ EXIT_OK, EXIT_ERRO = 0, 2
 PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
 
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
-INFRA_PADRAO = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
 PROJETO_PADRAO = Path(".sw-infra-audit.toml")
+# onde a versão anterior guardava os alvos; `migrar` traz o conteúdo para o projeto
+LEGADO_NO_HOME = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
 
 
 def _caminhos(args):
-    return (Path(args.padrao) if args.padrao else PADRAO_DA_SKILL,
-            Path(args.infra) if args.infra else INFRA_PADRAO,
-            Path(args.projeto) if args.projeto else PROJETO_PADRAO)
+    padrao = Path(args.padrao) if args.padrao else PADRAO_DA_SKILL
+    projeto = Path(args.projeto) if getattr(args, "projeto", None) else PROJETO_PADRAO
+    return (padrao, caminho_dos_alvos(padrao=padrao, projeto=projeto,
+                                      explicito=getattr(args, "infra", None)), projeto)
 
 
 def explicar(args) -> int:
     padrao, infra, projeto = _caminhos(args)
     try:
+        exigir_pasta_protegida(infra)
         cfg = carregar(padrao=padrao, infra=infra, projeto=projeto)
         declarados, avisos = alvos_mod.ler(infra)
     except (ConfigInvalida, alvos_mod.AlvoInvalido) as erro:
@@ -74,22 +77,51 @@ def contexts_docker():
     return achados
 
 
+def _garantir_ignorado(destino) -> bool:
+    """A pasta do alvos.toml precisa estar no .gitignore ANTES do arquivo existir.
+
+    Acrescentar a linha é seguro (ignorar nunca publica nada) e é o único jeito de o arquivo
+    de conexão não nascer versionado. Fora de repositório não há nada a fazer.
+    """
+    from lib import ignorado as ignorado_mod
+    pasta = destino.parent
+    if not ignorado_mod.em_repositorio("."):
+        return True
+    if ignorado_mod.ignorado(f"{pasta}/") or ignorado_mod.ignorado(str(destino)):
+        return True
+    ignorar(argparse.Namespace(repo=".", pasta=str(pasta)))
+    return ignorado_mod.ignorado(f"{pasta}/") or ignorado_mod.ignorado(str(destino))
+
+
 def migrar(args) -> int:
-    destino = Path(args.infra) if args.infra else INFRA_PADRAO
+    _, destino, _ = _caminhos(args)
     if destino.exists():
         print(f"{destino} já existe — não sobrescrevo. Acrescente os alvos à mão, ou aponte "
               f"--infra para outro caminho.", file=sys.stderr)
         return EXIT_ERRO
-    linhas = ["# Alvos da sw-infra-audit. Este arquivo fica FORA de qualquer repositório.",
-              "# A senha nunca vem aqui: declare o NOME da variável de ambiente em senha_env.", ""]
-    for ctx in contexts_docker():
-        linhas += ["[[alvo]]", f'nome = "{ctx["nome"]}"', 'tipo = "docker"',
-                   f'context = "{ctx["nome"]}"',
-                   "# metricas_url = \"http://host:9090\"   # opcional; veja `alvos --sugerir`", ""]
+
     destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_text("\n".join(linhas), encoding="utf-8")
+    if not _garantir_ignorado(destino):
+        print(f"não consegui garantir que {destino.parent}/ está fora do git — o alvos.toml "
+              f"guarda conexão e não pode nascer versionado.", file=sys.stderr)
+        return EXIT_ERRO
+
+    if LEGADO_NO_HOME.exists():     # quem já tinha alvos no home não recomeça do zero
+        conteudo = LEGADO_NO_HOME.read_text(encoding="utf-8")
+        origem = f"copiado de {LEGADO_NO_HOME} — pode apagar o antigo"
+    else:
+        linhas = ["# Alvos da sw-infra-audit. Mora na pasta do relatório, que fica fora do git.",
+                  "# A senha nunca vem aqui: declare o NOME da variável de ambiente em senha_env.", ""]
+        for ctx in contexts_docker():
+            linhas += ["[[alvo]]", f'nome = "{ctx["nome"]}"', 'tipo = "docker"',
+                       f'context = "{ctx["nome"]}"',
+                       "# metricas_url = \"http://host:9090\"   # opcional; veja `alvos --sugerir`", ""]
+        conteudo = "\n".join(linhas)
+        origem = f"{conteudo.count('[[alvo]]')} alvo(s) docker dos seus contexts"
+
+    destino.write_text(conteudo, encoding="utf-8")
     destino.chmod(0o600)
-    print(f"{destino} criado com {len(contexts_docker())} alvo(s) docker. Revise antes de auditar.")
+    print(f"{destino} criado ({origem}). Revise antes de auditar.")
     return EXIT_OK
 
 
@@ -178,8 +210,10 @@ def main(argv=None) -> int:
         parser.add_argument("--padrao", default=None)
         parser.add_argument("--infra", default=None)
         parser.add_argument("--projeto", default=None)
-    mig = sub.add_parser("migrar", help="cria o primeiro alvos.toml a partir dos contexts docker")
+    mig = sub.add_parser("migrar", help="cria o primeiro alvos.toml na pasta do relatório")
     mig.add_argument("--infra", default=None)
+    mig.add_argument("--padrao", default=None)
+    mig.add_argument("--projeto", default=None)
 
     ace = sub.add_parser("aceitar", help="registra um risco aceito no arquivo do projeto")
     ace.add_argument("--projeto", default=None)

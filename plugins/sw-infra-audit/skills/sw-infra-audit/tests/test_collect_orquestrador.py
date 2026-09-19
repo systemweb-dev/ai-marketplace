@@ -312,3 +312,44 @@ def test_aceite_com_data_impossivel_para_a_auditoria_com_mensagem(tmp_path, caps
     assert codigo == 2
     assert "2026-09-31" in capsys.readouterr().err
     assert not (tmp_path / "saida" / "report.json").exists()
+
+
+def test_sem_infra_explicito_os_alvos_vem_da_pasta_do_relatorio(tmp_path, monkeypatch):
+    """Sem `--infra`, os alvos são os do PROJETO: `<pasta do relatório>/alvos.toml`."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "docs" / "infra").mkdir(parents=True)
+    (tmp_path / "docs" / "infra" / "alvos.toml").write_text(
+        '[[alvo]]\nnome = "site"\ntipo = "http"\nurl = "http://127.0.0.1:1/x"\n', encoding="utf-8")
+    (tmp_path / "default.toml").write_text('[relatorio]\npasta = "docs/infra"\n', encoding="utf-8")
+    (tmp_path / ".sw-infra-audit.toml").write_text('alvos = ["site"]\n', encoding="utf-8")
+    visitados = []
+
+    codigo = collect.main(["--padrao", str(tmp_path / "default.toml"),
+                           "--projeto", str(tmp_path / ".sw-infra-audit.toml"),
+                           "--out", str(tmp_path / "docs/infra/2026-09-19_1000"),
+                           "--at", "2026-09-19T10:00:00Z", "--confirmar", "site"],
+                          coletores={"http": coletor_falso(visitados)})
+
+    assert codigo == 0 and visitados == ["site"]
+
+
+def test_auditar_recusa_alvos_em_pasta_que_o_git_versiona(tmp_path, monkeypatch, capsys):
+    """Conexão dentro da árvore de um repo sem estar ignorada: para antes de coletar."""
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "docs" / "infra").mkdir(parents=True)
+    (tmp_path / "docs" / "infra" / "alvos.toml").write_text(
+        '[[alvo]]\nnome = "site"\ntipo = "http"\nurl = "http://127.0.0.1:1/x"\n', encoding="utf-8")
+    (tmp_path / "default.toml").write_text('[relatorio]\npasta = "docs/infra"\n', encoding="utf-8")
+    (tmp_path / ".sw-infra-audit.toml").write_text('alvos = ["site"]\n', encoding="utf-8")
+    visitados = []
+
+    codigo = collect.main(["--padrao", str(tmp_path / "default.toml"),
+                           "--projeto", str(tmp_path / ".sw-infra-audit.toml"),
+                           "--out", str(tmp_path / "docs/infra/2026-09-19_1000"),
+                           "--at", "2026-09-19T10:00:00Z", "--confirmar", "site"],
+                          coletores={"http": coletor_falso(visitados)})
+
+    assert codigo == 2 and visitados == []
+    assert ".gitignore" in capsys.readouterr().err

@@ -13,12 +13,12 @@ from pathlib import Path
 from lib import alvos as alvos_mod
 from lib import report as report_mod
 from lib.falhas import FalhaDeColeta
-from lib.config import ConfigInvalida, carregar
+from lib.config import ConfigInvalida, caminho_dos_alvos, carregar,\
+    exigir_pasta_protegida
 
 EXIT_OK, EXIT_PARADA = 0, 2
 
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
-INFRA_PADRAO = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
 PROJETO_PADRAO = Path(".sw-infra-audit.toml")
 
 
@@ -107,10 +107,12 @@ def main(argv=None, coletores=None) -> int:
         return EXIT_PARADA
 
     padrao = Path(args.padrao) if args.padrao else PADRAO_DA_SKILL
-    infra = Path(args.infra) if args.infra else INFRA_PADRAO
     projeto = Path(args.projeto) if args.projeto else PROJETO_PADRAO
 
     try:
+        # os alvos moram na pasta do relatório, dentro do projeto: só pode se o git a ignora
+        infra = caminho_dos_alvos(padrao=padrao, projeto=projeto, explicito=args.infra)
+        exigir_pasta_protegida(infra)
         cfg = carregar(padrao=padrao, infra=infra, projeto=projeto)
         declarados, avisos = alvos_mod.ler(infra)
         escolhidos = alvos_mod.selecionar(declarados, cfg.alvos_escolhidos())

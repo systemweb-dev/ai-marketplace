@@ -1,4 +1,4 @@
-"""As três camadas de configuração: default (skill) < infra (sua máquina) < projeto (versionado).
+"""As três camadas de configuração: default (skill) < alvos (do projeto, ignorado) < projeto (versionado).
 
 A camada do projeto é versionada e chega por clone ou pull request. Ela tem uma **lista positiva**
 do que pode definir — qualquer outra coisa é erro. Lista de proibidos não serve aqui: basta um
@@ -7,6 +7,13 @@ arquivo voltar a entregar conexão.
 """
 import tomllib
 from pathlib import PurePosixPath, Path
+
+from lib import ignorado as ignorado_mod
+
+# o arquivo de alvos mora junto do relatório, dentro do projeto — e a pasta dos dois é a que
+# o .gitignore protege. Guardar conexão no home separava os alvos do projeto que os usa.
+ARQUIVO_DOS_ALVOS = "alvos.toml"
+PASTA_PADRAO = "docs/infra"
 
 # o que o arquivo do projeto pode definir — nada além disto
 PROJETO_PERMITE = ("alvos", "aceite", "relatorio", "severidade")
@@ -128,3 +135,33 @@ def carregar(padrao, infra, projeto):
         camadas=[("default", dados_padrao), ("infra", dados_infra), ("projeto", dados_projeto)],
         alvos_escolhidos=dados_projeto.get("alvos", []),
         aceites=aceites)
+
+
+def caminho_dos_alvos(padrao, projeto, explicito=None):
+    """Onde moram os alvos: `<pasta do relatório>/alvos.toml`, dentro do projeto.
+
+    A pasta sai da configuração efetiva sem a camada de alvos (ela ainda não foi lida) — quem
+    muda `relatorio.pasta` move o relatório E os alvos, porque duas pastas seriam duas verdades.
+    """
+    if explicito:
+        return Path(explicito)
+    efetiva = carregar(padrao=padrao, infra=None, projeto=projeto)
+    return Path(str(efetiva.valor("relatorio.pasta") or PASTA_PADRAO)) / ARQUIVO_DOS_ALVOS
+
+
+def exigir_pasta_protegida(caminho, raiz="."):
+    """Recusa usar um arquivo de conexão que o git NÃO esteja ignorando.
+
+    Fora de repositório não há o que proteger. Dentro, a pasta precisa estar no `.gitignore`:
+    conexão versionada é conexão publicada, e o aviso tem que vir antes do primeiro commit.
+    """
+    caminho = Path(caminho)
+    if not ignorado_mod.em_repositorio(raiz):
+        return
+    pasta = caminho.parent
+    if ignorado_mod.ignorado(caminho, raiz) or ignorado_mod.ignorado(f"{pasta}/", raiz):
+        return
+    raise ConfigInvalida(
+        f"{pasta}/ não está no .gitignore deste repositório, e {caminho.name} guarda conexão "
+        f"(host, context, credencial). Rode `configurar.py ignorar --pasta {pasta}` antes de "
+        f"declarar alvos — arquivo de conexão versionado é conexão publicada.")

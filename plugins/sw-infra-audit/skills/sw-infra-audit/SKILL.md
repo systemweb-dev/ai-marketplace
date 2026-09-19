@@ -41,15 +41,22 @@ python3 <skill-dir>/scripts/configurar.py config --explicar
 ```
 
 Mostra a configuração efetiva e **de onde veio cada valor** — são três camadas: `default.toml`
-(padrões da skill) < `~/.config/sw-infra-audit/alvos.toml` (seus alvos, fora de qualquer
-repositório) < `.sw-infra-audit.toml` (do projeto, versionado).
+(padrões da skill) < `docs/infra/alvos.toml` (os alvos deste projeto, na mesma pasta do
+relatório, que fica fora do git) < `.sw-infra-audit.toml` (na raiz do projeto, versionado).
 
-**O arquivo do projeto nunca define conexão.** Ele só escolhe quais alvos entram, ajusta
-severidade e registra aceites. Host, porta, usuário e credencial vivem só na sua máquina — se o
-arquivo versionado trouxer uma dessas chaves, a auditoria para e diz qual.
+**O `alvos.toml` mora dentro do projeto e fora do versionamento.** A skill confere com
+`git check-ignore` antes de ler ou escrever: se a pasta não estiver no `.gitignore`, ela
+**recusa** — arquivo de conexão versionado é conexão publicada. Se `relatorio.pasta` mudar, os
+alvos acompanham (duas pastas seriam duas verdades).
 
-Sem `alvos.toml`, ofereça `configurar.py migrar`, que escreve o primeiro a partir dos seus
-contexts docker (e **nunca sobrescreve** um existente).
+**O arquivo versionado nunca define conexão.** Ele só escolhe quais alvos entram, ajusta
+severidade e registra aceites. Host, porta, usuário e credencial vivem só no `alvos.toml` — se o
+`.sw-infra-audit.toml` trouxer uma dessas chaves, a auditoria para e diz qual.
+
+Sem `alvos.toml`, ofereça `configurar.py migrar`: ele cria a pasta, garante a linha no
+`.gitignore` e escreve o primeiro arquivo — trazendo o conteúdo do antigo
+`~/.config/sw-infra-audit/alvos.toml` quando ele existir, ou partindo dos seus contexts docker.
+**Nunca sobrescreve** um existente.
 
 ## Fluxo do modo auditar
 
@@ -122,8 +129,8 @@ python3 <skill-dir>/scripts/configurar.py aceitar --alvo <nome> --regra <regra> 
 - O aceite **não filtra a coleta**: o achado nasce, é marcado, sai da nota e vai para a seção
   própria, com origem, motivo e data de revisão.
 - **Vencido volta a contar**, com a observação de que a justificativa expirou.
-- Aceite de infra (no `alvos.toml`) vale para todo projeto que usa aquele alvo; o do projeto vence
-  quando os dois existem.
+- Aceite no `alvos.toml` vale para todos os alvos daquele arquivo; o do `.sw-infra-audit.toml`
+  (versionado, revisado em PR) vence quando os dois existem.
 - **Exija motivo.** Aceite sem justificativa é achado escondido.
 
 ## Modo configurar
@@ -131,7 +138,7 @@ python3 <skill-dir>/scripts/configurar.py aceitar --alvo <nome> --regra <regra> 
 | Comando | Para quê |
 |---|---|
 | `config --explicar` | Ver a configuração efetiva e a origem de cada chave |
-| `migrar` | Criar o primeiro `alvos.toml` a partir dos contexts docker |
+| `migrar` | Criar o primeiro `alvos.toml` em `docs/infra/`, já ignorado pelo git |
 | `alvos --sugerir --context <ctx>` | Propor uma `metricas_url` (só propõe; não alcança host) |
 | `aceitar` | Registrar um risco aceito no arquivo do projeto |
 | `ignorar` | Pôr a pasta do relatório no `.gitignore` |

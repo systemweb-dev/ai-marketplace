@@ -3,6 +3,7 @@ import configurar
 
 
 def test_migrar_escreve_o_primeiro_alvos_toml_a_partir_dos_contexts(tmp_path, monkeypatch):
+    monkeypatch.setattr(configurar, "LEGADO_NO_HOME", tmp_path / "sem-legado.toml")
     monkeypatch.setattr(configurar, "contexts_docker",
                         lambda: [{"nome": "prod", "endpoint": "tcp://198.51.100.10:2376"},
                                  {"nome": "local", "endpoint": "unix:///var/run/docker.sock"}])
@@ -142,3 +143,41 @@ def test_aceitar_recusa_desde_que_nao_e_data(tmp_path, capsys):
     assert codigo == 2
     assert "AAAA-MM-DD" in capsys.readouterr().err
     assert not projeto.exists(), "arquivo do projeto não pode ser tocado quando a entrada é inválida"
+
+
+def test_migrar_escreve_na_pasta_do_relatorio_e_garante_o_gitignore(tmp_path, monkeypatch):
+    """O alvos.toml nasce dentro do projeto — e a pasta entra no .gitignore no mesmo ato,
+    senão o arquivo de conexão nasce versionado."""
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "default.toml").write_text('[relatorio]\npasta = "docs/infra"\n', encoding="utf-8")
+    monkeypatch.setattr(configurar, "LEGADO_NO_HOME", tmp_path / "sem-legado.toml")
+    monkeypatch.setattr(configurar, "contexts_docker",
+                        lambda: [{"nome": "prod", "endpoint": "tcp://198.51.100.10:2376"}])
+
+    codigo = configurar.main(["migrar", "--padrao", str(tmp_path / "default.toml")])
+    destino = tmp_path / "docs" / "infra" / "alvos.toml"
+
+    assert codigo == 0
+    assert 'context = "prod"' in destino.read_text(encoding="utf-8")
+    assert oct(destino.stat().st_mode)[-3:] == "600"
+    assert "docs/infra/" in (tmp_path / ".gitignore").read_text(encoding="utf-8")
+
+
+def test_migrar_traz_o_alvos_toml_antigo_do_home(tmp_path, monkeypatch):
+    """Quem já tinha alvos no ~/.config não recomeça do zero: o conteúdo vem junto."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "default.toml").write_text('[relatorio]\npasta = "docs/infra"\n', encoding="utf-8")
+    legado = tmp_path / "home" / ".config" / "sw-infra-audit" / "alvos.toml"
+    legado.parent.mkdir(parents=True)
+    legado.write_text('[[alvo]]\nnome = "cluster"\ntipo = "docker"\ncontext = "prod"\n',
+                      encoding="utf-8")
+    monkeypatch.setattr(configurar, "LEGADO_NO_HOME", legado)
+    monkeypatch.setattr(configurar, "contexts_docker", lambda: [])
+
+    codigo = configurar.main(["migrar", "--padrao", str(tmp_path / "default.toml")])
+    texto = (tmp_path / "docs" / "infra" / "alvos.toml").read_text(encoding="utf-8")
+
+    assert codigo == 0
+    assert 'nome = "cluster"' in texto and 'context = "prod"' in texto

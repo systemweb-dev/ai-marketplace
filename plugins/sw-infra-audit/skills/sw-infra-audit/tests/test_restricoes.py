@@ -8,8 +8,9 @@ import collect
 from lib.coletores import http as coletor_http
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-# o runner roda comando de coleta; o build chama o Chromium para o PDF — e mais ninguém
-PODEM_EXECUTAR = {"lib/runner.py", "build_report.py"}
+# o runner roda comando de coleta; o build chama o Chromium para o PDF; o ignorado pergunta ao
+# git se a pasta dos alvos está fora do versionamento — e mais ninguém
+PODEM_EXECUTAR = {"lib/runner.py", "build_report.py", "lib/ignorado.py"}
 PODEM_ABRIR_REDE = {"lib/http_get.py"}
 # urllib.parse é análise de texto, não rede: quem abre socket é o de baixo
 MODULOS_DE_REDE = {"socket", "ssl", "http.client", "urllib.request", "urllib.error", "requests",

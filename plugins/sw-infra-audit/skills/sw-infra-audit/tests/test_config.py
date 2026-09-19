@@ -1,4 +1,6 @@
 # tests/test_config.py
+from pathlib import Path
+
 import pytest
 
 from lib.config import ConfigInvalida, carregar
@@ -166,3 +168,61 @@ def test_lista_legitima_aparece_no_efetivo_e_no_explicar(tmp_path):
 
     assert cfg.valor("alvos") == ["cluster", "site"]
     assert ("alvos", ["cluster", "site"], "projeto") in cfg.explicar()
+
+
+# ---------------------------------------------------------------- onde moram os alvos
+def _repo(tmp_path):
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    return tmp_path
+
+
+def test_alvos_moram_na_pasta_do_relatorio_do_projeto(tmp_path):
+    """O arquivo de alvos vive junto do relatório, dentro do projeto — não no home."""
+    from lib.config import caminho_dos_alvos
+    (tmp_path / "default.toml").write_text(DEFAULT, encoding="utf-8")
+
+    caminho = caminho_dos_alvos(padrao=tmp_path / "default.toml", projeto=None)
+
+    assert caminho == Path("docs/infra/alvos.toml")
+
+
+def test_alvos_seguem_a_pasta_que_o_projeto_escolheu(tmp_path):
+    """Mudar `relatorio.pasta` move o relatório E os alvos: duas pastas seria duas verdades."""
+    from lib.config import caminho_dos_alvos
+    (tmp_path / "default.toml").write_text(DEFAULT, encoding="utf-8")
+    projeto = tmp_path / ".sw-infra-audit.toml"
+    projeto.write_text('[relatorio]\npasta = "docs/auditoria"\n', encoding="utf-8")
+
+    caminho = caminho_dos_alvos(padrao=tmp_path / "default.toml", projeto=projeto)
+
+    assert caminho == Path("docs/auditoria/alvos.toml")
+
+
+def test_pasta_nao_ignorada_pelo_git_e_recusada(tmp_path, monkeypatch):
+    """O alvos.toml guarda conexão. Dentro de um repo sem a pasta ignorada, ele está a um
+    `git add -A` de virar público — a skill se recusa a usá-lo assim."""
+    from lib.config import exigir_pasta_protegida
+    _repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ConfigInvalida) as erro:
+        exigir_pasta_protegida(Path("docs/infra/alvos.toml"))
+
+    assert "gitignore" in str(erro.value).lower()
+
+
+def test_pasta_ignorada_pelo_git_passa(tmp_path, monkeypatch):
+    from lib.config import exigir_pasta_protegida
+    _repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("docs/infra/\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    exigir_pasta_protegida(Path("docs/infra/alvos.toml"))      # não levanta
+
+
+def test_fora_de_repositorio_nao_ha_o_que_proteger(tmp_path, monkeypatch):
+    from lib.config import exigir_pasta_protegida
+    monkeypatch.chdir(tmp_path)
+
+    exigir_pasta_protegida(Path("docs/infra/alvos.toml"))      # não levanta

@@ -7,6 +7,18 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Alterado
+- `sw-infra-audit` (v0.2.0): **o arquivo de alvos passa a morar no projeto**, em
+  `docs/infra/alvos.toml` — a mesma pasta do relatório, que já fica fora do git. O
+  `~/.config/sw-infra-audit/alvos.toml` deixa de ser lido; `configurar.py migrar` traz o conteúdo
+  do antigo quando ele existe. Os alvos seguem `relatorio.pasta`: mudou a pasta, mudaram os dois
+  (duas pastas seriam duas verdades).
+  Como o arquivo guarda conexão e agora vive dentro da árvore do repositório, a skill **confere
+  com `git check-ignore`** antes de ler ou escrever e **recusa** se a pasta não estiver ignorada —
+  arquivo de conexão versionado é conexão publicada. O `migrar` acrescenta a linha ao `.gitignore`
+  antes de criar o arquivo. Novo `lib/ignorado.py`, o único ponto que roda `git` (a restrição de
+  "um único ponto de subprocesso" passou a listar os três pontos, cada um com seu binário).
+
 ### Corrigido
 - `sw-infra-audit` (v0.1.1): quatro achados do code review, todos com teste de regressão.
   - `DOCKER_HOST` herdado do shell anulava o `DOCKER_CONTEXT` do alvo (ele tem precedência no
