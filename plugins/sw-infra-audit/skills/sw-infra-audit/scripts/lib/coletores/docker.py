@@ -3,7 +3,6 @@
 O que mudou é a moldura: ele recebe um alvo, devolve o bloco daquele alvo, e a URL de métricas
 vem do alvo (nunca de descoberta). O schema interno continua o v1, em `docker_report.py`.
 """
-from lib.http_get import host_of
 from lib.redact import redact_container, redact_service, scrub_info, scrub_text
 from lib.rules import (findings_for_workload, findings_operational,
                        findings_from_errors, findings_from_cert)
@@ -298,7 +297,7 @@ def coletar(alvo, contexto):
     configurar, como sugestão para você colar no alvos.toml.
     """
     from lib import report as report_mod
-    from lib.http_get import host_of
+    from lib import http_get
     from lib.runner import run
 
     nao_coletado = []
@@ -315,7 +314,7 @@ def coletar(alvo, contexto):
             "métricas: o alvo não declara `metricas_url` — rode `configurar.py alvos --sugerir` "
             "para ver candidatos e colar um no alvos.toml"))
     else:
-        permitido = [host_of(url)]
+        permitido = [http_get.destino(url)]
         base = url.split("/api/")[0].split("/metrics")[0].rstrip("/")
         runtime = None
         if enrich.probe(base, permitido, contexto["timeout"]):

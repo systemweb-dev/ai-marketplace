@@ -32,6 +32,10 @@ def _checar_url(nome, campo, valor):
     partes = urlparse(str(valor))
     if partes.scheme not in ESQUEMAS or not partes.hostname:
         raise AlvoInvalido(f"alvo {nome!r}: {campo} precisa ser http(s) com host — {valor!r} não é")
+    try:                          # porta fora da faixa é erro de configuração, não de coleta
+        partes.port
+    except ValueError as erro:
+        raise AlvoInvalido(f"alvo {nome!r}: porta inválida em {campo} — {erro}") from erro
 
 
 def ler(caminho):

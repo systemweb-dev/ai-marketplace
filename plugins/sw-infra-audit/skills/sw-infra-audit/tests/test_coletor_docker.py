@@ -36,7 +36,8 @@ def test_metricas_usam_a_url_declarada_e_so_ela(monkeypatch):
                              "metricas_url": "http://127.0.0.1:9090/metrics"},
                             {"timeout": 5, "orcamento": 10, "at": ""})
 
-    assert permitidos == {"base": "http://127.0.0.1:9090", "allowed": ["127.0.0.1"]}
+    assert permitidos == {"base": "http://127.0.0.1:9090",
+                          "allowed": [("127.0.0.1", 9090)]}
     assert bloco["fatos"]["runtime"] == {"requests_24h": 10}
 
 

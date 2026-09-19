@@ -1,9 +1,10 @@
 """Único ponto de rede da skill — GET read-only para endpoints CONFIRMADOS pelo usuário.
 
-Invariante (FF7 revisada): a skill não faz egress nenhum, EXCETO GETs para hosts que o
-usuário confirmou explicitamente (`--metrics-endpoint`). Aqui dentro:
+Invariante: a skill não faz egress nenhum, EXCETO GETs para destinos que o usuário declarou
+no `alvos.toml` e confirmou na rodada (`--confirmar`). Aqui dentro:
   - só método GET, só http/https;
-  - host obrigatoriamente na allowlist recebida;
+  - **host E porta** obrigatoriamente na allowlist recebida — host declarado não autoriza
+    porta não declarada, senão a coleta viraria varredura de portas;
   - sem credenciais/headers de auth, sem cookies;
   - redirect NÃO é seguido (evita exfiltração para outro host);
   - timeout curto e teto de bytes.
@@ -34,17 +35,38 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
-def host_of(url):
+PORTA_PADRAO = {"http": 80, "https": 443}
+
+
+def destino(url):
+    """(host, porta) de uma URL, com a porta implícita do esquema já resolvida.
+
+    Porta fora da faixa (erro de digitação no alvos.toml) vira `NotConfirmed` com a URL no
+    texto — `urlparse().port` levanta `ValueError` cru, que chegaria ao relatório como
+    "erro interno do coletor" em vez de "arruma a tua configuração".
+    """
     p = urlparse(url or "")
-    return p.hostname
+    try:
+        porta = p.port
+    except ValueError as erro:
+        raise NotConfirmed(f"porta inválida em {url!r}: {erro}") from erro
+    return p.hostname, (porta if porta is not None else PORTA_PADRAO.get(p.scheme))
 
 
-def check_allowed(url, allowed_hosts):
+def check_allowed(url, permitidos):
+    """`permitidos` é uma lista de (host, porta).
+
+    Host declarado NÃO autoriza porta não declarada: um componente expõe métrica numa porta e
+    administração noutra, e liberar o host inteiro transformaria a coleta em varredura de
+    portas na máquina que o dono confirmou.
+    """
     p = urlparse(url or "")
     if p.scheme not in ("http", "https"):
         raise NotConfirmed(f"esquema não permitido: {p.scheme!r}")
-    if not p.hostname or p.hostname not in set(allowed_hosts or []):
-        raise NotConfirmed(f"host não confirmado: {p.hostname!r}")
+    host, porta = destino(url)
+    conhecidos = {(h, int(n)) for h, n in (permitidos or []) if h and n is not None}
+    if not host or (host, porta) not in conhecidos:
+        raise NotConfirmed(f"destino não confirmado: {host!r}:{porta}")
     return True
 
 

@@ -144,3 +144,12 @@ def test_nome_de_alvo_nao_pode_virar_caminho(tmp_path):
         ler(caminho)
 
     assert "nome" in str(erro.value)
+
+
+def test_url_com_porta_impossivel_e_recusada_na_leitura(tmp_path):
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "site"\ntipo = "http"\n'
+                       'url = "http://site.interno:8080000/health"\n', encoding="utf-8")
+    with pytest.raises(AlvoInvalido) as erro:
+        ler(arquivo)
+    assert "porta inválida" in str(erro.value)

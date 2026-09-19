@@ -42,7 +42,8 @@ def coletar(alvo, contexto):
     fatos, achados, nao_coletado = {}, [], []
 
     inicio = time.monotonic()
-    codigo, _ = http_get.get_com_status(url, [partes.hostname], timeout=timeout)
+    permitido = [http_get.destino(url)]
+    codigo, _ = http_get.get_com_status(url, permitido, timeout=timeout)
     if codigo is not None:
         fatos["codigo"] = codigo
         fatos["tempo_faixa"] = faixa(time.monotonic() - inicio)
@@ -52,7 +53,7 @@ def coletar(alvo, contexto):
     # o certificado é lido mesmo quando o GET falha: vencido derruba o handshake, e é o achado
     # que mais importa
     if partes.scheme == "https":
-        certificado = http_get.validade_do_certificado(url, [partes.hostname], timeout)
+        certificado = http_get.validade_do_certificado(url, permitido, timeout)
         fatos["certificado"] = certificado
         if "erro" in certificado:
             fatos["certificado"] = report_mod.na(f"não li o certificado: {certificado['erro']}")

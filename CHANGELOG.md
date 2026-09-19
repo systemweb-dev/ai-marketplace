@@ -28,6 +28,20 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   "um único ponto de subprocesso" passou a listar os três pontos, cada um com seu binário).
 
 ### Corrigido
+- `sw-infra-audit` (v0.3.1): duas travas que pareciam existir e não existiam — as duas com
+  prova por mutação.
+  - **Egress passa a exigir host E porta.** Confirmar um host autorizava qualquer porta dele;
+    como a coleta vai passar a perguntar a componentes em portas de administração, isso viraria
+    varredura de portas na máquina que o dono confirmou. Porta impossível no `alvos.toml`
+    (erro de digitação) agora falha na leitura do arquivo, com mensagem de configuração, em vez
+    de morrer dentro do coletor como "erro interno".
+  - **O ambiente do processo filho virou base positiva.** Antes copiava o seu ambiente inteiro
+    menos quatro variáveis — e lista de proibidos só protege do que alguém lembrou de escrever
+    nela. Como a credencial de um alvo chega justamente pelo ambiente, a senha do banco viajaria
+    dentro de todo comando docker. Agora o filho recebe só o mínimo (`PATH`, `HOME`, `LANG`,
+    `LC_ALL`, `TZ`), os caminhos de que o cliente docker precisa (`SSH_AUTH_SOCK`,
+    `DOCKER_CONFIG`, `XDG_RUNTIME_DIR`) e o que o chamador declarar.
+
 - `sw-infra-audit` (v0.1.1): quatro achados do code review, todos com teste de regressão.
   - `DOCKER_HOST` herdado do shell anulava o `DOCKER_CONTEXT` do alvo (ele tem precedência no
     docker): a coleta falaria com outra máquina e o relatório assinaria com o nome do alvo

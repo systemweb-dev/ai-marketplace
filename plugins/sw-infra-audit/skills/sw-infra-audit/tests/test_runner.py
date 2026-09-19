@@ -74,3 +74,44 @@ def test_sem_context_o_ambiente_tambem_nao_escolhe_cluster(monkeypatch):
 
     assert not {"DOCKER_HOST", "DOCKER_CONTEXT"} & set(env)
     assert env.get("PATH") == os.environ.get("PATH"), "o resto do ambiente continua de pé"
+
+
+def test_ambiente_do_filho_e_base_positiva(monkeypatch):
+    """A credencial de banco chega pelo ambiente (senha_env). Copiar o ambiente inteiro menos
+    uma lista de proibidos deixaria PGPASSWORD alcançar todo comando docker — e lista negativa
+    só protege do que alguém lembrou de escrever nela."""
+    import os
+    from lib.runner import ambiente
+    monkeypatch.setenv("PGPASSWORD", "segredo-do-banco")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "outro-segredo")
+    monkeypatch.setenv("PATH", "/usr/bin")
+
+    env = ambiente("prod")
+
+    assert env["DOCKER_CONTEXT"] == "prod"
+    assert env["PATH"] == "/usr/bin"
+    assert "PGPASSWORD" not in env
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+
+
+def test_ambiente_entrega_o_que_o_chamador_declarar(monkeypatch):
+    """O perfil de cada binário declara as suas (plano 3). Sem declarar, nada passa."""
+    from lib.runner import ambiente
+    monkeypatch.setenv("PGPASSWORD", "segredo-do-banco")
+    assert ambiente(None, extras=("PGPASSWORD",))["PGPASSWORD"] == "segredo-do-banco"
+    assert "PGPASSWORD" not in ambiente(None)
+
+
+def test_segredo_nao_chega_ao_processo_filho(monkeypatch):
+    """Restrição 2, a parte que faltava: nem argv, nem ambiente. O teste que existia
+    substituía runner.run e nunca via o env."""
+    monkeypatch.setenv("SENHA_DO_ALVO", "trocadilho-secreto")
+
+    with mock.patch("lib.runner.subprocess.run") as m:
+        m.return_value = mock.Mock(stdout="{}", returncode=0)
+        run(["docker", "info"], timeout=5, context="prod")
+        env = m.call_args.kwargs["env"]
+        argv = m.call_args[0][0]
+
+    assert "trocadilho-secreto" not in " ".join(argv)
+    assert "trocadilho-secreto" not in "".join(env.values())

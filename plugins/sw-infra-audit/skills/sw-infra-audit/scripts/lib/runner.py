@@ -15,15 +15,27 @@ import subprocess
 
 from lib.coletores.docker_allowlist import check
 
-# variáveis que escolhem COM QUEM falar: quem decide isso é o alvo, nunca o shell de quem roda
-ESCOLHEM_O_DAEMON = ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH")
+# o que um processo filho precisa para existir — e nada além disso.
+# Base POSITIVA de propósito: lista de proibidos só protege do que alguém lembrou de escrever
+# nela, e a credencial de um alvo chega justamente pelo ambiente (`senha_env`). Com lista
+# negativa, a senha do banco viajaria dentro de todo comando docker.
+BASE = ("PATH", "HOME", "LANG", "LC_ALL", "TZ",
+        # caminhos de que o próprio cliente docker precisa — não são credencial:
+        # sem SSH_AUTH_SOCK, um context `ssh://` (que a própria skill recomenda em
+        # references/tls-renewal.md) perde o agente e TODO comando vira "indisponível";
+        # sem DOCKER_CONFIG, quem o exporta perde o armazenamento de contexts.
+        "SSH_AUTH_SOCK", "DOCKER_CONFIG", "XDG_RUNTIME_DIR")
 
 
-def ambiente(context):
-    """O ambiente do processo filho: o seu, sem as variáveis que escolhem daemon, mais o
-    context do alvo (quando há um). Sem context, o comando é sobre a máquina local."""
-    env = {chave: valor for chave, valor in os.environ.items()
-           if chave not in ESCOLHEM_O_DAEMON}
+def ambiente(context, extras=()):
+    """O ambiente do processo filho: o mínimo, mais o context do alvo, mais o que o chamador
+    declarar em `extras` (o perfil de cada binário declara os seus).
+
+    Sem context, o comando é sobre a máquina local — e continua sem `DOCKER_HOST`, que teria
+    precedência e mandaria o comando para outro lugar.
+    """
+    nomes = tuple(BASE) + tuple(extras)
+    env = {nome: os.environ[nome] for nome in nomes if nome in os.environ}
     if context:
         env["DOCKER_CONTEXT"] = context
     return env
