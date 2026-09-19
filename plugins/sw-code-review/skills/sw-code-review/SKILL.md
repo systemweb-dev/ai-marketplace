@@ -500,7 +500,7 @@ escopados); senao, faca um Conventional Commit simples. Nunca commite sem o "sim
 ## Limites
 
 Para varredura completa de **codigo morto** no projeto inteiro (nao so no diff), use a
-`sw-dead-code-scan`. Para gerar a mensagem do PR a partir dos commits, a `sw-pr-message`.
+`sw-dead-code-scan`. Para gerar a mensagem do PR a partir dos commits, a `sw-pr-message`. Para qualidade dos **testes** (teste frouxo, desligado, instável ou faltando), a `sw-auto-test` no modo diagnóstico.
 
 Esta skill revisa codigo no working tree (ou range PR). NAO:
 - Executa testes automatizados

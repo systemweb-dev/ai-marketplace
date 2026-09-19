@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Check-up dos testes automáticos — briefing</title>
+<style>
+  @page { size: A4; margin: 11mm 13mm; }
+  :root {
+    --tinta: #1c1d22; --suave: #5b6070; --linha: #e3e5ec;
+    --destaque: #1f6f5c; --fundo-caixa: #f4f7f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--tinta); background: #fff;
+    font: 9.6pt/1.4 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  header { border-bottom: 2px solid var(--destaque); padding-bottom: 7px; margin-bottom: 12px; }
+  .etiqueta { font-size: 8pt; letter-spacing: .14em; text-transform: uppercase; color: var(--destaque); font-weight: 700; }
+  h1 { font-size: 17pt; line-height: 1.15; margin: 4px 0 3px; letter-spacing: -.01em; }
+  .sub { color: var(--suave); font-size: 10pt; margin: 0; }
+  h2 { font-size: 10.3pt; margin: 10px 0 4px; letter-spacing: -.005em; }
+  h2::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 2px;
+               background: var(--destaque); margin-right: 7px; vertical-align: middle; }
+  p { margin: 0 0 6px; }
+  ul { margin: 0 0 6px; padding-left: 16px; }
+  li { margin: 2px 0; }
+  .grade { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .caixa { background: var(--fundo-caixa); border: 1px solid var(--linha); border-radius: 9px; padding: 9px 12px; }
+  .caixa h3 { font-size: 9.5pt; margin: 0 0 5px; color: var(--destaque); }
+  .caixa p, .caixa ul { font-size: 9.5pt; margin-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 4px 0 8px; }
+  th, td { text-align: left; padding: 4.5px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); font-weight: 600; }
+  td:first-child { white-space: nowrap; font-weight: 600; width: 78px; }
+  .rodape { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--linha);
+            color: var(--suave); font-size: 8.5pt; display: flex; justify-content: space-between; }
+  strong { font-weight: 650; }
+</style>
+</head>
+<body>
+<header>
+  <div class="etiqueta">Briefing · ferramenta interna</div>
+  <h1>Check-up dos testes automáticos</h1>
+  <p class="sub">Uma revisão da ferramenta que escreve e avalia os testes dos nossos sistemas</p>
+</header>
+
+<h2>O que é</h2>
+<p>Temos uma ferramenta que escreve <strong>testes automáticos</strong>, as verificações que rodam sozinhas e acusam quando uma alteração quebra o sistema. Este trabalho dá a ela uma segunda função: <strong>avaliar os testes que já existem</strong> e apontar quais não cumprem o papel.</p>
+
+<h2>O problema que resolve</h2>
+<p>Hoje a ferramenta escreve os testes, mas ninguém confere se eles realmente funcionam. Existe um caso silencioso e perigoso: o <strong>teste que passa mesmo com o sistema quebrado</strong>. Ele não protege nada, mas dá a sensação de que está tudo verificado. Some-se a isso a bateria acumulada ao longo dos anos, que ninguém revisa: testes desligados e esquecidos, testes que falham sem motivo aparente, e trechos importantes do sistema sem verificação nenhuma.</p>
+
+<h2>O que muda na prática</h2>
+<div class="grade">
+  <div class="caixa">
+    <h3>Antes</h3>
+    <ul>
+      <li>Os testes são escritos e ninguém verifica se prestam</li>
+      <li>A bateria antiga nunca é revisada</li>
+      <li>Confiança baseada em quantidade de testes</li>
+    </ul>
+  </div>
+  <div class="caixa">
+    <h3>Depois</h3>
+    <ul>
+      <li>Cada teste novo é provado: quebramos o sistema de propósito e conferimos se ele acusa</li>
+      <li>Relatório de saúde da bateria, com o que consertar primeiro</li>
+      <li>Correção acompanhada, um lote por vez, com você aprovando</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Principais entregas</h2>
+<ul>
+  <li><strong>Relatório de saúde dos testes</strong>, com notas por área e cada problema apontando onde está.</li>
+  <li><strong>Correção acompanhada</strong>: nada é alterado sem aprovação, e o que quebrar volta ao que era.</li>
+  <li><strong>Prova do teste novo</strong>: a ferramenta confirma que o teste acusa o erro que promete acusar.</li>
+  <li><strong>Cobertura das três tecnologias</strong> que mais usamos, com as demais atendidas de forma simplificada.</li>
+</ul>
+
+<h2>Fases</h2>
+<table>
+  <tr><th>Etapa</th><th>O que entrega</th></tr>
+  <tr><td>1 e 2</td><td>Levantamento da bateria de testes e das medições, sem alterar nada</td></tr>
+  <tr><td>3</td><td>Relatório de saúde e correção acompanhada — <strong>aqui já dá para parar com valor entregue</strong></td></tr>
+  <tr><td>4</td><td>Prova do teste novo e regras que evitam teste frágil</td></tr>
+  <tr><td>5</td><td>Organização final e liberação para uso do time</td></tr>
+</table>
+
+<h2>Por que foi assim</h2>
+<ul>
+  <li><strong>Aproveitar o que já existe.</strong> Cada tecnologia tem ferramentas próprias de medição; usá-las torna o resultado verificável em vez de opinião.</li>
+  <li><strong>Nada roda sem autorização.</strong> Executar a bateria pode tocar banco e serviços, então a ferramenta mostra o que vai rodar e espera o aval.</li>
+  <li><strong>A ferramenta não decide sozinha.</strong> Ela aponta e propõe; quem aprova é a pessoa. Quando não tem dado suficiente, ela diz "sem dados" em vez de chutar.</li>
+</ul>
+
+<h2>Fora de escopo</h2>
+<p>Ela não reescreve sozinha um teste mal feito, não configura a esteira de publicação e não persegue percentual de cobertura — percentual alto não significa teste bom.</p>
+
+<div class="rodape">
+  <span>Esforço estimado: médio · trabalho interno, sem impacto para o cliente final</span>
+  <span>18/09/2026</span>
+</div>
+</body>
+</html>

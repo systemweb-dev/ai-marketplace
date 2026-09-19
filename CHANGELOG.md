@@ -8,6 +8,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-plan` (v0.5.0): ao concluir tasks que mexeram em teste, oferece o diagnóstico da
+  `sw-auto-test`.
+- `sw-code-review` (v0.1.2): passa a indicar a `sw-auto-test` para qualidade de teste.
 - `sw-plan` (v0.4.0): ao concluir todas as tasks, oferece gerar a descrição do PR com a
   `sw-pr-message` quando a branch tem commits fora da base.
 - `sw-code-review` (v0.1.1): passa a indicar a `sw-pr-message` para gerar a mensagem do PR.
