@@ -13,6 +13,8 @@ from lib import ignorado as ignorado_mod
 # o arquivo de alvos mora junto do relatório, dentro do projeto — e a pasta dos dois é a que
 # o .gitignore protege. Guardar conexão no home separava os alvos do projeto que os usa.
 ARQUIVO_DOS_ALVOS = "alvos.toml"
+ARQUIVO_DO_PROJETO = "config.toml"
+LEGADO_DO_PROJETO = ".sw-infra-audit.toml"      # onde ele ficava antes, na raiz
 PASTA_PADRAO = "docs/infra"
 
 # o que o arquivo do projeto pode definir — nada além disto
@@ -165,3 +167,17 @@ def exigir_pasta_protegida(caminho, raiz="."):
         f"{pasta}/ não está no .gitignore deste repositório, e {caminho.name} guarda conexão "
         f"(host, context, credencial). Rode `configurar.py ignorar --pasta {pasta}` antes de "
         f"declarar alvos — arquivo de conexão versionado é conexão publicada.")
+
+
+def caminho_do_projeto(explicito=None, raiz="."):
+    """O arquivo versionado do projeto: `docs/infra/config.toml`.
+
+    Ponto de entrada da configuração, por isso o caminho é fixo — é ele que pode mover o resto
+    (`relatorio.pasta`). Enquanto existir só o antigo `.sw-infra-audit.toml` na raiz, ele
+    continua valendo: ninguém fica sem configuração de um dia para o outro.
+    """
+    if explicito:
+        return Path(explicito)
+    novo = Path(raiz) / PASTA_PADRAO / ARQUIVO_DO_PROJETO
+    antigo = Path(raiz) / LEGADO_DO_PROJETO
+    return antigo if not novo.exists() and antigo.exists() else novo

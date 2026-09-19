@@ -42,16 +42,27 @@ python3 <skill-dir>/scripts/configurar.py config --explicar
 
 Mostra a configuração efetiva e **de onde veio cada valor** — são três camadas: `default.toml`
 (padrões da skill) < `docs/infra/alvos.toml` (os alvos deste projeto, na mesma pasta do
-relatório, que fica fora do git) < `.sw-infra-audit.toml` (na raiz do projeto, versionado).
+relatório, que fica fora do git) < `docs/infra/config.toml` (do projeto, **versionado**).
 
-**O `alvos.toml` mora dentro do projeto e fora do versionamento.** A skill confere com
-`git check-ignore` antes de ler ou escrever: se a pasta não estiver no `.gitignore`, ela
-**recusa** — arquivo de conexão versionado é conexão publicada. Se `relatorio.pasta` mudar, os
-alvos acompanham (duas pastas seriam duas verdades).
+**Tudo da skill vive em `docs/infra/`** — alvos, configuração do projeto e os relatórios de
+cada rodada. O `.gitignore` esconde o conteúdo da pasta e **reabre só o `config.toml`**:
+
+```gitignore
+docs/infra/*
+!docs/infra/config.toml
+```
+
+A forma antiga (`docs/infra/`) ignora o diretório inteiro e nenhuma negação resgata um arquivo
+lá dentro — por isso `configurar.py ignorar` **substitui** essa linha quando a encontra.
+
+A skill confere com `git check-ignore` antes de ler ou escrever o `alvos.toml`: pasta fora do
+`.gitignore`, ela **recusa** — arquivo de conexão versionado é conexão publicada. Se
+`relatorio.pasta` mudar, alvos e relatórios acompanham (duas pastas seriam duas verdades); o
+`config.toml` é o ponto de entrada e por isso o caminho dele é fixo.
 
 **O arquivo versionado nunca define conexão.** Ele só escolhe quais alvos entram, ajusta
 severidade e registra aceites. Host, porta, usuário e credencial vivem só no `alvos.toml` — se o
-`.sw-infra-audit.toml` trouxer uma dessas chaves, a auditoria para e diz qual.
+`config.toml` trouxer uma dessas chaves, a auditoria para e diz qual.
 
 Sem `alvos.toml`, ofereça `configurar.py migrar`: ele cria a pasta, garante a linha no
 `.gitignore` e escreve o primeiro arquivo — trazendo o conteúdo do antigo
@@ -129,7 +140,7 @@ python3 <skill-dir>/scripts/configurar.py aceitar --alvo <nome> --regra <regra> 
 - O aceite **não filtra a coleta**: o achado nasce, é marcado, sai da nota e vai para a seção
   própria, com origem, motivo e data de revisão.
 - **Vencido volta a contar**, com a observação de que a justificativa expirou.
-- Aceite no `alvos.toml` vale para todos os alvos daquele arquivo; o do `.sw-infra-audit.toml`
+- Aceite no `alvos.toml` vale para todos os alvos daquele arquivo; o do `config.toml`
   (versionado, revisado em PR) vence quando os dois existem.
 - **Exija motivo.** Aceite sem justificativa é achado escondido.
 
@@ -140,8 +151,8 @@ python3 <skill-dir>/scripts/configurar.py aceitar --alvo <nome> --regra <regra> 
 | `config --explicar` | Ver a configuração efetiva e a origem de cada chave |
 | `migrar` | Criar o primeiro `alvos.toml` em `docs/infra/`, já ignorado pelo git |
 | `alvos --sugerir --context <ctx>` | Propor uma `metricas_url` (só propõe; não alcança host) |
-| `aceitar` | Registrar um risco aceito no arquivo do projeto |
-| `ignorar` | Pôr a pasta do relatório no `.gitignore` |
+| `aceitar` | Registrar um risco aceito no `config.toml` do projeto |
+| `ignorar` | Acertar o `.gitignore`: esconde a pasta, mantém o `config.toml` |
 
 É o único que escreve fora da pasta do relatório, e nunca sobrescreve `alvos.toml` existente.
 

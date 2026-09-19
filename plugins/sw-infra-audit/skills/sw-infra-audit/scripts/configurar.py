@@ -9,7 +9,8 @@ import sys
 from pathlib import Path
 
 from lib import alvos as alvos_mod
-from lib.config import ConfigInvalida, caminho_dos_alvos, carregar, exigir_pasta_protegida
+from lib.config import (ARQUIVO_DO_PROJETO, ConfigInvalida, caminho_do_projeto,
+                        caminho_dos_alvos, carregar, exigir_pasta_protegida)
 
 EXIT_OK, EXIT_ERRO = 0, 2
 
@@ -17,14 +18,13 @@ EXIT_OK, EXIT_ERRO = 0, 2
 PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
 
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
-PROJETO_PADRAO = Path(".sw-infra-audit.toml")
 # onde a versão anterior guardava os alvos; `migrar` traz o conteúdo para o projeto
 LEGADO_NO_HOME = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
 
 
 def _caminhos(args):
     padrao = Path(args.padrao) if args.padrao else PADRAO_DA_SKILL
-    projeto = Path(args.projeto) if getattr(args, "projeto", None) else PROJETO_PADRAO
+    projeto = caminho_do_projeto(getattr(args, "projeto", None))
     return (padrao, caminho_dos_alvos(padrao=padrao, projeto=projeto,
                                       explicito=getattr(args, "infra", None)), projeto)
 
@@ -139,7 +139,7 @@ def aceitar(args) -> int:
     if not (args.motivo or "").strip():
         print("aceitar exige --motivo: aceite sem justificativa é achado escondido.", file=sys.stderr)
         return EXIT_ERRO
-    projeto = Path(args.projeto) if args.projeto else PROJETO_PADRAO
+    projeto = caminho_do_projeto(args.projeto)
     desde = args.desde or date.today().isoformat()
     try:                                    # antes de tocar no arquivo: entrada ruim não escreve
         revisar = revisar_em(desde, args.meses)
@@ -150,6 +150,7 @@ def aceitar(args) -> int:
              f'motivo = "{args.motivo.strip()}"', f'desde = "{desde}"', f'revisar_em = "{revisar}"']
     if args.objeto:
         bloco.insert(3, f'objeto = "{args.objeto}"')
+    projeto.parent.mkdir(parents=True, exist_ok=True)
     atual = projeto.read_text(encoding="utf-8") if projeto.exists() else ""
     projeto.write_text(atual.rstrip("\n") + "\n" + "\n".join(bloco) + "\n", encoding="utf-8")
     print(f"aceite registrado em {projeto} · revisar em {revisar}")
@@ -186,18 +187,31 @@ def sugerir(args) -> int:
     return EXIT_OK
 
 
+def linhas_de_ignore(pasta):
+    """Esconde o CONTEÚDO da pasta e reabre um arquivo: o `config.toml` é versionado de
+    propósito — escolha de alvos e riscos aceitos passam por revisão em PR."""
+    return [f"{pasta}/*", f"!{pasta}/{ARQUIVO_DO_PROJETO}"]
+
+
 def ignorar(args) -> int:
-    """Põe a pasta do relatório no .gitignore. É escrita em arquivo versionado: por isso mora aqui,
-    no modo configurar, e não no modo auditar."""
+    """Acerta o .gitignore da pasta do relatório. É escrita em arquivo versionado: por isso mora
+    aqui, no modo configurar, e não no modo auditar."""
     repo = Path(args.repo)
-    linha = args.pasta.rstrip("/") + "/"
+    pasta = args.pasta.rstrip("/")
     gi = repo / ".gitignore"
     atual = gi.read_text(encoding="utf-8") if gi.exists() else ""
-    if linha in atual.splitlines():
-        print(f"{linha} já está no .gitignore")
+    linhas = atual.splitlines()
+
+    # `docs/infra/` ignora o DIRETÓRIO: o git nem entra nele, e nenhuma negação salva um arquivo
+    # lá dentro. A forma antiga não convive com a nova — é substituída.
+    linhas = [linha for linha in linhas if linha.strip() not in (f"{pasta}/", pasta)]
+    novas = [linha for linha in linhas_de_ignore(pasta) if linha not in linhas]
+    if not novas and linhas == atual.splitlines():
+        print(f"{pasta}/ já está no .gitignore, com o {ARQUIVO_DO_PROJETO} de fora")
         return EXIT_OK
-    gi.write_text(atual.rstrip("\n") + ("\n" if atual else "") + linha + "\n", encoding="utf-8")
-    print(f"{linha} acrescentado ao .gitignore")
+
+    gi.write_text("\n".join(linhas + novas).strip("\n") + "\n", encoding="utf-8")
+    print(f"{pasta}/ ignorado no .gitignore (menos o {ARQUIVO_DO_PROJETO}, que é versionado)")
     return EXIT_OK
 
 

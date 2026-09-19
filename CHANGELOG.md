@@ -8,6 +8,14 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-infra-audit` (v0.3.0): **a configuração do projeto também vai para `docs/infra/`** — o que
+  era `.sw-infra-audit.toml` na raiz agora é `docs/infra/config.toml`, e a skill passa a ter um
+  lugar só: alvos, configuração e relatórios na mesma pasta. O arquivo antigo na raiz continua
+  sendo lido enquanto o novo não existir.
+  Ele segue **versionado** de propósito (escolha de alvos e riscos aceitos passam por revisão em
+  PR), o que muda a forma do `.gitignore`: `docs/infra/*` mais `!docs/infra/config.toml`. A linha
+  antiga (`docs/infra/`) ignora o diretório inteiro — nenhuma negação resgata um arquivo lá
+  dentro —, então `configurar.py ignorar` a **substitui** quando a encontra.
 - `sw-infra-audit` (v0.2.0): **o arquivo de alvos passa a morar no projeto**, em
   `docs/infra/alvos.toml` — a mesma pasta do relatório, que já fica fora do git. O
   `~/.config/sw-infra-audit/alvos.toml` deixa de ser lido; `configurar.py migrar` traz o conteúdo

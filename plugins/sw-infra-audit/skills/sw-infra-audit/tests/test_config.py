@@ -226,3 +226,30 @@ def test_fora_de_repositorio_nao_ha_o_que_proteger(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     exigir_pasta_protegida(Path("docs/infra/alvos.toml"))      # não levanta
+
+
+def test_o_arquivo_do_projeto_mora_em_docs_infra(tmp_path, monkeypatch):
+    """Tudo da skill num lugar só: o config.toml versionado fica na mesma pasta do resto."""
+    from lib.config import caminho_do_projeto
+    monkeypatch.chdir(tmp_path)
+
+    assert caminho_do_projeto() == Path("docs/infra/config.toml")
+
+
+def test_o_arquivo_antigo_na_raiz_ainda_e_lido(tmp_path, monkeypatch):
+    """Quem já tem .sw-infra-audit.toml não fica sem configuração de um dia para o outro."""
+    from lib.config import caminho_do_projeto
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".sw-infra-audit.toml").write_text('alvos = []\n', encoding="utf-8")
+
+    assert caminho_do_projeto() == Path(".sw-infra-audit.toml")
+
+
+def test_o_novo_vence_o_antigo_quando_os_dois_existem(tmp_path, monkeypatch):
+    from lib.config import caminho_do_projeto
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".sw-infra-audit.toml").write_text('alvos = []\n', encoding="utf-8")
+    (tmp_path / "docs" / "infra").mkdir(parents=True)
+    (tmp_path / "docs" / "infra" / "config.toml").write_text('alvos = []\n', encoding="utf-8")
+
+    assert caminho_do_projeto() == Path("docs/infra/config.toml")

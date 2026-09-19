@@ -78,7 +78,8 @@ def test_ignorar_acrescenta_a_pasta_no_gitignore_uma_vez_so(tmp_path):
     configurar.main(["ignorar", "--repo", str(tmp_path), "--pasta", "docs/infra"])
     texto = (tmp_path / ".gitignore").read_text(encoding="utf-8")
 
-    assert texto.count("docs/infra/") == 1
+    assert texto.count("docs/infra/*") == 1
+    assert texto.count("!docs/infra/config.toml") == 1
     assert "node_modules/" in texto
 
 
@@ -181,3 +182,62 @@ def test_migrar_traz_o_alvos_toml_antigo_do_home(tmp_path, monkeypatch):
 
     assert codigo == 0
     assert 'nome = "cluster"' in texto and 'context = "prod"' in texto
+
+
+def _git_ignora(pasta, caminho):
+    import subprocess
+    return subprocess.run(["git", "check-ignore", "-q", "--", caminho],
+                          cwd=pasta).returncode == 0
+
+
+def test_ignorar_esconde_a_pasta_mas_deixa_o_config_visivel(tmp_path, monkeypatch):
+    """A prova é o próprio git: relatório e alvos ignorados, config.toml versionado."""
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+
+    codigo = configurar.main(["ignorar", "--repo", str(tmp_path), "--pasta", "docs/infra"])
+
+    assert codigo == 0
+    assert _git_ignora(tmp_path, "docs/infra/alvos.toml")
+    assert _git_ignora(tmp_path, "docs/infra/2026-09-19_1000/report.json")
+    assert not _git_ignora(tmp_path, "docs/infra/config.toml")
+
+
+def test_ignorar_substitui_a_forma_antiga_que_engole_a_pasta_inteira(tmp_path, monkeypatch):
+    """`docs/infra/` ignora o diretório: o git nem entra nele, e a negação não salva o
+    config.toml. A linha antiga precisa sair, não conviver."""
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    (tmp_path / ".gitignore").write_text("node_modules/\ndocs/infra/\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    configurar.main(["ignorar", "--repo", str(tmp_path), "--pasta", "docs/infra"])
+    texto = (tmp_path / ".gitignore").read_text(encoding="utf-8")
+
+    assert "docs/infra/\n" not in texto and "docs/infra/*" in texto
+    assert "node_modules/" in texto, "o que já estava no .gitignore continua"
+    assert not _git_ignora(tmp_path, "docs/infra/config.toml")
+
+
+def test_ignorar_e_idempotente(tmp_path, monkeypatch):
+    import subprocess
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+
+    configurar.main(["ignorar", "--repo", str(tmp_path), "--pasta", "docs/infra"])
+    primeiro = (tmp_path / ".gitignore").read_text(encoding="utf-8")
+    configurar.main(["ignorar", "--repo", str(tmp_path), "--pasta", "docs/infra"])
+
+    assert (tmp_path / ".gitignore").read_text(encoding="utf-8") == primeiro
+
+
+def test_aceitar_grava_no_config_do_projeto_em_docs_infra(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    codigo = configurar.main(["aceitar", "--alvo", "cluster", "--regra", "spof",
+                              "--motivo", "failover manual", "--desde", "2026-09-19"])
+    destino = tmp_path / "docs" / "infra" / "config.toml"
+
+    assert codigo == 0
+    assert "[[aceite]]" in destino.read_text(encoding="utf-8")
