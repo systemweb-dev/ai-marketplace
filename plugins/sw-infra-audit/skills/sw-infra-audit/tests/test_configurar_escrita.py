@@ -79,3 +79,66 @@ def test_ignorar_acrescenta_a_pasta_no_gitignore_uma_vez_so(tmp_path):
 
     assert texto.count("docs/infra/") == 1
     assert "node_modules/" in texto
+
+
+def test_sugerir_roda_todo_comando_no_context_pedido(monkeypatch):
+    """A proposta lê o cluster ESCOLHIDO. Sem passar o context ao runner, ela leria o daemon
+    local e ofereceria as métricas da máquina de quem rodou como se fossem as do cluster."""
+    import json
+    from lib.coletores import docker as docker_mod
+    chamadas = []
+
+    def falso_run(cmd, timeout, errors=None, context=None):
+        chamadas.append((list(cmd), context))
+        if cmd[1:3] == ["context", "inspect"]:
+            return json.dumps([{"Endpoints": {"docker": {"Host": "tcp://198.51.100.10:2376"}}}])
+        return None
+
+    monkeypatch.setattr(configurar, "run", falso_run)
+    monkeypatch.setattr(docker_mod, "run", falso_run)
+
+    candidatos = configurar.candidatos_de_metricas("prod")
+
+    assert isinstance(candidatos, list)                  # não estoura no meio do caminho
+    assert chamadas, "nenhum comando docker chegou a rodar"
+    assert {context for _, context in chamadas} == {"prod"}
+
+
+def test_sugerir_sem_host_no_context_nao_quebra_a_impressao(capsys, monkeypatch):
+    """Endpoint sem host (socket local) faz a URL vir vazia — imprimir isso não pode estourar."""
+    monkeypatch.setattr(configurar, "candidatos_de_metricas",
+                        lambda context: [{"url": None, "por_que": "prometheus sem porta publicada"}])
+
+    codigo = configurar.main(["alvos", "--sugerir", "--context", "local"])
+
+    assert codigo == 0
+    assert "prometheus sem porta publicada" in capsys.readouterr().out
+
+
+def test_aceitar_nunca_grava_data_que_nao_existe(tmp_path):
+    """31/03 + 6 meses = 30/09. Gravar "2026-09-31" fazia a PRÓXIMA auditoria morrer ao ler
+    o aceite — o registro de risco derrubando a auditoria que ele deveria explicar."""
+    from datetime import date
+    projeto = tmp_path / ".sw-infra-audit.toml"
+
+    codigo = configurar.main(["aceitar", "--projeto", str(projeto), "--alvo", "cluster",
+                              "--regra", "spof", "--motivo", "banco legado",
+                              "--desde", "2026-03-31", "--meses", "6"])
+    texto = projeto.read_text(encoding="utf-8")
+
+    assert codigo == 0
+    assert 'revisar_em = "2026-09-30"' in texto
+    for linha in texto.splitlines():                      # toda data do bloco é uma data de verdade
+        if linha.startswith(("desde", "revisar_em")):
+            date.fromisoformat(linha.split('"')[1])
+
+
+def test_aceitar_recusa_desde_que_nao_e_data(tmp_path, capsys):
+    projeto = tmp_path / ".sw-infra-audit.toml"
+
+    codigo = configurar.main(["aceitar", "--projeto", str(projeto), "--alvo", "cluster",
+                              "--regra", "spof", "--motivo", "x", "--desde", "31/03/2026"])
+
+    assert codigo == 2
+    assert "AAAA-MM-DD" in capsys.readouterr().err
+    assert not projeto.exists(), "arquivo do projeto não pode ser tocado quando a entrada é inválida"

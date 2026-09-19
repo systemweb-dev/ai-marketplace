@@ -153,8 +153,12 @@ def main(argv=None, coletores=None) -> int:
         relatorio["alvos"].append(registro)
 
     from lib import aceites as aceites_mod
-    relatorio["aceites"] = aceites_mod.aplicar(relatorio["alvos"], cfg.aceites(),
-                                               hoje=args.at[:10])
+    try:
+        relatorio["aceites"] = aceites_mod.aplicar(relatorio["alvos"], cfg.aceites(),
+                                                   hoje=args.at[:10])
+    except ValueError as erro:        # aceite mal escrito: dizer qual linha arrumar, não um traceback
+        print(f"aceite inválido: {erro}", file=sys.stderr)
+        return EXIT_PARADA
     relatorio = report_mod.ordenar(relatorio)
     relatorio["inventario"] = report_mod.montar_inventario(relatorio)
 

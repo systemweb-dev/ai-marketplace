@@ -42,3 +42,35 @@ def test_docker_ausente_vira_none(monkeypatch):
         raise FileNotFoundError("docker")
     monkeypatch.setattr("lib.runner.subprocess.run", boom)
     assert run(["docker", "info"], timeout=1) is None
+
+
+def test_docker_host_do_ambiente_nao_sequestra_o_alvo(monkeypatch):
+    """No docker, DOCKER_HOST tem precedência sobre DOCKER_CONTEXT. Herdá-lo faria a coleta
+    falar com outra máquina enquanto o relatório assina com o nome do alvo confirmado."""
+    monkeypatch.setenv("DOCKER_HOST", "tcp://198.51.100.99:2376")
+    monkeypatch.setenv("DOCKER_TLS_VERIFY", "1")
+    monkeypatch.setenv("DOCKER_CERT_PATH", "/tmp/certs")
+
+    with mock.patch("lib.runner.subprocess.run") as m:
+        m.return_value = mock.Mock(stdout="{}", returncode=0)
+        run(["docker", "info"], timeout=5, context="prod")
+        env = m.call_args.kwargs["env"]
+
+    assert env["DOCKER_CONTEXT"] == "prod"
+    assert not {"DOCKER_HOST", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"} & set(env)
+
+
+def test_sem_context_o_ambiente_tambem_nao_escolhe_cluster(monkeypatch):
+    """Comando sem alvo (ex.: `context ls`) é sobre a máquina local — o ambiente não pode
+    redirecioná-lo para um daemon remoto sem ninguém ver."""
+    import os
+    monkeypatch.setenv("DOCKER_HOST", "tcp://198.51.100.99:2376")
+    monkeypatch.setenv("DOCKER_CONTEXT", "outro")
+
+    with mock.patch("lib.runner.subprocess.run") as m:
+        m.return_value = mock.Mock(stdout="{}", returncode=0)
+        run(["docker", "context", "ls"], timeout=5)
+        env = m.call_args.kwargs["env"]
+
+    assert not {"DOCKER_HOST", "DOCKER_CONTEXT"} & set(env)
+    assert env.get("PATH") == os.environ.get("PATH"), "o resto do ambiente continua de pé"

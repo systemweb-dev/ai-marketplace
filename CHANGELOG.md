@@ -7,6 +7,21 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-infra-audit` (v0.1.1): quatro achados do code review, todos com teste de regressão.
+  - `DOCKER_HOST` herdado do shell anulava o `DOCKER_CONTEXT` do alvo (ele tem precedência no
+    docker): a coleta falaria com outra máquina e o relatório assinaria com o nome do alvo
+    confirmado. O ambiente do processo filho agora sai sem `DOCKER_HOST`, `DOCKER_CONTEXT`,
+    `DOCKER_TLS_VERIFY` e `DOCKER_CERT_PATH`, e recebe só o context do alvo.
+  - `configurar.py alvos --sugerir` estourava `TypeError` em toda execução (chamava
+    `assemble_report` com um parâmetro inexistente) — e, depois disso, lia o daemon **local**
+    em vez do context pedido. Agora todo comando da proposta leva o context, e o host vem do
+    endpoint do próprio context.
+  - `configurar.py aceitar` gravava data impossível quando o mês de destino é mais curto
+    (31/03 + 6 meses virava "2026-09-31"), e a auditoria seguinte morria com traceback ao ler
+    o aceite. A data gruda no último dia do mês, `--desde` inválido é recusado antes de escrever,
+    e o `collect.py` para com mensagem — nunca com traceback — diante de aceite mal escrito.
+
 ### Removido
 - `sw-cluster-audit` (era v0.10.1): substituída pela `sw-infra-audit`. O `report.json` v1 não é
   lido nem comparado pelo v2 — auditorias antigas ficam onde estão, como histórico.

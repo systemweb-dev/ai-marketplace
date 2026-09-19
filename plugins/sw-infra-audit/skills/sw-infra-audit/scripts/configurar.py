@@ -16,9 +16,6 @@ EXIT_OK, EXIT_ERRO = 0, 2
 # o alvos.toml não deveria ter segredo, mas se alguém colar um, não é aqui que ele vaza
 PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
 
-# o alvos.toml não deveria ter segredo, mas se alguém colar um, não é aqui que ele vaza
-PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
-
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
 INFRA_PADRAO = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
 PROJETO_PADRAO = Path(".sw-infra-audit.toml")
@@ -59,6 +56,7 @@ def explicar(args) -> int:
     return EXIT_OK
 
 
+from calendar import monthrange
 from datetime import date
 from lib.runner import run
 
@@ -95,15 +93,27 @@ def migrar(args) -> int:
     return EXIT_OK
 
 
+def revisar_em(desde, meses):
+    """`desde` mais `meses`, grudando no último dia quando o mês de destino é mais curto:
+    31/03 + 6 meses = 30/09, nunca "31/09". Data que não existe no calendário faz a auditoria
+    seguinte morrer ao ler o aceite — o registro do risco derrubando quem ele deveria explicar."""
+    inicio = date.fromisoformat(desde)
+    corrido = inicio.month - 1 + meses
+    ano, mes = inicio.year + corrido // 12, corrido % 12 + 1
+    return date(ano, mes, min(inicio.day, monthrange(ano, mes)[1])).isoformat()
+
+
 def aceitar(args) -> int:
     if not (args.motivo or "").strip():
         print("aceitar exige --motivo: aceite sem justificativa é achado escondido.", file=sys.stderr)
         return EXIT_ERRO
     projeto = Path(args.projeto) if args.projeto else PROJETO_PADRAO
     desde = args.desde or date.today().isoformat()
-    ano, mes, dia = (int(p) for p in desde.split("-"))
-    mes_final = mes + args.meses
-    revisar = f"{ano + (mes_final - 1) // 12:04d}-{(mes_final - 1) % 12 + 1:02d}-{dia:02d}"
+    try:                                    # antes de tocar no arquivo: entrada ruim não escreve
+        revisar = revisar_em(desde, args.meses)
+    except ValueError:
+        print(f"--desde precisa ser uma data AAAA-MM-DD, veio {desde!r}", file=sys.stderr)
+        return EXIT_ERRO
     bloco = ["", "[[aceite]]", f'alvo = "{args.alvo}"', f'regra = "{args.regra}"',
              f'motivo = "{args.motivo.strip()}"', f'desde = "{desde}"', f'revisar_em = "{revisar}"']
     if args.objeto:
@@ -115,14 +125,20 @@ def aceitar(args) -> int:
 
 
 def candidatos_de_metricas(context):
-    """Usa a descoberta que já existe para PROPOR uma `metricas_url` — sem alcançar host nenhum."""
+    """Usa a descoberta que já existe para PROPOR uma `metricas_url` — sem alcançar host nenhum.
+
+    Todo comando leva o context pedido: sem isso, a proposta sairia do daemon LOCAL e ofereceria
+    as métricas da máquina de quem rodou como se fossem as do cluster.
+    """
     from lib import discover
-    from lib.coletores.docker import assemble_report
-    bruto = assemble_report(run_fn=lambda cmd, timeout, errors=None: run(cmd, timeout, errors),
-                            timeout=10, context=context, generated_at="", connected_node=None,
-                            metrics_url=None)
-    host = discover.host_from_context_endpoint((bruto.get("scope") or {}).get("endpoint", ""))
-    return discover.propose(bruto, host)
+    from lib.coletores.docker import assemble_report, host_from_context
+
+    def rodar(cmd, timeout, errors=None):
+        return run(cmd, timeout, errors, context=context)
+
+    bruto = assemble_report(run_fn=rodar, timeout=10, context=context,
+                            generated_at="", connected_node=None)
+    return discover.propose(bruto, host_from_context(context, 10))
 
 
 def sugerir(args) -> int:
@@ -132,7 +148,9 @@ def sugerir(args) -> int:
         return EXIT_OK
     print("candidatos para `metricas_url` (cole no alvos.toml o que fizer sentido):")
     for candidato in achados:
-        print(f"  {candidato['url']:<48} {candidato['por_que']}")
+        # sem host no endpoint (socket local) a URL não existe — dizer isso é melhor que estourar
+        url = candidato["url"] or "(sem host no endpoint deste context)"
+        print(f"  {url:<48} {candidato['por_que']}")
     return EXIT_OK
 
 

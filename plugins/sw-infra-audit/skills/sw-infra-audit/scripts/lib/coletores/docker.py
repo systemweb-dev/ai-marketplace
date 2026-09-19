@@ -274,7 +274,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
 
 def host_from_context(ctx, timeout):
     """Descobre o host do cluster pelo endpoint do context (pra propor URLs de métricas)."""
-    out = run(["docker", "context", "inspect", ctx], timeout)
+    out = run(["docker", "context", "inspect", ctx], timeout, context=ctx)
     try:
         data = json.loads(out)[0] if out else {}
         endpoint = ((data.get("Endpoints") or {}).get("docker") or {}).get("Host")

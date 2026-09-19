@@ -3,11 +3,30 @@
 O cluster é escolhido por `DOCKER_CONTEXT` no ambiente **do processo filho** — a flag
 `--context`/`-H` do docker é bloqueada pela allowlist, e mexer no `os.environ` da skill
 vazaria a seleção para o alvo seguinte.
+
+E o ambiente herdado é limpo antes: no docker, `DOCKER_HOST` tem PRECEDÊNCIA sobre
+`DOCKER_CONTEXT`. Um `DOCKER_HOST` exportado no shell mandaria a coleta para outra máquina
+enquanto o relatório assinaria com o nome do alvo confirmado — o gate `--confirmar` viraria
+enfeite. `DOCKER_TLS_VERIFY`/`DOCKER_CERT_PATH` andam com ele; ficar com o do shell faria a
+conexão usar o certificado errado.
 """
 import os
 import subprocess
 
 from lib.coletores.docker_allowlist import check
+
+# variáveis que escolhem COM QUEM falar: quem decide isso é o alvo, nunca o shell de quem roda
+ESCOLHEM_O_DAEMON = ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH")
+
+
+def ambiente(context):
+    """O ambiente do processo filho: o seu, sem as variáveis que escolhem daemon, mais o
+    context do alvo (quando há um). Sem context, o comando é sobre a máquina local."""
+    env = {chave: valor for chave, valor in os.environ.items()
+           if chave not in ESCOLHEM_O_DAEMON}
+    if context:
+        env["DOCKER_CONTEXT"] = context
+    return env
 
 
 def run(cmd, timeout, errors=None, context=None):
@@ -20,7 +39,7 @@ def run(cmd, timeout, errors=None, context=None):
     """
     check(cmd)  # levanta NotAllowed antes de tocar no subprocess
     label = " ".join(cmd[:3])
-    env = {**os.environ, "DOCKER_CONTEXT": context} if context else None
+    env = ambiente(context)
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=False,
                            env=env)

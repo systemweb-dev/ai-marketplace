@@ -297,3 +297,18 @@ def test_sem_registro_explicito_a_skill_usa_os_coletores_de_verdade(tmp_path, mo
     assert "sem coletor" not in motivos, motivos
     assert "não consegui alcançar" in motivos, "o coletor http rodou de verdade e não alcançou"
 
+
+
+def test_aceite_com_data_impossivel_para_a_auditoria_com_mensagem(tmp_path, capsys):
+    """Data inválida no aceite não pode virar traceback: o usuário precisa saber QUAL linha
+    arrumar, e a auditoria para antes de gravar um relatório pela metade."""
+    projeto = ('alvos = ["cluster"]\n\n[[aceite]]\nalvo = "cluster"\nregra = "r1"\n'
+               'motivo = "risco assumido"\ndesde = "2026-03-31"\nrevisar_em = "2026-09-31"\n')
+    coletores = {"docker": coletor_falso([]), "http": coletor_falso([])}
+
+    codigo = collect.main([*ambiente(tmp_path, projeto=projeto), "--confirmar", "cluster"],
+                          coletores=coletores)
+
+    assert codigo == 2
+    assert "2026-09-31" in capsys.readouterr().err
+    assert not (tmp_path / "saida" / "report.json").exists()
