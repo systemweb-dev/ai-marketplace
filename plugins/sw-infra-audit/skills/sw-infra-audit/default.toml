@@ -1,0 +1,16 @@
+# Padrões da sw-infra-audit. Não edite este arquivo: o que você quer diferente vai no
+# ~/.config/sw-infra-audit/alvos.toml (infra) ou no .sw-infra-audit.toml do projeto.
+# Serve também de documentação: tudo que dá para ajustar está aqui, com o valor de fábrica.
+
+[relatorio]
+pasta = "docs/infra"          # onde o relatório é gravado, dentro do projeto
+ignorar_em = "gitignore"      # "gitignore" (vale para o time) ou "exclude" (só sua máquina)
+formato = "html"              # "html" ou "html+pdf"
+
+[limites]
+timeout_por_comando = 20      # segundos por comando de coleta
+orcamento_por_alvo = 120      # segundos por alvo; o que passar disso vira "sem dados"
+http_timeout = 8              # segundos por requisição do coletor http
+
+[historico]
+comparar_com_anterior = true  # diff contra a execução anterior de schema 2

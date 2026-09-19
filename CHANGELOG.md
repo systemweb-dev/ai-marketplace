@@ -7,6 +7,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Removido
+- `sw-cluster-audit` (era v0.10.1): substituída pela `sw-infra-audit`. O `report.json` v1 não é
+  lido nem comparado pelo v2 — auditorias antigas ficam onde estão, como histórico.
+
 ### Alterado
 - `sw-plan` (v0.5.0): ao concluir tasks que mexeram em teste, oferece o diagnóstico da
   `sw-auto-test`.
@@ -29,6 +33,21 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   O dossiê do `sw-cluster-audit` foi migrado com `git mv` (histórico preservado).
 
 ### Adicionado
+- `sw-infra-audit` (v0.1.0): **a auditoria deixa de ser de um cluster e passa a ser por ALVOS**.
+  Substitui a `sw-cluster-audit`, que sai do marketplace. Na v1 os alvos são cluster Docker e
+  endpoint HTTP (saúde + validade do certificado); banco de dados é o próximo ciclo. O relatório
+  (`report.json` v2) abre pelo **inventário** — o que existe, onde vive e em que estado —, tem nota
+  por alvo e **nenhuma nota agregada**, porque número único de saúde vira meta e meta vira teatro.
+  Configuração em três camadas: padrões da skill < `~/.config/sw-infra-audit/alvos.toml` (fora de
+  qualquer repositório) < `.sw-infra-audit.toml` do projeto (versionado). **O arquivo versionado não
+  define conexão**: host, porta, usuário e credencial só existem na máquina do dono — um arquivo
+  vindo de pull request não redireciona conexão nem credencial. Toda execução exige confirmação
+  explícita dos alvos, e alvo não confirmado não é tocado (mas aparece como `sem dados`, para o
+  inventário não mentir por omissão). Risco já decidido vira **aceite** com justificativa e data de
+  revisão: sai da nota, ganha seção própria, e volta a contar quando vence. Falha de acesso é
+  `nao_coletado` com motivo, nunca achado. Quatro restrições com teste e provadas por mutação:
+  auditar não escreve fora da pasta da execução, nada executa sem confirmação, nenhum segredo chega
+  ao relatório, e mesmas entradas geram o mesmo relatório byte a byte.
 - `sw-auto-test` (v0.1.0): **publicada, com um modo novo de diagnóstico da suíte de testes**.
   Além de gerar testes, ela agora avalia os que já existem: apura os fatos com a ferramenta nativa
   da stack (pytest, vitest/jest, phpunit), o agente julga só os arquivos suspeitos, e sai um

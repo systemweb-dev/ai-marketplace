@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Modo configurar: o único que escreve fora da pasta do relatório.
+
+Nesta versão: `config --explicar`. `migrar` e `aceitar` entram na Task 12.
+"""
+import argparse
+import re
+import sys
+from pathlib import Path
+
+from lib import alvos as alvos_mod
+from lib.config import ConfigInvalida, carregar
+
+EXIT_OK, EXIT_ERRO = 0, 2
+
+# o alvos.toml não deveria ter segredo, mas se alguém colar um, não é aqui que ele vaza
+PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
+
+# o alvos.toml não deveria ter segredo, mas se alguém colar um, não é aqui que ele vaza
+PARECE_SEGREDO = re.compile(r"senha|password|token|secret|pass|key|credential", re.IGNORECASE)
+
+PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
+INFRA_PADRAO = Path.home() / ".config" / "sw-infra-audit" / "alvos.toml"
+PROJETO_PADRAO = Path(".sw-infra-audit.toml")
+
+
+def _caminhos(args):
+    return (Path(args.padrao) if args.padrao else PADRAO_DA_SKILL,
+            Path(args.infra) if args.infra else INFRA_PADRAO,
+            Path(args.projeto) if args.projeto else PROJETO_PADRAO)
+
+
+def explicar(args) -> int:
+    padrao, infra, projeto = _caminhos(args)
+    try:
+        cfg = carregar(padrao=padrao, infra=infra, projeto=projeto)
+        declarados, avisos = alvos_mod.ler(infra)
+    except (ConfigInvalida, alvos_mod.AlvoInvalido) as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_ERRO
+
+    print(f"padrão:  {padrao}\ninfra:   {infra}\nprojeto: {projeto}\n")
+    print("chave                                valor                origem")
+    for chave, valor, origem in cfg.explicar():
+        mostrado = "***" if PARECE_SEGREDO.search(chave) else str(valor)
+        print(f"{chave:<36} {mostrado:<20} {origem}")
+    escolhidos = cfg.alvos_escolhidos()
+    print("\nalvos declarados na infra:")
+    for alvo in declarados:
+        marca = "•" if not escolhidos or alvo["nome"] in escolhidos else " "
+        print(f" {marca} {alvo['nome']:<24} {alvo['tipo']}")
+    if escolhidos:
+        print(f"\nescolhidos por este projeto: {', '.join(escolhidos)}")
+    for aceite in cfg.aceites():
+        print(f"aceite ({aceite['origem']}): {aceite.get('alvo')} · {aceite.get('regra')} · "
+              f"revisar em {aceite.get('revisar_em')}")
+    for aviso in avisos:
+        print(f"aviso: {aviso}")
+    return EXIT_OK
+
+
+from datetime import date
+from lib.runner import run
+
+
+def contexts_docker():
+    """Lista os contexts para a migração. Só leitura, pelo runner."""
+    import json as _json
+    saida = run(["docker", "context", "ls", "--format", "{{json .}}"], timeout=10)
+    achados = []
+    for linha in saida.splitlines():
+        if not linha.strip():
+            continue
+        dados = _json.loads(linha)
+        achados.append({"nome": dados.get("Name"), "endpoint": dados.get("DockerEndpoint", "")})
+    return achados
+
+
+def migrar(args) -> int:
+    destino = Path(args.infra) if args.infra else INFRA_PADRAO
+    if destino.exists():
+        print(f"{destino} já existe — não sobrescrevo. Acrescente os alvos à mão, ou aponte "
+              f"--infra para outro caminho.", file=sys.stderr)
+        return EXIT_ERRO
+    linhas = ["# Alvos da sw-infra-audit. Este arquivo fica FORA de qualquer repositório.",
+              "# A senha nunca vem aqui: declare o NOME da variável de ambiente em senha_env.", ""]
+    for ctx in contexts_docker():
+        linhas += ["[[alvo]]", f'nome = "{ctx["nome"]}"', 'tipo = "docker"',
+                   f'context = "{ctx["nome"]}"',
+                   "# metricas_url = \"http://host:9090\"   # opcional; veja `alvos --sugerir`", ""]
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text("\n".join(linhas), encoding="utf-8")
+    destino.chmod(0o600)
+    print(f"{destino} criado com {len(contexts_docker())} alvo(s) docker. Revise antes de auditar.")
+    return EXIT_OK
+
+
+def aceitar(args) -> int:
+    if not (args.motivo or "").strip():
+        print("aceitar exige --motivo: aceite sem justificativa é achado escondido.", file=sys.stderr)
+        return EXIT_ERRO
+    projeto = Path(args.projeto) if args.projeto else PROJETO_PADRAO
+    desde = args.desde or date.today().isoformat()
+    ano, mes, dia = (int(p) for p in desde.split("-"))
+    mes_final = mes + args.meses
+    revisar = f"{ano + (mes_final - 1) // 12:04d}-{(mes_final - 1) % 12 + 1:02d}-{dia:02d}"
+    bloco = ["", "[[aceite]]", f'alvo = "{args.alvo}"', f'regra = "{args.regra}"',
+             f'motivo = "{args.motivo.strip()}"', f'desde = "{desde}"', f'revisar_em = "{revisar}"']
+    if args.objeto:
+        bloco.insert(3, f'objeto = "{args.objeto}"')
+    atual = projeto.read_text(encoding="utf-8") if projeto.exists() else ""
+    projeto.write_text(atual.rstrip("\n") + "\n" + "\n".join(bloco) + "\n", encoding="utf-8")
+    print(f"aceite registrado em {projeto} · revisar em {revisar}")
+    return EXIT_OK
+
+
+def candidatos_de_metricas(context):
+    """Usa a descoberta que já existe para PROPOR uma `metricas_url` — sem alcançar host nenhum."""
+    from lib import discover
+    from lib.coletores.docker import assemble_report
+    bruto = assemble_report(run_fn=lambda cmd, timeout, errors=None: run(cmd, timeout, errors),
+                            timeout=10, context=context, generated_at="", connected_node=None,
+                            metrics_url=None)
+    host = discover.host_from_context_endpoint((bruto.get("scope") or {}).get("endpoint", ""))
+    return discover.propose(bruto, host)
+
+
+def sugerir(args) -> int:
+    achados = candidatos_de_metricas(args.context)
+    if not achados:
+        print("nenhum candidato a métricas encontrado neste context")
+        return EXIT_OK
+    print("candidatos para `metricas_url` (cole no alvos.toml o que fizer sentido):")
+    for candidato in achados:
+        print(f"  {candidato['url']:<48} {candidato['por_que']}")
+    return EXIT_OK
+
+
+def ignorar(args) -> int:
+    """Põe a pasta do relatório no .gitignore. É escrita em arquivo versionado: por isso mora aqui,
+    no modo configurar, e não no modo auditar."""
+    repo = Path(args.repo)
+    linha = args.pasta.rstrip("/") + "/"
+    gi = repo / ".gitignore"
+    atual = gi.read_text(encoding="utf-8") if gi.exists() else ""
+    if linha in atual.splitlines():
+        print(f"{linha} já está no .gitignore")
+        return EXIT_OK
+    gi.write_text(atual.rstrip("\n") + ("\n" if atual else "") + linha + "\n", encoding="utf-8")
+    print(f"{linha} acrescentado ao .gitignore")
+    return EXIT_OK
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Configuração da sw-infra-audit.")
+    sub = ap.add_subparsers(dest="comando", required=True)
+    cfg = sub.add_parser("config", help="inspecionar a configuração efetiva")
+    cfg.add_argument("--explicar", action="store_true", required=True)
+    for parser in (cfg,):
+        parser.add_argument("--padrao", default=None)
+        parser.add_argument("--infra", default=None)
+        parser.add_argument("--projeto", default=None)
+    mig = sub.add_parser("migrar", help="cria o primeiro alvos.toml a partir dos contexts docker")
+    mig.add_argument("--infra", default=None)
+
+    ace = sub.add_parser("aceitar", help="registra um risco aceito no arquivo do projeto")
+    ace.add_argument("--projeto", default=None)
+    ace.add_argument("--alvo", required=True)
+    ace.add_argument("--regra", required=True)
+    ace.add_argument("--objeto", default=None)
+    ace.add_argument("--motivo", required=True)
+    ace.add_argument("--desde", default=None)
+    ace.add_argument("--meses", type=int, default=6, help="prazo até a revisão (padrão: 6 meses)")
+
+    alv = sub.add_parser("alvos", help="inspecionar e propor valores para os alvos")
+    alv.add_argument("--sugerir", action="store_true", required=True)
+    alv.add_argument("--context", required=True, help="context docker de onde partir")
+
+    ign = sub.add_parser("ignorar", help="põe a pasta do relatório no .gitignore")
+    ign.add_argument("--repo", default=".")
+    ign.add_argument("--pasta", default="docs/infra")
+
+    args = ap.parse_args(argv)
+    return {"config": explicar, "migrar": migrar, "aceitar": aceitar, "alvos": sugerir,
+            "ignorar": ignorar}[args.comando](args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
