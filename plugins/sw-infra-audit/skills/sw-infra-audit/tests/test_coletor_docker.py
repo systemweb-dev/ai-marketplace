@@ -159,3 +159,52 @@ def test_coletor_passa_o_context_do_alvo_para_o_runner(monkeypatch):
                     {"timeout": 5, "orcamento": 10, "at": ""})
 
     assert vistos["context"] == "prod"
+
+
+def test_cada_servico_vira_componente_com_o_papel_da_imagem(monkeypatch):
+    """O inventário do cluster já sabe o que é cada serviço; o papel é o que decide quais
+    perguntas ele recebe."""
+    bruto = dict(BRUTO)
+    bruto["services"] = [{"name": "traefik", "image": "traefik:v3"},
+                         {"name": "postgres_principal", "image": "postgres:16"},
+                         {"name": "api", "image": "registro.interno/api:1.2"}]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx"},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    papeis = {c["nome"]: c["papel"] for c in bloco["componentes"]}
+    assert papeis == {"traefik": "entrada", "postgres_principal": "banco", "api": "app"}
+
+
+def test_componente_herda_a_url_de_metricas_do_alvo_e_o_declarado_vence(monkeypatch):
+    bruto = dict(BRUTO)
+    bruto["services"] = [{"name": "traefik", "image": "traefik:v3"},
+                         {"name": "api", "image": "api:1"}]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+    monkeypatch.setattr(coletor.enrich, "probe", lambda *a, **k: False)
+    monkeypatch.setattr(coletor.enrich, "probe_exporter", lambda *a, **k: False)
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
+                             "metricas_url": "http://127.0.0.1:9090",
+                             "componente": [{"nome": "api", "papel": "entrada",
+                                             "metricas_url": "http://127.0.0.1:9091"}]},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    por_nome = {c["nome"]: c for c in bloco["componentes"]}
+    assert por_nome["traefik"]["metricas_url"] == "http://127.0.0.1:9090"
+    assert por_nome["api"]["metricas_url"] == "http://127.0.0.1:9091"
+    assert por_nome["api"]["papel"] == "entrada", "o papel declarado vence o da imagem"
+
+
+def test_o_impacto_calculado_chega_ao_relatorio(monkeypatch):
+    """`impact.build` roda desde sempre e o resultado era descartado: a chave não estava na
+    lista copiada para `fatos`."""
+    bruto = dict(BRUTO)
+    bruto["impact_points"] = [{"titulo": "Proxy é ponto único"}]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx"},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    assert bloco["fatos"]["impact_points"] == [{"titulo": "Proxy é ponto único"}]

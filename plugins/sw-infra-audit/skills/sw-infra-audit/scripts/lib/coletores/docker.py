@@ -334,8 +334,30 @@ def coletar(alvo, contexto):
                for f in bruto.get("findings", [])]
     fatos = {chave: bruto.get(chave) for chave in
              ("nodes", "services", "networks", "secrets", "configs", "stacks", "tls", "scope",
-              "runtime")
+              "runtime", "impact_points")
              if bruto.get(chave) is not None}
+
+    # cada serviço vira um componente: é o papel dele que decide quais perguntas ele recebe.
+    # O que o alvo declarou vence o que a imagem sugere — imagem mente (fork, tag genérica).
+    from lib.papel import papel_de
+
+    declarados = {c["nome"]: c for c in alvo.get("componente", [])}
+    componentes = []
+    for servico in bruto.get("services", []):
+        nome = servico.get("name")
+        if not nome:
+            continue
+        declarado = declarados.get(nome, {})
+        componente = report_mod.novo_componente(
+            nome, papel_de(detect_kind(servico.get("image")), declarado.get("papel")))
+        endereco = declarado.get("metricas_url") or alvo.get("metricas_url")
+        if endereco:
+            componente["metricas_url"] = endereco
+        if declarado.get("admin_url"):
+            componente["admin_url"] = declarado["admin_url"]
+        if declarado.get("senha_env"):
+            componente["senha_env"] = declarado["senha_env"]
+        componentes.append(componente)
 
     # o que o miolo não conseguiu ver precisa chegar ao relatório, senão "sem achados" mente
     for item in bruto.get("not_collected", []):
@@ -348,7 +370,8 @@ def coletar(alvo, contexto):
 
     return {"saude": SAUDE_POR_VEREDITO.get((bruto.get("health") or {}).get("verdict"), "sem dados"),
             "dimensoes": bruto.get("dimensions", {}),
-            "fatos": fatos, "achados": achados, "nao_coletado": nao_coletado}
+            "fatos": fatos, "achados": achados, "componentes": componentes,
+            "nao_coletado": nao_coletado}
 
 
 def _first_json(out):

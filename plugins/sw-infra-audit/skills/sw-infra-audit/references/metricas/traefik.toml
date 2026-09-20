@@ -1,0 +1,30 @@
+# Família de exporter: o proxy Traefik. Identificada pela série que só ele publica — não pelo
+# nome da imagem, que mente com frequência (fork, imagem interna, tag genérica).
+familia = "traefik"
+prioridade = 30
+
+[identificacao]
+metrica_presente = "traefik_service_requests_total"
+
+[seletor]
+# Qual etiqueta carrega a identidade do COMPONENTE. Aqui é `job` (o alvo de scrape do proxy):
+# `service` no Traefik identifica o BACKEND, com valor tipo `app@docker` — filtrar por ele
+# devolveria vazio para o proxy, e vazio silencioso é pior que número errado.
+etiqueta = "job"
+
+[[pergunta]]
+id = "entrada.volume_na_janela"
+query = 'sum(increase(traefik_service_requests_total{%SELETOR%}[%JANELA%]))'
+valor = "inteiro"
+
+[[pergunta]]
+id = "entrada.distribuicao_de_status"
+query = 'sum by (code) (increase(traefik_service_requests_total{%SELETOR%}[%JANELA%]))'
+chave = "code"
+valor = "inteiro"
+desempate = "chave"
+
+[[pergunta]]
+id = "entrada.latencia"
+query = 'histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{%SELETOR%}[%JANELA%]))) * 1000'
+valor = "decimal"

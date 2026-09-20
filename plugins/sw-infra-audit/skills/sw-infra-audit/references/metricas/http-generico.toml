@@ -1,0 +1,29 @@
+# O padrão de facto das bibliotecas de instrumentação (client_golang, prometheus-client,
+# micrometer): http_requests_total + http_request_duration_seconds. É o que faz o papel
+# `entrada` funcionar em aplicação instrumentada, não só atrás de um proxy conhecido.
+# Prioridade mais alta (= menos específica) que a do Traefik: só vale quando ninguém melhor responde.
+familia = "http-generico"
+prioridade = 40
+
+[identificacao]
+metrica_presente = "http_requests_total"
+
+[seletor]
+etiqueta = "job"
+
+[[pergunta]]
+id = "entrada.volume_na_janela"
+query = 'sum(increase(http_requests_total{%SELETOR%}[%JANELA%]))'
+valor = "inteiro"
+
+[[pergunta]]
+id = "entrada.distribuicao_de_status"
+query = 'sum by (code) (increase(http_requests_total{%SELETOR%}[%JANELA%]))'
+chave = "code"
+valor = "inteiro"
+desempate = "chave"
+
+[[pergunta]]
+id = "entrada.latencia"
+query = 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{%SELETOR%}[%JANELA%]))) * 1000'
+valor = "decimal"

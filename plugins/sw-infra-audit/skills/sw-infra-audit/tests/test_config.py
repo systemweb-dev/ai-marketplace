@@ -311,3 +311,27 @@ def test_aceite_com_chave_errada_e_recusado(tmp_path):
     with pytest.raises(ConfigInvalida) as erro:
         carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
     assert "compomente" in str(erro.value)
+
+
+def test_limite_zero_nao_vira_o_padrao(tmp_path, monkeypatch):
+    """`cfg.valor(...) or 120` devolve 120 quando o dono escreveu 0 — o limite configurado
+    sumiria sem uma palavra. Zero é uma escolha, não ausência."""
+    import collect
+    (tmp_path / "default.toml").write_text(
+        '[limites]\ntimeout_por_comando = 0\norcamento_por_alvo = 0\n', encoding="utf-8")
+    (tmp_path / "alvos.toml").write_text(
+        '[[alvo]]\nnome = "site"\ntipo = "http"\nurl = "http://127.0.0.1:1/x"\n', encoding="utf-8")
+    (tmp_path / "config.toml").write_text('alvos = ["site"]\n', encoding="utf-8")
+    vistos = {}
+
+    def coletor(alvo, contexto):
+        vistos.update(contexto)
+        return {"saude": "🟢"}
+
+    collect.main(["--padrao", str(tmp_path / "default.toml"),
+                  "--infra", str(tmp_path / "alvos.toml"),
+                  "--projeto", str(tmp_path / "config.toml"),
+                  "--out", str(tmp_path / "saida"), "--at", "2026-09-19T10:00:00Z",
+                  "--confirmar", "site"], coletores={"http": coletor})
+
+    assert vistos["timeout"] == 0 and vistos["orcamento"] == 0

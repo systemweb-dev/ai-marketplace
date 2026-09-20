@@ -999,7 +999,7 @@ git commit -m "feat(sw-infra-audit): achado do componente sobe para o alvo, acei
 - Create: `references/metricas/traefik.toml`, `references/metricas/http-generico.toml`
 - Test: `tests/test_catalogo.py`
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_carrega_familia_com_identificacao_e_perguntas():
@@ -1048,9 +1048,9 @@ def test_pergunta_de_lista_sem_desempate_e_recusada(tmp_path):
         carregar_arquivo(tmp_path / "x.toml")
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `lib.catalogo` não existe.
+- [x] **Step 2: rodar e ver falhar** — `lib.catalogo` não existe.
 
-- [ ] **Step 3: escrever os arquivos de família**
+- [x] **Step 3: escrever os arquivos de família**
 
 `references/metricas/traefik.toml`:
 
@@ -1119,7 +1119,7 @@ valor = "decimal"
 unidade = "ms"
 ```
 
-- [ ] **Step 4: implementar o carregador**
+- [x] **Step 4: implementar o carregador**
 
 ```python
 """Carrega os arquivos de família de exporter — o conhecimento de produto que NÃO vira código.
@@ -1179,7 +1179,7 @@ def familias(pasta=PASTA):
     return sorted(carregadas, key=lambda f: (f["prioridade"], f["familia"]))
 ```
 
-- [ ] **Step 5: rodar** → PASS. **Step 6: commit**
+- [x] **Step 5: rodar** → PASS. **Step 6: commit**
 
 ```bash
 git add scripts/lib/catalogo.py references/metricas/ tests/test_catalogo.py
@@ -1194,7 +1194,7 @@ git commit -m "feat(sw-infra-audit): catalogo de familias de exporter em arquivo
 - Create: `scripts/lib/adaptadores/__init__.py`, `scripts/lib/adaptadores/promql.py`
 - Test: `tests/test_adaptador_promql.py`
 
-- [ ] **Step 1: escrever o teste que falha (integração, servidor local)**
+- [x] **Step 1: escrever o teste que falha (integração, servidor local)**
 
 ```python
 import json, threading, http.server, pytest
@@ -1288,9 +1288,9 @@ def test_sem_metricas_url_responde_sem_dados_com_motivo():
     assert "metricas_url" in resposta["motivo"]
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — o pacote `lib.adaptadores` não existe.
+- [x] **Step 2: rodar e ver falhar** — o pacote `lib.adaptadores` não existe.
 
-- [ ] **Step 3: implementar o adaptador**
+- [x] **Step 3: implementar o adaptador**
 
 ```python
 """Adaptador PromQL — o único que funciona sem credencial, e por isso o primeiro.
@@ -1416,19 +1416,19 @@ def todos():
             sorted(REGISTRO.items(), key=lambda par: (par[1]["prioridade"], par[0]))]
 ```
 
-- [ ] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_adaptador_promql.py -q` → PASS.
+- [x] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_adaptador_promql.py -q` → PASS.
 
-- [ ] **Step 5: prova por mutação do desempate**
+- [x] **Step 5: prova por mutação do desempate**
 
 Troque `itens.sort(key=lambda i: (-i["valor"], i["chave"]))` por `itens.sort(key=lambda i:
 -i["valor"])` e rode: `test_lista_empatada_sai_em_ordem_estavel` **tem** que falhar. Reverta.
 
-- [ ] **Step 6: a restrição de rede continua valendo**
+- [x] **Step 6: a restrição de rede continua valendo**
 
 Run: `.venv/bin/python -m pytest tests/test_restricoes.py -q`
 Expected: PASS — `promql.py` não importa `urllib`/`socket`; toda rede passa por `http_get`.
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add scripts/lib/adaptadores/ tests/test_adaptador_promql.py
@@ -1447,7 +1447,7 @@ git commit -m "feat(sw-infra-audit): adaptador promql com catalogo por familia"
 Hoje `collect.py` põe `orcamento` no contexto e **nenhum coletor lê**. Com perguntas por
 componente, uma fonte lenta seguraria a auditoria inteira.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_prazo_corta_a_pergunta_seguinte_sem_derrubar_a_coleta():
@@ -1469,9 +1469,9 @@ def test_timeout_da_pergunta_nunca_passa_do_que_sobra():
     assert prazo.timeout(pedido=20) == 5
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `lib.orcamento` não existe.
+- [x] **Step 2: rodar e ver falhar** — `lib.orcamento` não existe.
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 ```python
 """Prazo por alvo. Relógio monotônico, injetável para o teste não depender de dormir.
@@ -1502,7 +1502,7 @@ class Prazo:
         return "orçamento do alvo esgotado"
 ```
 
-- [ ] **Step 4: ligar no `collect.py`**
+- [x] **Step 4: ligar no `collect.py`**
 
 Dentro do laço de perguntas de cada componente (Task 12), antes de cada pergunta:
 
@@ -1514,7 +1514,7 @@ Dentro do laço de perguntas de cada componente (Task 12), antes de cada pergunt
         contexto_da_pergunta = dict(contexto, timeout=prazo.timeout(contexto["timeout"]))
 ```
 
-- [ ] **Step 5: rodar** → PASS. **Step 6: commit**
+- [x] **Step 5: rodar** → PASS. **Step 6: commit**
 
 ```bash
 git add scripts/lib/orcamento.py tests/test_orcamento.py
@@ -1529,7 +1529,7 @@ git commit -m "feat(sw-infra-audit): orcamento por alvo passa a valer"
 - Modify: `scripts/collect.py`, `scripts/lib/coletores/docker.py`
 - Test: `tests/test_collect_perguntas.py`
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_cada_componente_responde_as_perguntas_do_seu_papel(tmp_path):
@@ -1588,7 +1588,7 @@ def test_adaptador_que_estoura_nao_derruba_o_alvo(tmp_path):
     assert all(r.get("erro_interno") for r in alvo["componentes"][0]["respostas"])
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `main` ainda não aceita `adaptadores`.
+- [x] **Step 2: rodar e ver falhar** — `main` ainda não aceita `adaptadores`.
 
 > **Nota do juiz do lote 1 — a trava precisa de dente aqui.** Hoje os dois chamadores montam
 > `permitido = [destino(url)]`, ou seja, a allowlist é derivada da própria URL que vai ser
@@ -1596,7 +1596,7 @@ def test_adaptador_que_estoura_nao_derruba_o_alvo(tmp_path):
 > `responder()` deve passar a lista **declarada no alvo** (`metricas_url`/`admin_url` de cada
 > componente mais os do alvo), não a derivada. Sem isso, a Restrição 3 vale menos do que parece.
 
-- [ ] **Step 3: implementar em `collect.py`**
+- [x] **Step 3: implementar em `collect.py`**
 
 ```python
 def adaptadores_padrao():
@@ -1651,7 +1651,7 @@ def main(argv=None, coletores=None, adaptadores=None):
     contexto = {..., "janela": cfg.valor("insights.janela") or "24h"}
 ```
 
-- [ ] **Step 4: o coletor docker passa a devolver componentes — e o impacto para de sumir**
+- [x] **Step 4: o coletor docker passa a devolver componentes — e o impacto para de sumir**
 
 Em `scripts/lib/coletores/docker.py`, a allowlist de `fatos` ganha `impact_points`: hoje
 `impact.build(r)` roda e o resultado é jogado fora porque a chave não está na lista copiada.
@@ -1663,7 +1663,7 @@ Em `scripts/lib/coletores/docker.py`, a allowlist de `fatos` ganha `impact_point
              if bruto.get(chave) is not None}
 ```
 
-- [ ] **Step 5: o coletor docker monta os componentes**
+- [x] **Step 5: o coletor docker monta os componentes**
 
 Em `scripts/lib/coletores/docker.py`, no fim de `coletar`, monte a lista a partir dos serviços
 que o inventário já tem:
@@ -1686,9 +1686,9 @@ que o inventário já tem:
 
 e acrescente `"componentes": componentes` ao dicionário devolvido.
 
-- [ ] **Step 6: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
+- [x] **Step 6: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add scripts/collect.py scripts/lib/coletores/docker.py tests/test_collect_perguntas.py

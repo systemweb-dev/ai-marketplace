@@ -13,12 +13,53 @@ from pathlib import Path
 from lib import alvos as alvos_mod
 from lib import report as report_mod
 from lib.falhas import FalhaDeColeta
+from lib.orcamento import Prazo
 from lib.config import ConfigInvalida, caminho_do_projeto, caminho_dos_alvos, carregar,\
     exigir_pasta_protegida
 
 EXIT_OK, EXIT_PARADA = 0, 2
 
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
+
+
+def adaptadores_padrao():
+    """O registro de verdade. Importado aqui dentro para o módulo não puxar rede à toa — e
+    para o teste conseguir rodar com adaptadores falsos."""
+    from lib import adaptadores
+    return adaptadores.todos()
+
+
+def responder(componente, contexto, adaptadores, prazo):
+    """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
+
+    Cada pergunta tem o seu contorno: bug de adaptador vira `erro_interno` DAQUELA pergunta e a
+    coleta segue. Sem isso, uma pergunta quebrada apagaria o inventário inteiro do alvo.
+
+    A ordem dos adaptadores é a de especificidade: o primeiro que souber responder vence, e o
+    motivo guardado é o do primeiro que tentou — é ele que explica o que falta declarar.
+    """
+    from lib.perguntas import do_papel
+
+    for pergunta in do_papel(componente.get("papel", "app")):
+        if prazo.esgotado():
+            componente["respostas"].append({"pergunta": pergunta["id"], "sem_dados": True,
+                                            "motivo": prazo.motivo()})
+            continue
+        contexto_pergunta = dict(contexto, timeout=prazo.timeout(contexto["timeout"]))
+        resposta = None
+        for adaptador in adaptadores:
+            try:
+                candidata = adaptador.perguntar(pergunta["id"], componente, contexto_pergunta)
+            except Exception as erro:              # noqa: BLE001 — bug do adaptador, não falha de acesso
+                candidata = {"pergunta": pergunta["id"], "erro_interno": True,
+                             "motivo": f"{adaptador.ID}: {type(erro).__name__}: {erro}"}
+            if not candidata.get("sem_dados"):
+                resposta = candidata
+                break
+            resposta = resposta or candidata
+        if resposta is not None:
+            componente["respostas"].append(resposta)
+    return componente
 
 
 def coletores_padrao():
@@ -80,7 +121,7 @@ def promover_achados(registro):
     return registro
 
 
-def coletar_alvo(alvo, coletor, contexto):
+def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     """Roda um coletor e traduz qualquer falha em `nao_coletado`.
 
     Nada que o coletor devolva pode derrubar a auditoria dos outros alvos, e nada que ele devolva
@@ -118,7 +159,11 @@ def coletar_alvo(alvo, coletor, contexto):
             continue
         registro[campo] = valor
 
-    promover_achados(peneirar_componentes(registro))
+    peneirar_componentes(registro)
+    prazo = Prazo(contexto.get("orcamento", 120))
+    for componente in registro["componentes"]:
+        responder(componente, contexto, adaptadores, prazo)
+    promover_achados(registro)
 
     extras = resultado.get("nao_coletado", [])
     if isinstance(extras, list):
@@ -128,7 +173,7 @@ def coletar_alvo(alvo, coletor, contexto):
     return registro
 
 
-def main(argv=None, coletores=None) -> int:
+def main(argv=None, coletores=None, adaptadores=None) -> int:
     ap = argparse.ArgumentParser(description="Auditoria read-only por alvos.")
     ap.add_argument("--out", required=True, help="pasta desta execução")
     ap.add_argument("--at", required=True, help="carimbo de tempo (injetado, para ser determinístico)")
@@ -174,10 +219,19 @@ def main(argv=None, coletores=None) -> int:
 
     # sem registro explícito (linha de comando), usa os coletores de verdade
     coletores = coletores_padrao() if coletores is None else coletores
+    adaptadores = adaptadores_padrao() if adaptadores is None else adaptadores
+    def limite(chave, padrao):
+        """`or` não serve aqui: `0` é um valor que o dono pode ter escrito de propósito, e
+        `0 or 120` devolve 120 — o limite configurado sumiria sem uma palavra."""
+        valor = cfg.valor(chave)
+        return padrao if valor is None else valor
+
     # sem padrão, um limite ausente viraria espera infinita no coletor
-    contexto = {"timeout": cfg.valor("limites.timeout_por_comando") or 20,
-                "orcamento": cfg.valor("limites.orcamento_por_alvo") or 120,
-                "http_timeout": cfg.valor("limites.http_timeout") or 8,
+    contexto = {"timeout": limite("limites.timeout_por_comando", 20),
+                "orcamento": limite("limites.orcamento_por_alvo", 120),
+                "http_timeout": limite("limites.http_timeout", 8),
+                # a janela dos insights é ancorada no --at pelo adaptador; aqui só o tamanho
+                "janela": limite("insights.janela", "24h"),
                 "at": args.at}
 
     relatorio = report_mod.novo(generated_at=args.at)
@@ -188,7 +242,7 @@ def main(argv=None, coletores=None) -> int:
             registro["coletado"] = False
             relatorio["alvos"].append(registro)
             continue
-        registro = coletar_alvo(alvo, coletores.get(alvo["tipo"]), contexto)
+        registro = coletar_alvo(alvo, coletores.get(alvo["tipo"]), contexto, adaptadores)
         registro["coletado"] = True
         relatorio["alvos"].append(registro)
 
@@ -210,10 +264,20 @@ def main(argv=None, coletores=None) -> int:
                 json.loads((anterior / "report.json").read_text(encoding="utf-8")),
                 relatorio, nome_anterior=anterior.name)
 
+    try:
+        # allow_nan=False: NaN e Infinity são aceitos pelo json do Python e REJEITADOS por
+        # todo o resto do mundo. Melhor parar dizendo o que veio errado do que entregar um
+        # arquivo que só o Python relê.
+        conteudo = json.dumps(relatorio, ensure_ascii=False, indent=1, allow_nan=False)
+    except ValueError as erro:
+        print(f"o relatório trouxe um valor que não é um número representável em JSON "
+              f"({erro}); nada foi gravado", file=sys.stderr)
+        return EXIT_PARADA
+
     saida = Path(args.out)
     saida.mkdir(parents=True, exist_ok=True)
     destino = saida / "report.json"
-    destino.write_text(json.dumps(relatorio, ensure_ascii=False, indent=1), encoding="utf-8")
+    destino.write_text(conteudo, encoding="utf-8")
 
     print(f"report.json: {destino}")
     for alvo in relatorio["alvos"]:

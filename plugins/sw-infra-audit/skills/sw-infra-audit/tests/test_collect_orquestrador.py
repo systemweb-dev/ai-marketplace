@@ -400,3 +400,17 @@ def test_componente_malformado_nao_derruba_a_auditoria(tmp_path):
     assert codigo == 0
     assert alvo["componentes"] == []
     assert len([n for n in alvo["nao_coletado"] if "componente" in n["motivo"]]) == 3
+
+
+def test_valor_nao_serializavel_falha_alto_em_vez_de_gravar_json_invalido(tmp_path, capsys):
+    """NaN escrito no report.json produz arquivo que só o Python relê. Melhor a auditoria
+    parar dizendo qual alvo trouxe o valor do que entregar um arquivo quebrado."""
+    def coletor(alvo, contexto):
+        return {"saude": "🟢", "fatos": {"latencia": float("nan")}}
+
+    codigo = collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                          coletores={"docker": coletor, "http": coletor_falso([])})
+
+    assert codigo == 2
+    assert "não é um número" in capsys.readouterr().err
+    assert not (tmp_path / "saida" / "report.json").exists()
