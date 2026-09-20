@@ -162,17 +162,29 @@ aparecer no resumo**: relatório com buraco explícito é honesto; relatório qu
 ### 5. Relatório
 
 ```bash
-python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM>
+python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM> --formato html
 ```
 
-Gera `relatorio.html` (sempre) e `relatorio.pdf` (se houver Chromium). O HTML abre pelo
-**inventário** — é ele que responde "o que eu tenho e onde".
+Gera `relatorio.html`. O sumário no topo é **clicável também no PDF** — o Chromium converte as
+âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar.
 
 ### 6. Informar
 
 Caminho do relatório · quantos alvos em cada estado (**não invente uma nota única da infra**) ·
 achados por gravidade · o que ficou `sem dados` e por quê · riscos aceitos, com os vencidos em
 destaque · e o que mudou desde a auditoria anterior.
+
+### 7. Ofereça o PDF — no fim, não antes
+
+**`AskUserQuestion`**: "Gerar o PDF também?" Só então rode com `--formato html+pdf`. O PDF custa
+alguns segundos de Chromium e nem toda rodada vira documento para enviar; perguntar no começo
+gasta a atenção de quem só queria ver o estado da infra.
+
+```bash
+python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM> --formato html+pdf
+```
+
+Sem Chromium na máquina, diga isso e entregue o HTML — não é falha da auditoria.
 
 ## Riscos aceitos
 

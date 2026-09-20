@@ -560,7 +560,18 @@ def render_html(report):
     return page
 
 
-def build(report, out_dir):
+FORMATOS = ("html", "html+pdf")
+
+
+def build(report, out_dir, formato="html+pdf"):
+    """Escreve o relatório. `formato` decide se o PDF também sai.
+
+    O HTML é o produto; o PDF é escolha de quem recebe — e custa alguns segundos de Chromium
+    em toda rodada. Por isso a skill pergunta no fim, em vez de gerar sempre.
+    """
+    if formato not in FORMATOS:
+        raise ValueError(f"formato {formato!r} não existe; os formatos são "
+                         f"{', '.join(FORMATOS)}")
     out_dir = os.path.expanduser(str(out_dir))
     os.makedirs(out_dir, exist_ok=True)
     html_path = os.path.join(out_dir, "relatorio.html")
@@ -574,7 +585,7 @@ def build(report, out_dir):
         f.write(pagina)
 
     pdf_path = None
-    chrome = find_chromium()
+    chrome = find_chromium() if formato == "html+pdf" else None
     if chrome:
         pdf_path = os.path.join(out_dir, "relatorio.pdf")
         try:
@@ -749,7 +760,8 @@ def _historico_v3(h):
 
 
 # ---------------------------------------------------------------- insights e remediação (v3)
-SECOES_V3 = (("panorama", "Panorama"),
+SECOES_V3 = (("panorama", "Panorama"), ("topologia", "Topologia"),
+             ("instrumentos", "Instrumentos"),
              ("insights", "Insights por sistema"), ("achados", "Achados"),
              ("impacto", "Se isto falhar"), ("aceites", "Riscos aceitos"),
              ("recomendacoes", "Recomendações"), ("leitura", "Pontos fortes e de atenção"),
@@ -767,12 +779,57 @@ def _quando(carimbo):
     return instante.strftime("%d/%m/%Y %H:%M UTC")
 
 
-def _sumario():
-    """Lista das seções, sem número de página: o Chromium não tem `target-counter`, e a
-    segunda passada para descobrir as páginas dependeria de ferramenta externa — duas máquinas
-    gerariam relatórios diferentes para a mesma entrada."""
-    itens = "".join(f'<li><a href="#{id_}">{_e(titulo)}</a></li>' for id_, titulo in SECOES_V3)
-    return f'<ol class="sumario">{itens}</ol>'
+DESCRICAO_SECAO = {
+    "panorama": "o que existe, onde vive e em que estado",
+    "topologia": "os componentes agrupados por papel, com os achados de cada um",
+    "instrumentos": "as medidas que têm tolerância declarada",
+    "insights": "o que cada componente respondeu, com a fonte",
+    "achados": "cada um com passo a passo e como confirmar",
+    "impacto": "cenário e consequência, a partir do que existe hoje",
+    "aceites": "decisão consciente, com justificativa e prazo",
+    "recomendacoes": "o que o agente priorizou, com o comando pronto",
+    "leitura": "o que sustenta bem e o que merece atenção",
+    "alvos": "uma ficha por alvo, com o que não foi coletado",
+    "historico": "diferença em relação à rodada anterior",
+}
+
+
+def _sumario(ctx):
+    """Sumário que conta, não só lista.
+
+    Sem número de página: o Chromium não tem `target-counter`, e descobrir a página numa
+    segunda passada dependeria de ferramenta externa — duas máquinas gerariam relatórios
+    diferentes para a mesma entrada. A navegação existe assim mesmo: o Chromium converte
+    estas âncoras em link com destino de página dentro do PDF.
+    """
+    panorama = ctx["panorama"]
+    componentes = sum(len(a.get("componentes", [])) for a in ctx["alvos"])
+    com_fonte = sum(1 for a in ctx["alvos"] for c in a.get("componentes", [])
+                    for r in c.get("respostas", []) if not r.get("sem_dados"))
+    historico = ctx.get("historico") or {}
+    contagens = {
+        "panorama": (_plural(panorama["total"], "alvo", "alvos"), ""),
+        "topologia": (_plural(componentes, "componente", "componentes"), ""),
+        "instrumentos": (_plural(com_fonte, "leitura", "leituras"), ""),
+        "achados": (_plural(panorama["achados"], "aberto", "abertos"),
+                    "bad" if panorama["achados"] else "ok"),
+        "impacto": ("", ""),
+        "aceites": (_plural(panorama["aceitos"], "risco aceito", "riscos aceitos"), ""),
+        "recomendacoes": (_plural(len(ctx["recomendacoes"]), "ação", "ações"), ""),
+        "leitura": ("", ""),
+        "alvos": ("", ""),
+        "historico": (f'{len(historico.get("resolvidos", []))} saíram · '
+                      f'{len(historico.get("novos", []))} entraram' if historico else "", ""),
+    }
+    linhas = []
+    for pos, (id_, titulo) in enumerate(SECOES_V3, 1):
+        quanto, classe = contagens.get(id_, ("", ""))
+        linhas.append(
+            f'<a class="sum-l {classe}" href="#{id_}"><span class="sum-n">{pos:02d}</span>'
+            f'<b>{_e(titulo)}</b>'
+            f'<span class="sum-q">{_e(quanto)}</span>'
+            f'<span class="sum-d">{_e(DESCRICAO_SECAO.get(id_, ""))}</span></a>')
+    return f'<div class="sumario"><div class="sum-t">{"".join(linhas)}</div></div>'
 
 
 def _numero(valor):
@@ -888,6 +945,123 @@ def _impacto_v3(alvos):
     return "".join(linhas)
 
 
+# ---------------------------------------------------------------- topologia e instrumentos (v3)
+# a ordem das camadas: quem recebe o tráfego, quem processa, quem guarda, quem observa.
+# É agrupamento por PAPEL — a skill não mede dependência, e o relatório diz isso na legenda.
+CAMADAS = (("entrada", "recebe o tráfego"), ("app", "processa"),
+           ("fila", "enfileira"), ("banco", "guarda"), ("cache", "guarda"),
+           ("busca", "guarda"), ("storage", "guarda"),
+           ("observabilidade", "observa"))
+
+
+def _no_da_topologia(alvo, componente):
+    """Um nó: nome, papel, quantos achados abertos e a leitura que tiver."""
+    abertos = len(componente.get("achados") or [])
+    classe = "bad" if abertos >= 2 else ("at" if abertos else "ok")
+    from lib.perguntas import PERGUNTAS
+
+    respostas = [r for r in componente.get("respostas", []) if not r.get("sem_dados")]
+    leitura = ""
+    if respostas:
+        primeira = respostas[0]
+        titulo = PERGUNTAS.get(primeira["pergunta"], {}).get("titulo", "")
+        leitura = f'<p class="leitura">{_e(titulo)}: {_numero(primeira.get("valor"))}</p>'
+    elif componente.get("respostas"):
+        leitura = '<p class="leitura vazio">sem fonte declarada</p>'
+    qt = f'<span class="qt">{abertos}</span>' if abertos else ""
+    return (f'<div class="no {classe}"><b>{_e(componente["nome"])}</b>'
+            f'<span class="sub">{_e(componente.get("papel"))} · {_e(alvo["nome"])}</span>'
+            f'{qt}{leitura}</div>')
+
+
+def _topologia(alvos):
+    """Camadas por papel. NÃO é grafo de dependência — dizer isso é obrigação, não rodapé."""
+    por_papel = {}
+    for alvo in alvos:
+        for componente in alvo.get("componentes", []):
+            por_papel.setdefault(componente.get("papel", "app"), []).append((alvo, componente))
+    if not por_papel:
+        return '<p class="muted">nenhum componente no inventário desta rodada.</p>'
+
+    camadas = []
+    for papel, _rotulo in CAMADAS:
+        nos = por_papel.pop(papel, [])
+        if not nos:
+            continue
+        marca = " ramifica" if len(nos) > 1 else ""
+        camadas.append(f'<div class="camada{marca}">'
+                       + "".join(_no_da_topologia(a, c) for a, c in nos) + "</div>")
+    for papel, nos in sorted(por_papel.items()):        # papel fora da ordem conhecida
+        marca = " ramifica" if len(nos) > 1 else ""
+        camadas.append(f'<div class="camada{marca}">'
+                       + "".join(_no_da_topologia(a, c) for a, c in nos) + "</div>")
+
+    legenda = ('<div class="legenda">'
+               '<span><i style="--c:var(--verde)"></i>sem achado aberto</span>'
+               '<span><i style="--c:var(--ambar)"></i>1 achado</span>'
+               '<span><i style="--c:var(--vermelho)"></i>2 ou mais</span>'
+               '</div>'
+               '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o '
+               'tráfego, quem processa, quem guarda. <b>Não é dependência medida</b>: a skill '
+               'observa o papel de cada componente, não quem chama quem.</p>')
+    return f'<div class="mapa">{"".join(camadas)}{legenda}</div>'
+
+
+def _angulo(valor, faixa):
+    """A agulha percorre 180° do zero ao máximo declarado. Fora da escala, encosta no fim —
+    inventar posição para valor fora de faixa seria desenhar dado que não existe."""
+    maximo = float(faixa["maximo"]) or 1.0
+    fracao = min(max(float(valor) / maximo, 0.0), 1.0)
+    if faixa["sentido"] == "maior_melhor":
+        fracao = 1.0 - fracao
+    return round(-90 + 180 * fracao, 1)
+
+
+def _medidor(resposta, pergunta):
+    faixa = pergunta["faixa"]
+    ang = _angulo(resposta["valor"], faixa)
+    unidade = f' <span class="un">{_e(pergunta.get("unidade"))}</span>' if pergunta.get("unidade") else ""
+    limite = ("bom até" if faixa["sentido"] == "menor_melhor" else "bom a partir de")
+    return (f'<div class="med"><div class="anel">'
+            f'<div class="arco"></div><div class="furo"></div>'
+            f'<div class="agulha" style="--ang:{ang}deg"></div><div class="eixo"></div></div>'
+            f'<p class="v num">{_numero(resposta["valor"])}{unidade}</p>'
+            f'<p class="k">{_e(pergunta["titulo"])}</p>'
+            f'<p class="faixa">{limite} {_numero(faixa["bom_ate"])}'
+            f' · ruim a partir de {_numero(faixa["ruim_a_partir"])}</p>'
+            f'<p class="f">fonte: {_e(resposta.get("fonte"))}</p></div>')
+
+
+def _instrumentos(alvos):
+    """Mostrador só onde a pergunta declara faixa. O resto vira cartão de insight, sem agulha."""
+    from lib.perguntas import PERGUNTAS
+
+    medidores = []
+    for alvo in alvos:
+        for componente in alvo.get("componentes", []):
+            for resposta in componente.get("respostas", []):
+                pergunta = PERGUNTAS.get(resposta.get("pergunta"), {})
+                if resposta.get("sem_dados") or not pergunta.get("faixa"):
+                    continue
+                medidores.append(_medidor(resposta, pergunta))
+    if not medidores:
+        return ('<p class="muted">nenhuma medida com tolerância declarada respondeu nesta '
+                'rodada.</p>')
+    return f'<div class="medidores">{"".join(medidores)}</div>'
+
+
+def _selos(inventario):
+    """Estado por alvo, em palavra e com ponto — emoji some na impressão em preto e branco."""
+    contagem = {}
+    for item in inventario:
+        contagem[item.get("saude")] = contagem.get(item.get("saude"), 0) + 1
+    selos = []
+    for estado, qtd in sorted(contagem.items()):
+        palavra, classe = ESTADO_EM_PALAVRA.get(estado, (str(estado), "na"))
+        selos.append(f'<span class="selo {classe}"><i></i>{qtd} {_e(palavra.lower())}</span>')
+    return "".join(selos)
+
+
 def render_html_v3(r):
     ctx = montar_contexto(r)
     quantos = len(ctx["inventario"])
@@ -900,7 +1074,10 @@ def render_html_v3(r):
         "%%RESUMO%%": (f"<p>{_rich(ctx['resumo'])}</p>" if ctx["resumo"]
                        else '<p class="muted">resumo ainda não escrito.</p>'),
         "%%INVENTARIO%%": _inventario(ctx["inventario"]),
-        "%%SUMARIO%%": _sumario(),
+        "%%SUMARIO%%": _sumario(ctx),
+        "%%SELOS%%": _selos(ctx["inventario"]),
+        "%%TOPOLOGIA%%": _topologia(ctx["alvos"]),
+        "%%INSTRUMENTOS%%": _instrumentos(ctx["alvos"]),
         "%%INSIGHTS%%": _insights_v3(ctx["alvos"]),
         "%%IMPACTO%%": _impacto_v3(ctx["alvos"]),
         "%%ACHADOS%%": _achados_com_remediacao(ctx["achados"]),
@@ -921,19 +1098,21 @@ def render_html_v3(r):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True)
+    ap.add_argument("--formato", default="html+pdf", choices=FORMATOS,
+                    help="html (só a página) ou html+pdf (padrão)")
     args = ap.parse_args(argv)
     d = os.path.expanduser(args.dir)
     with open(os.path.join(d, "report.json"), encoding="utf-8") as f:
         report = json.load(f)
     try:
-        res = build(report, d)
+        res = build(report, d, formato=args.formato)
     except ValueError as erro:                 # schema que este build não lê
         print(str(erro), file=sys.stderr)
         return 2
     print(res["html"])
     if res["pdf"]:
         print(res["pdf"])
-    else:
+    elif args.formato == "html+pdf":
         print("PDF não gerado (sem Chromium) — HTML entregue.", file=sys.stderr)
     return 0
 

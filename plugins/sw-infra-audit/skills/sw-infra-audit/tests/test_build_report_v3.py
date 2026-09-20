@@ -109,7 +109,7 @@ def test_texto_do_agente_nao_injeta_secao_no_relatorio(tmp_path):
 
     html = montar(tmp_path, dados)
 
-    assert html.count("<h2>Por alvo</h2>") == 1
+    assert html.count('id="alvos"') == 1, "a seção existe uma vez só"
     assert "%%ALVOS%%" in html, "o marcador aparece como texto, não como seção"
 
 
@@ -120,3 +120,29 @@ def test_relatorio_v2_e_recusado_com_mensagem_que_explica(tmp_path):
     with pytest.raises(ValueError) as erro:
         build_report.build(v2, tmp_path)
     assert "v3" in str(erro.value) and "histórico" in str(erro.value)
+
+
+def test_html_sozinho_quando_o_pdf_nao_foi_pedido(tmp_path, monkeypatch):
+    """O HTML é o produto; o PDF é uma escolha de quem recebe. Gerar PDF sempre custa alguns
+    segundos de Chromium em toda rodada, inclusive quando ninguém vai imprimir."""
+    chamou = []
+    monkeypatch.setattr(build_report, "find_chromium", lambda: chamou.append(1) or "/bin/false")
+    relatorio = {"schema_version": 3, "generated_at": "2026-09-19T10:00:00Z", "alvos": [],
+                 "inventario": [], "aceites": [], "historico": None, "resumo": "",
+                 "fortes": [], "fracos": [], "recomendacoes": []}
+
+    res = build_report.build(relatorio, tmp_path, formato="html")
+
+    assert (tmp_path / "relatorio.html").exists()
+    assert res["pdf"] is None
+    assert chamou == [], "nem procurou o Chromium"
+
+
+def test_formato_desconhecido_e_recusado(tmp_path):
+    import pytest
+    relatorio = {"schema_version": 3, "generated_at": "x", "alvos": [], "inventario": [],
+                 "aceites": [], "historico": None, "resumo": "", "fortes": [], "fracos": [],
+                 "recomendacoes": []}
+    with pytest.raises(ValueError) as erro:
+        build_report.build(relatorio, tmp_path, formato="docx")
+    assert "docx" in str(erro.value)

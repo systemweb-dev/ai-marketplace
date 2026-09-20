@@ -94,3 +94,61 @@ def test_relatorio_sem_componente_nao_quebra():
     r["alvos"][0]["componentes"] = []
     html = build_report.render_html_v3(r)
     assert "nenhum componente" in html
+
+
+def _com_componentes():
+    r = _relatorio()
+    alvo = r["alvos"][0]
+    alvo["componentes"] = [
+        {"nome": "traefik", "papel": "entrada", "achados": [], "analise": "",
+         "respostas": [{"pergunta": "entrada.latencia", "fonte": "promql:traefik", "valor": 890},
+                       {"pergunta": "entrada.volume_na_janela", "fonte": "promql:traefik",
+                        "valor": 12480}]},
+        {"nome": "postgres_principal", "papel": "banco", "achados": [], "analise": "",
+         "respostas": []},
+        {"nome": "api", "papel": "app", "achados": [
+            {"regra": "SEC_USER_ROOT", "severidade": "medium", "alvo": "cluster",
+             "componente": "api"}], "analise": "", "respostas": []},
+    ]
+    return r
+
+
+def test_topologia_agrupa_por_papel_e_diz_que_e_papel():
+    """O mapa mostra CAMADAS POR PAPEL, não dependência medida. Deixar isso implícito faria
+    o relatório afirmar uma topologia que a skill nunca observou."""
+    html = build_report.render_html_v3(_com_componentes())
+
+    assert "Topologia" in html
+    assert html.index("traefik") < html.index("api") < html.index("postgres_principal"), \
+        "entrada vem antes de app, que vem antes de banco"
+    assert "papel" in html.lower()
+    assert "não é dependência medida" in html.lower(), \
+        "a legenda precisa dizer que o agrupamento não é dependência observada"
+
+
+def test_no_da_topologia_mostra_quantos_achados_tem():
+    html = build_report.render_html_v3(_com_componentes())
+    assert 'class="qt"' in html
+
+
+def test_medidor_so_aparece_onde_ha_faixa_declarada():
+    """Agulha sem tolerância declarada sugere uma leitura que ninguém definiu."""
+    html = build_report.render_html_v3(_com_componentes())
+
+    assert html.count('class="anel"') == 1, "só a latência declara faixa"
+    assert "890" in html and "12.480" in html
+
+
+def test_medidor_diz_qual_e_a_faixa():
+    html = build_report.render_html_v3(_com_componentes())
+    assert "700" in html and "1.500" in html or "1500" in html
+
+
+def test_selos_contam_os_estados_em_palavra():
+    html = build_report.render_html_v3(_com_componentes())
+    assert "Atenção" in html and "🟡" not in html
+
+
+def test_sumario_traz_contagem_por_secao():
+    html = build_report.render_html_v3(_com_componentes())
+    assert "1 achado" in html or "1 aberto" in html

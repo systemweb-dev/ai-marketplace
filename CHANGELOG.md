@@ -8,6 +8,24 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.7.0): **relatório redesenhado**, com três seções novas e duas decisões de
+  honestidade embutidas no desenho.
+  - **Topologia**: os componentes aparecem em camadas — quem recebe o tráfego, quem processa,
+    quem guarda —, cada um com quantos achados tem em aberto. A legenda diz, com todas as
+    letras, que o agrupamento é por **papel** e **não é dependência medida**: a skill observa o
+    papel de cada componente, não quem chama quem, e desenhar seta de dependência a partir
+    disso seria afirmar o que ela não viu.
+  - **Instrumentos**: mostrador com faixa de tolerância — mas **só para pergunta que declara a
+    faixa**. Hoje isso é a latência p95 (bom até 700 ms, ruim a partir de 1.500). Volume de
+    requisições não vira mostrador porque "bom" depende do serviço; agulha sem tolerância
+    declarada sugere uma leitura que ninguém definiu, e um teste impede que apareça.
+  - **Sumário que conta**: cada linha traz o que tem dentro e a contagem real (3 componentes,
+    1 achado aberto, 2 saíram desde a rodada anterior). Continua sem número de página — e
+    continua clicável no PDF, porque o Chromium converte as âncoras em link com destino de
+    página.
+  - Capa com o estado de cada alvo em palavra, achados com trilho de gravidade, e cor usada só
+    onde significa alguma coisa.
+
 - `sw-infra-audit` (v0.6.0): **insights por sistema e como resolver cada achado** — o plano 1 do
   dossiê `2026-09-19-insights-por-sistema-e-remediacao` está completo.
   - Cada componente do alvo recebe um **papel** e responde as **perguntas** daquele papel; quem

@@ -9,15 +9,19 @@ Campos de cada pergunta:
   unidade    o que o número significa (requisicoes, ms, bytes…)
   limiar     o que transforma informação em ACHADO; sem limiar, é só informação
   desempate  obrigatório em lista: empate de valor não pode herdar a ordem da fonte
+  faixa      a tolerância, quando ela EXISTE de verdade: {sentido, bom_ate, ruim_a_partir,
+             maximo}. Só quem declara faixa vira mostrador no relatório — agulha sem
+             tolerância declarada é enfeite que sugere uma leitura que ninguém definiu.
 """
 
 PERGUNTAS = {}
 ORDEM = {}
 
 
-def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None):
+def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None, faixa=None):
     PERGUNTAS[id] = {"id": id, "papel": papel, "titulo": titulo, "forma": forma,
-                     "unidade": unidade, "limiar": limiar, "desempate": desempate}
+                     "unidade": unidade, "limiar": limiar, "desempate": desempate,
+                     "faixa": faixa}
     ORDEM.setdefault(papel, []).append(id)
     return id
 
@@ -29,7 +33,10 @@ _p("entrada.volume_na_janela", "entrada", "Requisições na janela", "escalar",
    unidade="requisições")
 _p("entrada.distribuicao_de_status", "entrada", "Distribuição de status", "lista",
    unidade="requisições", desempate="chave")
-_p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms")
+# volume não tem faixa: 12 mil requisições é muito para um painel interno e pouco para uma
+# API pública — "bom" depende do serviço, e inventar um número aqui seria chute com agulha.
+_p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms",
+   faixa={"sentido": "menor_melhor", "bom_ate": 700, "ruim_a_partir": 1500, "maximo": 3000})
 
 
 def do_papel(papel):

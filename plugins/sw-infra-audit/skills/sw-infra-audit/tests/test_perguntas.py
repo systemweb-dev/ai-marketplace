@@ -33,3 +33,30 @@ def test_papel_sem_pergunta_devolve_lista_vazia():
     """`storage` existe no vocabulário e ainda não tem adaptador que o responda — perguntar
     sem quem responda só produziria `sem dados` em série."""
     assert do_papel("storage") == []
+
+
+def test_faixa_declara_o_que_e_bom_e_o_que_e_ruim():
+    """O mostrador só existe onde a tolerância é declarada: agulha sem faixa é enfeite,
+    e pior, sugere uma leitura que ninguém definiu."""
+    from lib.perguntas import PERGUNTAS
+    latencia = PERGUNTAS["entrada.latencia"]["faixa"]
+    assert latencia["bom_ate"] == 700 and latencia["ruim_a_partir"] == 1500
+    assert latencia["maximo"] >= latencia["ruim_a_partir"]
+    assert latencia["sentido"] == "menor_melhor"
+
+
+def test_pergunta_sem_faixa_nao_vira_mostrador():
+    from lib.perguntas import PERGUNTAS
+    assert PERGUNTAS["entrada.volume_na_janela"].get("faixa") is None, \
+        "volume não tem 'bom' e 'ruim' absolutos — depende do serviço"
+
+
+def test_faixa_declarada_e_coerente():
+    from lib.perguntas import PERGUNTAS
+    for pergunta in PERGUNTAS.values():
+        faixa = pergunta.get("faixa")
+        if not faixa:
+            continue
+        assert faixa["sentido"] in ("menor_melhor", "maior_melhor"), pergunta["id"]
+        for campo in ("bom_ate", "ruim_a_partir", "maximo"):
+            assert isinstance(faixa[campo], (int, float)), f"{pergunta['id']}: falta {campo}"
