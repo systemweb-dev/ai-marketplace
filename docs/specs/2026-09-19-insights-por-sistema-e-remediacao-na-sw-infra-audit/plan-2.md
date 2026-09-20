@@ -519,7 +519,7 @@ git add -A && git commit -m "feat(sw-infra-audit): credencial sai do ambiente e 
 
 A linguagem é **fechada**: não há expressão arbitrária. O que não couber nela não ganha arquivo — vira adaptador próprio, com código e teste. É isso que impede o `if produto == …` disfarçado de configuração.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_extracao.py
@@ -661,12 +661,12 @@ def test_escalar_sem_lista_declarada():
                                      "transformar": {"valor": "inteiro"}}) == {"valor": 17}
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_extracao.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'lib.extracao'`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 ```python
 # scripts/lib/extracao.py
@@ -792,12 +792,12 @@ def extrair(documento, declarada):
     return itens[:limite] if limite else itens
 ```
 
-- [ ] **Step 4: Rodar e confirmar verde**
+- [x] **Step 4: Rodar e confirmar verde**
 
 Run: `.venv/bin/python -m pytest tests/test_extracao.py -q`
 Expected: PASS (21 testes)
 
-- [ ] **Step 5: Prova por mutação**
+- [x] **Step 5: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -807,7 +807,7 @@ Expected: PASS (21 testes)
 | remover o `sort` de desempate | `test_empate_de_valor_desempata_pelo_nome` |
 | `_numero` não checar NaN/inf | `test_nan_e_infinito_nao_passam` |
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
@@ -824,7 +824,7 @@ git add -A && git commit -m "feat(sw-infra-audit): linguagem fechada de extracao
 
 O spec proíbe aritmética na expressão de limiar. O que precisa de conta vira **derivação declarada**, de um conjunto fechado: `razao`, `percentual_de`, `diferenca`, `soma`.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_extracao_derivacoes.py
@@ -915,12 +915,12 @@ def test_derivacao_nao_sobrescreve_campo_declarado():
                  "derivar": {"x": {"tipo": "soma", "parcelas": ["/n"]}}})
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_extracao_derivacoes.py -q`
 Expected: FAIL — `ImportError: cannot import name 'derivar' from 'lib.extracao'`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Em `scripts/lib/extracao.py`, acrescentar a constante junto das outras:
 
@@ -988,12 +988,12 @@ E, dentro de `_item`, depois do laço dos campos e antes do `return`:
         saida[nome] = derivar(bruto, regra)
 ```
 
-- [ ] **Step 4: Rodar e confirmar verde**
+- [x] **Step 4: Rodar e confirmar verde**
 
 Run: `.venv/bin/python -m pytest tests/test_extracao_derivacoes.py -q`
 Expected: PASS (10 testes)
 
-- [ ] **Step 5: Prova por mutação**
+- [x] **Step 5: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -1001,7 +1001,7 @@ Expected: PASS (10 testes)
 | `_valores` pular o ausente em vez de devolver `None` | `test_campo_ausente_torna_a_derivacao_none` |
 | remover a checagem de nome repetido | `test_derivacao_nao_sobrescreve_campo_declarado` |
 
-- [ ] **Step 6: Rodar a suíte inteira e commitar**
+- [x] **Step 6: Rodar a suíte inteira e commitar**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 522
@@ -1010,6 +1010,35 @@ Expected: PASS — 522
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
 git add -A && git commit -m "feat(sw-infra-audit): derivacoes declaradas no lugar de aritmetica em expressao"
 ```
+
+---
+
+> ### Ajustes das Tasks 3–4 após a revisão do juiz (2026-09-20)
+>
+> A linguagem ficou **validada antes de olhar o dado**: nasceu `validar_declaracao(declarada)`, que `extrair` chama sempre e que a Task 9 vai chamar no carregamento do catálogo. Antes, catálogo quebrado passava verde enquanto a fila estivesse vazia e explodia no dia em que existisse uma fila.
+>
+> O que a validação passou a recusar, cada um com um modo de falha real por trás:
+>
+> | Recusa | O que acontecia sem ela |
+> |---|---|
+> | `transformar` citando campo que não está em `campos` | o campo ficava **cru** e a ordenação virava lexicográfica: `"9" > "42" > "900"`. O "top 2 filas com mais mensagens" entregava a fila de 9 no lugar da de 42 — resposta errada com cara de certa |
+> | `ordem` fora de `asc`/`desc` | qualquer outra string virava crescente: "as 5 filas com mais mensagens" mostrava as 5 mais vazias |
+> | `ordenar_por` para campo inexistente | todos caíam em "ausentes" e a lista saía na ordem da API, com a legenda de ranking |
+> | `ordenar_por` sem `desempate` | empate herdava a ordem da resposta |
+> | `limite` não-inteiro ou negativo; `limite = 0` deixou de virar "sem limite" | o mesmo alçapão do `or` que já mordeu esta skill no plano 1 |
+> | derivação sem chave obrigatória | escapava como `KeyError: 'menos'`, sem nome de arquivo nem da derivação |
+> | `denominador_soma` como string | virava lista de **caracteres** e devolvia `None` para sempre, calado |
+> | `soma` com `parcelas` vazia | devolvia `0` — e `0` é "li e é zero", não "não li" |
+> | `campos` apontando para objeto ou array | o objeto ia inteiro para o `report.json`, e `/arguments` carrega credencial com frequência. O caminho da extração **não** passa por `lib/redact.py` |
+> | item de lista que não é objeto | virava linha fantasma com todos os campos `None` |
+>
+> Mais três correções no miolo:
+>
+> 1. **NaN/Inf em campo sem `transformar`** chegavam crus ao `report.json`. `json.loads` aceita o literal `NaN` (Jackson emite), e `collect` grava com `allow_nan=False` — **um NaN numa fila abortava a gravação do relatório inteiro**. A guarda saiu de `_numero` e passou a valer para todo valor extraído.
+> 2. **Empate total herdava a ordem da API.** `/api/queues` lista filas de todos os vhosts, e o mesmo nome em vhosts diferentes é comum: valor igual + desempate igual → `limite: 1` escolhia uma fila diferente a cada rodada. A chave de ordenação ganhou um terceiro nível total.
+> 3. **`ponteiro` desviava do RFC 6901** que a própria docstring promete: `/i/-1` devolvia o último item onde o autor pediu o primeiro, e `/i/01` era aceito. O `replace("Z", ...)` do `data_iso` era código morto desde o 3.11 e trocava `Z` em qualquer posição.
+>
+> Testes decorativos trocados: a parametrização de `transformar` "cobria" 7 tipos mas provava 4 comportamentos (`90 == 90.0` não distingue `inteiro` de `segundos`); a política de arredondamento não tinha cobertura nenhuma; `~0`/`~1` não usava `~01`, o único caso em que a ordem dos `replace` importa. E o teste de `desempate` obrigatório passava **pelo motivo errado** — sem a guarda, a checagem seguinte levantava outra exceção que também casava com `match="desempate"`; agora ele cobra a mensagem.
 
 ---
 
