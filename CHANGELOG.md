@@ -8,6 +8,15 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.7.1): **toda decisão da skill passa a ser menu clicável**
+  (`AskUserQuestion`), com a tabela dos momentos em que perguntar: confirmar os alvos da rodada,
+  criar o primeiro `alvos.toml`, acertar o `.gitignore`, propor `metricas_url`, registrar risco
+  aceito, decidir o que fazer com aceite vencido e gerar o PDF no fim. Numa auditoria isso não é
+  preferência de interface: quem responde está decidindo em que máquina de produção se vai
+  tocar, e opção clicável com o alvo escrito por extenso erra menos que texto livre. Junto vem a
+  contrapartida: **não perguntar o que a skill descobre sozinha** — pergunta serve para decisão
+  e autorização, não para suprir leitura que o agente não fez.
+
 - `sw-infra-audit` (v0.7.0): **relatório redesenhado**, com três seções novas e duas decisões de
   honestidade embutidas no desenho.
   - **Topologia**: os componentes aparecem em camadas — quem recebe o tráfego, quem processa,

@@ -22,6 +22,33 @@ determinísticas; a interpretação é sua (agente).**
 
 **Anuncie no início:** "Estou usando a skill sw-infra-audit para auditar a infraestrutura."
 
+## Regra: toda decisão é via AskUserQuestion
+
+**Toda pergunta ao usuário usa `AskUserQuestion` (menu clicável) — nunca pergunta em texto
+solto, e nunca termine um turno com pergunta escrita.** Numa auditoria isso não é preferência
+de interface: quem responde está decidindo **em que máquina de produção você vai tocar**, e
+opção clicável com o alvo escrito por extenso erra menos que texto livre.
+
+Vale em todos os pontos de decisão desta skill:
+
+| Momento | O que perguntar |
+|---|---|
+| **Confirmar os alvos** (obrigatório, antes de qualquer conexão) | quais alvos entram nesta rodada, com nome, tipo e **onde** |
+| Sem `alvos.toml` | criar o primeiro com `configurar.py migrar`? |
+| Pasta do relatório fora do `.gitignore` | acertar agora com `configurar.py ignorar`? |
+| Componente sem `metricas_url` | rodar `alvos --sugerir` para propor um endereço? |
+| Achado que o dono já conhece | registrar como risco aceito, com motivo e prazo? |
+| Aceite vencido no relatório | renovar, deixar vencer ou resolver o achado? |
+| **No fim** | gerar o PDF também? |
+
+Para resposta aberta (um motivo de aceite, um endereço), ofereça as opções prováveis e conte
+com o campo **"Other"**. A exceção é o usuário descrevendo livremente o que quer — aí ele está
+dirigindo, e forçar menu atrapalha.
+
+**Nunca pergunte o que dá para descobrir sozinho.** Qual é o context, quantos nós tem, se há
+exporter respondendo: isso a skill lê. Pergunta serve para **decisão e autorização**, não para
+suprir leitura que você não fez.
+
 ## Garantias inegociáveis
 
 - **Nada é alterado.** Só comandos de leitura, por allowlist. Nunca `rm/kill/restart/exec/create/
@@ -69,7 +96,8 @@ A skill confere com `git check-ignore` antes de ler ou escrever o `alvos.toml`: 
 severidade e registra aceites. Host, porta, usuário e credencial vivem só no `alvos.toml` — se o
 `config.toml` trouxer uma dessas chaves, a auditoria para e diz qual.
 
-Sem `alvos.toml`, ofereça `configurar.py migrar`: ele cria a pasta, garante a linha no
+Sem `alvos.toml`, **pergunte via `AskUserQuestion`** se cria o primeiro com
+`configurar.py migrar`: ele cria a pasta, garante a linha no
 `.gitignore` e escreve o primeiro arquivo — trazendo o conteúdo do antigo
 `~/.config/sw-infra-audit/alvos.toml` quando ele existir, ou partindo dos seus contexts docker.
 **Nunca sobrescreve** um existente.
@@ -189,7 +217,8 @@ Sem Chromium na máquina, diga isso e entregue o HTML — não é falha da audit
 ## Riscos aceitos
 
 Achado que o usuário já decidiu aceitar não deve voltar a cada auditoria — é assim que um
-relatório perde credibilidade. Ofereça registrar:
+relatório perde credibilidade. **Ofereça via `AskUserQuestion`** registrar — e, se houver
+aceite vencido na rodada, pergunte o que fazer com ele (renovar, deixar vencer, resolver):
 
 ```bash
 python3 <skill-dir>/scripts/configurar.py aceitar --alvo <nome> --regra <regra> \
