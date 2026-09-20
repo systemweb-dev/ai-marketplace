@@ -624,19 +624,42 @@ def montar_contexto(r):
     }
 
 
+# o vocabulário de estado em PALAVRA: emoji some na impressão em preto e branco e exige legenda
+ESTADO_EM_PALAVRA = {"🟢": ("Operacional", "ok"), "🟡": ("Atenção", "warn"),
+                     "🔴": ("Degradado", "bad"), "sem dados": ("Sem dados", "na")}
+
+
+def _plural(quantidade, singular, plural):
+    return f"{quantidade} {singular if quantidade == 1 else plural}"
+
+
 def _panorama(p):
     """Contagem por estado — NUNCA uma nota única: número só da infra vira meta, e meta vira teatro."""
-    partes = [f'<span class="n">{qtd}</span> {_e(estado)}'
-              for estado, qtd in sorted(p["por_estado"].items())]
-    return (f'<p>{p["total"]} alvo(s): ' + " · ".join(partes) + "</p>"
-            f'<p class="sub">{p["achados"]} achado(s) · {p["aceitos"]} risco(s) aceito(s)</p>')
+    chips = []
+    for estado, qtd in sorted(p["por_estado"].items()):
+        palavra, classe = ESTADO_EM_PALAVRA.get(estado, (str(estado), "na"))
+        chips.append(f'<span class="chip {classe}"><i class="dot"></i>{qtd} {_e(palavra)}</span>')
+    chips.append(f'<span class="chip acc"><i class="dot"></i>'
+                 f'{_plural(p["achados"], "achado", "achados")}</span>')
+    if p["aceitos"]:
+        chips.append(f'<span class="chip na"><i class="dot"></i>'
+                     f'{_plural(p["aceitos"], "risco aceito", "riscos aceitos")}</span>')
+    return "".join(chips)
+
+
+def _estado(saude):
+    """Estado em PALAVRA, com o ponto colorido ao lado: emoji some na impressão em preto e
+    branco e exige legenda que ninguém lê."""
+    palavra, classe = ESTADO_EM_PALAVRA.get(saude, (str(saude), "na"))
+    return f'<span class="chip {classe}"><i class="dot"></i>{_e(palavra)}</span>'
 
 
 def _inventario(itens):
     if not itens:
         return '<p class="muted">nenhum alvo.</p>'
     return _table(["Alvo", "Tipo", "Onde", "Estado"],
-                  [[_e(i["nome"]), _e(i["tipo"]), _e(i["onde"]), _e(i["saude"])] for i in itens])
+                  [[_e(i["nome"]), _e(i["tipo"]), _e(i["onde"]), _estado(i["saude"])]
+                   for i in itens])
 
 
 def _achados_v3(achados):
@@ -659,43 +682,61 @@ def _aceites_v3(aceites):
         return '<p class="muted">nenhum risco aceito registrado.</p>'
     linhas = []
     for a in aceites:
-        estado = "VENCIDO" if a.get("vencido") else ("obsoleto" if a.get("obsoleto") else "válido")
+        if a.get("vencido"):
+            estado = '<span class="chip bad">vencido</span>'
+        elif a.get("obsoleto"):
+            estado = '<span class="chip na">não casa com achado</span>'
+        else:
+            estado = '<span class="chip ok">válido</span>' 
         linhas.append([_e(a.get("alvo")), _e(a.get("regra")), _e(a.get("motivo")),
                        _e(a.get("origem")), _e(a.get("desde") or ""),
-                       _e(a.get("revisar_em") or "sem data"), _e(estado)])
+                       _e(a.get("revisar_em") or "sem data"), estado])
     return _table(["Alvo", "Regra", "Motivo", "Origem", "Desde", "Revisar em", "Estado"], linhas)
 
 
 def _recomendacoes_v3(recs):
+    """O que o agente priorizou, com o comando pronto. Como em todo o resto do relatório: o
+    comando é para você executar — a auditoria nunca executa nada."""
     if not recs:
-        return '<p class="muted">nenhuma recomendação.</p>'
+        return '<p class="muted">nenhuma recomendação escrita nesta rodada.</p>'
     blocos = []
     for rec in recs:
         comando = str(rec.get("comando") or "").replace("\\n", "\n")
+        meta = " · ".join(_e(p) for p in (
+            f'alvo {rec.get("alvo")}' if rec.get("alvo") else "",
+            f'impacto {rec.get("impacto")}' if rec.get("impacto") else "",
+            f'esforço {rec.get("esforco")}' if rec.get("esforco") else "") if p)
         blocos.append(
-            f'<div class="rec"><h3>{_e(rec.get("titulo"))}</h3>'
-            f'<p class="sub">alvo: {_e(rec.get("alvo"))} · impacto {_e(rec.get("impacto"))} · '
-            f'esforço {_e(rec.get("esforco"))}</p>'
-            f"<p>{_e(rec.get('porque'))}</p>"
-            + (f"<pre>{_e(comando)}</pre>" if comando else "") + "</div>")
+            f'<div class="ach" style="--c:var(--acc)">'
+            f'<div class="ach-h"><b>{_e(rec.get("titulo"))}</b></div>'
+            f'<p class="ach-o">{meta}</p>'
+            f'<p class="ach-d">{_rich(rec.get("porque"))}</p>'
+            + (f'<div class="fix"><pre>{_e(comando)}</pre></div>' if comando else "")
+            + '</div>')
     return "".join(blocos)
 
 
+
 def _alvos_v3(alvos):
+    """Uma ficha por alvo: estado, o que o agente escreveu, e o que NÃO foi coletado com o
+    motivo — a parte que impede o relatório de mentir por omissão."""
     blocos = []
     for alvo in alvos:
         nao = alvo.get("nao_coletado") or []
-        detalhe = [f'<h3>{_e(alvo["nome"])} <span class="sub">{_e(alvo["tipo"])} · '
-                   f'{_e(alvo["onde"])} · {_e(alvo["saude"])}</span></h3>']
+        partes = [f'<div class="sys"><h3>{_e(alvo["nome"])}</h3>'
+                  f'<span class="tag">{_e(alvo["tipo"])}</span>'
+                  f'<span class="dono">{_e(alvo["onde"])}</span>'
+                  f'{_estado(alvo["saude"])}</div>']
         if alvo.get("analise"):
-            detalhe.append(f"<p>{_rich(alvo['analise'])}</p>")
+            partes.append(f'<p class="an">{_rich(alvo["analise"])}</p>')
         if alvo.get("dimensoes"):
-            detalhe.append(_dim_cards(alvo["dimensoes"]))
+            partes.append(_dim_cards(alvo["dimensoes"]))
         if nao:
-            detalhe.append('<p class="sub">Não coletado: '
-                           + "; ".join(_e(n.get("motivo")) for n in nao) + "</p>")
-        blocos.append('<div class="alvo">' + "".join(detalhe) + "</div>")
+            itens = "".join(f'<div class="semdados">{_e(n.get("motivo"))}</div>' for n in nao)
+            partes.append(f'<p class="fix-h" style="margin-top:10px">Não coletado</p>{itens}')
+        blocos.append(f'<div class="card comp">{"".join(partes)}</div>')
     return "".join(blocos) or '<p class="muted">nenhum alvo.</p>'
+
 
 
 def _historico_v3(h):
@@ -707,18 +748,162 @@ def _historico_v3(h):
     return "".join(partes)
 
 
+# ---------------------------------------------------------------- insights e remediação (v3)
+SECOES_V3 = (("panorama", "Panorama"),
+             ("insights", "Insights por sistema"), ("achados", "Achados"),
+             ("impacto", "Se isto falhar"), ("aceites", "Riscos aceitos"),
+             ("recomendacoes", "Recomendações"), ("leitura", "Pontos fortes e de atenção"),
+             ("alvos", "Por alvo"), ("historico", "Desde a auditoria anterior"))
+
+
+def _quando(carimbo):
+    """`2026-09-19T10:00:00Z` → `19/09/2026 10:00 UTC`. O carimbo ISO é para o histórico
+    comparar; quem lê o relatório lê data."""
+    from datetime import datetime
+    try:
+        instante = datetime.fromisoformat(str(carimbo).replace("Z", "+00:00"))
+    except ValueError:
+        return str(carimbo)
+    return instante.strftime("%d/%m/%Y %H:%M UTC")
+
+
+def _sumario():
+    """Lista das seções, sem número de página: o Chromium não tem `target-counter`, e a
+    segunda passada para descobrir as páginas dependeria de ferramenta externa — duas máquinas
+    gerariam relatórios diferentes para a mesma entrada."""
+    itens = "".join(f'<li><a href="#{id_}">{_e(titulo)}</a></li>' for id_, titulo in SECOES_V3)
+    return f'<ol class="sumario">{itens}</ol>'
+
+
+def _numero(valor):
+    """12480 → 12.480. Número grande sem separador é número que ninguém lê."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return _e(valor)
+    if isinstance(valor, int):
+        return _e(f"{valor:,}".replace(",", "."))
+    return _e(f"{valor:,.2f}".replace(",", "@").replace(".", ",").replace("@", "."))
+
+
+def _ranking(itens):
+    maior = max((i.get("valor") or 0 for i in itens), default=0) or 1
+    linhas = []
+    for item in itens:
+        largura = 100 * (item.get("valor") or 0) / maior
+        linhas.append(f'<div class="rk"><span class="lb">{_e(item.get("chave"))}</span>'
+                      f'<span class="vl">{_numero(item.get("valor"))}</span>'
+                      f'<span class="bar"><i style="width:{largura:.0f}%"></i></span></div>')
+    return f'<div class="rank">{"".join(linhas)}</div>'
+
+
+def _resposta(resposta):
+    from lib.perguntas import PERGUNTAS
+
+    pergunta = PERGUNTAS.get(resposta.get("pergunta"), {})
+    titulo = _e(pergunta.get("titulo") or resposta.get("pergunta"))
+    if resposta.get("sem_dados") or resposta.get("erro_interno"):
+        return (f'<div class="semdados"><b>{titulo}</b> — {_e(resposta.get("motivo"))}</div>')
+    valor = resposta.get("valor")
+    if isinstance(valor, list):
+        # numa lista, a unidade vale para cada linha — repeti-la embaixo do ranking só confunde
+        corpo = _ranking(valor)
+    else:
+        unidade = pergunta.get("unidade")
+        sufixo = f' <span class="un">{_e(unidade)}</span>' if unidade else ""
+        corpo = f'<span class="v">{_numero(valor)}</span>{sufixo}'
+    return (f'<div class="insight"><div class="ih"><b>{titulo}</b>'
+            f'<span class="src">fonte: {_e(resposta.get("fonte"))}</span></div>'
+            f'{corpo}</div>')
+
+
+def _insights_v3(alvos):
+    """Um cartão por componente: papel, e cada resposta com a FONTE que a produziu.
+
+    Número sem fonte não entra no relatório — é isso que separa dado de chute, e é o que
+    permite ao leitor saber se "0 requisições" quer dizer "não houve tráfego" ou "ninguém
+    perguntou".
+    """
+    blocos = []
+    for alvo in alvos:
+        for componente in alvo.get("componentes", []):
+            respostas = "".join(_resposta(r) for r in componente.get("respostas", []))
+            if not respostas:
+                respostas = ('<p class="muted">nenhuma pergunta para este papel nesta '
+                             'versão.</p>')
+            analise = (f'<p class="an">{_rich(componente["analise"])}</p>'
+                       if componente.get("analise") else "")
+            blocos.append(
+                f'<div class="card comp"><div class="sys">'
+                f'<span class="tag">{_e(componente.get("papel"))}</span>'
+                f'<h3>{_e(componente.get("nome"))}</h3>'
+                f'<span class="dono">{_e(alvo.get("nome"))}</span></div>'
+                f'{analise}{respostas}</div>')
+    return "".join(blocos) or '<p class="muted">nenhum componente respondeu nesta rodada.</p>'
+
+
+def _remediacao(bloco):
+    if not bloco:
+        return ""
+    return (f'<div class="fix"><p class="fix-h">Como resolver</p>'
+            f'{_rich(bloco.get("como_resolver"))}'
+            f'<p class="val"><b>Como confirmar:</b> {_rich(bloco.get("como_confirmar"))}</p>'
+            f'<p class="nao"><b>Quando não fazer:</b> {_rich(bloco.get("quando_nao_fazer"))}</p>'
+            f'</div>')
+
+
+def _achados_com_remediacao(achados):
+    if not achados:
+        return '<p class="muted">nenhum achado nesta rodada.</p>'
+    blocos = []
+    for achado in achados:
+        remediacao = achado.get("como_resolver") or {}
+        titulo = _e(remediacao.get("titulo") or achado.get("regra"))
+        onde = " · ".join(_e(p) for p in (achado.get("alvo"), achado.get("componente"),
+                                          achado.get("objeto")) if p)
+        vencido = ('<span class="chip bad">aceite vencido</span>'
+                   if achado.get("aceite_vencido") else "")
+        blocos.append(
+            f'<div class="ach {_e(achado.get("severidade"))}">'
+            f'<div class="ach-h"><b>{titulo}</b>'
+            f'<span class="sev">{_e(ROTULO_SEVERIDADE.get(achado.get("severidade"), ""))}</span>'
+            f'{vencido}</div>'
+            f'<p class="ach-o">{_e(achado.get("regra"))} · {onde}</p>'
+            f'<p class="ach-d">{_e(remediacao.get("por_que_importa") or achado.get("detalhe") or "")}</p>'
+            f'{_remediacao(remediacao)}</div>')
+    return "".join(blocos)
+
+
+def _impacto_v3(alvos):
+    """O que `impact.py` calcula: cenário → consequência. Ele rodava desde o v1 e o resultado
+    era descartado porque a chave não entrava na lista copiada para `fatos`."""
+    pontos = [(alvo.get("nome"), ponto) for alvo in alvos
+              for ponto in (alvo.get("fatos", {}).get("impact_points") or [])]
+    if not pontos:
+        return '<p class="muted">sem pontos de impacto calculados nesta rodada.</p>'
+    linhas = []
+    for nome, ponto in pontos:
+        linhas.append(f'<div class="imp"><b>{_e(ponto.get("titulo"))}</b>'
+                      f'<span class="dono">{_e(nome)}</span>'
+                      f'<p>{_e(ponto.get("cenario"))} → <b>{_e(ponto.get("consequencia"))}</b></p>'
+                      f'</div>')
+    return "".join(linhas)
+
+
 def render_html_v3(r):
     ctx = montar_contexto(r)
-    titulo = f"Auditoria de infraestrutura — {len(ctx['inventario'])} alvo(s)"
+    quantos = len(ctx["inventario"])
+    titulo = f"Auditoria de infraestrutura — {quantos} alvo" + ("s" if quantos != 1 else "")
     repl = {
         "%%TITLE%%": _e(titulo),
-        "%%GENERATED_AT%%": _e(ctx["gerado_em"]),
-        "%%PANORAMA_LINHA%%": _e(f"{ctx['panorama']['achados']} achado(s)"),
+        "%%GENERATED_AT%%": _e(_quando(ctx["gerado_em"])),
+        "%%PANORAMA_LINHA%%": _e(_plural(ctx["panorama"]["achados"], "achado", "achados")),
         "%%PANORAMA%%": _panorama(ctx["panorama"]),
         "%%RESUMO%%": (f"<p>{_rich(ctx['resumo'])}</p>" if ctx["resumo"]
                        else '<p class="muted">resumo ainda não escrito.</p>'),
         "%%INVENTARIO%%": _inventario(ctx["inventario"]),
-        "%%ACHADOS%%": _achados_v3(ctx["achados"]),
+        "%%SUMARIO%%": _sumario(),
+        "%%INSIGHTS%%": _insights_v3(ctx["alvos"]),
+        "%%IMPACTO%%": _impacto_v3(ctx["alvos"]),
+        "%%ACHADOS%%": _achados_com_remediacao(ctx["achados"]),
         "%%ACEITES%%": _aceites_v3(ctx["aceites"]),
         "%%RECOMENDACOES%%": _recomendacoes_v3(ctx["recomendacoes"]),
         "%%FORTES%%": _list(ctx["fortes"]),

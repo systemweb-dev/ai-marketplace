@@ -2,7 +2,7 @@
 titulo: Insights por sistema e remediacao na sw-infra-audit
 slug: 2026-09-19-insights-por-sistema-e-remediacao-na-sw-infra-audit
 criado: 2026-09-19
-estado: em-execucao
+estado: concluido
 ---
 
 # Insights por sistema e remediação na sw-infra-audit

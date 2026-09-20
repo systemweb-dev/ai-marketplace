@@ -33,6 +33,11 @@ determinísticas; a interpretação é sua (agente).**
   e a dimensão fica sem nota.
 - **Auditar não escreve** fora da pasta da execução. Quem escreve configuração é o modo
   configurar, e só com aprovação.
+- **Comando de remediação é para EXIBIR, nunca para executar.** O relatório traz o passo a
+  passo e o comando pronto; quem decide aplicar é o dono, depois de ler o "quando não fazer".
+  Você não executa nada do catálogo de remediação — nem quando parecer óbvio.
+- **Número sem fonte não existe.** Todo insight carrega o adaptador que respondeu; o que não
+  foi respondido aparece com o motivo, nunca como zero.
 
 ## Antes de tudo
 
@@ -68,6 +73,48 @@ Sem `alvos.toml`, ofereça `configurar.py migrar`: ele cria a pasta, garante a l
 `.gitignore` e escreve o primeiro arquivo — trazendo o conteúdo do antigo
 `~/.config/sw-infra-audit/alvos.toml` quando ele existir, ou partindo dos seus contexts docker.
 **Nunca sobrescreve** um existente.
+
+## Insights por sistema
+
+Cada componente do alvo (um serviço do swarm, um endpoint) recebe um **papel** — `entrada`,
+`fila`, `banco`, `cache`, `busca`, `storage`, `observabilidade`, `app` — derivado da imagem e
+sobrescrevível no `alvos.toml`. O papel define as **perguntas** que ele recebe; um **adaptador**
+responde o que souber e carimba a **fonte**.
+
+| Adaptador | Fala com | Estado |
+|---|---|---|
+| `promql` | Prometheus ou exporter declarado em `metricas_url` | funciona |
+| `admin_http` | API de administração do componente (filas, índices) | próximo ciclo |
+| `sql` | Postgres/MySQL por cliente de linha de comando | próximo ciclo |
+| `logql` | agregador de log, só consulta agregada | próximo ciclo |
+
+O conhecimento de cada família de exporter vive em `references/metricas/<familia>.toml` —
+identificação pela **série que existe** (não pelo nome da imagem, que mente com fork e tag
+genérica), etiqueta de seletor e uma consulta por pergunta. Acrescentar um produto é escrever
+um arquivo; nenhum `if produto ==` no código.
+
+Declare o componente quando quiser corrigir o papel ou apontar a fonte:
+
+```toml
+[[alvo.componente]]
+nome = "traefik"
+papel = "entrada"
+metricas_url = "http://prometheus.interno:9090"
+# senha_env = "SENHA_DA_FILA"   # o NOME da variável; o valor nunca fica no arquivo
+```
+
+A janela é 24 h por padrão (`[insights] janela` no `config.toml`) e é **ancorada no `--at`** —
+duas execuções com o mesmo carimbo dão o mesmo número.
+
+## Como resolver cada achado
+
+Todo achado chega ao relatório com quatro blocos vindos de `references/remediacao/<regra>.md`:
+**por que importa · como resolver (passos e comando) · como confirmar que resolveu · quando NÃO
+fazer**. Você pode enriquecer a análise por cima; não reescreva o catálogo na hora — ele é
+versionado e revisado em pull request, justamente para não variar a cada rodada.
+
+Regra marcada como **esperada** (o proxy que monta o `docker.sock` porque é assim que ele
+funciona, o job de migração concluído) não pede remediação: ela descreve o normal.
 
 ## Fluxo do modo auditar
 

@@ -44,11 +44,15 @@ def montar(tmp_path, dados=None, monkeypatch=None):
     return (pasta / "relatorio.html").read_text(encoding="utf-8")
 
 
-def test_o_inventario_vem_antes_dos_achados(tmp_path):
+def test_o_que_existe_vem_antes_do_que_esta_errado(tmp_path):
+    """A ordem de leitura é a do relatório: primeiro o mapa do que existe, depois o
+    diagnóstico. Cobrar isso pelo CONTEÚDO, e não pelo título da seção, sobrevive a
+    reorganizar as seções."""
     html = montar(tmp_path)
 
-    assert html.index("Inventário") < html.index("Achados")
     assert "context: ctx" in html and "exemplo.invalido" in html
+    assert html.index("context: ctx") < html.index('id="achados"'), \
+        "o mapa do que existe vem antes do diagnóstico"
 
 
 def test_nao_existe_nota_unica_da_infraestrutura(tmp_path):

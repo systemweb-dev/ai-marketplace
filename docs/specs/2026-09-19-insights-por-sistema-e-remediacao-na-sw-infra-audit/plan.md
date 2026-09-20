@@ -1704,7 +1704,7 @@ git commit -m "feat(sw-infra-audit): componentes respondem as perguntas do seu p
 - Modify: `scripts/collect.py`
 - Test: `tests/test_remediacao.py`
 
-- [ ] **Step 1: escrever o teste que falha (é a fitness function nº 1)**
+- [x] **Step 1: escrever o teste que falha (é a fitness function nº 1)**
 
 ```python
 def test_toda_regra_que_vira_achado_tem_remediacao():
@@ -1743,9 +1743,9 @@ def test_achado_chega_ao_relatorio_com_o_passo_a_passo(tmp_path):
     assert "como_resolver" in achado and achado["como_resolver"]["como_confirmar"]
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `lib.remediacao` não existe.
+- [x] **Step 2: rodar e ver falhar** — `lib.remediacao` não existe.
 
-- [ ] **Step 3: escrever um arquivo por regra**
+- [x] **Step 3: escrever um arquivo por regra**
 
 Modelo (`references/remediacao/SEC_PORT_EXPOSED.md`) — repita a estrutura para **todas** as
 regras de `exigem_remediacao()`:
@@ -1793,7 +1793,7 @@ publicação é o desenho, não o problema — registre como risco aceito com ju
 > **Comandos são para exibir, nunca para executar.** A skill não roda nada disto; quem executa
 > é o dono, depois de ler. Isto vale para todo arquivo do catálogo e está na `SKILL.md`.
 
-- [ ] **Step 4: implementar o leitor**
+- [x] **Step 4: implementar o leitor**
 
 ```python
 """Catálogo de remediação: o que fazer, em arquivo versionado, não em prosa gerada na hora.
@@ -1842,7 +1842,7 @@ def para(regra, pasta=PASTA):
     return carregar_arquivo(caminho) if caminho.exists() else None
 ```
 
-- [ ] **Step 5: anexar ao achado em `collect.py`**
+- [x] **Step 5: anexar ao achado em `collect.py`**
 
 Depois de `aceites_mod.aplicar(...)`, antes de `ordenar`:
 
@@ -1855,9 +1855,9 @@ Depois de `aceites_mod.aplicar(...)`, antes de `ordenar`:
                 achado["como_resolver"] = bloco
 ```
 
-- [ ] **Step 6: rodar** → PASS, inclusive a fitness function nº 1.
+- [x] **Step 6: rodar** → PASS, inclusive a fitness function nº 1.
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add scripts/lib/remediacao.py references/remediacao/ scripts/collect.py tests/test_remediacao.py
@@ -1877,7 +1877,7 @@ A direção visual é a aprovada no dossiê (`referencias/direcao-visual-analyti
 `referencias/direcao-visual-insights-e-remediacao.png`): cartões com ar, cor com função,
 gráficos desenhados em CSS, `%%PLACEHOLDER%%` substituído em **uma passada**.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def _relatorio_v3():
@@ -1958,9 +1958,9 @@ def test_placeholder_escrito_pelo_agente_nao_injeta_secao():
     assert html.count('id="alvos"') == 1
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `render_html_v3` não existe.
+- [x] **Step 2: rodar e ver falhar** — `render_html_v3` não existe.
 
-- [ ] **Step 3: escrever o template**
+- [x] **Step 3: escrever o template**
 
 Copie `assets/report-template/template_v2.html` para `template_v3.html` e substitua o corpo
 pelos blocos da direção aprovada, nesta ordem, com estes placeholders:
@@ -1979,7 +1979,7 @@ O CSS sai do mockup aprovado (`/tmp/mockup-preview/relatorio-infra/estilo.css`, 
 copie-o inteiro para dentro do `<style>` do template, trocando o seletor `.rep.d7` por `body`.
 Mantenha o bloco `@media print` do v2 (A4, `print-color-adjust`, quebras controladas).
 
-- [ ] **Step 4: implementar o renderizador**
+- [x] **Step 4: implementar o renderizador**
 
 ```python
 def _insights_v3(alvos):
@@ -2022,9 +2022,9 @@ def _valor(valor):
 O `render_html_v3` segue o mesmo desenho do `render_html_v2`: monta o `repl`, lê o template e
 faz **uma** passada de `re.sub(r"%%[A-Z_]+%%", ...)`.
 
-- [ ] **Step 5: rodar** — `.venv/bin/python -m pytest tests/test_build_report_v3.py -q` → PASS.
+- [x] **Step 5: rodar** — `.venv/bin/python -m pytest tests/test_build_report_v3.py -q` → PASS.
 
-- [ ] **Step 6: conferir o A4 de verdade**
+- [x] **Step 6: conferir o A4 de verdade**
 
 ```bash
 cd ~/.claude/skills/sw-infra-audit
@@ -2041,7 +2041,7 @@ Expected: gera `relatorio.html` e, havendo Chromium, `relatorio.pdf`. Abra o PDF
 quebra de página não corta cartão de insight ao meio, o sumário está na primeira página, e os
 blocos "Como resolver" não ficam órfãos do título.
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add assets/report-template/template_v3.html scripts/build_report.py tests/
@@ -2056,7 +2056,7 @@ git commit -m "feat(sw-infra-audit): relatorio v3 com insights, remediacao e sum
 - Modify: `tests/test_restricoes.py`
 - Test: o próprio arquivo
 
-- [ ] **Step 1: escrever os testes que faltam**
+- [x] **Step 1: escrever os testes que faltam**
 
 ```python
 def test_mesma_entrada_mesmo_byte_com_perguntas(tmp_path, monkeypatch):
@@ -2098,12 +2098,12 @@ def test_adaptador_nao_abre_rede_por_fora():
                 f"{arquivo.name} abre rede fora do lib/http_get.py"
 ```
 
-- [ ] **Step 2: rodar a suíte inteira**
+- [x] **Step 2: rodar a suíte inteira**
 
 Run: `cd ~/.claude/skills/sw-infra-audit && .venv/bin/python -m pytest -q`
 Expected: PASS, com contagem acima de 340 testes.
 
-- [ ] **Step 3: rodar as cinco provas por mutação, uma a uma**
+- [x] **Step 3: rodar as cinco provas por mutação, uma a uma**
 
 | Mutação | Teste que TEM que falhar |
 |---|---|
@@ -2115,7 +2115,7 @@ Expected: PASS, com contagem acima de 340 testes.
 
 Reverta cada mutação antes da próxima.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```bash
 git add tests/test_restricoes.py
@@ -2129,13 +2129,13 @@ git commit -m "test(sw-infra-audit): restricoes verificaveis do plano 1"
 **Files:**
 - Modify: `SKILL.md`, `CHANGELOG.md` (no marketplace)
 
-- [ ] **Step 1: atualizar a `SKILL.md`**
+- [x] **Step 1: atualizar a `SKILL.md`**
 
 Acrescente: a seção de insights por sistema (papel → perguntas → fonte), a regra
 **"comando de remediação é para exibir, nunca para executar"**, o bloco `[[alvo.componente]]`
 no exemplo de configuração, e a chave `insights.janela`. Mantenha o tom do arquivo.
 
-- [ ] **Step 2: sincronizar e conferir o gate**
+- [x] **Step 2: sincronizar e conferir o gate**
 
 ```bash
 cd /var/www/ai-marketplace
@@ -2144,20 +2144,20 @@ make check
 ```
 Expected: `✓ gate de segurança: nada sensível detectado`.
 
-- [ ] **Step 3: CHANGELOG**
+- [x] **Step 3: CHANGELOG**
 
 Entrada em `### Adicionado` descrevendo: insights por sistema com fonte declarada, remediação
 por regra, schema v3, egress com porta, ambiente do filho como base positiva, orçamento que
 passa a valer. Linguagem do arquivo: o que muda para quem usa, e por quê.
 
-- [ ] **Step 4: marcar o dossiê**
+- [x] **Step 4: marcar o dossiê**
 
 ```bash
 python3 ~/.claude/skills/sw-brainstorming/scripts/dossie.py estado \
   2026-09-19-insights-por-sistema-e-remediacao-na-sw-infra-audit concluido
 ```
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git add plugins/sw-infra-audit CHANGELOG.md docs/specs README.md .claude-plugin/marketplace.json

@@ -253,6 +253,15 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
     except ValueError as erro:        # aceite mal escrito: dizer qual linha arrumar, não um traceback
         print(f"aceite inválido: {erro}", file=sys.stderr)
         return EXIT_PARADA
+    # a remediação vem do catálogo versionado, depois do aceite: achado aceito não precisa de
+    # passo a passo, e achado que sobrou precisa — inclusive o de aceite vencido
+    from lib import remediacao
+    for registro in relatorio["alvos"]:
+        for achado in registro["achados"]:
+            bloco = remediacao.para(achado.get("regra"))
+            if bloco:
+                achado["como_resolver"] = bloco
+
     relatorio = report_mod.ordenar(relatorio)
     relatorio["inventario"] = report_mod.montar_inventario(relatorio)
 

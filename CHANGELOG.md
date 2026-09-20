@@ -7,6 +7,23 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-infra-audit` (v0.6.0): **insights por sistema e como resolver cada achado** — o plano 1 do
+  dossiê `2026-09-19-insights-por-sistema-e-remediacao` está completo.
+  - Cada componente do alvo recebe um **papel** e responde as **perguntas** daquele papel; quem
+    responde é um **adaptador**, e toda resposta carimba a **fonte**. O que não foi respondido
+    aparece com o motivo — nunca como zero.
+  - **Catálogo de remediação**: um arquivo por regra (20 regras), com por que importa, como
+    resolver com comando, **como confirmar que resolveu** e quando NÃO fazer. É versionado e
+    revisado em pull request, em vez de gerado a cada rodada. Os comandos são para exibir;
+    a auditoria nunca executa nada.
+  - **Relatório novo**, com sumário no topo, seção de insights por componente e o bloco de
+    remediação em cada achado. O `impact.py` (cenário → consequência) volta a aparecer depois
+    de duas versões sendo calculado e descartado.
+  - Sumário **sem número de página**: o Chromium não tem `target-counter`, e descobrir as
+    páginas numa segunda passada dependeria de ferramenta externa — duas máquinas gerariam
+    relatórios diferentes para a mesma entrada.
+
 ### Alterado
 - `sw-infra-audit` (v0.4.0): **o alvo passa a ter componentes** — o esqueleto para interrogar
   cada peça da infraestrutura pelo papel dela. É a primeira metade do plano 1 do dossiê

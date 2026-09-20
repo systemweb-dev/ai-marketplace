@@ -164,3 +164,51 @@ def test_mesmo_relatorio_com_as_mesmas_entradas(tmp_path, monkeypatch):
         saida.append((tmp_path / rodada / "docs/infra/2026-09-19_1000" / "report.json").read_bytes())
 
     assert saida[0] == saida[1]
+
+
+def test_mesma_entrada_mesmo_byte_com_perguntas(tmp_path):
+    """Restrição 5, agora com insights: mesmas respostas gravadas e mesmo --at, mesmo arquivo.
+
+    É o que impede a ordem do dicionário da coleta e o empate de valor de vazarem para o
+    relatório — duas auditorias idênticas não podem produzir arquivos diferentes.
+    """
+    class Gravado:
+        ID = "gravado"
+
+        @staticmethod
+        def perguntar(pergunta, componente, contexto):
+            return {"pergunta": pergunta, "fonte": "gravado:x",
+                    "valor": [{"chave": "404", "valor": 7}, {"chave": "200", "valor": 7}]}
+
+    def coletor(alvo, contexto):
+        return {"saude": "🟢",
+                "componentes": [{"nome": "z_proxy", "papel": "entrada"},
+                                {"nome": "a_api", "papel": "entrada"}]}
+
+    saidas = []
+    for rodada in ("a", "b"):
+        destino = tmp_path / rodada
+        destino.mkdir()
+        collect.main([*ambiente(destino), "--confirmar", "site"],
+                     coletores={"http": coletor}, adaptadores=[Gravado])
+        saidas.append((destino / "docs/infra/2026-09-19_1000" / "report.json").read_bytes())
+
+    assert saidas[0] == saidas[1]
+
+
+def test_adaptador_nao_abre_rede_nem_subprocesso_por_fora():
+    """Restrição 2 estendida aos adaptadores: rede só pelo lib/http_get.py, subprocesso só
+    pelos três pontos declarados."""
+    # `urllib.parse` (quote/urlparse) é manipulação de texto, não I/O — quem abre socket é
+    # o de baixo. A distinção é a mesma que `tests/test_egress.py` já fazia.
+    proibidos = {"socket", "ssl", "urllib.request", "urllib.error", "http.client", "requests",
+                 "httpx", "subprocess", "multiprocessing", "pty"}
+    for arquivo in (SCRIPTS / "lib" / "adaptadores").rglob("*.py"):
+        arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+        for no in ast.walk(arvore):
+            nomes = ([a.name for a in no.names] if isinstance(no, ast.Import)
+                     else [no.module or ""] if isinstance(no, ast.ImportFrom) else [])
+            achados = {str(n) for n in nomes} & proibidos
+            achados |= {str(n) for n in nomes if str(n).split(".")[0] in {"socket", "ssl",
+                                                                         "subprocess"}}
+            assert not achados, f"{arquivo.name} importa {achados} — rede e subprocesso têm dono"

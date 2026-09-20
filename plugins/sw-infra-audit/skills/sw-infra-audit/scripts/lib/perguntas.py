@@ -26,9 +26,9 @@ def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None):
 # As que dependem de etiqueta de rota (top_rotas, top_dominios, erros_por_rota) exigem
 # exporter que exponha rota — entram junto com o adaptador de log, no plano 4.
 _p("entrada.volume_na_janela", "entrada", "Requisições na janela", "escalar",
-   unidade="requisicoes")
+   unidade="requisições")
 _p("entrada.distribuicao_de_status", "entrada", "Distribuição de status", "lista",
-   unidade="requisicoes", desempate="chave")
+   unidade="requisições", desempate="chave")
 _p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms")
 
 
