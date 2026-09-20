@@ -8,6 +8,46 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.8.0): **o relatório aguenta volume**. Uma auditoria real trouxe 213
+  achados e o PDF saiu com **121 páginas A4** — 75 deles eram a mesma regra, com um único
+  detalhe distinto entre os 75, e cada ocorrência levava um cartão inteiro com o bloco de
+  remediação repetido. Agora achado da mesma regra vira **um bloco com a remediação uma vez** e
+  as ocorrências em **linha densa, três colunas na impressão**: 121 → 23 páginas, com todas as
+  213 ocorrências ainda no relatório. Agrupar não é esconder — o que saiu foi a repetição.
+  - A chave do agrupamento é `(regra, severidade)`, não a regra sozinha: um aceite rebaixa a
+    severidade de UMA ocorrência, e fundir as duas faria o relatório anunciar gravidade que
+    aquela ocorrência não tem.
+  - Seção nova **"O que falta declarar"**, e o script `pendencias.py` que a alimenta: quando um
+    componente não responde, o relatório passa a dizer **por quê** e o que escrever no
+    `alvos.toml` para resolver. Sem isso, 57 componentes apareciam com nome, papel e silêncio, e
+    quem lia concluía que a skill não funcionava.
+  - A seção **Insights** deixa de imprimir um cartão por componente mudo: eram 57 repetições da
+    frase "nenhuma pergunta para este papel nesta versão", seis páginas A4. Os que ficam de fora
+    são contados, com link para a seção que explica cada um.
+  - Passo **3b** no fluxo: antes de interpretar, checar o que ficou calado e **perguntar** se o
+    `metricas_url` entra agora. Coletar com exit 0 não quer dizer que alguém respondeu alguma
+    coisa.
+
+### Corrigido
+- `sw-infra-audit` (v0.8.0): a remediação é escrita em markdown e era impressa **achatada num
+  parágrafo só**, com as crases e o "1." no meio do texto corrido. O template sempre teve CSS
+  para `.fix ol` e `.fix pre` — o desenho contava com lista numerada e bloco de código, e o
+  renderizador nunca gerava nenhum dos dois. Agora `_rich` entende parágrafo, lista (inclusive
+  item que continua na linha seguinte, que é como os arquivos de 95 colunas quebram), bloco de
+  código, negrito e código inline. Tudo continua escapado antes: o conteúdo vem de arquivo e
+  nada nele abre tag.
+- `sw-infra-audit` (v0.8.0): quando o PDF falhava, a mensagem era **"PDF não gerado (sem
+  Chromium)" para qualquer causa** — numa máquina com Chromium instalado e uma conversão que
+  estourou o tempo, ela mandava o operador procurar um navegador que já estava lá. Agora o
+  motivo é o verdadeiro, e o limite de tempo subiu de 60s para 180s.
+- `sw-infra-audit` (v0.8.0): o sumário lista as seções a partir de um registro separado do
+  template — dois lugares para a mesma verdade. Seção acrescentada no HTML e esquecida no
+  registro simplesmente não aparecia no sumário; removida do HTML e esquecida no registro
+  deixava âncora morta no PDF. Nenhum dos dois quebrava teste. Agora quebra.
+- `sw-infra-audit` (v0.8.0): a capa empurrava o sumário inteiro para a folha seguinte (ele era
+  indivisível) e abria o relatório com meia página em branco.
+
+### Adicionado
 - `sw-infra-audit` (v0.7.1): **toda decisão da skill passa a ser menu clicável**
   (`AskUserQuestion`), com a tabela dos momentos em que perguntar: confirmar os alvos da rodada,
   criar o primeiro `alvos.toml`, acertar o `.gitignore`, propor `metricas_url`, registrar risco

@@ -64,9 +64,69 @@ def _table(headers, rows, aligns=None):
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
 
 
+def _inline(trecho):
+    """Negrito e código inline, sobre texto JÁ escapado. Nada aqui abre tag."""
+    trecho = re.sub(r"`([^`]+)`", r"<code>\1</code>", trecho)
+    trecho = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", trecho)
+    return (trecho.replace("&lt;strong&gt;", "<strong>")
+                  .replace("&lt;/strong&gt;", "</strong>"))
+
+
+def _agrupar_itens(linhas, marcador):
+    """Junta a linha de continuação ao item que ela continua.
+
+    Os arquivos de remediação quebram em ~95 colunas, então um item de lista ocupa duas ou três
+    linhas. Exigir que TODA linha comece com marcador fazia o bloco inteiro deixar de ser lista.
+    """
+    itens = []
+    for linha in linhas:
+        if re.match(marcador, linha):
+            itens.append(re.sub(marcador, "", linha))
+        elif itens:
+            itens[-1] += " " + linha
+        else:
+            return None
+    return itens
+
+
+def _blocos_de_texto(trecho):
+    """Parágrafos e listas de um pedaço que não contém bloco de código."""
+    saida = []
+    for bloco in re.split(r"\n\s*\n", trecho):
+        linhas = [linha.strip() for linha in bloco.strip().splitlines() if linha.strip()]
+        if not linhas:
+            continue
+        numerada = _agrupar_itens(linhas, r"^\d+[.)]\s+") if re.match(r"^\d+[.)]\s+", linhas[0]) else None
+        marcada = _agrupar_itens(linhas, r"^[-*]\s+") if re.match(r"^[-*]\s+", linhas[0]) else None
+        if numerada:
+            saida.append("<ol>" + "".join(f"<li>{_inline(i)}</li>" for i in numerada) + "</ol>")
+        elif marcada:
+            saida.append("<ul>" + "".join(f"<li>{_inline(i)}</li>" for i in marcada) + "</ul>")
+        else:
+            saida.append(f"<p>{_inline(' '.join(linhas))}</p>")
+    return "".join(saida)
+
+
 def _rich(text):
-    """Escapa tudo e devolve só <strong> — o agente pode destacar trechos sem abrir XSS."""
-    return (_e(text).replace("&lt;strong&gt;", "<strong>").replace("&lt;/strong&gt;", "</strong>"))
+    """Subconjunto de markdown da remediação: parágrafo, lista, bloco de código, negrito e
+    código inline. Tudo é ESCAPADO antes — o conteúdo vem de arquivo, e nada nele abre tag.
+
+    O template sempre teve CSS para `.fix ol` e `.fix pre`. O renderizador achatava tudo num
+    parágrafo só, com as crases e o "1." no meio do texto corrido: o desenho existia para um
+    HTML que nunca era gerado.
+    """
+    if text is None:
+        return ""
+    escapado = _e(str(text))
+    # O bloco de código é fatiado primeiro: dentro dele, "-" e "1." são código, não lista.
+    pedacos = re.split(r"```[a-zA-Z0-9_-]*\n?(.*?)```", escapado, flags=re.S)
+    partes = []
+    for i, pedaco in enumerate(pedacos):
+        if i % 2:
+            partes.append(f"<pre>{pedaco.rstrip()}</pre>")
+        else:
+            partes.append(_blocos_de_texto(pedaco))
+    return "".join(parte for parte in partes if parte)
 
 
 def _list(items):
@@ -562,6 +622,10 @@ def render_html(report):
 
 FORMATOS = ("html", "html+pdf")
 
+# 60s bastavam para um relatório pequeno; o de 213 achados converte em ~1,3s, mas um
+# relatório muito maior não tem por que morrer por causa de um número apertado.
+PDF_TIMEOUT = 180
+
 
 def build(report, out_dir, formato="html+pdf"):
     """Escreve o relatório. `formato` decide se o PDF também sai.
@@ -584,18 +648,28 @@ def build(report, out_dir, formato="html+pdf"):
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(pagina)
 
-    pdf_path = None
-    chrome = find_chromium() if formato == "html+pdf" else None
-    if chrome:
-        pdf_path = os.path.join(out_dir, "relatorio.pdf")
-        try:
-            subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
-                            "--no-pdf-header-footer", f"--print-to-pdf={pdf_path}",
-                            f"file://{os.path.abspath(html_path)}"],
-                           check=True, capture_output=True, timeout=60)
-        except (subprocess.SubprocessError, OSError):
-            pdf_path = None
-    return {"html": html_path, "pdf": pdf_path}
+    pdf_path, pdf_motivo = None, None
+    if formato == "html+pdf":
+        chrome = find_chromium()
+        if not chrome:
+            pdf_motivo = ("Chromium não encontrado nesta máquina — instale o chromium "
+                          "ou o google-chrome para gerar o PDF.")
+        else:
+            destino = os.path.join(out_dir, "relatorio.pdf")
+            try:
+                subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
+                                "--no-pdf-header-footer", f"--print-to-pdf={destino}",
+                                f"file://{os.path.abspath(html_path)}"],
+                               check=True, capture_output=True, timeout=PDF_TIMEOUT)
+                pdf_path = destino
+            except subprocess.TimeoutExpired:
+                # Relatório grande demais para o tempo dado. Dizer "sem Chromium" aqui mandaria
+                # o operador instalar o que já está instalado.
+                pdf_motivo = (f"o Chromium passou de {PDF_TIMEOUT}s convertendo a página e o "
+                              f"tempo esgotou — o HTML está pronto.")
+            except (subprocess.SubprocessError, OSError) as erro:
+                pdf_motivo = f"a conversão falhou: {type(erro).__name__}: {erro}"
+    return {"html": html_path, "pdf": pdf_path, "pdf_motivo": pdf_motivo}
 
 
 # ---------------------------------------------------------------- relatório v3 (por alvos e componentes)
@@ -762,7 +836,8 @@ def _historico_v3(h):
 # ---------------------------------------------------------------- insights e remediação (v3)
 SECOES_V3 = (("panorama", "Panorama"), ("topologia", "Topologia"),
              ("instrumentos", "Instrumentos"),
-             ("insights", "Insights por sistema"), ("achados", "Achados"),
+             ("insights", "Insights por sistema"),
+             ("pendencias", "O que falta declarar"), ("achados", "Achados"),
              ("impacto", "Se isto falhar"), ("aceites", "Riscos aceitos"),
              ("recomendacoes", "Recomendações"), ("leitura", "Pontos fortes e de atenção"),
              ("alvos", "Por alvo"), ("historico", "Desde a auditoria anterior"))
@@ -784,6 +859,7 @@ DESCRICAO_SECAO = {
     "topologia": "os componentes agrupados por papel, com os achados de cada um",
     "instrumentos": "as medidas que têm tolerância declarada",
     "insights": "o que cada componente respondeu, com a fonte",
+    "pendencias": "o silêncio que se resolve editando o alvos.toml",
     "achados": "cada um com passo a passo e como confirmar",
     "impacto": "cenário e consequência, a partir do que existe hoje",
     "aceites": "decisão consciente, com justificativa e prazo",
@@ -814,6 +890,9 @@ def _sumario(ctx):
         "achados": (_plural(panorama["achados"], "aberto", "abertos"),
                     "bad" if panorama["achados"] else "ok"),
         "impacto": ("", ""),
+        "pendencias": (_plural(sum(len(p["componentes"])
+                                   for p in pendencias_de_declaracao(ctx["alvos"])),
+                               "componente calado", "componentes calados"), ""),
         "aceites": (_plural(panorama["aceitos"], "risco aceito", "riscos aceitos"), ""),
         "recomendacoes": (_plural(len(ctx["recomendacoes"]), "ação", "ações"), ""),
         "leitura": ("", ""),
@@ -873,28 +952,38 @@ def _resposta(resposta):
 
 
 def _insights_v3(alvos):
-    """Um cartão por componente: papel, e cada resposta com a FONTE que a produziu.
+    """Um cartão por componente que TEM o que dizer: papel, análise e cada resposta com a FONTE.
 
     Número sem fonte não entra no relatório — é isso que separa dado de chute, e é o que
     permite ao leitor saber se "0 requisições" quer dizer "não houve tráfego" ou "ninguém
     perguntou".
+
+    Componente sem resposta e sem análise não ganha cartão. Ele ganhava, e o cartão dizia
+    "nenhuma pergunta para este papel nesta versão" — numa auditoria de 57 componentes isso
+    imprimia a mesma frase 57 vezes, seis páginas A4. A informação não some: ela é contada,
+    uma vez, em "O que falta declarar".
     """
-    blocos = []
+    blocos, calados = [], 0
     for alvo in alvos:
         for componente in alvo.get("componentes", []):
             respostas = "".join(_resposta(r) for r in componente.get("respostas", []))
-            if not respostas:
-                respostas = ('<p class="muted">nenhuma pergunta para este papel nesta '
-                             'versão.</p>')
             analise = (f'<p class="an">{_rich(componente["analise"])}</p>'
                        if componente.get("analise") else "")
+            if not respostas and not analise:
+                calados += 1
+                continue
             blocos.append(
                 f'<div class="card comp"><div class="sys">'
                 f'<span class="tag">{_e(componente.get("papel"))}</span>'
                 f'<h3>{_e(componente.get("nome"))}</h3>'
                 f'<span class="dono">{_e(alvo.get("nome"))}</span></div>'
                 f'{analise}{respostas}</div>')
-    return "".join(blocos) or '<p class="muted">nenhum componente respondeu nesta rodada.</p>'
+    rodape = (f'<p class="muted">Outros {calados} componentes não receberam pergunta nesta '
+              f'rodada — o motivo de cada um está em <a href="#pendencias">O que falta '
+              f'declarar</a>.</p>') if calados else ""
+    if not blocos:
+        return (rodape or '<p class="muted">nenhum componente respondeu nesta rodada.</p>')
+    return "".join(blocos) + rodape
 
 
 def _remediacao(bloco):
@@ -907,25 +996,89 @@ def _remediacao(bloco):
             f'</div>')
 
 
+def agrupar_achados(achados):
+    """Achados da mesma regra viram UM bloco, sem que nenhuma ocorrência saia do relatório.
+
+    Uma auditoria real trouxe 213 achados — 75 deles da mesma regra, com um único detalhe
+    distinto entre os 75. Desenhados um a um, com a remediação repetida em cada, davam 121
+    páginas A4 de repetição. O agrupamento tira a repetição, não o dado.
+
+    A chave é (regra, severidade), não a regra sozinha: um aceite rebaixa a severidade de UMA
+    ocorrência, e fundir as duas faria o relatório anunciar gravidade que aquela ocorrência
+    não tem.
+
+    `detalhe_comum` só existe quando TODAS as ocorrências dizem a mesma frase — aí ela vale uma
+    vez, no cabeçalho. Quando o detalhe varia (`4 tasks falharam` × `20 tasks falharam`), ele é
+    o dado, e fica na linha de cada ocorrência.
+    """
+    grupos = {}
+    for achado in achados:
+        chave = (achado.get("regra"), achado.get("severidade"))
+        grupos.setdefault(chave, []).append(achado)
+
+    saida = []
+    for (regra, severidade), itens in grupos.items():
+        detalhes = {item.get("detalhe") or "" for item in itens}
+        comum = detalhes.pop() if len(detalhes) == 1 else None
+        primeira = itens[0].get("como_resolver") or {}
+        saida.append({
+            "regra": regra,
+            "severidade": severidade,
+            "titulo": primeira.get("titulo") or regra,
+            "por_que_importa": primeira.get("por_que_importa") or "",
+            "como_resolver": primeira,
+            "detalhe_comum": comum or None,
+            "ocorrencias": [{
+                "objeto": item.get("objeto"),
+                "alvo": item.get("alvo"),
+                "componente": item.get("componente"),
+                "aceite_vencido": item.get("aceite_vencido"),
+                "detalhe_proprio": None if comum else (item.get("detalhe") or ""),
+            } for item in itens],
+        })
+
+    saida.sort(key=lambda g: (ORDEM_SEVERIDADE.index(g["severidade"])
+                              if g["severidade"] in ORDEM_SEVERIDADE else len(ORDEM_SEVERIDADE),
+                              -len(g["ocorrencias"]), g["regra"] or ""))
+    return saida
+
+
+def _linha_de_ocorrencia(ocorrencia, mostra_alvo):
+    """Uma ocorrência é uma LINHA, não um cartão. É o que faz 75 caberem numa página."""
+    onde = _e(ocorrencia.get("objeto") or ocorrencia.get("componente") or "")
+    celulas = [f'<td class="oc-o">{onde}</td>']
+    if mostra_alvo:
+        celulas.append(f'<td class="oc-a">{_e(ocorrencia.get("alvo") or "")}</td>')
+    if ocorrencia.get("detalhe_proprio"):
+        celulas.append(f'<td class="oc-d">{_e(ocorrencia["detalhe_proprio"])}</td>')
+    if ocorrencia.get("aceite_vencido"):
+        celulas.append('<td class="oc-v"><span class="chip bad">aceite vencido</span></td>')
+    return f'<tr>{"".join(celulas)}</tr>'
+
+
 def _achados_com_remediacao(achados):
     if not achados:
         return '<p class="muted">nenhum achado nesta rodada.</p>'
     blocos = []
-    for achado in achados:
-        remediacao = achado.get("como_resolver") or {}
-        titulo = _e(remediacao.get("titulo") or achado.get("regra"))
-        onde = " · ".join(_e(p) for p in (achado.get("alvo"), achado.get("componente"),
-                                          achado.get("objeto")) if p)
-        vencido = ('<span class="chip bad">aceite vencido</span>'
-                   if achado.get("aceite_vencido") else "")
+    for grupo in agrupar_achados(achados):
+        n = len(grupo["ocorrencias"])
+        mostra_alvo = len({oc.get("alvo") for oc in grupo["ocorrencias"]}) > 1
+        contagem = "1 ocorrência" if n == 1 else f"{n} ocorrências"
+        descricao = grupo["por_que_importa"] or grupo["detalhe_comum"] or ""
+        detalhe = (f'<p class="grp-c">{_e(grupo["detalhe_comum"])}</p>'
+                   if grupo["detalhe_comum"] and grupo["por_que_importa"] else "")
+        linhas = "".join(_linha_de_ocorrencia(oc, mostra_alvo)
+                         for oc in grupo["ocorrencias"])
         blocos.append(
-            f'<div class="ach {_e(achado.get("severidade"))}">'
-            f'<div class="ach-h"><b>{titulo}</b>'
-            f'<span class="sev">{_e(ROTULO_SEVERIDADE.get(achado.get("severidade"), ""))}</span>'
-            f'{vencido}</div>'
-            f'<p class="ach-o">{_e(achado.get("regra"))} · {onde}</p>'
-            f'<p class="ach-d">{_e(remediacao.get("por_que_importa") or achado.get("detalhe") or "")}</p>'
-            f'{_remediacao(remediacao)}</div>')
+            f'<div class="grp {_e(grupo["severidade"])}">'
+            f'<div class="grp-h"><b>{_e(grupo["titulo"])}</b>'
+            f'<span class="sev">{_e(ROTULO_SEVERIDADE.get(grupo["severidade"], ""))}</span>'
+            f'<span class="grp-n">{contagem}</span>'
+            f'<code class="grp-r">{_e(grupo["regra"])}</code></div>'
+            f'<div class="grp-d">{_rich(descricao)}</div>{detalhe}'
+            f'{_remediacao(grupo["como_resolver"])}'
+            f'<table class="ocs">{linhas}</table>'
+            f'</div>')
     return "".join(blocos)
 
 
@@ -1050,6 +1203,72 @@ def _instrumentos(alvos):
     return f'<div class="medidores">{"".join(medidores)}</div>'
 
 
+def pendencias_de_declaracao(alvos):
+    """Por que o relatório está calado — e o que o dono escreve para ele falar.
+
+    São duas lacunas diferentes, e a segunda é a que passava despercebida:
+
+    1. O componente RECEBEU pergunta e respondeu `sem_dados`. O motivo já vem pronto do
+       adaptador ("não declara `metricas_url`").
+    2. O componente não recebeu pergunta NENHUMA, porque o papel dele ainda não tem pergunta
+       registrada. Isso não gera `sem_dados` — gera lista vazia. O componente aparecia no
+       relatório com nome, papel e mais nada, e ninguém sabia se era falta de dado, falta de
+       acesso ou defeito da skill.
+    """
+    from lib.perguntas import do_papel
+
+    por_motivo = {}
+    for alvo in alvos:
+        for componente in alvo.get("componentes", []):
+            papel = componente.get("papel", "app")
+            respostas = componente.get("respostas") or []
+            if not respostas:
+                if not do_papel(papel):
+                    motivo = (f"o papel `{papel}` ainda não tem nenhuma pergunta registrada "
+                              f"nesta versão da skill")
+                    por_motivo.setdefault((motivo, papel), []).append(
+                        {"alvo": alvo.get("nome"), "componente": componente.get("nome")})
+                continue
+            for resposta in respostas:
+                if not resposta.get("sem_dados"):
+                    continue
+                motivo = resposta.get("motivo") or "sem motivo registrado"
+                por_motivo.setdefault((motivo, papel), []).append(
+                    {"alvo": alvo.get("nome"), "componente": componente.get("nome")})
+
+    pendencias = []
+    for (motivo, papel), componentes in por_motivo.items():
+        vistos, unicos = set(), []
+        for item in componentes:
+            chave = (item["alvo"], item["componente"])
+            if chave not in vistos:
+                vistos.add(chave)
+                unicos.append(item)
+        pendencias.append({"motivo": motivo, "papel": papel, "componentes": unicos})
+    pendencias.sort(key=lambda p: (-len(p["componentes"]), p["papel"], p["motivo"]))
+    return pendencias
+
+
+def _pendencias(alvos):
+    pendencias = pendencias_de_declaracao(alvos)
+    if not pendencias:
+        return ('<p class="muted">todo componente inventariado respondeu às perguntas do seu '
+                'papel — não há lacuna de declaração nesta rodada.</p>')
+    blocos = []
+    for pendencia in pendencias:
+        nomes = ", ".join(_e(c["componente"]) for c in pendencia["componentes"][:14])
+        resto = len(pendencia["componentes"]) - 14
+        if resto > 0:
+            nomes += f" <span class=\"muted\">e mais {resto}</span>"
+        blocos.append(
+            f'<div class="pend">'
+            f'<div class="pend-h"><code class="papel">{_e(pendencia["papel"])}</code>'
+            f'<span class="grp-n">{_plural(len(pendencia["componentes"]), "componente", "componentes")}</span></div>'
+            f'<p class="pend-m">{_inline(_e(pendencia["motivo"]))}</p>'
+            f'<p class="pend-c">{nomes}</p></div>')
+    return "".join(blocos)
+
+
 def _selos(inventario):
     """Estado por alvo, em palavra e com ponto — emoji some na impressão em preto e branco."""
     contagem = {}
@@ -1079,6 +1298,7 @@ def render_html_v3(r):
         "%%TOPOLOGIA%%": _topologia(ctx["alvos"]),
         "%%INSTRUMENTOS%%": _instrumentos(ctx["alvos"]),
         "%%INSIGHTS%%": _insights_v3(ctx["alvos"]),
+        "%%PENDENCIAS%%": _pendencias(ctx["alvos"]),
         "%%IMPACTO%%": _impacto_v3(ctx["alvos"]),
         "%%ACHADOS%%": _achados_com_remediacao(ctx["achados"]),
         "%%ACEITES%%": _aceites_v3(ctx["aceites"]),
@@ -1112,8 +1332,8 @@ def main(argv=None):
     print(res["html"])
     if res["pdf"]:
         print(res["pdf"])
-    elif args.formato == "html+pdf":
-        print("PDF não gerado (sem Chromium) — HTML entregue.", file=sys.stderr)
+    elif res.get("pdf_motivo"):
+        print(f"PDF não gerado: {res['pdf_motivo']}", file=sys.stderr)
     return 0
 
 

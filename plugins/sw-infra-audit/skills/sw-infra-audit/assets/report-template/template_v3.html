@@ -171,6 +171,16 @@ h2::after{content:"";flex:1;height:1px;background:var(--line)}
   .ih .src{font-family:var(--mono);font-size:10px;color:var(--soft)}
   .insight .v{font-size:22px;font-weight:800;letter-spacing:-.03em;display:inline-block;margin-top:5px}
   .insight .un{font-size:11px;color:var(--soft);font-weight:400}
+  .pend{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+        box-shadow:var(--sh);padding:14px 17px;margin-bottom:9px}
+  .pend-h{display:flex;align-items:baseline;gap:10px}
+  .pend-h code.papel{font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:700}
+  .pend-m code{font-family:var(--mono);font-size:11.2px;background:var(--line2);
+               border-radius:4px;padding:1px 5px}
+  .pend-m{font-size:12.6px;color:var(--ink2);margin-top:7px}
+  .pend-c{font-family:var(--mono);font-size:10.8px;color:var(--soft);margin-top:6px;
+          overflow-wrap:anywhere;line-height:1.75}
+  .nota{font-size:12.6px;color:var(--ink2);max-width:80ch;margin-bottom:14px}
   .semdados{padding:10px 0;border-top:1px solid var(--line2);font-size:12.3px;color:var(--soft)}
   .semdados b{color:var(--ink2)}
   .rank{display:grid;gap:8px;margin-top:8px}
@@ -179,16 +189,44 @@ h2::after{content:"";flex:1;height:1px;background:var(--line)}
   .rk .vl{font-family:var(--mono);font-size:12px;font-weight:700}
   .rk .bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--line2);overflow:hidden}
   .rk .bar i{display:block;height:100%;border-radius:99px;background:var(--acc)}
-  .ach{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-       box-shadow:var(--sh);padding:18px 20px;margin-bottom:11px;position:relative;overflow:hidden}
-  .ach::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--neutro))}
-  .ach.critical{--c:var(--vermelho)} .ach.high{--c:var(--ambar)}
-  .ach.medium{--c:var(--acc)} .ach.low,.ach.info{--c:var(--neutro)}
-  .ach-h{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
-  .ach-h b{font-size:15.5px;font-weight:750;letter-spacing:-.02em}
-  .ach .sev{font:800 9.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
-  .ach-o{font-family:var(--mono);font-size:10.5px;color:var(--soft);margin-top:6px}
-  .ach-d{font-size:13px;color:var(--ink2);margin-top:9px;max-width:76ch}
+  /* Grupo de achados: uma regra, N ocorrências. O cartão é do GRUPO; a ocorrência é linha.
+     Foi o que tirou o relatório de 121 páginas — a repetição saiu, o dado ficou. */
+  .grp{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+       box-shadow:var(--sh);padding:17px 19px;margin-bottom:11px;position:relative;overflow:hidden}
+  .grp::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--neutro))}
+  .grp.critical{--c:var(--vermelho)} .grp.high{--c:var(--ambar)}
+  .grp.medium{--c:var(--acc)} .grp.low,.grp.info{--c:var(--neutro)}
+  .grp-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .grp-h b{font-size:15px;font-weight:750;letter-spacing:-.02em}
+  .grp .sev{font:800 9.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+  .grp-n{font:700 11px/1 var(--sans);color:var(--ink2);background:var(--line2);
+         border-radius:99px;padding:4px 9px}
+  .grp-r{font-family:var(--mono);font-size:10px;color:var(--soft);margin-left:auto}
+  .grp-d{font-size:12.8px;color:var(--ink2);margin-top:8px;max-width:78ch}
+  .grp-d p{margin:0} .grp-d p + p{margin-top:7px}
+  .grp-d code{font-family:var(--mono);font-size:11.4px;background:var(--line2);
+              border-radius:4px;padding:1px 5px}
+  .fix code{font-family:var(--mono);font-size:11.6px;background:var(--line2);
+            border-radius:4px;padding:1px 5px}
+  .fix p + p{margin-top:8px}
+  .grp-c{font-family:var(--mono);font-size:11px;color:var(--soft);margin-top:5px}
+  /* A tabela de ocorrências: densa de propósito. 75 linhas cabem onde cabiam 3 cartões. */
+  .ocs{width:100%;border-collapse:collapse;margin-top:12px;table-layout:fixed}
+  .ocs tr{border-top:1px solid var(--line2)}
+  .ocs tr:first-child{border-top:1px solid var(--line)}
+  .ocs td{padding:4px 10px 4px 0;font-size:11.4px;color:var(--ink2);vertical-align:baseline;
+          overflow-wrap:anywhere}
+  .ocs .oc-o{font-family:var(--mono);font-size:11px;color:var(--ink);width:40%}
+  .ocs .oc-a{font-family:var(--mono);font-size:10.5px;color:var(--soft);width:20%}
+  .ocs .oc-d{font-size:11.4px}
+  .ocs .oc-v{width:110px;text-align:right}
+  /* Em tela larga a lista vira duas colunas: a mesma densidade da referência, sem apertar o tipo. */
+  @media screen and (min-width:1000px){
+    .ocs{column-count:2;column-gap:34px;display:block}
+    .ocs tr{display:flex;gap:10px;break-inside:avoid}
+    .ocs td{flex:1 1 auto}
+    .ocs .oc-o{flex:0 0 55%}
+  }
   .chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:650;
         border-radius:99px;padding:5px 11px;background:var(--line2);color:var(--ink2)}
   .chip.bad{background:#fdecea;color:var(--vermelho)}
@@ -227,7 +265,22 @@ h2::after{content:"";flex:1;height:1px;background:var(--line)}
   .r-tag{font:700 10px/1 var(--sans);padding:5px 9px;border-radius:6px;white-space:nowrap}
 
   /* ---------------- quebras de página ---------------- */
-  .sumario,.mapa,.med,.comp,.ach,.imp,.duo>div,.insight,.camada{break-inside:avoid;page-break-inside:avoid}
+  .mapa,.med,.comp,.imp,.duo>div,.insight,.camada{break-inside:avoid;page-break-inside:avoid}
+  /* O sumário é alto demais para caber no resto da página da capa: indivisível, ele pulava
+     inteiro para a folha seguinte e deixava meia página em branco logo na abertura.
+     Ele pode quebrar; cada LINHA é que não pode. */
+  .sumario{break-inside:auto} .sum-l{break-inside:avoid;page-break-inside:avoid}
+  /* Um grupo de 75 ocorrências NÃO cabe numa página: forçar avoid empurraria o bloco
+     inteiro para a próxima e deixaria meia folha em branco. O cabeçalho é que não
+     pode se separar da primeira linha. */
+  .grp{break-inside:auto} .grp-h,.grp-d{break-after:avoid;page-break-after:avoid}
+  /* Na tela as ocorrências já iam em duas colunas; no papel iam em UMA, e 75 linhas gastavam
+     duas folhas com metade da largura vazia. A4 comporta três. */
+  .ocs{column-count:3;column-gap:16px;display:block}
+  .ocs tr{display:flex;gap:8px}
+  .ocs td{flex:1 1 auto;font-size:9.4px;padding:2.5px 0}
+  .ocs .oc-o{flex:1 1 auto;font-size:9.4px}
+  .ocs tr{break-inside:avoid;page-break-inside:avoid}
   h2,.sc-h{break-after:avoid;page-break-after:avoid}
   .fix{break-inside:auto} .fix pre{break-inside:avoid}
   table{break-inside:auto} thead{display:table-header-group} tr{break-inside:avoid}
@@ -268,28 +321,34 @@ h2::after{content:"";flex:1;height:1px;background:var(--line)}
 <h2 id="insights"><em>04</em>Insights por sistema</h2>
 %%INSIGHTS%%
 
-<h2 id="achados"><em>05</em>Achados</h2>
+<h2 id="pendencias"><em>05</em>O que falta declarar</h2>
+<p class="nota">Cada linha abaixo é um silêncio com causa: o componente está no inventário, mas
+a auditoria não teve como perguntar nada a ele. Resolver é editar o <code>alvos.toml</code> —
+nenhum destes itens é um problema da infraestrutura.</p>
+%%PENDENCIAS%%
+
+<h2 id="achados"><em>06</em>Achados</h2>
 %%ACHADOS%%
 
-<h2 id="impacto"><em>06</em>Se isto falhar</h2>
+<h2 id="impacto"><em>07</em>Se isto falhar</h2>
 %%IMPACTO%%
 
-<h2 id="aceites"><em>07</em>Riscos aceitos</h2>
+<h2 id="aceites"><em>08</em>Riscos aceitos</h2>
 %%ACEITES%%
 
-<h2 id="recomendacoes"><em>08</em>Recomendações</h2>
+<h2 id="recomendacoes"><em>09</em>Recomendações</h2>
 %%RECOMENDACOES%%
 
-<h2 id="leitura"><em>09</em>Pontos fortes e de atenção</h2>
+<h2 id="leitura"><em>10</em>Pontos fortes e de atenção</h2>
 <div class="duo">
   <div><h3>Sustenta bem</h3>%%FORTES%%</div>
   <div><h3>Merece atenção</h3>%%FRACOS%%</div>
 </div>
 
-<h2 id="alvos"><em>10</em>Por alvo</h2>
+<h2 id="alvos"><em>11</em>Por alvo</h2>
 %%ALVOS%%
 
-<h2 id="historico"><em>11</em>Desde a auditoria anterior</h2>
+<h2 id="historico"><em>12</em>Desde a auditoria anterior</h2>
 %%HISTORICO%%
 
 </body>

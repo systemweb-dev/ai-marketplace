@@ -36,7 +36,7 @@ Vale em todos os pontos de decisão desta skill:
 | **Confirmar os alvos** (obrigatório, antes de qualquer conexão) | quais alvos entram nesta rodada, com nome, tipo e **onde** |
 | Sem `alvos.toml` | criar o primeiro com `configurar.py migrar`? |
 | Pasta do relatório fora do `.gitignore` | acertar agora com `configurar.py ignorar`? |
-| Componente sem `metricas_url` | rodar `alvos --sugerir` para propor um endereço? |
+| **Componente calado** (passo 3b, antes de interpretar) | declarar `metricas_url` agora, para o relatório sair com medida em vez de rótulo? |
 | Achado que o dono já conhece | registrar como risco aceito, com motivo e prazo? |
 | Aceite vencido no relatório | renovar, deixar vencer ou resolver o achado? |
 | **No fim** | gerar o PDF também? |
@@ -171,6 +171,30 @@ python3 <skill-dir>/scripts/collect.py --out docs/infra/<AAAA-MM-DD_HHMM> \
   `--confirmar` citando alvo fora da auditoria, ou `--at` fora do formato.
 
 O `--at` é o carimbo da execução e **decide qual aceite venceu** — use a data real, em ISO.
+
+### 3b. O relatório vai ter o que dizer? (antes de interpretar)
+
+Coletar sem erro **não** quer dizer que a auditoria respondeu alguma coisa. Numa rodada real,
+57 componentes entraram no inventário e nenhum respondeu pergunta nenhuma: os que tinham
+pergunta não achavam `metricas_url` declarado, e o resto tinha papel sem pergunta registrada.
+O `collect.py` terminou com exit 0, e o relatório saiu com nome, papel e silêncio.
+
+Antes de escrever a interpretação, rode:
+
+```bash
+python3 <skill-dir>/scripts/pendencias.py --dir docs/infra/<AAAA-MM-DD_HHMM>
+```
+
+Ele lista o que está calado e por quê. Então, **via `AskUserQuestion`**:
+
+- **Componente sem `metricas_url`** e existe Prometheus no alvo → ofereça rodar
+  `alvos.py --sugerir` e declarar o endereço **antes** de seguir. Uma linha no `alvos.toml`
+  costuma ser a diferença entre um relatório com medidas e um relatório com rótulos.
+- **Papel sem pergunta nesta versão** → isso é limite da skill, não configuração. Diga qual
+  papel, não ofereça conserto que não existe, e siga.
+
+**Nunca entregue um relatório mudo sem ter perguntado.** Quem recebe não distingue "não há o
+que medir" de "ninguém apontou a skill para a fonte" — e conclui que a auditoria não funciona.
 
 ### 4. Interpretar (é a sua parte)
 
