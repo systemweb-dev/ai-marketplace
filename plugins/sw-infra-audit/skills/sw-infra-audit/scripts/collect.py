@@ -29,6 +29,107 @@ def adaptadores_padrao():
     return adaptadores.todos()
 
 
+# A saúde que o coletor gravou não enxerga achado nascido de limiar: ela é decidida ANTES de as
+# perguntas serem feitas. Sem agravar depois, o painel anuncia "1 alvo 🟢 · 1 achado" com um
+# achado crítico aberto — e o estado é o único número que o leitor bate o olho.
+_PIOR_ESTADO = {"critical": "🔴", "high": "🔴", "medium": "🟡"}
+_GRAVIDADE = {"🟢": 0, "🟡": 1, "🔴": 2}
+
+
+def agravar_saude(registro):
+    """Sobe a saúde do alvo até o que os achados exigem. Nunca desce.
+
+    Só agrava: um achado `low` não pode promover um alvo que o coletor deu como degradado. E
+    `sem dados` fica como está — não é um estado bom a ser piorado, é a ausência de leitura.
+    """
+    atual = registro.get("saude")
+    if atual not in _GRAVIDADE:
+        return registro
+    for achado in registro.get("achados") or []:
+        if not isinstance(achado, dict):
+            continue
+        exigido = _PIOR_ESTADO.get(achado.get("severidade"))
+        if exigido and _GRAVIDADE[exigido] > _GRAVIDADE[registro["saude"]]:
+            registro["saude"] = exigido
+    return registro
+
+
+def achados_da_resposta(resposta, limiar, componente):
+    """Resposta que cruza o limiar declarado vira achado — a ponte entre insight e achado.
+
+    O campo `limiar` existia no registro de perguntas desde o plano 1 e nada o lia: a skill
+    colecionava respostas e nenhuma virava achado. Esta é a primeira regra que nasce de uma
+    MEDIDA, e não de uma inspeção de configuração.
+
+    As travas valem mais que a função:
+      - resposta `sem_dados` ou `erro_interno` nunca gera achado, mesmo trazendo valor
+        residual. Achado nasce de fato presente; "não li a fila" não pode virar "a fila
+        parou".
+      - a `regra` precisa estar em `lib/regras.py`. Sem isso, o achado entra sem remediação e
+        com severidade `info`, e o relatório desenha o id cru como título — e, pior, a regra
+        vira caminho de arquivo (`references/remediacao/<regra>.md`), então `../../SKILL`
+        lia fora da pasta e a exceção subia até matar a auditoria.
+      - a `severidade` precisa ser uma das conhecidas. `alta` é o erro natural num catálogo em
+        português, e cru chegava ao HTML como `class="grp alta"`: badge vazia, sem cor.
+      - nada aqui levanta. Limiar malformado, resposta malformada e expressão inválida são bug
+        da skill, e bug da skill não pode apagar o inventário de um alvo inteiro.
+    """
+    from lib import limiar as limiar_mod
+    from lib import redact, regras, report
+
+    if not isinstance(limiar, dict) or not isinstance(resposta, dict):
+        return []
+    if resposta.get("sem_dados") or resposta.get("erro_interno"):
+        return []
+    regra = limiar.get("regra")
+    if regra not in regras.REGRAS:
+        return []
+    try:
+        cruzou = limiar_mod.compilar(limiar.get("quando"))
+    except limiar_mod.LimiarInvalido:
+        return []
+
+    severidade = limiar.get("severidade")
+    if severidade not in report.SEVERIDADES:
+        severidade = regras.severidade(regra)
+
+    valor = resposta.get("valor")
+    itens = valor if isinstance(valor, list) else [{"valor": valor}]
+    achados = []
+    for item in itens:
+        if not isinstance(item, dict) or not cruzou(item):
+            continue
+        achados.append({
+            "regra": regra,
+            "severidade": severidade,
+            "objeto": _objeto(item, componente),
+            "detalhe": redact.scrub_text(_detalhe(item), limit=400),
+        })
+    return achados
+
+
+def _objeto(item, componente):
+    """Quem é o item. `nome` é o que a extração de API produz; `chave` é o que o `promql`
+    produz — sem o segundo, todo achado de lista vindo dele teria o nome do componente e o
+    relatório mostraria N linhas indistinguíveis."""
+    for campo in ("nome", "chave"):
+        valor = item.get(campo)
+        if isinstance(valor, (str, int, float)) and not isinstance(valor, bool) and str(valor):
+            return str(valor)
+    return str(componente)
+
+
+def _detalhe(item):
+    """Os números que fizeram o limiar disparar.
+
+    `nome` e `chave` ficam de fora: já são o `objeto` do achado, e repeti-los faria o relatório
+    imprimir a mesma palavra duas vezes em cada linha.
+    """
+    partes = [f"{nome}: {valor}" for nome, valor in item.items()
+              if nome not in ("nome", "chave") and valor is not None]
+    return " · ".join(partes) or "sem detalhe"
+
+
 def responder(componente, contexto, adaptadores, prazo):
     """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
 
@@ -59,6 +160,9 @@ def responder(componente, contexto, adaptadores, prazo):
             resposta = resposta or candidata
         if resposta is not None:
             componente["respostas"].append(resposta)
+            componente.setdefault("achados", []).extend(
+                achados_da_resposta(resposta, pergunta.get("limiar"),
+                                    componente.get("nome")))
     return componente
 
 
@@ -164,6 +268,7 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     for componente in registro["componentes"]:
         responder(componente, contexto, adaptadores, prazo)
     promover_achados(registro)
+    agravar_saude(registro)
 
     extras = resultado.get("nao_coletado", [])
     if isinstance(extras, list):

@@ -1050,7 +1050,7 @@ git add -A && git commit -m "feat(sw-infra-audit): derivacoes declaradas no luga
 
 Gramática fechada: `campo OP literal`, combinada por `e`/`ou`. Sem parênteses e **sem misturar `e` com `ou` na mesma expressão** — precedência implícita é a forma mais barata de um arquivo de catálogo dizer uma coisa e a skill entender outra.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_limiar.py
@@ -1160,12 +1160,12 @@ def test_expressao_vazia_e_recusada():
         compilar("   ")
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_limiar.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'lib.limiar'`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 ```python
 # scripts/lib/limiar.py
@@ -1276,12 +1276,12 @@ def avaliar(expressao, item):
     return compilar(expressao)(item)
 ```
 
-- [ ] **Step 4: Rodar e confirmar verde**
+- [x] **Step 4: Rodar e confirmar verde**
 
 Run: `.venv/bin/python -m pytest tests/test_limiar.py -q`
 Expected: PASS (25 testes)
 
-- [ ] **Step 5: Prova por mutação**
+- [x] **Step 5: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -1290,7 +1290,7 @@ Expected: PASS (25 testes)
 | aceitar mistura de `e` e `ou` | `test_misturar_e_com_ou_e_recusado` |
 | `_literal` devolver `cru` cru quando não é número | `test_literal_nao_numerico_sem_aspas_e_recusado` |
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
@@ -1307,7 +1307,7 @@ git add -A && git commit -m "feat(sw-infra-audit): parser proprio de limiar, sem
 
 `perguntas.py` declara o campo `limiar` desde o plano 1 e **nada no código o lê**. Esta task é a ponte: resposta que cruza o limiar declarado no catálogo nasce achado no componente, e `promover_achados` (que já existe) o leva ao alvo.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_limiar_vira_achado.py
@@ -1418,12 +1418,12 @@ def test_escalar_tambem_pode_cruzar_limiar():
     assert len(achados) == 1 and achados[0]["objeto"] == "broker"
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_limiar_vira_achado.py -q`
 Expected: FAIL — `ImportError: cannot import name 'achados_da_resposta' from 'collect'`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Em `scripts/collect.py`, acrescentar antes de `responder`:
 
@@ -1492,12 +1492,12 @@ por:
 
 > `promover_achados` já existe e já leva `componente["achados"]` para `registro["achados"]` carregando o nome do componente — nada a fazer ali.
 
-- [ ] **Step 4: Rodar e confirmar verde**
+- [x] **Step 4: Rodar e confirmar verde**
 
 Run: `.venv/bin/python -m pytest tests/test_limiar_vira_achado.py -q`
 Expected: PASS (10 testes)
 
-- [ ] **Step 5: Prova por mutação**
+- [x] **Step 5: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -1505,7 +1505,7 @@ Expected: PASS (10 testes)
 | deixar `LimiarInvalido` propagar | `test_expressao_invalida_nao_derruba_a_coleta` |
 | usar `componente` como `objeto` sempre | `test_o_objeto_do_achado_identifica_o_item` |
 
-- [ ] **Step 6: Rodar a suíte inteira e commitar**
+- [x] **Step 6: Rodar a suíte inteira e commitar**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 557
@@ -1514,6 +1514,27 @@ Expected: PASS — 557
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
 git add -A && git commit -m "feat(sw-infra-audit): limiar declarado vira achado no componente"
 ```
+
+---
+
+> ### Ajustes das Tasks 5–6 após a revisão do juiz (2026-09-20)
+>
+> **O pior achado: a saúde do alvo não enxergava o achado novo.** `saude` vem do coletor e é gravada **antes** de as perguntas serem feitas; os achados de limiar nascem depois, e nada recalculava nada. O painel anunciava "1 alvo 🟢 · 1 achado" com um achado crítico aberto — e o estado é o único número que o leitor bate o olho. Nasceu `agravar_saude(registro)`, chamada depois de `promover_achados`: sobe o estado até o que os achados exigem e **nunca desce** (um achado `low` não promove um alvo que o coletor deu como degradado, e `sem dados` fica como está).
+>
+> Mais seis correções na ponte:
+>
+> | Problema | O que acontecia |
+> |---|---|
+> | `limiar` que não é dicionário | `_p(..., limiar="prontas > 0")` é erro de autoria plausível e estourava `AttributeError` até **matar a auditoria inteira**: sem `report.json`, sem inventário, sem nada |
+> | `regra` fora de `lib/regras.py` | achado entrava sem remediação e com severidade `info`, e o relatório desenhava o id cru como título. Pior: `regra` vira `references/remediacao/<regra>.md`, então `../../SKILL` lia fora da pasta e a exceção subia até matar a auditoria |
+> | `severidade` crua do catálogo | `alta` (o erro natural em PT-BR) chegava ao HTML como `class="grp alta"`: badge vazia, sem cor, grupo jogado para o fim |
+> | `detalhe` sem higiene nem teto | era o único caminho de texto de adaptador que não passava por `lib/redact.py` |
+> | `objeto` só olhava `nome` | o `promql` monta itens de lista com `chave`, então **todo** achado de lista vindo dele teria o nome do componente e o relatório mostraria N linhas indistinguíveis |
+> | literal entre aspas com `e`/`ou` | a divisão varria o texto inteiro: num catálogo em português, `nome == 'produto e servico'` era recusado, com a mensagem apontando para `'produto` — fragmento que o autor nunca escreveu. Agora os literais são mascarados antes da busca, preservando as posições |
+>
+> Também: `nan`/`inf` deixaram de ser literais aceitos (`float("nan")` aceita a string, e `prontas != nan` é **verdadeiro para todo item** — um achado por objeto, em cima de nada), e o campo acentuado passou a ser aceito (`média`, `usuário` são nomes naturais aqui).
+>
+> **Duas mutações sobreviveram na primeira rodada, e as duas eram fraqueza de teste meu.** Nada provava que `agravar_saude` estava *ligada* ao `coletar_alvo` — exatamente o erro que a ponte já tinha me ensinado a evitar. E o teste "agravar nunca melhora" usava um achado `low`, que não propõe estado nenhum: a comparação de gravidade nem chegava a ser exercida.
 
 ---
 

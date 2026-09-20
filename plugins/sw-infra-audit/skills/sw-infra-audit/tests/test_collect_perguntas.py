@@ -139,3 +139,94 @@ def test_orcamento_esgotado_corta_as_perguntas_seguintes(tmp_path):
 
     assert all(r.get("sem_dados") for r in respostas)
     assert all("orçamento" in r["motivo"] for r in respostas)
+
+
+def test_limiar_cruzado_vira_achado_no_componente_e_sobe_para_o_alvo(tmp_path, monkeypatch):
+    """A fiação, de ponta a ponta.
+
+    `achados_da_resposta` tem teste próprio; este prova que ela está LIGADA — que `responder`
+    a chama e que `promover_achados` leva o resultado ao alvo. Uma ponte testada só na função
+    isolada pode estar desconectada e a suíte inteira não perceber.
+    """
+    from lib import perguntas
+
+    monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
+                        {"quando": "valor > 100", "regra": "SEC_USER_ROOT",
+                         "severidade": "high"})
+    AdaptadorFalso.RESPOSTAS = {"entrada.volume_na_janela": {"fonte": "falso:x", "valor": 900}}
+    AdaptadorFalso.VISTAS = []
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+    alvo = ler(tmp_path)["alvos"][0]
+
+    assert [a["regra"] for a in alvo["componentes"][0]["achados"]] == ["SEC_USER_ROOT"]
+    promovido = [a for a in alvo["achados"] if a["regra"] == "SEC_USER_ROOT"]
+    assert promovido and promovido[0]["componente"] == "proxy"
+
+
+def test_limiar_nao_cruzado_nao_cria_achado(tmp_path, monkeypatch):
+    from lib import perguntas
+
+    monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
+                        {"quando": "valor > 100", "regra": "SEC_USER_ROOT"})
+    AdaptadorFalso.RESPOSTAS = {"entrada.volume_na_janela": {"fonte": "falso:x", "valor": 12}}
+    AdaptadorFalso.VISTAS = []
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+    alvo = ler(tmp_path)["alvos"][0]
+
+    assert alvo["componentes"][0].get("achados", []) == []
+
+
+def test_pergunta_sem_dados_nao_cria_achado_mesmo_com_limiar(tmp_path, monkeypatch):
+    """O caso que mais importa: a API caiu, e o relatório não pode dizer que a fila parou."""
+    from lib import perguntas
+
+    monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
+                        {"quando": "valor > 100", "regra": "SEC_USER_ROOT"})
+    AdaptadorFalso.RESPOSTAS = {}
+    AdaptadorFalso.VISTAS = []
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+    alvo = ler(tmp_path)["alvos"][0]
+
+    assert alvo["componentes"][0].get("achados", []) == []
+    assert alvo["achados"] == []
+
+
+def test_achado_de_limiar_agrava_a_saude_no_relatorio(tmp_path, monkeypatch):
+    """A fiação de `agravar_saude`, de ponta a ponta.
+
+    A função tem teste próprio; este prova que ela está LIGADA ao `coletar_alvo`. Sem isto, o
+    painel anunciava "1 alvo 🟢 · 1 achado" com um achado crítico aberto — e o estado é o único
+    número que o leitor bate o olho. Uma trava testada só na função isolada pode estar
+    desconectada e a suíte inteira não perceber.
+    """
+    from lib import perguntas
+
+    monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
+                        {"quando": "valor > 100", "regra": "OPS_NODE_DOWN",
+                         "severidade": "critical"})
+    AdaptadorFalso.RESPOSTAS = {"entrada.volume_na_janela": {"fonte": "falso:x", "valor": 900}}
+    AdaptadorFalso.VISTAS = []
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+    relatorio = ler(tmp_path)
+
+    assert relatorio["alvos"][0]["saude"] == "🔴"
+    assert relatorio["inventario"][0]["saude"] == "🔴", "o inventário mostra o estado antigo"
+
+
+def test_sem_achado_a_saude_do_coletor_e_preservada(tmp_path):
+    """Agravar não pode virar reescrever: o veredito do coletor continua valendo."""
+    AdaptadorFalso.RESPOSTAS = {}
+    AdaptadorFalso.VISTAS = []
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+
+    assert ler(tmp_path)["alvos"][0]["saude"] == "🟢"
