@@ -22,8 +22,27 @@ def _data(valor, onde):
 def _casa(achado, aceite):
     if aceite.get("alvo") != achado.get("alvo") or aceite.get("regra") != achado.get("regra"):
         return False
+    # componente ausente no aceite = vale para o alvo inteiro (era assim antes dos componentes)
+    componente = aceite.get("componente")
+    if componente is not None and componente != achado.get("componente"):
+        return False
     alvo_objeto = aceite.get("objeto")
     return alvo_objeto in (None, achado.get("objeto"))
+
+
+def _filtrar(achados, aceite, vencido, casou):
+    """Tira os achados aceitos da lista. Vencido continua, marcado: o risco volta a contar
+    quando a justificativa expira."""
+    restantes = []
+    for achado in achados:
+        if not _casa(achado, aceite):
+            restantes.append(achado)
+            continue
+        casou.append(True)
+        if vencido:
+            achado["aceite_vencido"] = True
+            restantes.append(achado)
+    return restantes
 
 
 def _vencido(aceite, hoje):
@@ -42,7 +61,8 @@ def aplicar(alvos, aceites, hoje):
     for aceite in aceites:
         if not aceite.get("alvo") or not aceite.get("regra"):
             raise ValueError(f"aceite sem alvo ou regra: {aceite}")
-        chave = (aceite.get("alvo"), aceite.get("regra"), aceite.get("objeto"))
+        chave = (aceite.get("alvo"), aceite.get("componente"), aceite.get("regra"),
+                 aceite.get("objeto"))
         atual = escolhidos.get(chave)
         if atual is None or PRECEDENCIA.get(aceite.get("origem"), 0) > \
                 PRECEDENCIA.get(atual.get("origem"), 0):
@@ -60,18 +80,12 @@ def aplicar(alvos, aceites, hoje):
         if aceite.get("alvo") not in auditados:
             continue
         vencido = _vencido(aceite, hoje)
-        casou = False
+        casou = []
         for alvo in alvos:
-            restantes = []
-            for achado in alvo.get("achados", []):
-                if not _casa(achado, aceite):
-                    restantes.append(achado)
-                    continue
-                casou = True
-                if vencido:
-                    achado["aceite_vencido"] = True
-                    restantes.append(achado)
-            alvo["achados"] = restantes
+            alvo["achados"] = _filtrar(alvo.get("achados", []), aceite, vencido, casou)
+            for componente in alvo.get("componentes", []):
+                componente["achados"] = _filtrar(componente.get("achados", []), aceite,
+                                                 vencido, casou)
         saida.append({**aceite, "vencido": vencido,
                       "obsoleto": not casou and aceite["alvo"] in coletados})
     return sorted(saida, key=lambda a: (a.get("alvo") or "", a.get("regra") or ""))

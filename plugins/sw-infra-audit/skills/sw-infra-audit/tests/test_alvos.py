@@ -153,3 +153,63 @@ def test_url_com_porta_impossivel_e_recusada_na_leitura(tmp_path):
     with pytest.raises(AlvoInvalido) as erro:
         ler(arquivo)
     assert "porta inválida" in str(erro.value)
+
+
+def test_componente_do_alvo_aceita_papel_e_metricas(tmp_path):
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "cluster"\ntipo = "docker"\ncontext = "prod"\n\n'
+                       '[[alvo.componente]]\nnome = "proxy"\npapel = "entrada"\n'
+                       'metricas_url = "http://127.0.0.1:9090"\n', encoding="utf-8")
+
+    lidos, _ = ler(arquivo)
+
+    assert lidos[0]["componente"] == [{"nome": "proxy", "papel": "entrada",
+                                       "metricas_url": "http://127.0.0.1:9090"}]
+
+
+def test_alvo_sem_bloco_de_componente_continua_valendo(tmp_path):
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "cluster"\ntipo = "docker"\ncontext = "prod"\n',
+                       encoding="utf-8")
+    lidos, _ = ler(arquivo)
+    assert lidos[0]["componente"] == []
+
+
+def test_componente_com_campo_inexistente_e_recusado(tmp_path):
+    """Erro de digitação que passa mudo vira 'a skill não coletou e não disse por quê'."""
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "p"\n\n'
+                       '[[alvo.componente]]\nnome = "x"\nmetrica_url = "http://127.0.0.1:9090"\n',
+                       encoding="utf-8")
+    with pytest.raises(AlvoInvalido) as erro:
+        ler(arquivo)
+    assert "metrica_url" in str(erro.value)
+
+
+def test_componente_com_papel_invalido_e_recusado(tmp_path):
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "p"\n\n'
+                       '[[alvo.componente]]\nnome = "x"\npapel = "bananco"\n', encoding="utf-8")
+    with pytest.raises(AlvoInvalido) as erro:
+        ler(arquivo)
+    assert "bananco" in str(erro.value)
+
+
+def test_componente_sem_nome_e_recusado(tmp_path):
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "p"\n\n'
+                       '[[alvo.componente]]\npapel = "fila"\n', encoding="utf-8")
+    with pytest.raises(AlvoInvalido) as erro:
+        ler(arquivo)
+    assert "sem nome" in str(erro.value)
+
+
+def test_senha_do_componente_e_so_o_nome_da_variavel(tmp_path):
+    """A senha nunca fica no arquivo: o que se declara é onde ela mora."""
+    arquivo = tmp_path / "alvos.toml"
+    arquivo.write_text('[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "p"\n\n'
+                       '[[alvo.componente]]\nnome = "fila"\npapel = "fila"\n'
+                       'admin_url = "http://127.0.0.1:15672"\nsenha_env = "SENHA_DA_FILA"\n',
+                       encoding="utf-8")
+    lidos, _ = ler(arquivo)
+    assert lidos[0]["componente"][0]["senha_env"] == "SENHA_DA_FILA"

@@ -19,7 +19,10 @@ OPCIONAIS = {
     "docker": ("metricas_url",),
     "http": (),
 }
-COMUNS = ("nome", "tipo")
+COMUNS = ("nome", "tipo", "componente")
+# o que um [[alvo.componente]] pode declarar. A senha nunca vem aqui: `senha_env` guarda o
+# NOME da variável de ambiente onde ela mora.
+COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env")
 NOME_VALIDO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 ESQUEMAS = ("http", "https")
 
@@ -36,6 +39,44 @@ def _checar_url(nome, campo, valor):
         partes.port
     except ValueError as erro:
         raise AlvoInvalido(f"alvo {nome!r}: porta inválida em {campo} — {erro}") from erro
+
+
+def _checar_componentes(caminho, nome_do_alvo, brutos):
+    """Valida os blocos `[[alvo.componente]]`.
+
+    O papel declarado aqui vence o que a imagem sugere — quando um serviço chamado `worker`
+    é na verdade um broker, quem sabe disso é o dono. Campo desconhecido é erro, como em todo
+    o resto deste arquivo.
+    """
+    from lib.papel import PAPEIS
+
+    if not isinstance(brutos, list) or not all(isinstance(c, dict) for c in brutos):
+        raise AlvoInvalido(f"{caminho.name}: os componentes de {nome_do_alvo!r} são blocos "
+                           f"[[alvo.componente]] (lista de tabelas)")
+    saida, vistos = [], set()
+    for bruto in brutos:
+        desconhecidos = sorted(set(bruto) - set(COMPONENTE_PERMITE))
+        if desconhecidos:
+            raise AlvoInvalido(f"{caminho.name}: componente de {nome_do_alvo!r} tem campo que "
+                               f"não existe: {', '.join(desconhecidos)}. Permitidos: "
+                               f"{', '.join(COMPONENTE_PERMITE)}")
+        nome = bruto.get("nome")
+        if not isinstance(nome, str) or not NOME_VALIDO.match(nome):
+            raise AlvoInvalido(f"{caminho.name}: componente de {nome_do_alvo!r} sem nome válido "
+                               f"({nome!r})")
+        if nome.casefold() in vistos:
+            raise AlvoInvalido(f"{caminho.name}: o componente {nome!r} de {nome_do_alvo!r} "
+                               f"aparece duas vezes")
+        vistos.add(nome.casefold())
+        papel = bruto.get("papel")
+        if papel is not None and papel not in PAPEIS:
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} tem papel {papel!r}; "
+                               f"os papéis são {', '.join(PAPEIS)}")
+        for campo in ("admin_url", "metricas_url"):
+            if bruto.get(campo):
+                _checar_url(f"{nome_do_alvo}/{nome}", campo, bruto[campo])
+        saida.append(dict(bruto))
+    return saida
 
 
 def ler(caminho):
@@ -94,7 +135,10 @@ def ler(caminho):
             if bruto.get(campo):
                 _checar_url(nome, campo, bruto[campo])
 
-        alvos.append(dict(bruto))
+        registro = dict(bruto)
+        registro["componente"] = _checar_componentes(caminho, nome,
+                                                     registro.pop("componente", []))
+        alvos.append(registro)
     return alvos, avisos
 
 

@@ -8,6 +8,17 @@ Duas famílias, deliberadamente separadas:
 
 Os findings vêm daqui (regra); o agente só prioriza e escreve a prosa.
 """
+
+# O que ESTE módulo emite. O teste cruza com o registro: regra nova aqui sem entrada lá
+# (ou o contrário) falha, em vez de aparecer no relatório sem remediação.
+REGRAS_PRODUZIDAS = {
+    "SEC_PRIVILEGED", "SEC_DOCKER_SOCK", "SEC_DOCKER_SOCK_EXPECTED", "SEC_PORT_EXPOSED",
+    "SEC_IMAGE_UNPINNED", "SEC_USER_ROOT",
+    "OPS_NODE_DOWN", "OPS_NODE_DRAIN", "OPS_SERVICE_STOPPED", "OPS_REPLICAS_DEGRADED",
+    "OPS_TASK_FAILING", "OPS_NO_HEALTHCHECK", "OPS_NO_LIMITS", "OPS_ENGINE_DRIFT",
+    "OPS_JOB_COMPLETED", "OPS_TLS_EXPIRED", "OPS_TLS_EXPIRING", "OPS_DAEMON_UNREACHABLE",
+}
+
 # Paths de host cujo bind é sensível. Match por prefixo (path == p ou começa com p + "/").
 _SENSITIVE = ("/var/run/docker.sock", "/run/docker.sock", "/etc", "/root",
               "/var/run", "/proc", "/sys")

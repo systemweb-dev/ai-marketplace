@@ -253,3 +253,61 @@ def test_o_novo_vence_o_antigo_quando_os_dois_existem(tmp_path, monkeypatch):
     (tmp_path / "docs" / "infra" / "config.toml").write_text('alvos = []\n', encoding="utf-8")
 
     assert caminho_do_projeto() == Path("docs/infra/config.toml")
+
+
+def test_projeto_pode_ajustar_a_janela_dos_insights(tmp_path):
+    from lib.config import carregar
+    (tmp_path / "config.toml").write_text(
+        'alvos = ["cluster"]\n\n[insights]\njanela = "7d"\n', encoding="utf-8")
+    cfg = carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+    assert cfg.valor("insights.janela") == "7d"
+
+
+def test_projeto_pode_liberar_o_ip_completo(tmp_path):
+    from lib.config import carregar
+    (tmp_path / "config.toml").write_text('[relatorio]\nip_completo = true\n', encoding="utf-8")
+    cfg = carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+    assert cfg.valor("relatorio.ip_completo") is True
+
+
+def test_a_trava_contra_conexao_continua_valendo_no_bloco_novo(tmp_path):
+    """`insights` abriu no arquivo versionado — isso não pode virar porta para conexão."""
+    from lib.config import ConfigInvalida, carregar
+    (tmp_path / "config.toml").write_text(
+        '[insights]\njanela = "24h"\nhost = "interno"\n', encoding="utf-8")
+    with pytest.raises(ConfigInvalida) as erro:
+        carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+    assert "insights.host" in str(erro.value)
+
+
+def test_insights_tem_allowlist_de_subchave(tmp_path):
+    """`relatorio` já tinha; `insights` entrou sem. Chave desconhecida ali viraria configuração
+    que ninguém lê — e a Task 10 vai ler esse bloco."""
+    from lib.config import ConfigInvalida, carregar
+    (tmp_path / "config.toml").write_text('[insights]\nfonte_url = "http://10.0.0.9:9090"\n',
+                                          encoding="utf-8")
+    with pytest.raises(ConfigInvalida) as erro:
+        carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+    assert "fonte_url" in str(erro.value)
+
+
+def test_lista_de_tabelas_dentro_de_insights_e_recusada(tmp_path):
+    """`_achatar` pula lista de tabelas de propósito — então um [[insights.fonte]] com host e
+    senha escaparia inteiro do scan de conexão. A allowlist fecha essa porta."""
+    from lib.config import ConfigInvalida, carregar
+    (tmp_path / "config.toml").write_text(
+        '[[insights.fonte]]\nhost = "interno"\nsenha = "x"\n', encoding="utf-8")
+    with pytest.raises(ConfigInvalida):
+        carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+
+
+def test_aceite_com_chave_errada_e_recusado(tmp_path):
+    """`compomente` (typo) viraria aceite do ALVO INTEIRO, apagando achado de todos os
+    componentes — silenciosamente mais amplo do que o dono pediu."""
+    from lib.config import ConfigInvalida, carregar
+    (tmp_path / "config.toml").write_text(
+        '[[aceite]]\nalvo = "cluster"\nregra = "r"\ncompomente = "fila_a"\nmotivo = "m"\n',
+        encoding="utf-8")
+    with pytest.raises(ConfigInvalida) as erro:
+        carregar(padrao=None, infra=None, projeto=tmp_path / "config.toml")
+    assert "compomente" in str(erro.value)

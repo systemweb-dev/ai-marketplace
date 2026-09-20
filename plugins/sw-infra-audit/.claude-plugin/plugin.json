@@ -1,7 +1,7 @@
 {
   "name": "sw-infra-audit",
   "description": "Audita a infraestrutura de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional) com inventário, achados por gravidade e riscos aceitos. Trabalha por ALVOS: cluster Docker (context/Swarm) e endpoint HTTP (saúde + validade do certificado). Use SEMPRE que o usuário quiser um raio-x da infra ou de parte dela — \"audita minha infra\", \"como está o cluster\", \"o que pode cair primeiro\", \"relatório da infraestrutura\", \"esse certificado vence quando?\", \"a API está no ar?\", \"o que eu tenho rodando e onde\", \"saúde do swarm\", \"como o traefik está roteando\". Dispare mesmo sem a palavra \"auditar\" — basta a intenção de entender o ESTADO ATUAL da infraestrutura. É SÓ LEITURA: nunca altera, reinicia, escala nem cria nada; nunca expõe valor de secret, senha ou string de conexão; só fala com alvo que você declarou e confirmou na rodada. NÃO use para deploy, para mexer em serviço/stack, nem para código de aplicação. Substitui a sw-cluster-audit. Interação e relatório em português (PT-BR).",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "author": {
     "name": "systemweb-dev"
   }

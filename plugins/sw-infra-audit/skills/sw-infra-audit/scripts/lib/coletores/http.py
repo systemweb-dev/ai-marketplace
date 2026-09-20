@@ -3,6 +3,10 @@
 Reaproveita o ponto de rede único (`lib/http_get.py`): só GET, sem credencial, sem seguir
 redirect, com teto de bytes e tempo.
 """
+
+REGRAS_PRODUZIDAS = {"certificado_vencendo", "sem_tls", "http_fora_do_ar",
+                     "http_resposta_de_erro"}
+
 import ipaddress
 import time
 from urllib.parse import urlparse

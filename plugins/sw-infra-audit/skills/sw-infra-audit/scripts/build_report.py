@@ -564,11 +564,12 @@ def build(report, out_dir):
     out_dir = os.path.expanduser(str(out_dir))
     os.makedirs(out_dir, exist_ok=True)
     html_path = os.path.join(out_dir, "relatorio.html")
-    # o v2 é o formato por alvos. Relatório v1 não é redesenhado nem comparado: ele fica onde
-    # está, como histórico da sw-cluster-audit.
-    if report.get("schema_version") != 2:
-        raise ValueError(f"schema {report.get('schema_version')!r}: este build só lê o v2")
-    pagina = render_html_v2(report)
+    # o v3 é o formato por alvos e componentes. Relatório de schema anterior não é
+    # redesenhado nem comparado: ele fica onde está, como histórico.
+    if report.get("schema_version") != 3:
+        raise ValueError(f"schema {report.get('schema_version')!r}: este build lê o v3; "
+                         f"relatórios anteriores ficam onde estão, como histórico")
+    pagina = render_html_v3(report)
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(pagina)
 
@@ -586,9 +587,9 @@ def build(report, out_dir):
     return {"html": html_path, "pdf": pdf_path}
 
 
-# ---------------------------------------------------------------- relatório v2 (por alvos)
-TEMPLATE_V2 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "..", "assets", "report-template", "template_v2.html")
+# ---------------------------------------------------------------- relatório v3 (por alvos e componentes)
+TEMPLATE_V3 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "..", "assets", "report-template", "template_v3.html")
 
 ORDEM_SEVERIDADE = ("critical", "high", "medium", "low", "info")
 ROTULO_SEVERIDADE = {"critical": "Crítico", "high": "Alto", "medium": "Médio",
@@ -596,9 +597,10 @@ ROTULO_SEVERIDADE = {"critical": "Crítico", "high": "Alto", "medium": "Médio",
 
 
 def montar_contexto(r):
-    """Do report v2 para o que o template desenha, na ordem em que o leitor precisa."""
-    if r.get("schema_version") != 2:
-        raise ValueError(f"schema {r.get('schema_version')!r}: este build só lê o v2")
+    """Do report v3 para o que o template desenha, na ordem em que o leitor precisa."""
+    if r.get("schema_version") != 3:
+        raise ValueError(f"schema {r.get('schema_version')!r}: este build lê o v3; "
+                         f"relatórios anteriores ficam onde estão, como histórico")
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from lib.report import achados_ordenados
@@ -637,7 +639,7 @@ def _inventario(itens):
                   [[_e(i["nome"]), _e(i["tipo"]), _e(i["onde"]), _e(i["saude"])] for i in itens])
 
 
-def _achados_v2(achados):
+def _achados_v3(achados):
     if not achados:
         return '<p class="muted">nenhum achado.</p>'
     saida = []
@@ -652,7 +654,7 @@ def _achados_v2(achados):
     return "".join(saida)
 
 
-def _aceites_v2(aceites):
+def _aceites_v3(aceites):
     if not aceites:
         return '<p class="muted">nenhum risco aceito registrado.</p>'
     linhas = []
@@ -664,7 +666,7 @@ def _aceites_v2(aceites):
     return _table(["Alvo", "Regra", "Motivo", "Origem", "Desde", "Revisar em", "Estado"], linhas)
 
 
-def _recomendacoes_v2(recs):
+def _recomendacoes_v3(recs):
     if not recs:
         return '<p class="muted">nenhuma recomendação.</p>'
     blocos = []
@@ -679,7 +681,7 @@ def _recomendacoes_v2(recs):
     return "".join(blocos)
 
 
-def _alvos_v2(alvos):
+def _alvos_v3(alvos):
     blocos = []
     for alvo in alvos:
         nao = alvo.get("nao_coletado") or []
@@ -696,7 +698,7 @@ def _alvos_v2(alvos):
     return "".join(blocos) or '<p class="muted">nenhum alvo.</p>'
 
 
-def _historico_v2(h):
+def _historico_v3(h):
     if not h:
         return '<p class="muted">primeira auditoria neste projeto (ou histórico desligado).</p>'
     partes = [f'<p class="sub">comparado com {_e(h.get("vs"))}</p>']
@@ -705,7 +707,7 @@ def _historico_v2(h):
     return "".join(partes)
 
 
-def render_html_v2(r):
+def render_html_v3(r):
     ctx = montar_contexto(r)
     titulo = f"Auditoria de infraestrutura — {len(ctx['inventario'])} alvo(s)"
     repl = {
@@ -716,15 +718,15 @@ def render_html_v2(r):
         "%%RESUMO%%": (f"<p>{_rich(ctx['resumo'])}</p>" if ctx["resumo"]
                        else '<p class="muted">resumo ainda não escrito.</p>'),
         "%%INVENTARIO%%": _inventario(ctx["inventario"]),
-        "%%ACHADOS%%": _achados_v2(ctx["achados"]),
-        "%%ACEITES%%": _aceites_v2(ctx["aceites"]),
-        "%%RECOMENDACOES%%": _recomendacoes_v2(ctx["recomendacoes"]),
+        "%%ACHADOS%%": _achados_v3(ctx["achados"]),
+        "%%ACEITES%%": _aceites_v3(ctx["aceites"]),
+        "%%RECOMENDACOES%%": _recomendacoes_v3(ctx["recomendacoes"]),
         "%%FORTES%%": _list(ctx["fortes"]),
         "%%FRACOS%%": _list(ctx["fracos"]),
-        "%%ALVOS%%": _alvos_v2(ctx["alvos"]),
-        "%%HISTORICO%%": _historico_v2(ctx["historico"]),
+        "%%ALVOS%%": _alvos_v3(ctx["alvos"]),
+        "%%HISTORICO%%": _historico_v3(ctx["historico"]),
     }
-    with open(TEMPLATE_V2, encoding="utf-8") as f:
+    with open(TEMPLATE_V3, encoding="utf-8") as f:
         pagina = f.read()
     # UMA passada: substituir em laço reprocessaria o texto já inserido, e um `%%ALVOS%%` escrito
     # pelo agente injetaria uma seção inteira no relatório

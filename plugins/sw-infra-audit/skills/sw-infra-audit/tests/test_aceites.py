@@ -103,3 +103,40 @@ def test_aceite_de_alvo_que_nao_foi_coletado_nao_vira_obsoleto():
 def test_aceite_sem_alvo_e_recusado():
     with pytest.raises(ValueError):
         aplicar([{"nome": "banco", "achados": [], "coletado": True}], [aceite(alvo=None)], hoje=HOJE)
+
+
+def test_aceite_com_componente_so_apaga_o_achado_daquele_componente():
+    """Duas filas com o mesmo problema: aceitar o risco de uma não pode silenciar a outra."""
+    def achado(componente):
+        return {"regra": "fila_sem_consumidor", "alvo": "cluster", "componente": componente}
+
+    alvos = [{"nome": "cluster", "coletado": True,
+              "achados": [achado("fila_a"), achado("fila_b")],
+              "componentes": [{"nome": "fila_a", "achados": [achado("fila_a")]},
+                              {"nome": "fila_b", "achados": [achado("fila_b")]}]}]
+
+    saida = aplicar(alvos, [{"alvo": "cluster", "componente": "fila_a",
+                                     "regra": "fila_sem_consumidor",
+                                     "motivo": "fila de rascunho", "origem": "projeto"}],
+                            hoje="2026-09-19")
+
+    assert [a["componente"] for a in alvos[0]["achados"]] == ["fila_b"]
+    assert alvos[0]["componentes"][0]["achados"] == []
+    assert len(alvos[0]["componentes"][1]["achados"]) == 1
+    assert saida[0]["obsoleto"] is False
+
+
+def test_aceite_sem_componente_continua_valendo_para_o_alvo_inteiro():
+    def achado(componente):
+        return {"regra": "r", "alvo": "cluster", "componente": componente}
+
+    alvos = [{"nome": "cluster", "coletado": True,
+              "achados": [achado("a"), achado("b")],
+              "componentes": [{"nome": "a", "achados": [achado("a")]},
+                              {"nome": "b", "achados": [achado("b")]}]}]
+
+    aplicar(alvos, [{"alvo": "cluster", "regra": "r", "motivo": "m", "origem": "infra"}],
+                    hoje="2026-09-19")
+
+    assert alvos[0]["achados"] == []
+    assert all(c["achados"] == [] for c in alvos[0]["componentes"])

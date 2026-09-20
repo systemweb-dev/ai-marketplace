@@ -18,8 +18,12 @@ LEGADO_DO_PROJETO = ".sw-infra-audit.toml"      # onde ele ficava antes, na raiz
 PASTA_PADRAO = "docs/infra"
 
 # o que o arquivo do projeto pode definir — nada além disto
-PROJETO_PERMITE = ("alvos", "aceite", "relatorio", "severidade")
-RELATORIO_PERMITE = ("pasta", "formato", "ignorar_em")
+PROJETO_PERMITE = ("alvos", "aceite", "relatorio", "severidade", "insights")
+RELATORIO_PERMITE = ("pasta", "formato", "ignorar_em", "ip_completo")
+INSIGHTS_PERMITE = ("janela", "limite_de_lista")
+# o aceite é o único bloco do arquivo que APAGA achado: um erro de digitação aqui
+# (`compomente`) viraria aceite do alvo inteiro, silenciosamente mais amplo que o pedido
+ACEITE_PERMITE = ("alvo", "componente", "regra", "objeto", "motivo", "desde", "revisar_em")
 # defesa em profundidade: nenhum nome de conexão, em qualquer profundidade
 CHAVES_DE_CONEXAO = ("tipo", "host", "porta", "usuario", "senha", "senha_env", "metricas_url",
                      "context", "url", "password", "token")
@@ -90,6 +94,22 @@ def _validar_projeto(dados, nome_arquivo):
         if chave not in RELATORIO_PERMITE:
             raise ConfigInvalida(f"{nome_arquivo}: relatorio.{chave} não existe; disponíveis: "
                                  f"{', '.join(RELATORIO_PERMITE)}")
+    insights = dados.get("insights", {})
+    if not isinstance(insights, dict):
+        raise ConfigInvalida(f"{nome_arquivo}: `insights` precisa ser uma tabela")
+    for chave in insights:
+        if chave not in INSIGHTS_PERMITE:
+            raise ConfigInvalida(f"{nome_arquivo}: insights.{chave} não existe; disponíveis: "
+                                 f"{', '.join(INSIGHTS_PERMITE)}")
+
+    for aceite in dados.get("aceite", []):
+        if not isinstance(aceite, dict):
+            raise ConfigInvalida(f"{nome_arquivo}: cada aceite é um bloco [[aceite]]")
+        for chave in aceite:
+            if chave not in ACEITE_PERMITE:
+                raise ConfigInvalida(f"{nome_arquivo}: aceite.{chave} não existe; disponíveis: "
+                                     f"{', '.join(ACEITE_PERMITE)}")
+
     pasta = relatorio.get("pasta")
     if pasta is not None:
         caminho = PurePosixPath(str(pasta))

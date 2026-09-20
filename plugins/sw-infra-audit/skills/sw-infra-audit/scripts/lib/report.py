@@ -1,11 +1,14 @@
-"""Schema do report.json v2: o ALVO no centro.
+"""Schema do report.json v3: o ALVO no centro, o COMPONENTE dentro dele.
 
-Diferença essencial para o v1: não existe mais um cluster no topo. O topo é a lista de alvos,
-mais o inventário (o mapa), os aceites e o histórico. Os quatro campos do agente (`resumo`,
-`fortes`, `fracos`, `recomendacoes`) e o `analise` de cada alvo nascem vazios — é o script que
-grava os fatos, e o agente que escreve a interpretação por cima.
+Do v1 para o v2, o cluster no topo deu lugar à lista de alvos. Do v2 para o v3, cada alvo passa
+a ter `componentes[]` — e cada componente guarda as RESPOSTAS das perguntas do seu papel, cada
+uma carimbada com a fonte que respondeu. Número sem fonte não entra no relatório.
+
+Os quatro campos do agente (`resumo`, `fortes`, `fracos`, `recomendacoes`) e o `analise` de cada
+alvo e componente nascem vazios — é o script que grava os fatos, e o agente que escreve a
+interpretação por cima.
 """
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SEVERIDADES = ("critical", "high", "medium", "low", "info")
 _PESO = {nome: posicao for posicao, nome in enumerate(SEVERIDADES)}
@@ -34,10 +37,20 @@ def novo_alvo(nome, tipo, onde):
         "saude": "sem dados",
         "dimensoes": {},
         "fatos": {},
+        "componentes": [],
         "achados": [],
         "nao_coletado": [],
         "analise": "",       # do agente
     }
+
+
+def novo_componente(nome, papel):
+    """Uma unidade dentro do alvo: um serviço, um endpoint.
+
+    `respostas` é o que as perguntas do papel devolveram (com a fonte); `achados` são os dele,
+    que depois sobem para o alvo; `analise` é do agente.
+    """
+    return {"nome": nome, "papel": papel, "respostas": [], "achados": [], "analise": ""}
 
 
 def na(motivo):
@@ -50,18 +63,42 @@ def _chave_do_achado(achado):
             achado.get("regra", ""), str(achado.get("objeto", "")))
 
 
+def _componente_ordenado(componente):
+    """Respostas na ordem declarada do catálogo de perguntas — não na ordem em que chegaram.
+
+    A ordem de chegada depende de dicionário e de rede; deixá-la vazar para o arquivo faria
+    duas coletas idênticas produzirem bytes diferentes.
+    """
+    from lib.perguntas import PERGUNTAS
+
+    posicao = {id_: pos for pos, id_ in enumerate(PERGUNTAS)}
+    return dict(componente,
+                respostas=sorted(componente.get("respostas", []),
+                                 key=lambda r: (posicao.get(r.get("pergunta"), len(posicao)),
+                                                str(r.get("pergunta")))),
+                achados=sorted(componente.get("achados", []), key=_chave_do_achado))
+
+
 def ordenar(relatorio):
-    """Devolve uma CÓPIA ordenada: alvos na ordem declarada, achados por severidade dentro de cada um.
+    """Devolve uma CÓPIA ordenada: alvos na ordem declarada, componentes por nome, achados por
+    severidade e respostas na ordem do catálogo.
 
     Sem o alvo na chave, dois serviços homônimos em alvos diferentes trocariam de lugar entre
     execuções e o histórico viraria ruído. E não muta a entrada: o histórico compara com o
     relatório anterior, e mutar a baseline durante a comparação a corromperia.
     """
     copia = dict(relatorio)
-    copia["alvos"] = [dict(alvo, achados=sorted(alvo.get("achados", []), key=_chave_do_achado))
-                      for alvo in relatorio.get("alvos", [])]
+    copia["alvos"] = [
+        dict(alvo,
+             achados=sorted(alvo.get("achados", []), key=_chave_do_achado),
+             componentes=[_componente_ordenado(c)
+                          for c in sorted(alvo.get("componentes", []),
+                                          key=lambda c: (str(c.get("nome", "")),
+                                                         str(c.get("papel", ""))))])
+        for alvo in relatorio.get("alvos", [])]
     copia["aceites"] = sorted(relatorio.get("aceites", []),
-                              key=lambda a: (a.get("alvo", ""), a.get("regra", "")))
+                              key=lambda a: (a.get("alvo", ""), a.get("componente") or "",
+                                             a.get("regra", "")))
     return copia
 
 

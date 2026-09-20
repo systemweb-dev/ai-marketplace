@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Modo auditar: confirma os alvos, chama um coletor por tipo e grava o report.json v2.
+"""Modo auditar: confirma os alvos, chama um coletor por tipo e grava o report.json v3.
 
 Não escreve nada fora da pasta de saída. Falha de coleta nunca vira achado: vira `nao_coletado`
 com o motivo — confundir "não consegui ver" com "está ruim" é o jeito mais fácil de mentir.
@@ -40,7 +40,44 @@ def onde_de(alvo):
 
 
 # o coletor só preenche estes campos: identidade do alvo é do orquestrador, não dele
-CAMPOS_DO_COLETOR = ("saude", "dimensoes", "fatos", "achados")
+CAMPOS_DO_COLETOR = ("saude", "dimensoes", "fatos", "achados", "componentes")
+
+
+def peneirar_componentes(registro):
+    """Deixa passar só componente que é dicionário com nome — o resto vira `nao_coletado`.
+
+    A promoção mexe em `componente["nome"]` e `componente["achados"]`: sem esta peneira, um
+    coletor que devolvesse `["proxy"]` derrubaria a auditoria inteira com AttributeError, o
+    oposto do que este módulo promete.
+    """
+    validos = []
+    for bruto in registro.get("componentes", []):
+        if not isinstance(bruto, dict) or not isinstance(bruto.get("nome"), str):
+            registro["nao_coletado"].append(report_mod.na(
+                f"componente ignorado: esperava um bloco com nome, veio {type(bruto).__name__}"))
+            continue
+        bruto.setdefault("papel", "app")
+        bruto.setdefault("respostas", [])
+        bruto.setdefault("achados", [])
+        bruto.setdefault("analise", "")
+        validos.append(bruto)
+    registro["componentes"] = validos
+    return registro
+
+
+def promover_achados(registro):
+    """Achado nasce no componente e sobe para o alvo, carregando de onde veio.
+
+    O alvo é a fonte única para ordenação, inventário e histórico; o componente guarda a sua
+    cópia para a ficha dele no relatório. Assim quem aceita um risco pode mirar o alvo inteiro
+    ou um componente só.
+    """
+    for componente in registro.get("componentes", []):
+        for achado in componente.get("achados", []):
+            achado.setdefault("alvo", registro["nome"])
+            achado["componente"] = componente["nome"]
+            registro["achados"].append(dict(achado))
+    return registro
 
 
 def coletar_alvo(alvo, coletor, contexto):
@@ -80,6 +117,8 @@ def coletar_alvo(alvo, coletor, contexto):
                 f"o coletor devolveu {campo} inválido ({type(valor).__name__})"))
             continue
         registro[campo] = valor
+
+    promover_achados(peneirar_componentes(registro))
 
     extras = resultado.get("nao_coletado", [])
     if isinstance(extras, list):

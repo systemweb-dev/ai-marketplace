@@ -6,7 +6,7 @@ import build_report
 
 def relatorio():
     return {
-        "schema_version": 2, "generated_at": "2026-09-19T10:00:00Z",
+        "schema_version": 3, "generated_at": "2026-09-19T10:00:00Z",
         "alvos": [
             {"nome": "cluster", "tipo": "docker", "onde": "context: ctx", "saude": "🟡",
              "dimensoes": {"seguranca": {"nota": "🟡"}}, "fatos": {}, "analise": "Traefik sozinho.",
@@ -107,3 +107,12 @@ def test_texto_do_agente_nao_injeta_secao_no_relatorio(tmp_path):
 
     assert html.count("<h2>Por alvo</h2>") == 1
     assert "%%ALVOS%%" in html, "o marcador aparece como texto, não como seção"
+
+
+def test_relatorio_v2_e_recusado_com_mensagem_que_explica(tmp_path):
+    """Sem migração silenciosa: o relatório antigo fica onde está, como histórico."""
+    import pytest
+    v2 = {"schema_version": 2, "generated_at": "2026-09-19T10:00:00Z", "alvos": []}
+    with pytest.raises(ValueError) as erro:
+        build_report.build(v2, tmp_path)
+    assert "v3" in str(erro.value) and "histórico" in str(erro.value)

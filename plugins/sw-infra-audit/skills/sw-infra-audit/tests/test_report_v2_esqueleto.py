@@ -1,4 +1,4 @@
-# tests/test_report_v2.py
+# tests/test_report_v2_esqueleto.py
 import json
 
 from lib.report import (SCHEMA_VERSION, achados_ordenados, montar_inventario, na, novo,
@@ -9,10 +9,10 @@ def achado(regra, objeto, severidade, alvo):
     return {"regra": regra, "objeto": objeto, "severidade": severidade, "alvo": alvo}
 
 
-def test_relatorio_novo_tem_o_esqueleto_do_v2():
+def test_relatorio_novo_tem_o_esqueleto_do_schema():
     r = novo(generated_at="2026-09-19T10:00:00Z")
 
-    assert r["schema_version"] == SCHEMA_VERSION == 2
+    assert r["schema_version"] == SCHEMA_VERSION == 3
     assert r["alvos"] == [] and r["aceites"] == [] and r["inventario"] == []
     assert r["resumo"] == "" and r["recomendacoes"] == []
 

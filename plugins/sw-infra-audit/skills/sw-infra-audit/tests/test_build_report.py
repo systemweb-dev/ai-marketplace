@@ -55,13 +55,13 @@ def test_findings_agrupados_e_explicados():
 
 
 def test_degrada_sem_chromium(monkeypatch, tmp_path):
-    """O `build` só desenha o v2; o v1 daqui continua servindo aos testes de render_html."""
+    """O `build` só desenha o v3; o v1 daqui continua servindo aos testes de render_html."""
     monkeypatch.setattr(build_report, "find_chromium", lambda: None)
-    v2 = {"schema_version": 2, "generated_at": "2026-09-19T10:00:00Z", "alvos": [],
+    v3 = {"schema_version": 3, "generated_at": "2026-09-19T10:00:00Z", "alvos": [],
           "inventario": [], "aceites": [], "historico": None, "resumo": "",
           "fortes": [], "fracos": [], "recomendacoes": []}
 
-    res = build_report.build(v2, tmp_path)
+    res = build_report.build(v3, tmp_path)
 
     assert (tmp_path / "relatorio.html").exists() and res["pdf"] is None
 

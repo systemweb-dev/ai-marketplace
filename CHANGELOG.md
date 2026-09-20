@@ -8,6 +8,29 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-infra-audit` (v0.4.0): **o alvo passa a ter componentes** — o esqueleto para interrogar
+  cada peça da infraestrutura pelo papel dela. É a primeira metade do plano 1 do dossiê
+  `2026-09-19-insights-por-sistema-e-remediacao`.
+  - `report.json` **v3**: cada alvo carrega `componentes[]`, e cada componente guarda as
+    respostas das perguntas do seu papel. O `build_report` recusa o v2 com mensagem — sem
+    migração silenciosa; relatório antigo fica onde está.
+  - **Registro explícito de regras** (`lib/regras.py`): as 22 regras que viram achado, cada uma
+    com severidade, origem e a marca "esperada". Um teste cruza o registro com o que os
+    produtores realmente emitem — divergência de severidade agora falha a suíte em vez de sair
+    no relatório com a gravidade errada. Saiu também uma entrada morta de `rule_meta`.
+  - **Papel do componente** (`lib/papel.py`) derivado do `kind` que já existia, com teste de
+    consistência: `kind` novo sem papel falha a suíte em vez de virar `app` calado.
+  - **Achado com endereço**: nasce no componente e sobe para o alvo carregando de onde veio.
+    O aceite ganhou mira — duas filas com o mesmo problema, aceitar o risco de uma não silencia
+    a outra. `[[aceite]]` e `[insights]` ganharam allowlist de chave: um `compomente` digitado
+    errado viraria aceite do alvo inteiro, mais amplo do que o dono pediu.
+  - **Histórico não some mais**: rodada anterior em v2 ainda gera diff, comparando sem o
+    componente dos dois lados (senão o mesmo achado sairia como resolvido E como novo) e
+    dizendo a ressalva no relatório.
+  - `alvos.toml` aceita `[[alvo.componente]]` (nome, papel, admin_url, metricas_url,
+    senha_env — o valor da senha nunca no arquivo) e o `config.toml`, `[insights]` e
+    `relatorio.ip_completo`.
+
 - `sw-infra-audit` (v0.3.0): **a configuração do projeto também vai para `docs/infra/`** — o que
   era `.sw-infra-audit.toml` na raiz agora é `docs/infra/config.toml`, e a skill passa a ter um
   lugar só: alvos, configuração e relatórios na mesma pasta. O arquivo antigo na raiz continua

@@ -233,7 +233,7 @@ git commit -m "fix(sw-infra-audit): egress exige porta e ambiente do filho vira 
 Hoje os `rule_id` são literais dentro das funções de `rules.py`, e o coletor http cria as suas
 por fora. Sem um registro, "toda regra tem remediação" não é verificável sem AST.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_todo_produtor_declara_suas_regras_no_registro():
@@ -279,12 +279,12 @@ def test_registro_descreve_severidade_e_origem():
     assert REGRAS["SEC_DOCKER_SOCK_EXPECTED"]["esperada"] is True
 ```
 
-- [ ] **Step 2: rodar e ver falhar**
+- [x] **Step 2: rodar e ver falhar**
 
 Run: `.venv/bin/python -m pytest tests/test_regras.py -q`
 Expected: FAIL — `ModuleNotFoundError: lib.regras`.
 
-- [ ] **Step 3: implementar o registro**
+- [x] **Step 3: implementar o registro**
 
 ```python
 """Registro explícito de regras — a única lista enumerável de tudo que vira achado.
@@ -333,7 +333,7 @@ def exigem_remediacao():
 > task, rode `grep -rn 'rule_id' scripts/lib/rules.py` e confira uma a uma — se aparecer regra
 > que não está no dicionário, acrescente (e escreva a remediação dela na Task 16).
 
-- [ ] **Step 4: cada produtor declara o que produz**
+- [x] **Step 4: cada produtor declara o que produz**
 
 No topo de `scripts/lib/rules.py`:
 
@@ -354,11 +354,11 @@ from lib.regras import REGRAS
 REGRAS_PRODUZIDAS = {"certificado_vencendo", "sem_tls", "http_fora_do_ar", "http_resposta_de_erro"}
 ```
 
-- [ ] **Step 5: rodar**
+- [x] **Step 5: rodar**
 
 Run: `.venv/bin/python -m pytest tests/test_regras.py -q` — Expected: PASS.
 
-- [ ] **Step 6: commit**
+- [x] **Step 6: commit**
 
 ```bash
 git add scripts/lib/regras.py scripts/lib/rules.py scripts/lib/coletores/http.py tests/test_regras.py
@@ -376,7 +376,7 @@ git commit -m "feat(sw-infra-audit): registro explicito de regras"
 `detect_kind` devolve strings que `lib/metrics.py` (`STATEFUL`) e `lib/impact.py`
 (`CRITICAL_PATH`) comparam literalmente. **Não as renomeie** — traduza.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_papel_traduz_o_kind_existente():
@@ -411,11 +411,11 @@ def test_papel_declarado_invalido_e_recusado():
         papel_de("banco", declarado="bananco")
 ```
 
-- [ ] **Step 2: rodar e ver falhar**
+- [x] **Step 2: rodar e ver falhar**
 
 Run: `.venv/bin/python -m pytest tests/test_papel.py -q` — Expected: FAIL (`lib.papel` não existe).
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 ```python
 """Papel do componente — derivado do `kind`, nunca em lugar dele.
@@ -453,9 +453,9 @@ def papel_de(kind, declarado=None):
     return POR_KIND.get(kind, "app")
 ```
 
-- [ ] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_papel.py -q` → PASS.
+- [x] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_papel.py -q` → PASS.
 
-- [ ] **Step 5: commit**
+- [x] **Step 5: commit**
 
 ```bash
 git add scripts/lib/papel.py tests/test_papel.py
@@ -473,7 +473,7 @@ git commit -m "feat(sw-infra-audit): papel do componente derivado do kind"
 Só as perguntas do plano 1 (papel `entrada`, o que qualquer família responde). As de rota
 entram no plano 4; fila/banco/cache nos planos 2 e 3.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_perguntas_do_papel_vem_na_ordem_declarada():
@@ -498,9 +498,9 @@ def test_papel_sem_pergunta_devolve_lista_vazia():
     assert do_papel("storage") == []
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `ModuleNotFoundError: lib.perguntas`.
+- [x] **Step 2: rodar e ver falhar** — `ModuleNotFoundError: lib.perguntas`.
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 ```python
 """As perguntas canônicas — o que se quer saber, independente de quem responde.
@@ -533,7 +533,7 @@ def do_papel(papel):
     return [PERGUNTAS[id] for id in ORDEM.get(papel, [])]
 ```
 
-- [ ] **Step 4: rodar** → PASS. **Step 5: commit**
+- [x] **Step 4: rodar** → PASS. **Step 5: commit**
 
 ```bash
 git add scripts/lib/perguntas.py tests/test_perguntas.py
@@ -551,7 +551,7 @@ git commit -m "feat(sw-infra-audit): registro de perguntas canonicas"
 As duas validações recusam chave desconhecida **de propósito** — é a trava que impede o arquivo
 versionado de declarar conexão. Aqui a lista de conhecidos cresce; a trava continua.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 def test_projeto_pode_ajustar_a_janela_dos_insights(tmp_path):
@@ -603,12 +603,12 @@ def test_componente_com_papel_invalido_e_recusado(tmp_path):
         ler(tmp_path / "alvos.toml")
 ```
 
-- [ ] **Step 2: rodar e ver falhar**
+- [x] **Step 2: rodar e ver falhar**
 
 Run: `.venv/bin/python -m pytest tests/test_config.py tests/test_alvos.py -q`
 Expected: FAIL — `config.py` recusa `insights`; `alvos.py` recusa `componente`.
 
-- [ ] **Step 3: implementar em `config.py`**
+- [x] **Step 3: implementar em `config.py`**
 
 ```python
 PROJETO_PERMITE = ("alvos", "aceite", "relatorio", "severidade", "insights")
@@ -618,7 +618,7 @@ RELATORIO_PERMITE = ("pasta", "formato", "ignorar_em", "ip_completo")
 > `insights` NÃO entra em `CHAVES_DE_CONEXAO` — `janela` e limites de lista não descrevem
 > conexão. A trava contra conexão no arquivo versionado continua exatamente como está.
 
-- [ ] **Step 4: implementar em `alvos.py`**
+- [x] **Step 4: implementar em `alvos.py`**
 
 ```python
 COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env")
@@ -664,9 +664,9 @@ No laço de `ler`, antes do `alvos.append(dict(bruto))`:
 > **Atenção:** `permitidos` (a allowlist de campos do alvo) precisa passar a aceitar
 > `componente` — acrescente-o a `COMUNS`.
 
-- [ ] **Step 5: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
+- [x] **Step 5: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
 
-- [ ] **Step 6: commit**
+- [x] **Step 6: commit**
 
 ```bash
 git add scripts/lib/config.py scripts/lib/alvos.py tests/
@@ -681,7 +681,7 @@ git commit -m "feat(sw-infra-audit): config de insights e bloco de componente no
 - Modify: `scripts/lib/report.py`
 - Test: `tests/test_report_v3.py`
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 def test_alvo_nasce_com_lista_de_componentes():
@@ -728,9 +728,9 @@ def test_ordenar_nao_muta_a_entrada():
     assert [c["nome"] for c in r["alvos"][0]["componentes"]] == ["z", "a"]
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — `SCHEMA_VERSION` é 2 e `novo_componente` não existe.
+- [x] **Step 2: rodar e ver falhar** — `SCHEMA_VERSION` é 2 e `novo_componente` não existe.
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 ```python
 SCHEMA_VERSION = 3
@@ -774,16 +774,16 @@ def ordenar(relatorio):
     return copia
 ```
 
-- [ ] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_report_v3.py -q` → PASS.
+- [x] **Step 4: rodar** — `.venv/bin/python -m pytest tests/test_report_v3.py -q` → PASS.
 
-- [ ] **Step 5: `build_report` recusa v2 com mensagem clara**
+- [x] **Step 5: `build_report` recusa v2 com mensagem clara**
 
 Em `scripts/build_report.py`, as duas checagens `!= 2` viram `!= 3`, e a mensagem passa a ser:
 `f"schema {r.get('schema_version')!r}: este build lê o v3; relatórios anteriores ficam onde estão"`.
 Atualize as fixtures de `tests/test_build_report_v2.py` para `schema_version: 3` e renomeie o
 arquivo para `tests/test_build_report_v3.py`.
 
-- [ ] **Step 6: commit**
+- [x] **Step 6: commit**
 
 ```bash
 git add scripts/lib/report.py scripts/build_report.py tests/
@@ -798,7 +798,7 @@ git commit -m "feat(sw-infra-audit)!: report.json v3 com componentes"
 - Modify: `scripts/collect.py`, `scripts/lib/aceites.py`, `scripts/lib/historico.py`
 - Test: `tests/test_collect_orquestrador.py`, `tests/test_aceites.py`, `tests/test_historico.py`
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 def test_achado_do_componente_e_promovido_para_o_alvo(tmp_path):
@@ -868,9 +868,9 @@ def test_rodada_anterior_em_v2_gera_diff_com_aviso(tmp_path):
     assert "formato anterior" in diff["aviso"]
 ```
 
-- [ ] **Step 2: rodar e ver falhar** — nenhum dos três comportamentos existe.
+- [x] **Step 2: rodar e ver falhar** — nenhum dos três comportamentos existe.
 
-- [ ] **Step 3: implementar a promoção em `collect.py`**
+- [x] **Step 3: implementar a promoção em `collect.py`**
 
 `CAMPOS_DO_COLETOR` ganha `componentes` (senão o campo some, como acontece hoje com
 `impact_points`):
@@ -901,7 +901,7 @@ def promover_achados(registro):
 > `componentes` sem mudança — `novo_alvo` passa a trazer `"componentes": []`, então o tipo
 > esperado é `list`.
 
-- [ ] **Step 4: implementar o aceite por componente em `aceites.py`**
+- [x] **Step 4: implementar o aceite por componente em `aceites.py`**
 
 ```python
 def _casa(achado, aceite):
@@ -952,7 +952,7 @@ def _filtrar(achados, aceite, vencido, casou=None):
 > Ajuste o controle de `casou` que já existe na função para usar a lista auxiliar — o campo
 > `obsoleto` do aceite depende dele.
 
-- [ ] **Step 5: implementar o histórico tolerante em `historico.py`**
+- [x] **Step 5: implementar o histórico tolerante em `historico.py`**
 
 ```python
 ESQUEMAS_COMPARAVEIS = (2, 3)
@@ -981,9 +981,9 @@ def _chaves(relatorio):
             for a in relatorio.get("alvos", []) for f in a.get("achados", [])}
 ```
 
-- [ ] **Step 6: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
+- [x] **Step 6: rodar a suíte inteira** — `.venv/bin/python -m pytest -q` → PASS.
 
-- [ ] **Step 7: commit**
+- [x] **Step 7: commit**
 
 ```bash
 git add scripts/collect.py scripts/lib/aceites.py scripts/lib/historico.py tests/

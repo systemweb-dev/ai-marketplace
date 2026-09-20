@@ -85,7 +85,7 @@ def test_relatorio_sai_com_inventario_e_ordem_declarada(tmp_path):
     assert [a["nome"] for a in r["alvos"]] == ["cluster", "site"]
     assert [i["nome"] for i in r["inventario"]] == ["cluster", "site"]
     assert r["generated_at"] == "2026-09-19T10:00:00Z"
-    assert r["schema_version"] == 2
+    assert r["schema_version"] == 3
 
 
 def test_coletor_que_estoura_o_orcamento_vira_sem_dados_sem_derrubar_o_resto(tmp_path):
@@ -353,3 +353,50 @@ def test_auditar_recusa_alvos_em_pasta_que_o_git_versiona(tmp_path, monkeypatch,
 
     assert codigo == 2 and visitados == []
     assert ".gitignore" in capsys.readouterr().err
+
+
+def test_achado_do_componente_e_promovido_para_o_alvo(tmp_path):
+    """O relatório ordena, inventaria e compara histórico a partir de UMA lista — a do alvo.
+    Achado que fica só no componente some dessas três coisas."""
+    def coletor(alvo, contexto):
+        return {"saude": "🟡",
+                "componentes": [{"nome": "proxy", "papel": "entrada", "respostas": [],
+                                 "analise": "",
+                                 "achados": [{"regra": "SEC_PORT_EXPOSED", "objeto": "adminer",
+                                              "severidade": "medium"}]}]}
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor, "http": coletor_falso([])})
+    alvo = next(a for a in ler_relatorio(tmp_path)["alvos"] if a["nome"] == "cluster")
+
+    assert [a["regra"] for a in alvo["achados"]] == ["SEC_PORT_EXPOSED"]
+    assert alvo["achados"][0]["componente"] == "proxy"
+    assert alvo["achados"][0]["alvo"] == "cluster"
+    assert alvo["componentes"][0]["achados"][0]["regra"] == "SEC_PORT_EXPOSED"
+
+
+def test_componentes_invalidos_nao_derrubam_o_alvo(tmp_path):
+    def coletor(alvo, contexto):
+        return {"saude": "🟢", "componentes": "isto não é lista"}
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor, "http": coletor_falso([])})
+    alvo = next(a for a in ler_relatorio(tmp_path)["alvos"] if a["nome"] == "cluster")
+
+    assert alvo["componentes"] == []
+    assert any("componentes" in n["motivo"] for n in alvo["nao_coletado"])
+
+
+def test_componente_malformado_nao_derruba_a_auditoria(tmp_path):
+    """"Nada que o coletor devolva pode derrubar a auditoria dos outros alvos" — inclusive
+    uma lista de componentes com lixo dentro."""
+    def coletor(alvo, contexto):
+        return {"saude": "🟢", "componentes": ["proxy", {"papel": "fila"}, 42]}
+
+    codigo = collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                          coletores={"docker": coletor, "http": coletor_falso([])})
+    alvo = next(a for a in ler_relatorio(tmp_path)["alvos"] if a["nome"] == "cluster")
+
+    assert codigo == 0
+    assert alvo["componentes"] == []
+    assert len([n for n in alvo["nao_coletado"] if "componente" in n["motivo"]]) == 3

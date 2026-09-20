@@ -75,11 +75,6 @@ RULE_META.update({
         "what": "O nó está marcado como Drain e não recebe novas tasks.",
         "why": "Normal durante manutenção; vira problema se foi esquecido assim (capacidade ociosa).",
     },
-    "OPS_SERVICE_DOWN": {
-        "label": "Serviço fora do ar",
-        "what": "O serviço está com 0 réplicas rodando, embora deseje mais de uma.",
-        "why": "Indisponibilidade real, agora. É a prioridade máxima de qualquer auditoria.",
-    },
     "OPS_SERVICE_STOPPED": {
         "label": "Serviço parado (0 réplicas)",
         "what": "O serviço existe mas não tem nenhuma réplica no ar.",
