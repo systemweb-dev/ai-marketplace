@@ -357,6 +357,8 @@ def coletar(alvo, contexto):
             componente["admin_url"] = declarado["admin_url"]
         if declarado.get("senha_env"):
             componente["senha_env"] = declarado["senha_env"]
+        if declarado.get("usuario"):
+            componente["usuario"] = declarado["usuario"]
         componentes.append(componente)
 
     # o que o miolo não conseguiu ver precisa chegar ao relatório, senão "sem achados" mente

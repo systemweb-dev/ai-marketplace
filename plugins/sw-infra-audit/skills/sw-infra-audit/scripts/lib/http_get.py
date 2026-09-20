@@ -5,11 +5,13 @@ no `alvos.toml` e confirmou na rodada (`--confirmar`). Aqui dentro:
   - só método GET, só http/https;
   - **host E porta** obrigatoriamente na allowlist recebida — host declarado não autoriza
     porta não declarada, senão a coleta viraria varredura de portas;
-  - sem credenciais/headers de auth, sem cookies;
+  - sem cookies; e sem credencial, EXCETO em `get_autenticado`, que é a única porta
+    autenticada e nunca aceita credencial embutida na URL;
   - redirect NÃO é seguido (evita exfiltração para outro host);
   - timeout curto e teto de bytes.
 Nenhum outro módulo importa urllib/socket.
 """
+import base64
 import os
 import socket
 import ssl
@@ -63,6 +65,13 @@ def check_allowed(url, permitidos):
     p = urlparse(url or "")
     if p.scheme not in ("http", "https"):
         raise NotConfirmed(f"esquema não permitido: {p.scheme!r}")
+    if "@" in p.netloc:
+        # `urlparse().hostname` DESCARTA o `user:senha@`, então sem esta guarda a URL passaria
+        # na allowlist e a senha seguiria viva dentro dela: no header Host, no log do servidor,
+        # e — pior — no valor copiado para o componente, que vira report.json, HTML e PDF.
+        # A mensagem não repete o valor recusado, senão a senha iria para o terminal junto.
+        raise NotConfirmed("a URL traz credencial embutida (`usuario:senha@`); declare a senha "
+                           "em `senha_env` no alvos.toml")
     host, porta = destino(url)
     conhecidos = {(h, int(n)) for h, n in (permitidos or []) if h and n is not None}
     if not host or (host, porta) not in conhecidos:
@@ -98,6 +107,46 @@ def get_com_status(url, allowed_hosts, timeout=DEFAULT_TIMEOUT):
         return erro.code, ""
     except (urllib.error.URLError, OSError, ValueError):
         return None, None                           # não alcancei
+
+
+def get_autenticado(url, allowed_hosts, credencial, alvo=None, timeout=DEFAULT_TIMEOUT):
+    """GET com credencial — a ÚNICA função desta skill que manda header de autenticação.
+
+    `get()` e `get_com_status()` continuam anônimos de propósito: concentrar o segredo aqui é o
+    que faz "por onde sai credencial?" ser uma pergunta com uma resposta só.
+
+    A senha entra em header, nunca na URL: URL vai para log de servidor, para histórico de
+    proxy e para mensagem de erro. Por isso `userinfo` na URL é recusado em vez de ignorado —
+    `urlparse().hostname` descarta o `user:senha@`, então `check_allowed` aprovaria sem ver.
+
+    `credencial` é um objeto `lib.credencial.Credencial` (ou None), NUNCA um par solto: é esta
+    função que chama `.para(url, alvo)` e descobre se aquela senha pertence a este destino. A
+    primeira versão recebia o par pronto, e aí a amarração virava convenção — quem chamasse
+    `par()` em vez de `para()` mandava a senha para qualquer host da allowlist, sem erro. Um
+    par ou uma string seriam desempacotados em silêncio (`"ab"` viraria `a:b`).
+
+    Devolve `(status, corpo)`, com `(None, None)` quando não deu para alcançar — 401 volta como
+    status, porque "a família é essa, falta credencial" é informação, não falha.
+    """
+    check_allowed(url, allowed_hosts)   # recusa esquema, destino fora da lista E userinfo
+    req = urllib.request.Request(url, method="GET")
+    if credencial is not None:
+        if not hasattr(credencial, "para"):
+            raise TypeError("credencial precisa ser um lib.credencial.Credencial; um par solto "
+                            "não sabe a que destino pertence")
+        par = credencial.para(url, alvo)
+        if par:
+            usuario, senha = par
+            cru = f"{usuario}:{senha}".encode("utf-8")
+            req.add_header("Authorization",
+                           "Basic " + base64.b64encode(cru).decode("ascii"))
+    try:
+        with _OPENER.open(req, timeout=timeout) as r:
+            return r.status, r.read(MAX_BYTES).decode("utf-8", "replace")
+    except urllib.error.HTTPError as erro:
+        return erro.code, ""
+    except (urllib.error.URLError, OSError, ValueError):
+        return None, None
 
 
 def _datas_do_der(seguro):

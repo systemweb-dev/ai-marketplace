@@ -22,7 +22,8 @@ OPCIONAIS = {
 COMUNS = ("nome", "tipo", "componente")
 # o que um [[alvo.componente]] pode declarar. A senha nunca vem aqui: `senha_env` guarda o
 # NOME da variável de ambiente onde ela mora.
-COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env")
+COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env",
+                      "usuario")
 NOME_VALIDO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 ESQUEMAS = ("http", "https")
 
@@ -35,6 +36,14 @@ def _checar_url(nome, campo, valor):
     partes = urlparse(str(valor))
     if partes.scheme not in ESQUEMAS or not partes.hostname:
         raise AlvoInvalido(f"alvo {nome!r}: {campo} precisa ser http(s) com host — {valor!r} não é")
+    if "@" in partes.netloc:
+        # Recusar aqui, e não na coleta: na coleta o valor cru já teria sido copiado para o
+        # componente, e o componente vira report.json, HTML e PDF. A mensagem NÃO repete o
+        # valor — imprimir a URL recusada colocaria a senha no terminal e no log.
+        raise AlvoInvalido(
+            f"alvo {nome!r}: {campo} traz credencial embutida na URL (`usuario:senha@`). "
+            f"Tire-a de lá e declare `senha_env` com o NOME da variável de ambiente que "
+            f"guarda a senha")
     try:                          # porta fora da faixa é erro de configuração, não de coleta
         partes.port
     except ValueError as erro:

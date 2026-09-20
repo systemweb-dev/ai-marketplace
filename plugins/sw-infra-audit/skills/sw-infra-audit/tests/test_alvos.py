@@ -213,3 +213,11 @@ def test_senha_do_componente_e_so_o_nome_da_variavel(tmp_path):
                        encoding="utf-8")
     lidos, _ = ler(arquivo)
     assert lidos[0]["componente"][0]["senha_env"] == "SENHA_DA_FILA"
+
+
+def test_componente_aceita_usuario_declarado():
+    """Sem isto, declarar `usuario` no alvos.toml é recusado como chave desconhecida — e a
+    recusa é de propósito, então o campo novo precisa entrar na lista."""
+    from lib.alvos import COMPONENTE_PERMITE
+
+    assert "usuario" in COMPONENTE_PERMITE
