@@ -1,0 +1,67 @@
+# API de administração no formato AMQP management. O nome da família é do FORMATO, não do
+# produto: quem falar esta API é atendido por este arquivo, e é isso que mantém o núcleo
+# agnóstico.
+#
+# Todo caminho aqui é de LEITURA. A API tem endpoints de escrita (PUT e DELETE em filas, POST
+# para publicar mensagem) e nenhum deles pode aparecer neste arquivo: o adaptador só faz GET,
+# mas o catálogo é a lista do que ele ALCANÇA, e é essa lista que um revisor lê.
+#
+# As três perguntas leem o MESMO caminho, com `columns=` pedindo só o que é extraído: o
+# adaptador baixa uma vez por componente, e a resposta cabe no teto de 4 MB mesmo em broker
+# grande (a listagem completa passa de 1,7 KB por fila; sem `columns`, ~2.400 filas estouram).
+#
+# O limiar NÃO fica aqui: ele pertence à pergunta canônica (lib/perguntas.py). O que este
+# arquivo garante é extrair os campos que o limiar compara — `consumidores` e `prontas`.
+
+familia = "amqp-mgmt"
+prioridade = 20
+
+[identificacao]
+caminho = "/api/overview"
+exige_chaves = ["product_name", "rabbitmq_version"]
+aceita_401 = true
+
+# --- o que existe. SEM `limite`: esta pergunta tem limiar, e o limiar precisa ver a população
+# inteira — com um corte aqui, 300 filas órfãs atrás de 10 filas cheias dariam zero achados.
+# O corte para exibição é do relatório; a lista completa fica no report.json.
+# `nao_confirmadas` está aqui porque é o caso pior que a regra NÃO vê: fila com consumidor
+# conectado que não confirma mensagem. Sem a coluna, ele ficaria invisível no relatório.
+[[pergunta]]
+id = "fila.filas"
+caminho = "/api/queues?columns=name,vhost,messages_ready,messages_unacknowledged,consumers,message_stats.publish_details.rate,message_stats.deliver_get_details.rate"
+lista = ""
+identidade = ["nome", "vhost"]
+campos = { nome = "/name", vhost = "/vhost", prontas = "/messages_ready", nao_confirmadas = "/messages_unacknowledged", consumidores = "/consumers" }
+transformar = { prontas = "inteiro", nao_confirmadas = "inteiro", consumidores = "inteiro" }
+ordenar_por = "prontas"
+ordem = "desc"
+desempate = "nome"
+
+# --- quem consome
+[[pergunta]]
+id = "fila.consumidores_por_fila"
+caminho = "/api/queues?columns=name,vhost,messages_ready,messages_unacknowledged,consumers,message_stats.publish_details.rate,message_stats.deliver_get_details.rate"
+lista = ""
+identidade = ["nome", "vhost"]
+campos = { nome = "/name", vhost = "/vhost", consumidores = "/consumers" }
+transformar = { consumidores = "inteiro" }
+ordenar_por = "consumidores"
+ordem = "desc"
+desempate = "nome"
+limite = 10
+
+# --- a que ritmo. A API expõe as taxas já calculadas; o saldo é derivação declarada, porque a
+# expressão de limiar não faz aritmética. Fila ociosa não traz `message_stats`: as taxas viram
+# None e ela vai para o fim da lista, em vez de aparecer como "saldo zero".
+[[pergunta]]
+id = "fila.taxa_entrada_saida"
+caminho = "/api/queues?columns=name,vhost,messages_ready,messages_unacknowledged,consumers,message_stats.publish_details.rate,message_stats.deliver_get_details.rate"
+lista = ""
+identidade = ["nome", "vhost"]
+campos = { nome = "/name", vhost = "/vhost", entrada = "/message_stats/publish_details/rate", saida = "/message_stats/deliver_get_details/rate" }
+transformar = { entrada = "decimal", saida = "decimal" }
+derivar = { saldo = { tipo = "diferenca", de = "/message_stats/publish_details/rate", menos = "/message_stats/deliver_get_details/rate" } }
+ordenar_por = "saldo"
+ordem = "desc"
+desempate = "nome"
+limite = 10

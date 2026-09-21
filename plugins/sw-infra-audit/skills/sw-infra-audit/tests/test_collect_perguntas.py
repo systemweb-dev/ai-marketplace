@@ -274,3 +274,44 @@ def test_achado_do_coletor_nao_agrava_a_saude(tmp_path):
                  coletores={"docker": coletor}, adaptadores=[AdaptadorFalso])
 
     assert ler(tmp_path)["alvos"][0]["saude"] == "🟡"
+
+
+def test_o_motivo_guardado_e_de_quem_poderia_responder(tmp_path):
+    """Com dois adaptadores reais, o `responder` guardava o motivo do PRIMEIRO que tentou — e o
+    primeiro passou a ser o `admin_http`. Um proxy sem nada declarado recebia "declare
+    `admin_url`", quando o conserto dele é `metricas_url`: nenhuma API de administração do
+    catálogo sabe responder pergunta de `entrada`.
+
+    O motivo que importa é o de um adaptador que PODERIA responder aquela pergunta.
+    """
+    from lib import adaptadores
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente(papel="entrada")},
+                 adaptadores=adaptadores.todos())
+    motivos = {r["motivo"] for r in ler(tmp_path)["alvos"][0]["componentes"][0]["respostas"]}
+
+    assert all("metricas_url" in m for m in motivos), motivos
+
+
+def test_componente_de_fila_sem_nada_declarado_e_mandado_declarar_admin_url(tmp_path):
+    """E o inverso: para `fila`, quem responde é a API de administração."""
+    from lib import adaptadores
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente(nome="broker", papel="fila")},
+                 adaptadores=adaptadores.todos())
+    motivos = {r["motivo"] for r in ler(tmp_path)["alvos"][0]["componentes"][0]["respostas"]}
+
+    assert all("admin_url" in m for m in motivos), motivos
+
+
+def test_a_marca_interna_nao_vaza_para_o_relatorio(tmp_path):
+    from lib import adaptadores
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente(papel="entrada")},
+                 adaptadores=adaptadores.todos())
+
+    texto = (tmp_path / "saida" / "report.json").read_text(encoding="utf-8")
+    assert "nao_se_aplica" not in texto

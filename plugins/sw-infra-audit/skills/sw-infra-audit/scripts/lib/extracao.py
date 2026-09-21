@@ -276,7 +276,12 @@ def extrair(documento, declarada):
 
     cru = ponteiro(documento, declarada["lista"])
     if cru is None:
-        return []
+        # `[]` é "a lista existe e está vazia" — zero filas é um fato. Caminho ausente é outra
+        # coisa: a API mudou de formato, e responder `[]` diria "zero filas" (que nunca dispara
+        # limiar) sobre uma resposta que ninguém entendeu.
+        raise ExtracaoInvalida(
+            f"`lista = {declarada['lista']!r}` não existe na resposta — o formato da API não "
+            f"é o que o catálogo descreve")
     if not isinstance(cru, list):
         raise ExtracaoInvalida(
             f"`lista = {declarada['lista']!r}` aponta para {type(cru).__name__}, não para um "

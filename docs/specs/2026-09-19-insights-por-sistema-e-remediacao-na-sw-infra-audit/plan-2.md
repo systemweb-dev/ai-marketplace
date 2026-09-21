@@ -1830,7 +1830,7 @@ git add -A && git commit -m "feat(sw-infra-audit): papel fila com quatro pergunt
 
 Espelha o `lib/catalogo.py` (que serve o `promql`) mas valida uma linguagem diferente: o alvo é JSON de API, não PromQL. A validação é dura **no carregamento**, não na coleta — arquivo errado é recusado no teste, não no relatório de quem usa.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_catalogo_api.py
@@ -1987,12 +1987,12 @@ def test_o_catalogo_de_verdade_carrega():
     assert [f["familia"] for f in familias()] != []
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_catalogo_api.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'lib.catalogo_api'`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 ```python
 # scripts/lib/catalogo_api.py
@@ -2115,7 +2115,7 @@ def familias(pasta=PASTA):
     return sorted(carregadas, key=lambda f: (f["prioridade"], f["familia"]))
 ```
 
-- [ ] **Step 4: Criar a pasta e rodar**
+- [x] **Step 4: Criar a pasta e rodar**
 
 ```bash
 mkdir -p ~/.claude/skills/sw-infra-audit/references/apis
@@ -2124,7 +2124,7 @@ mkdir -p ~/.claude/skills/sw-infra-audit/references/apis
 Run: `.venv/bin/python -m pytest tests/test_catalogo_api.py -q`
 Expected: 13 PASS, 1 FAIL (`test_o_catalogo_de_verdade_carrega` — a pasta está vazia até a Task 11)
 
-- [ ] **Step 5: Prova por mutação**
+- [x] **Step 5: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -2133,7 +2133,7 @@ Expected: 13 PASS, 1 FAIL (`test_o_catalogo_de_verdade_carrega` — a pasta est�
 | não compilar o limiar na validação | `test_recusa_limiar_com_expressao_invalida` |
 | ordenar `familias()` por `Path.glob` sem `sorted` | `test_familias_vem_em_ordem_estavel` |
 
-- [ ] **Step 6: Sem commit ainda** — fecha junto com a Task 10.
+- [x] **Step 6: Sem commit ainda** — fecha junto com a Task 10.
 
 ---
 
@@ -2146,7 +2146,7 @@ Expected: 13 PASS, 1 FAIL (`test_o_catalogo_de_verdade_carrega` — a pasta est�
 
 Mesmo contrato dos outros: `perguntar(pergunta, componente, contexto)` devolve valor com fonte, ou `sem_dados` com motivo. **Nunca levanta.**
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_adaptador_admin_http.py
@@ -2323,12 +2323,12 @@ def test_registrado_com_prioridade_menor_que_promql():
     assert [m.ID for m in todos()][0] == "admin_http"
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_adaptador_admin_http.py -q`
 Expected: FAIL — `ImportError: cannot import name 'admin_http' from 'lib.adaptadores'`
 
-- [ ] **Step 3: Implementar o adaptador**
+- [x] **Step 3: Implementar o adaptador**
 
 ```python
 # scripts/lib/adaptadores/admin_http.py
@@ -2455,7 +2455,7 @@ def perguntar(pergunta, componente, contexto):
     return {"pergunta": pergunta, "fonte": f"{ID}:{familia['familia']}", "valor": valor}
 ```
 
-- [ ] **Step 4: Registrar o adaptador**
+- [x] **Step 4: Registrar o adaptador**
 
 Substituir `scripts/lib/adaptadores/__init__.py` inteiro:
 
@@ -2480,12 +2480,12 @@ def todos():
             sorted(REGISTRO.items(), key=lambda par: (par[1]["prioridade"], par[0]))]
 ```
 
-- [ ] **Step 5: Rodar**
+- [x] **Step 5: Rodar**
 
 Run: `.venv/bin/python -m pytest tests/test_adaptador_admin_http.py -q`
 Expected: a maioria PASS; os que dependem do arquivo de família (`test_responde_lista_com_fonte`, `test_a_credencial_vai_na_requisicao`, `test_a_senha_nao_entra_na_resposta`, `test_a_identificacao_e_feita_uma_vez_por_componente`, `test_corpo_que_nao_e_json_vira_sem_dados`) só ficam verdes na Task 11.
 
-- [ ] **Step 6: Sem commit ainda** — fecha com a Task 11.
+- [x] **Step 6: Sem commit ainda** — fecha com a Task 11.
 
 ---
 
@@ -2497,7 +2497,7 @@ Expected: a maioria PASS; os que dependem do arquivo de família (`test_responde
 
 O nome da família é **`amqp-mgmt`**, não `rabbitmq`: o que se descreve é o formato da API de administração AMQP, e qualquer broker que o fale é atendido pelo mesmo arquivo. Nome de produto no arquivo é o começo do `if produto == …`.
 
-- [ ] **Step 1: Escrever o arquivo**
+- [x] **Step 1: Escrever o arquivo**
 
 ```toml
 # references/apis/amqp-mgmt.toml
@@ -2576,7 +2576,7 @@ limite = 10
 > linguagem. Publicar o total do broker com o rótulo "fila morta" seria o relatório mentindo
 > com número certo. **Decisão do dono, em 2026-09-20: fica fora do plano 2.**
 
-- [ ] **Step 2: Escrever o teste do arquivo**
+- [x] **Step 2: Escrever o teste do arquivo**
 
 ```python
 # tests/test_familia_amqp.py
@@ -2628,12 +2628,12 @@ def test_a_prioridade_e_a_do_adaptador():
     assert _familia()["prioridade"] == REGISTRO["admin_http"]["prioridade"]
 ```
 
-- [ ] **Step 3: Rodar tudo que depende do arquivo**
+- [x] **Step 3: Rodar tudo que depende do arquivo**
 
 Run: `.venv/bin/python -m pytest tests/test_familia_amqp.py tests/test_catalogo_api.py tests/test_adaptador_admin_http.py -q`
 Expected: PASS
 
-- [ ] **Step 4: Rodar a suíte inteira e commitar**
+- [x] **Step 4: Rodar a suíte inteira e commitar**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 603
@@ -2642,6 +2642,30 @@ Expected: PASS — 603
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
 git add -A && git commit -m "feat(sw-infra-audit): adaptador admin_http e a familia amqp-mgmt em arquivo"
 ```
+
+---
+
+> ### Ajustes das Tasks 9–11 após a revisão do juiz (2026-09-21)
+>
+> O juiz confirmou que **a senha não vaza** por nenhum caminho (report, motivo, cache, `repr`, redirect). Mas o adaptador só tinha sido exercitado no caminho feliz, e diante de um broker de verdade ele mentia sobre o motivo ou dava verde sobre o que não leu:
+>
+> | Problema | O que acontecia | Correção |
+> |---|---|---|
+> | Estatísticas desligadas no broker (comum no 4.x com Prometheus) | 300 filas sem `messages_ready`/`consumers`: 300 itens com None, **zero achados, alvo verde** | regra genérica no `responder`: lista em que nenhum item traz os campos do limiar vira `sem_dados` ("estatísticas desligadas?"). Um item com contador basta para valer |
+> | Resposta acima de 4 MB | cortada no meio, JSON quebrado, motivo "a API não respondeu" — a listagem completa tem ~1,7 KB por fila, então ~2.400 filas já estouravam | `http_get.RespostaGrandeDemais`, dita como tal; o catálogo pede só as colunas usadas (`?columns=`) |
+> | Cache de identificação | o `responder` copia o contexto por pergunta, e o cache morria na cópia: 3 perguntas, 3 identificações e 3 downloads inteiros | `contexto["cache"]` criado por alvo e compartilhado (cópia rasa); cache também do documento — um download por endpoint |
+> | Timeout | usava o de comando (20 s) em HTTP; um broker inalcançável comia ~60 s do orçamento de 120 s | `http_timeout` (8 s), limitado pelo orçamento |
+> | Alvo da credencial | o `main` não punha o alvo no contexto: a amarração (alvo, host, porta) virava (None, host, porta). O teste que "provava" injetava o alvo à mão | `coletar_alvo` põe o nome do alvo no contexto |
+> | Adaptador que estoura | `erro_interno` contava como resposta e fazia `break`: o `promql` nunca era consultado. `admin_url` na porta AMQP dava `BadStatusLine`, que não é `OSError` | `erro_interno` não encerra a busca; `http_get` captura `http.client.HTTPException` |
+> | Catálogo quebrado | virava erro em **todas** as perguntas de **todos** os papéis, inclusive `entrada` | `CatalogoInvalido` vira `sem_dados` marcado `nao_se_aplica` |
+> | Motivos | 403 e 302 viravam "não reconheci a família"; o status da consulta era descartado | motivo por status: 401 falta credencial, 403 sem permissão, 3xx redireciona |
+> | Aceite | `configurar.py aceitar` não tinha `--componente`, e o fluxo documentado aceitava **todas** as filas do alvo; com `--objeto`, era preciso digitar o `·` exato | `--componente`; identidade passou a `nome@vhost` (ASCII, digitável); campo ausente sai do objeto em vez de virar "None" |
+>
+> De quebra: o `aceitar` montava o TOML com f-string crua — um motivo com aspas quebrava o `config.toml` inteiro, e uma quebra de linha podia escrever outra chave. E pergunta **escalar** respondida pelo `admin_http` devolveria `{"valor": 17}` em vez de 17 — nenhuma de fila é escalar, mas o plano 3 traz várias; o catálogo agora exige `campos = { valor = ... }` em escalar e o adaptador entrega o número.
+>
+> Nove mutações sobreviviam à suíte (cache removido, marca vazando, `all`→`any` na identificação, `break` no 401, campos trocados no TOML real...). Oito ganharam teste. A nona — tirar o cache de família — sobrevivia porque o cache ficou **redundante**: o cache de documento já guarda a resposta de identificação. O código morto saiu, em vez de ganhar um teste que o justificasse.
+>
+> E uma lição de fixture: o `read(n)` da resposta falsa ignorava o `n`, então nenhum teste percebia quem lesse só `MAX_BYTES` e nunca notasse a resposta maior. A fixture agora se comporta como a coisa real.
 
 ---
 

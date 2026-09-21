@@ -4,9 +4,12 @@ A ordem é a prioridade declarada — menor vence, porque o mais específico sab
 genérico. Empate resolve pelo id, em ordem lexical: sem ordem total, duas fontes equivalentes
 produziriam relatórios diferentes para a mesma entrada.
 """
-from lib.adaptadores import promql
+from lib.adaptadores import admin_http, promql
 
-REGISTRO = {promql.ID: {"modulo": promql, "prioridade": 30}}
+REGISTRO = {
+    admin_http.ID: {"modulo": admin_http, "prioridade": 20},
+    promql.ID: {"modulo": promql, "prioridade": 30},
+}
 
 
 def todos():

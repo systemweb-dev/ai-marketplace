@@ -5,6 +5,7 @@ Nesta versão: `config --explicar`. `migrar` e `aceitar` entram na Task 12.
 """
 import argparse
 import re
+import json
 import sys
 from pathlib import Path
 
@@ -146,10 +147,14 @@ def aceitar(args) -> int:
     except ValueError:
         print(f"--desde precisa ser uma data AAAA-MM-DD, veio {desde!r}", file=sys.stderr)
         return EXIT_ERRO
-    bloco = ["", "[[aceite]]", f'alvo = "{args.alvo}"', f'regra = "{args.regra}"',
-             f'motivo = "{args.motivo.strip()}"', f'desde = "{desde}"', f'revisar_em = "{revisar}"']
-    if args.objeto:
-        bloco.insert(3, f'objeto = "{args.objeto}"')
+    # `json.dumps` produz uma string básica de TOML válida (aspas, barra e quebra de linha
+    # escapadas). O bloco era montado com f-string crua: um motivo com aspas quebrava o
+    # config.toml inteiro, e uma quebra de linha no motivo podia escrever outra chave.
+    campos = [("alvo", args.alvo), ("componente", args.componente), ("regra", args.regra),
+              ("objeto", args.objeto), ("motivo", args.motivo.strip()), ("desde", desde),
+              ("revisar_em", revisar)]
+    bloco = ["", "[[aceite]]"] + [f"{chave} = {json.dumps(valor, ensure_ascii=False)}"
+                                  for chave, valor in campos if valor]
     projeto.parent.mkdir(parents=True, exist_ok=True)
     atual = projeto.read_text(encoding="utf-8") if projeto.exists() else ""
     projeto.write_text(atual.rstrip("\n") + "\n" + "\n".join(bloco) + "\n", encoding="utf-8")
@@ -233,7 +238,10 @@ def main(argv=None) -> int:
     ace.add_argument("--projeto", default=None)
     ace.add_argument("--alvo", required=True)
     ace.add_argument("--regra", required=True)
-    ace.add_argument("--objeto", default=None)
+    ace.add_argument("--componente", default=None,
+                     help="só os achados deste componente (sem ele, vale para o alvo inteiro)")
+    ace.add_argument("--objeto", default=None,
+                     help="só este objeto; em fila, `nome@vhost` (ex.: emails@staging)")
     ace.add_argument("--motivo", required=True)
     ace.add_argument("--desde", default=None)
     ace.add_argument("--meses", type=int, default=6, help="prazo até a revisão (padrão: 6 meses)")

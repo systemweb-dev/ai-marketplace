@@ -143,6 +143,33 @@ def _detalhe(item):
     return " · ".join(partes) or "sem detalhe"
 
 
+def _sem_contadores(resposta, limiar):
+    """Lista em que NENHUM item traz os campos que o limiar compara vira `sem_dados`.
+
+    Com as estatísticas do broker desligadas, a listagem de filas vem só com nome e vhost. Eram
+    300 itens com None, zero achados e alvo verde: a pergunta aparecia como respondida sobre
+    números que ninguém leu. None não é zero — no agregado também não.
+
+    Basta UM item com os contadores para a resposta valer: uma fila recém-criada sem contador
+    não anula as outras.
+    """
+    from lib.limiar import campos
+
+    valor = resposta.get("valor")
+    if not limiar or resposta.get("sem_dados") or not isinstance(valor, list) or not valor:
+        return resposta
+    necessarios = campos(limiar.get("quando")) - {"valor"}
+    if not necessarios:
+        return resposta
+    if any(isinstance(item, dict) and all(item.get(c) is not None for c in necessarios)
+           for item in valor):
+        return resposta
+    return {"pergunta": resposta.get("pergunta"), "sem_dados": True,
+            "motivo": (f"a resposta não traz os contadores que a regra compara "
+                       f"({', '.join(sorted(necessarios))}) em nenhum item — as estatísticas "
+                       f"do componente podem estar desligadas")}
+
+
 def responder(componente, contexto, adaptadores, prazo):
     """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
 
@@ -159,7 +186,14 @@ def responder(componente, contexto, adaptadores, prazo):
             componente["respostas"].append({"pergunta": pergunta["id"], "sem_dados": True,
                                             "motivo": prazo.motivo()})
             continue
-        contexto_pergunta = dict(contexto, timeout=prazo.timeout(contexto["timeout"]))
+        # A cópia é rasa de propósito: `cache` é o MESMO dicionário em todas as perguntas do
+        # alvo. Sem isso, o cache de identificação caía na cópia e morria com ela — três
+        # perguntas, três identificações. E o HTTP usa o `http_timeout` configurado, não o de
+        # comando: num endereço que não responde, 20 s por pergunta comiam o orçamento inteiro.
+        contexto.setdefault("cache", {})
+        contexto_pergunta = dict(
+            contexto, timeout=prazo.timeout(contexto["timeout"]),
+            http_timeout=prazo.timeout(contexto.get("http_timeout", contexto["timeout"])))
         resposta = None
         for adaptador in adaptadores:
             try:
@@ -167,11 +201,20 @@ def responder(componente, contexto, adaptadores, prazo):
             except Exception as erro:              # noqa: BLE001 — bug do adaptador, não falha de acesso
                 candidata = {"pergunta": pergunta["id"], "erro_interno": True,
                              "motivo": f"{adaptador.ID}: {type(erro).__name__}: {erro}"}
-            if not candidata.get("sem_dados"):
+            if not candidata.get("sem_dados") and not candidata.get("erro_interno"):
                 resposta = candidata
                 break
-            resposta = resposta or candidata
+            # `erro_interno` NÃO encerra a busca: um adaptador com bug não pode impedir o
+            # próximo de responder. Se ninguém responder, o erro fica — escondê-lo seria mentir.
+            # Guarda o motivo do primeiro adaptador que PODERIA responder. Um que nem conhece a
+            # pergunta (`nao_se_aplica`) só fica se nenhum outro conhecer — senão um proxy sem
+            # nada declarado seria mandado declarar `admin_url` em vez de `metricas_url`.
+            if resposta is None or (resposta.get("nao_se_aplica")
+                                    and not candidata.get("nao_se_aplica")):
+                resposta = candidata
         if resposta is not None:
+            resposta.pop("nao_se_aplica", None)   # marca interna, não é do relatório
+            resposta = _sem_contadores(resposta, pergunta.get("limiar"))
             componente["respostas"].append(resposta)
             componente.setdefault("achados", []).extend(
                 achados_da_resposta(resposta, pergunta.get("limiar"),
@@ -246,6 +289,10 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     histórico; deixá-los editáveis seria deixar o relatório mentir.
     """
     registro = report_mod.novo_alvo(alvo["nome"], alvo["tipo"], onde_de(alvo))
+    # Contexto próprio do alvo: o nome dele (a credencial é amarrada a ele) e um cache que não
+    # vaza para o próximo alvo — dois alvos podem apontar para o mesmo endereço com credenciais
+    # diferentes.
+    contexto = dict(contexto, alvo=alvo["nome"], cache={})
     if coletor is None:
         registro["nao_coletado"].append(report_mod.na(f"tipo {alvo['tipo']} sem coletor nesta versão"))
         return registro

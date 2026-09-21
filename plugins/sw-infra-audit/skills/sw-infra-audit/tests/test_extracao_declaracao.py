@@ -211,3 +211,15 @@ def test_soma_sem_parcelas_e_recusada():
     with pytest.raises(ExtracaoInvalida, match="parcelas"):
         validar_declaracao({"campos": {"a": "/a"},
                             "derivar": {"d": {"tipo": "soma", "parcelas": []}}})
+
+
+def test_caminho_da_lista_ausente_nao_vira_lista_vazia():
+    """`[]` quer dizer "a lista existe e está vazia" — zero filas é um fato. Se o caminho nem
+    existe na resposta, a API mudou de formato, e devolver `[]` diria "zero filas" sobre uma
+    resposta que ninguém entendeu."""
+    with pytest.raises(ExtracaoInvalida, match="não existe na resposta"):
+        extrair({"outra": []}, {"lista": "/items", "campos": {"nome": "/name"}})
+
+
+def test_lista_vazia_de_verdade_continua_sendo_lista_vazia():
+    assert extrair({"items": []}, {"lista": "/items", "campos": {"nome": "/name"}}) == []

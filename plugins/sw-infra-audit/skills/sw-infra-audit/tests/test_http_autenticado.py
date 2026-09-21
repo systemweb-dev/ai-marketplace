@@ -30,8 +30,10 @@ class _Resposta:
     def __init__(self, corpo=b'{"ok":true}'):
         self._corpo = corpo
 
-    def read(self, _n):
-        return self._corpo
+    def read(self, n):
+        # respeita o `n`, como a resposta real: uma versão que ignorava o limite escondia
+        # quem lesse só MAX_BYTES (e nunca percebesse que a resposta era maior)
+        return self._corpo[:n]
 
     def __enter__(self):
         return self
@@ -156,3 +158,38 @@ def test_inalcancavel_volta_none(monkeypatch):
 
     assert http_get.get_autenticado("http://exemplo.test:15672/api/overview", PERMITIDOS,
                                     _cred(), ALVO) == (None, None)
+
+
+def test_resposta_http_malformada_nao_escapa(monkeypatch):
+    """`admin_url` apontada por engano para a porta AMQP devolve bytes que não são HTTP:
+    `BadStatusLine`, que não é OSError, escapava e derrubava a pergunta."""
+    import http.client
+
+    def abrir(req, timeout=None):
+        raise http.client.BadStatusLine("AMQP\x00\x00\x09\x01")
+
+    monkeypatch.setattr(http_get._OPENER, "open", abrir)
+
+    assert http_get.get_autenticado("http://exemplo.test:15672/api/overview", PERMITIDOS,
+                                    _cred(), ALVO) == (None, None)
+
+
+def test_corpo_acima_do_teto_levanta_em_vez_de_cortar(monkeypatch):
+    """Cortar no teto produzia JSON quebrado, e quem chamava dizia "a API não respondeu".
+    O teste anterior simulava a exceção pronta e nunca passava por esta checagem."""
+    monkeypatch.setattr(http_get, "MAX_BYTES", 10)
+    monkeypatch.setattr(http_get._OPENER, "open",
+                        lambda req, timeout=None: _Resposta(b"x" * 11))
+
+    with pytest.raises(http_get.RespostaGrandeDemais):
+        http_get.get_autenticado("http://exemplo.test:15672/api/queues", PERMITIDOS,
+                                 _cred(), ALVO)
+
+
+def test_corpo_exatamente_no_teto_passa(monkeypatch):
+    monkeypatch.setattr(http_get, "MAX_BYTES", 10)
+    monkeypatch.setattr(http_get._OPENER, "open",
+                        lambda req, timeout=None: _Resposta(b"x" * 10))
+
+    assert http_get.get_autenticado("http://exemplo.test:15672/api/queues", PERMITIDOS,
+                                    _cred(), ALVO) == (200, "x" * 10)

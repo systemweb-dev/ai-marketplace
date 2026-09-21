@@ -144,6 +144,15 @@ def compilar(expressao):
     return pronta
 
 
+def campos(expressao):
+    """Os nomes de campo que a expressão compara — o contrato com quem extrai o dado.
+
+    Sobre o texto MASCARADO: em `nome == 'x > 1'`, o `x` está dentro das aspas e não é campo.
+    """
+    mascara = _mascarar_literais(str(expressao or ""))
+    return set(re.findall(r"([^\W\d]\w*)\s*(?:==|!=|>=|<=|>|<)", mascara))
+
+
 def avaliar(expressao, item):
     """Atalho para um item só — em lista, use `compilar` e reaproveite."""
     return compilar(expressao)(item)

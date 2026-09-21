@@ -12,6 +12,7 @@ no `alvos.toml` e confirmou na rodada (`--confirmar`). Aqui dentro:
 Nenhum outro módulo importa urllib/socket.
 """
 import base64
+import http.client
 import os
 import socket
 import ssl
@@ -27,6 +28,11 @@ DEFAULT_TIMEOUT = 8
 
 class NotConfirmed(Exception):
     """URL fora da allowlist de endpoints confirmados."""
+
+
+class RespostaGrandeDemais(Exception):
+    """O corpo passou de MAX_BYTES. Cortar calado produzia JSON quebrado, e o motivo virava
+    "a API não respondeu" — ela respondeu, grande demais."""
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -89,7 +95,7 @@ def get(url, allowed_hosts, timeout=DEFAULT_TIMEOUT):
     try:
         with _OPENER.open(req, timeout=timeout) as r:
             return r.read(MAX_BYTES).decode("utf-8", "replace")
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):
         return None   # indisponível → o coletor marca n/a
 
 
@@ -105,7 +111,7 @@ def get_com_status(url, allowed_hosts, timeout=DEFAULT_TIMEOUT):
             return r.status, r.read(MAX_BYTES).decode("utf-8", "replace")
     except urllib.error.HTTPError as erro:          # respondeu, só que com erro
         return erro.code, ""
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):
         return None, None                           # não alcancei
 
 
@@ -142,10 +148,13 @@ def get_autenticado(url, allowed_hosts, credencial, alvo=None, timeout=DEFAULT_T
                            "Basic " + base64.b64encode(cru).decode("ascii"))
     try:
         with _OPENER.open(req, timeout=timeout) as r:
-            return r.status, r.read(MAX_BYTES).decode("utf-8", "replace")
+            corpo = r.read(MAX_BYTES + 1)
+            if len(corpo) > MAX_BYTES:
+                raise RespostaGrandeDemais(MAX_BYTES)
+            return r.status, corpo.decode("utf-8", "replace")
     except urllib.error.HTTPError as erro:
         return erro.code, ""
-    except (urllib.error.URLError, OSError, ValueError):
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):
         return None, None
 
 

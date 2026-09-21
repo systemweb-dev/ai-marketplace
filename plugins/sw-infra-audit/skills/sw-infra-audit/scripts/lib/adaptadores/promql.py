@@ -140,8 +140,8 @@ def perguntar(pergunta, componente, contexto):
             # acontecia com todo componente de `fila` antes de existir o adaptador de API.
             # Com `metricas_url` declarado, o caminho normal dá o motivo mais específico
             # ("o exporter X não expõe..."), então esta checagem fica só neste ramo.
-            return _sem_dados(pergunta, "nenhuma família de exporter conhecida responde a "
-                                        "esta pergunta")
+            return dict(_sem_dados(pergunta, "nenhuma família de exporter conhecida "
+                                             "responde a esta pergunta"), nao_se_aplica=True)
         return _sem_dados(pergunta, "o componente não declara `metricas_url` no alvos.toml")
 
     base = base_de(base)

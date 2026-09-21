@@ -241,3 +241,54 @@ def test_aceitar_grava_no_config_do_projeto_em_docs_infra(tmp_path, monkeypatch)
 
     assert codigo == 0
     assert "[[aceite]]" in destino.read_text(encoding="utf-8")
+
+
+def test_aceitar_por_componente_grava_o_componente(tmp_path):
+    """Sem `--componente`, o fluxo documentado gravava um aceite que casava TODAS as filas sem
+    consumidor do alvo — de todos os brokers. É o aceite amplo que a identidade composta existe
+    para evitar, entrando pela porta da ferramenta."""
+    import tomllib
+
+    projeto = tmp_path / "config.toml"
+
+    codigo = configurar.main(["aceitar", "--projeto", str(projeto), "--alvo", "prod",
+                              "--componente", "broker", "--regra", "fila_sem_consumidor",
+                              "--objeto", "emails@staging",
+                              "--motivo", "fila de homologação sem consumidor por desenho",
+                              "--desde", "2026-09-21"])
+    aceite = tomllib.loads(projeto.read_text(encoding="utf-8"))["aceite"][0]
+
+    assert codigo == 0
+    assert aceite["componente"] == "broker"
+    assert aceite["objeto"] == "emails@staging"
+
+
+def test_aceitar_com_aspas_no_motivo_continua_toml_valido(tmp_path):
+    """O bloco era montado com f-string sem escapar nada: um motivo com aspas quebrava o
+    `config.toml` inteiro, e com ele toda a configuração do projeto."""
+    import tomllib
+
+    projeto = tmp_path / "config.toml"
+
+    configurar.main(["aceitar", "--projeto", str(projeto), "--alvo", "prod",
+                     "--regra", "SEC_USER_ROOT",
+                     "--motivo", 'imagem "legada" do fornecedor \\ sem USER',
+                     "--desde", "2026-09-21"])
+    aceite = tomllib.loads(projeto.read_text(encoding="utf-8"))["aceite"][0]
+
+    assert aceite["motivo"] == 'imagem "legada" do fornecedor \\ sem USER'
+
+
+def test_aceitar_nao_deixa_o_motivo_injetar_chave(tmp_path):
+    """Uma quebra de linha no motivo não pode virar um `componente = ...` escrito à revelia."""
+    import tomllib
+
+    projeto = tmp_path / "config.toml"
+
+    configurar.main(["aceitar", "--projeto", str(projeto), "--alvo", "prod",
+                     "--regra", "SEC_USER_ROOT",
+                     "--motivo", 'x"\nobjeto = "tudo',
+                     "--desde", "2026-09-21"])
+    aceite = tomllib.loads(projeto.read_text(encoding="utf-8"))["aceite"][0]
+
+    assert "objeto" not in aceite
