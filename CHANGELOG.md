@@ -7,6 +7,73 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Removido
+- `sw-design-studio`: saiu do marketplace. O papel dela — decidir a direção visual — foi absorvido
+  pela `sw-frontend-mockup-preview`, que decide **vendo** as variações em vez de entrevistar eixo
+  por eixo. O glossário de técnicas do modo didático foi junto. `sw-brainstorming` e
+  `sw-frontend-component-kit` deixaram de citá-la (`sw-brainstorming` v0.6.1).
+
+### Adicionado
+- `sw-frontend-mockup-preview` (v0.7.0): **decide a direção e barra o visual genérico de IA.**
+  Adaptado, com texto próprio, do Impeccable (Apache-2.0) e da Taste Skill (MIT).
+  - **Leitura do pedido** em uma linha antes de gerar — tipo de tela, público, linguagem e o
+    modo (convencer, operar, ler, experimentar) — e uma pergunta só, e só quando a leitura
+    diverge.
+  - **Variações que diferem de verdade:** cada uma num eixo primário diferente (hierarquia,
+    topologia, tipografia, cor, densidade, decomposição), presa à identidade da tela ou, sem
+    design system, partindo de um referente do mundo do assunto. Um teste do "olhar
+    semicerrado" antes de servir, incluindo "eu produziria isto para qualquer pedido?".
+  - **Detector anti-slop** (`scripts/detectar.py`): varredura determinística, sem LLM e sem
+    rede, de 17 padrões — texto em gradiente, preto puro em qualquer grafia, borda colorida
+    lateral, sombra dura, halo colorido, easing elástico, emoji como ícone, dados "Jane Doe"
+    (inclusive em `placeholder`), travessão no texto de interface, rótulo numerado, três colunas
+    iguais (inclusive `grid-cols-3`), knob que não faz nada... Só olha o design, nunca a casca
+    do harness; exceção declarada no HTML é listada com linha, nunca calada.
+  - **Knobs ao vivo:** cada variação declara até 4 ajustes (faixa, segmentado, liga/desliga) e
+    o harness desenha os controles — o usuário ajusta sem gerar de novo. `?v=2&k=acento:0.8`
+    abre direto num estado, e `?limpo=1` esconde a casca para o screenshot.
+  - **Vocabulário de refino** depois do primeiro render: mais ousado, mais calmo, enxugar,
+    polir, tipografia, cor, layout, movimento, adaptar — cada uma gerando variações em facetas
+    diferentes da própria dimensão.
+  - **Registro da direção** no `DESIGN.md` do projeto quando ela é nova (paleta, tipografia,
+    densidade, movimento, profundidade, assinatura, o que evitar) — é o que a component-kit lê.
+  - Conferência do render também pelo Chrome da linha de comando, sem depender do Playwright;
+    rodada única, com teto.
+  - **A tela do preview foi refeita:** barra de uma linha, painel lateral com a variação em foco
+    no topo e abas com contador (Ajustes, Direção, Notas, Detector), **comparar lado a lado**
+    (cada coluna é um container próprio e o painel mostra a coluna clicada), **largura livre**
+    arrastando a borda, largura total sem moldura, atalhos de teclado, e o estado inteiro na URL
+    (o live-reload não devolve mais a tela ao início a cada edição).
+  - **O usuário fala com o agente pela tela:** **Comentar** num elemento grava o pedido com o
+    caminho do elemento, e **Seguir com esta** grava a variação escolhida com os knobs, a largura
+    e as fontes testadas. O `serve.py` guarda isso em `.mockup/` (fora do live-reload, só aceita
+    JSON da própria página e limita o tamanho), e o agente lê a cada turno.
+  - **Fontes do Google Fonts, quaisquer:** dois campos, Título e Corpo, carregam qualquer família
+    na hora; trocar o corpo não mexe nos títulos. A aba Direção mostra a paleta e as fontes lidas
+    do que está renderizado, e o selo do detector aponta no canvas o elemento de cada achado.
+- `sw-frontend-component-kit` (v0.3.0): **a demo que ensina.** Cada tela de componente da página
+  de demo passa a ter a barra de controles no conteúdo, um palco de estúdio com a peça viva,
+  **todos os tipos** de uma vez (variantes × tamanhos e estados, e as formas extras), quando usar
+  e quando não usar cada variante, e de 3 a 5 **exemplos em contexto** com o porquê, sem nenhum
+  bloco de código. A referência visual aprovada vem junto (`assets/demo-estudio.html`) e o
+  catálogo do que mostrar, componente por componente, está em `references/demo-que-ensina.md`.
+  - A direção do kit é escolhida numa **amostra** (Button, Input, Card, Badges e uma linha de
+    tabela) com variações em eixos diferentes, e não mais só no botão.
+  - Bootstrap **sem visual genérico**: pergunta a cena de uso e o tom em vez de oferecer
+    paletas prontas, fontes do Google Fonts escolhidas pelo tom, neutros tingidos, e o piso
+    anti-genérico aplicado a cada componente.
+
+### Corrigido
+- `sw-frontend-mockup-preview` (v0.7.0): o que a revisão mostrou usando a skill como está
+  escrita. O mais sério: **um projeto sem design system saía com os tokens de exemplo do
+  harness** (slate, azul-500, Inter — o visual "padrão de IA" mais reconhecível), e o detector
+  dava limpo. Agora esses tokens são marcados como exemplo, e sem design system cada variação
+  traz a própria paleta. Também: variação montada em `<div>` não era analisada; declarar exceção
+  com justificativa derrubava o detector; toggle com padrão `"false"` abria ligado; valor fora
+  do mínimo e do máximo gravava na variável enquanto o slider mostrava outro número.
+- `sw-frontend-component-kit` (v0.3.0): dizia "não invoque outras skills" e, na mesma fase,
+  mandava oferecer a mockup. Agora diz o que faz: só **oferece** a mockup, pelo menu.
+
 ### Adicionado
 - `sw-infra-audit` (v0.9.0): **as filas do broker respondem**. O papel `fila` deixa de ser mudo:
   o adaptador `admin_http` lê a API de administração e responde **filas** (mensagens prontas,
