@@ -39,8 +39,8 @@ mensagens prontas começa a cair entre duas leituras.
 
 **O que esta regra não vê:** fila com consumidor conectado que não confirma mensagem. Ali
 `consumers` é maior que zero e a regra fica calada — mas as mensagens `unacknowledged` crescem
-e nada sai. É o caso pior, e hoje ele só aparece olhando a coluna de mensagens não confirmadas
-na lista de filas do relatório.
+e nada sai. É o caso pior: ele não vira achado, mas encabeça a lista de filas do relatório,
+que é ordenada pelo total acumulado (prontas + não confirmadas).
 
 ## Quando NÃO fazer
 

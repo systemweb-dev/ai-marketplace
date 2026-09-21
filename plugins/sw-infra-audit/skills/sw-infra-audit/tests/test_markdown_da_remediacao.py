@@ -87,3 +87,50 @@ def test_linha_que_comeca_com_numero_sem_ser_item_nao_vira_lista():
     html = _rich("2026 foi quando isso apareceu")
 
     assert "<ol>" not in html
+
+
+def test_paragrafo_seguido_de_lista_no_mesmo_bloco():
+    """"...estão assim por desenho:" seguido da lista, sem linha em branco entre os dois — é
+    como se escreve markdown à mão, e a lista inteira virava texto corrido."""
+    html = _rich("Algumas estão assim por desenho:\n- **fila morta**: guarda o que falhou\n"
+                 "- **stream**: log retido")
+
+    assert html.startswith("<p>Algumas estão assim por desenho:</p><ul>")
+    assert html.count("<li>") == 2
+
+
+def test_linha_sem_marcador_depois_do_item_continua_o_item():
+    """Continuação preguiçosa, como no markdown padrão: sem indentação, a linha ainda é do
+    item. A versão anterior fechava a lista ali, e `"1. passo que quebra\nna linha seguinte\n
+    2. Segundo"` virava lista, parágrafo, lista."""
+    html = _rich("1. passo que quebra\nna linha seguinte\n2. Segundo")
+
+    assert html == "<ol><li>passo que quebra na linha seguinte</li><li>Segundo</li></ol>"
+
+
+def test_hifen_no_meio_de_paragrafo_nao_vira_lista():
+    """O texto do agente quebra linha onde quiser: "cresceu em\n- 40% na última hora" é uma
+    frase, não uma lista. A lista só começa no início do bloco ou depois de uma linha que
+    termina em dois-pontos."""
+    html = _rich("A fila cresceu em\n- 40% na última hora, e segue subindo.")
+
+    assert "<ul>" not in html and html.startswith("<p>")
+
+
+def test_numero_no_meio_de_paragrafo_nao_vira_lista():
+    assert "<ol>" not in _rich("Foram auditados\n12. Nada mais.")
+
+
+def test_toda_remediacao_publicada_renderiza_as_listas():
+    """Nenhum marcador de lista pode sobrar no meio de parágrafo em arquivo publicado."""
+    import re
+
+    from lib.remediacao import disponiveis, para
+
+    for regra in sorted(disponiveis()):
+        bloco = para(regra)
+        for chave in ("por_que_importa", "como_resolver", "como_confirmar", "quando_nao_fazer"):
+            html = _rich(bloco[chave])
+            for paragrafo in re.findall(r"<p>(.*?)</p>", html, re.S):
+                assert not re.search(r"(^|\s)(-|\d+\.)\s+\S", paragrafo), \
+                    f"{regra}/{chave}: lista virou texto corrido — {paragrafo[:60]!r}"

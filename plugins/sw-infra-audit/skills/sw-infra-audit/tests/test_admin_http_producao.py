@@ -142,7 +142,7 @@ def test_populacao_sem_os_contadores_do_limiar_vira_sem_dados(api):
     filas = next(r for r in componente["respostas"] if r["pergunta"] == "fila.filas")
 
     assert filas["sem_dados"] is True
-    assert "contadores" in filas["motivo"]
+    assert "estatísticas" in filas["motivo"]
     assert componente.get("achados", []) == []
 
 

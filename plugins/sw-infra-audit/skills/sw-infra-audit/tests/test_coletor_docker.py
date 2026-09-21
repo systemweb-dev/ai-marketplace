@@ -208,3 +208,30 @@ def test_o_impacto_calculado_chega_ao_relatorio(monkeypatch):
                             {"timeout": 5, "orcamento": 10, "at": ""})
 
     assert bloco["fatos"]["impact_points"] == [{"titulo": "Proxy é ponto único"}]
+
+
+def test_componente_declarado_que_nao_casa_com_servico_e_dito(monkeypatch):
+    """No Swarm o serviço se chama `<stack>_<serviço>`. Declarar `nome = "rabbitmq"` para o
+    serviço `infra_rabbitmq` fazia a declaração sumir calada — e a seção de pendências dizia
+    "o componente não declara `admin_url`" a quem tinha declarado."""
+    bruto = dict(BRUTO, services=[{"name": "infra_rabbitmq", "image": "rabbitmq:4"}])
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(bruto))
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
+                             "componente": [{"nome": "rabbitmq", "papel": "fila",
+                                             "admin_url": "http://exemplo.test:15672"}]},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    motivos = [n["motivo"] for n in bloco["nao_coletado"]]
+    assert any("rabbitmq" in m and "infra_rabbitmq" in m for m in motivos), motivos
+
+
+def test_componente_declarado_que_casa_nao_gera_aviso(monkeypatch):
+    bruto = dict(BRUTO, services=[{"name": "infra_rabbitmq", "image": "rabbitmq:4"}])
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(bruto))
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
+                             "componente": [{"nome": "infra_rabbitmq", "papel": "fila"}]},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    assert not any("não corresponde" in n["motivo"] for n in bloco["nao_coletado"])

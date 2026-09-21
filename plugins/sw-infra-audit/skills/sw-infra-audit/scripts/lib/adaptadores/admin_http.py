@@ -179,5 +179,9 @@ def perguntar(pergunta, componente, contexto):
     if valor is None:
         return _sem_dados(pergunta, "a API respondeu, mas sem o dado desta pergunta")
     # `[]` é resposta: zero filas é um fato, e nunca dispara limiar
-    return {"pergunta": pergunta, "fonte": f"{ID}:{familia['familia']}",
-            "valor": _com_identidade(valor, declarada.get("identidade"))}
+    resposta = {"pergunta": pergunta, "fonte": f"{ID}:{familia['familia']}",
+                "valor": _com_identidade(valor, declarada.get("identidade"))}
+    if declarada.get("identidade"):
+        # quais campos formam o `objeto`: o detalhe do achado não os repete
+        resposta["identidade"] = list(declarada["identidade"])
+    return resposta

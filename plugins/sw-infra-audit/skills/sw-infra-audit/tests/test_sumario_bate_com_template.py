@@ -32,3 +32,18 @@ def test_numeracao_do_template_e_sequencial():
     html = open(TEMPLATE_V3, encoding="utf-8").read()
     numeros = [int(n) for n in re.findall(r'<h2 id="[a-z]+"><em>(\d+)</em>', html)]
     assert numeros == list(range(1, len(numeros) + 1))
+
+
+def test_o_sumario_conta_o_que_a_secao_de_instrumentos_mostra():
+    """O sumário dizia "Instrumentos — 3 leituras" e a seção dizia "nenhuma medida com
+    tolerância declarada respondeu": o sumário contava TODA resposta com dado, e a seção só as
+    que têm faixa. Dois números para a mesma coisa."""
+    from build_report import _sumario
+
+    ctx = {"panorama": {"total": 1, "achados": 0, "aceitos": 0}, "recomendacoes": [],
+           "historico": None,
+           "alvos": [{"nome": "p", "componentes": [{"nome": "broker", "respostas": [
+               {"pergunta": "fila.filas", "fonte": "a", "valor": [{"nome": "x"}]},
+               {"pergunta": "fila.consumidores_por_fila", "fonte": "a", "valor": []}]}]}]}
+
+    assert "0 leituras" in _sumario(ctx)

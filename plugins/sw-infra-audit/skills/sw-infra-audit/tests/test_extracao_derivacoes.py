@@ -134,3 +134,16 @@ def test_diferenca_arredonda_em_quatro_casas():
     """`0.3 - 0.1` em ponto flutuante dá 0.19999999999999998."""
     assert derivar({"a": 0.3, "b": 0.1},
                    {"tipo": "diferenca", "de": "/a", "menos": "/b"}) == 0.2
+
+
+def test_soma_de_inteiros_e_inteira():
+    """Somar contagens de mensagens dava `80.000,00` no relatório: conta de inteiros é inteira."""
+    resultado = derivar({"a": 79990, "b": 10}, {"tipo": "soma", "parcelas": ["/a", "/b"]})
+
+    assert resultado == 80000 and isinstance(resultado, int)
+
+
+def test_diferenca_de_decimais_continua_decimal():
+    resultado = derivar({"a": 12.0, "b": 11.5}, {"tipo": "diferenca", "de": "/a", "menos": "/b"})
+
+    assert resultado == 0.5 and isinstance(resultado, float)

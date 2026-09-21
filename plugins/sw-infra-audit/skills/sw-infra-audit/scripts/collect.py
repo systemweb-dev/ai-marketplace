@@ -115,7 +115,8 @@ def achados_da_resposta(resposta, limiar, componente):
             "regra": regra,
             "severidade": severidade,
             "objeto": _objeto(item, componente),
-            "detalhe": redact.scrub_text(_detalhe(item), limit=400),
+            "detalhe": redact.scrub_text(_detalhe(item, resposta.get("identidade")),
+                                         limit=400),
         })
     return achados
 
@@ -132,15 +133,37 @@ def _objeto(item, componente):
     return str(componente)
 
 
-def _detalhe(item):
-    """Os números que fizeram o limiar disparar.
+def _detalhe(item, identidade=None):
+    """Os números e fatos que fizeram o limiar disparar.
 
-    `objeto`, `nome` e `chave` ficam de fora: já são o `objeto` do achado, e repeti-los faria o
-    relatório imprimir a mesma palavra duas vezes em cada linha.
+    Fica de fora o que já é o `objeto` do achado: `objeto`, `nome`, `chave` e os campos que a
+    resposta declara como `identidade` (em fila, `nome` e `vhost` — `orfa-000@staging` já diz o
+    vhost). O filtro é pelo NOME do campo: a versão anterior comparava o VALOR, e um vhost
+    chamado `stream` faria sumir um campo `tipo: stream`.
     """
+    fora = {"objeto", "nome", "chave", *(identidade or [])}
     partes = [f"{nome}: {valor}" for nome, valor in item.items()
-              if nome not in ("objeto", "nome", "chave") and valor is not None]
+              if nome not in fora and valor is not None]
     return " · ".join(partes) or "sem detalhe"
+
+
+def _sem_numero(resposta, pergunta):
+    """Lista de uma pergunta numérica em que NENHUM item traz número vira `sem_dados`.
+
+    Com as estatísticas do broker desligadas, as perguntas SEM limiar saíam como tabelas de 500
+    linhas de "—", carimbadas com a fonte: pareciam respondidas e não diziam nada.
+    """
+    valor = resposta.get("valor")
+    if (resposta.get("sem_dados") or not pergunta.get("unidade")
+            or not isinstance(valor, list) or not valor):
+        return resposta
+    tem_numero = any(isinstance(v, (int, float)) and not isinstance(v, bool)
+                     for item in valor if isinstance(item, dict) for v in item.values())
+    if tem_numero:
+        return resposta
+    return {"pergunta": resposta.get("pergunta"), "sem_dados": True,
+            "motivo": "a resposta não traz nenhum número — as estatísticas do componente "
+                      "podem estar desligadas"}
 
 
 def _sem_contadores(resposta, limiar):
@@ -214,7 +237,8 @@ def responder(componente, contexto, adaptadores, prazo):
                 resposta = candidata
         if resposta is not None:
             resposta.pop("nao_se_aplica", None)   # marca interna, não é do relatório
-            resposta = _sem_contadores(resposta, pergunta.get("limiar"))
+            resposta = _sem_contadores(_sem_numero(resposta, pergunta),
+                                       pergunta.get("limiar"))
             componente["respostas"].append(resposta)
             componente.setdefault("achados", []).extend(
                 achados_da_resposta(resposta, pergunta.get("limiar"),

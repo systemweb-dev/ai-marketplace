@@ -31,9 +31,35 @@ class CatalogoInvalido(Exception):
     """Arquivo de família de API que a skill se recusa a interpretar."""
 
 
+# Rotas que o catálogo nunca alcança. Escrita nesta classe de API é ROTA (`/contents`, `/purge`,
+# `/publish`, `/actions`); e há rotas GET que devolvem SEGREDO — as definições exportadas (hash
+# de senha, URI de shovel), usuários, permissões, parâmetros (a `src-uri` de um shovel carrega
+# usuário e senha) e conexões (propriedades do cliente). O adaptador só faz GET, mas "só GET"
+# não basta: ler `/api/definitions` e publicar o resultado no relatório seria vazar o broker.
+ROTAS_PROIBIDAS = ("contents", "purge", "publish", "actions", "delete", "create", "reset",
+                   "close", "move", "restart", "rebalance", "definitions", "users",
+                   "permissions", "parameters", "global-parameters", "connections",
+                   "whoami", "auth")
+PARAMETROS_PERMITIDOS = ("columns",)
+
+
 def _validar_caminho(arquivo, onde, caminho):
-    """O caminho é relativo à `admin_url` e não pode sair dela. Nunca."""
+    """O caminho é relativo à `admin_url` e não pode sair dela, nem alcançar rota de escrita
+    ou rota que devolva segredo. O único parâmetro aceito é `columns`, que só escolhe o que ler.
+    """
     cru = str(caminho or "")
+    rota, _, consulta = cru.partition("?")
+    segmentos = [s.lower() for s in rota.split("/") if s]
+    proibida = next((s for s in segmentos if s in ROTAS_PROIBIDAS), None)
+    if proibida:
+        raise CatalogoInvalido(
+            f"{arquivo}: caminho {rota!r} em {onde} alcança `{proibida}` — rota de escrita ou "
+            f"que devolve segredo, e o catálogo nunca a alcança")
+    for parametro in filter(None, consulta.split("&")):
+        if parametro.split("=")[0] not in PARAMETROS_PERMITIDOS:
+            raise CatalogoInvalido(
+                f"{arquivo}: parâmetro {parametro.split('=')[0]!r} em {onde} — o único aceito "
+                f"é `columns`, que só escolhe o que ler")
     if not cru.startswith("/"):
         raise CatalogoInvalido(f"{arquivo}: caminho {cru!r} em {onde} precisa começar com '/'")
     if cru.startswith("//") or "://" in cru:

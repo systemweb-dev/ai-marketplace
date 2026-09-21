@@ -34,8 +34,10 @@ class AlvoInvalido(Exception):
 
 def _checar_url(nome, campo, valor):
     partes = urlparse(str(valor))
-    if partes.scheme not in ESQUEMAS or not partes.hostname:
-        raise AlvoInvalido(f"alvo {nome!r}: {campo} precisa ser http(s) com host — {valor!r} não é")
+    # A credencial embutida é checada ANTES de tudo, e nenhuma mensagem daqui repete o valor
+    # cru: colar a string de conexão AMQP (`amqp://usuario:senha@host`) no lugar da admin_url é
+    # o erro mais natural, e a checagem de esquema, que vinha primeiro, imprimia a URL inteira —
+    # senha no terminal e na transcrição do agente.
     if "@" in partes.netloc:
         # Recusar aqui, e não na coleta: na coleta o valor cru já teria sido copiado para o
         # componente, e o componente vira report.json, HTML e PDF. A mensagem NÃO repete o
@@ -44,6 +46,8 @@ def _checar_url(nome, campo, valor):
             f"alvo {nome!r}: {campo} traz credencial embutida na URL (`usuario:senha@`). "
             f"Tire-a de lá e declare `senha_env` com o NOME da variável de ambiente que "
             f"guarda a senha")
+    if partes.scheme not in ESQUEMAS or not partes.hostname:
+        raise AlvoInvalido(f"alvo {nome!r}: {campo} precisa ser http(s) com host — {valor!r} não é")
     try:                          # porta fora da faixa é erro de configuração, não de coleta
         partes.port
     except ValueError as erro:

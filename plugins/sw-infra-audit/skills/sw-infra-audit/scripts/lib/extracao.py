@@ -112,6 +112,12 @@ def _valores(documento, caminhos):
     return saida
 
 
+def _inteiro_se_der(numero):
+    """Conta de inteiros é inteira: somar contagens de mensagens dava `80.000,00` no relatório."""
+    arredondado = round(numero, 4)
+    return int(arredondado) if float(arredondado).is_integer() else arredondado
+
+
 def derivar(documento, declarada):
     """A conta declarada, ou None quando ela não pode ser feita com honestidade."""
     tipo = declarada.get("tipo")
@@ -121,11 +127,11 @@ def derivar(documento, declarada):
 
     if tipo == "soma":
         valores = _valores(documento, declarada.get("parcelas") or [])
-        return None if valores is None else round(sum(valores), 4)
+        return None if valores is None else _inteiro_se_der(sum(valores))
 
     if tipo == "diferenca":
         valores = _valores(documento, [declarada["de"], declarada["menos"]])
-        return None if valores is None else round(valores[0] - valores[1], 4)
+        return None if valores is None else _inteiro_se_der(valores[0] - valores[1])
 
     if tipo == "razao":
         caminhos = [declarada["numerador"], *declarada["denominador_soma"]]

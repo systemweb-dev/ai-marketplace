@@ -72,38 +72,55 @@ def _inline(trecho):
                   .replace("&lt;/strong&gt;", "</strong>"))
 
 
-def _agrupar_itens(linhas, marcador):
-    """Junta a linha de continuação ao item que ela continua.
+_MARCA_NUM = re.compile(r"\d+[.)]\s+")
+_MARCA_PONTO = re.compile(r"[-*]\s+")
 
-    Os arquivos de remediação quebram em ~95 colunas, então um item de lista ocupa duas ou três
-    linhas. Exigir que TODA linha comece com marcador fazia o bloco inteiro deixar de ser lista.
-    """
-    itens = []
-    for linha in linhas:
-        if re.match(marcador, linha):
-            itens.append(re.sub(marcador, "", linha))
-        elif itens:
-            itens[-1] += " " + linha
-        else:
-            return None
-    return itens
+
+def _marca(linha):
+    """("ol", tamanho) / ("ul", tamanho) quando a linha abre item de lista; (None, 0) se não."""
+    for tipo, marca in (("ol", _MARCA_NUM), ("ul", _MARCA_PONTO)):
+        casado = marca.match(linha)
+        if casado:
+            return tipo, casado.end()
+    return None, 0
 
 
 def _blocos_de_texto(trecho):
-    """Parágrafos e listas de um pedaço que não contém bloco de código."""
+    """Parágrafos e listas de um pedaço que não contém bloco de código.
+
+    Regras do markdown padrão, porque este renderizador também desenha o texto que o AGENTE
+    escreve (resumo, análise), e ele quebra linha onde quiser:
+      - a lista só começa no início do bloco ou depois de uma linha que termina em `:` —
+        "cresceu em\\n- 40% na última hora" é uma frase, não uma lista;
+      - dentro da lista, linha sem marcador CONTINUA o item (continuação preguiçosa), com ou
+        sem indentação. Para encerrar a lista, deixa-se uma linha em branco.
+    """
     saida = []
     for bloco in re.split(r"\n\s*\n", trecho):
-        linhas = [linha.strip() for linha in bloco.strip().splitlines() if linha.strip()]
-        if not linhas:
-            continue
-        numerada = _agrupar_itens(linhas, r"^\d+[.)]\s+") if re.match(r"^\d+[.)]\s+", linhas[0]) else None
-        marcada = _agrupar_itens(linhas, r"^[-*]\s+") if re.match(r"^[-*]\s+", linhas[0]) else None
-        if numerada:
-            saida.append("<ol>" + "".join(f"<li>{_inline(i)}</li>" for i in numerada) + "</ol>")
-        elif marcada:
-            saida.append("<ul>" + "".join(f"<li>{_inline(i)}</li>" for i in marcada) + "</ul>")
-        else:
-            saida.append(f"<p>{_inline(' '.join(linhas))}</p>")
+        linhas = [linha.strip() for linha in bloco.splitlines() if linha.strip()]
+        paragrafo, i = [], 0
+        while i < len(linhas):
+            tipo, _ = _marca(linhas[i])
+            pode_abrir = not paragrafo or paragrafo[-1].endswith(":")
+            if tipo and pode_abrir:
+                if paragrafo:
+                    saida.append(f"<p>{_inline(' '.join(paragrafo))}</p>")
+                    paragrafo = []
+                itens = []
+                while i < len(linhas):
+                    tipo_da_linha, fim = _marca(linhas[i])
+                    if tipo_da_linha == tipo:
+                        itens.append(linhas[i][fim:])
+                    else:
+                        itens[-1] += " " + linhas[i]
+                    i += 1
+                saida.append(f"<{tipo}>" + "".join(f"<li>{_inline(item)}</li>" for item in itens)
+                             + f"</{tipo}>")
+            else:
+                paragrafo.append(linhas[i])
+                i += 1
+        if paragrafo:
+            saida.append(f"<p>{_inline(' '.join(paragrafo))}</p>")
     return "".join(saida)
 
 
@@ -880,8 +897,14 @@ def _sumario(ctx):
     """
     panorama = ctx["panorama"]
     componentes = sum(len(a.get("componentes", [])) for a in ctx["alvos"])
+    from lib.perguntas import PERGUNTAS
+
+    # O mesmo critério da seção: só conta a medida que TEM faixa declarada. Contar toda
+    # resposta dava "3 leituras" no sumário para uma seção que dizia "nenhuma medida respondeu".
     com_fonte = sum(1 for a in ctx["alvos"] for c in a.get("componentes", [])
-                    for r in c.get("respostas", []) if not r.get("sem_dados"))
+                    for r in c.get("respostas", [])
+                    if not r.get("sem_dados")
+                    and PERGUNTAS.get(r.get("pergunta"), {}).get("faixa"))
     historico = ctx.get("historico") or {}
     contagens = {
         "panorama": (_plural(panorama["total"], "alvo", "alvos"), ""),
@@ -912,7 +935,13 @@ def _sumario(ctx):
 
 
 def _numero(valor):
-    """12480 → 12.480. Número grande sem separador é número que ninguém lê."""
+    """12480 → 12.480. Número grande sem separador é número que ninguém lê.
+
+    Coleção nunca é despejada: o nó da topologia passava a lista de filas inteira por aqui, e o
+    PDF ganhava três páginas do `repr` do Python dentro de um cartão.
+    """
+    if isinstance(valor, (list, dict)):
+        return _e(f"{len(valor)} itens")
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         return _e(valor)
     if isinstance(valor, int):
@@ -920,7 +949,50 @@ def _numero(valor):
     return _e(f"{valor:,.2f}".replace(",", "@").replace(".", ",").replace("@", "."))
 
 
+# O corte de exibição mora aqui, e não na extração: o limiar precisa ver a população INTEIRA
+# (com o corte na extração, 300 filas órfãs atrás de 10 filas cheias davam zero achados). O
+# relatório mostra as primeiras, na ordem que a extração decidiu, e diz quantas ficaram de fora;
+# a lista completa continua no report.json.
+LIMITE_NO_RELATORIO = 10
+# Campos que existem para o PROGRAMA, não para quem lê: `objeto` é a identidade composta
+# (`nome@vhost`) usada em achado e aceite, e repetiria as colunas nome e vhost lado a lado.
+_FORA_DA_TABELA = {"objeto"}
+
+
+def _rodape_do_corte(total):
+    fora = total - LIMITE_NO_RELATORIO
+    if fora <= 0:
+        return ""
+    return (f'<p class="corte">e mais {fora} — a lista completa, com todas as {total}, está no '
+            f'<code>report.json</code></p>')
+
+
+def _celula(valor):
+    if valor is None:
+        return "<td>—</td>"
+    if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+        return f"<td>{_numero(valor)}</td>"
+    return f"<td>{_e(valor)}</td>"
+
+
+def _tabela_de_campos(itens):
+    """Lista cujos itens têm VÁRIOS campos: tabela densa, uma linha por item.
+
+    `_ranking` desenha `{chave, valor}` com barra proporcional — desenhar `{nome, prontas,
+    consumidores}` daquele jeito dava rótulo vazio, valor zero e barras iguais: um gráfico
+    bonito dizendo nada.
+    """
+    colunas = [nome for nome in itens[0] if nome not in _FORA_DA_TABELA]
+    cabecalho = "".join(f"<th>{_e(nome.replace('_', ' '))}</th>" for nome in colunas)
+    linhas = "".join(f"<tr>{''.join(_celula(item.get(nome)) for nome in colunas)}</tr>"
+                     for item in itens[:LIMITE_NO_RELATORIO])
+    return (f'<table class="campos"><thead><tr>{cabecalho}</tr></thead>'
+            f'<tbody>{linhas}</tbody></table>{_rodape_do_corte(len(itens))}')
+
+
 def _ranking(itens):
+    total = len(itens)
+    itens = itens[:LIMITE_NO_RELATORIO]
     maior = max((i.get("valor") or 0 for i in itens), default=0) or 1
     linhas = []
     for item in itens:
@@ -928,7 +1000,7 @@ def _ranking(itens):
         linhas.append(f'<div class="rk"><span class="lb">{_e(item.get("chave"))}</span>'
                       f'<span class="vl">{_numero(item.get("valor"))}</span>'
                       f'<span class="bar"><i style="width:{largura:.0f}%"></i></span></div>')
-    return f'<div class="rank">{"".join(linhas)}</div>'
+    return f'<div class="rank">{"".join(linhas)}</div>{_rodape_do_corte(total)}'
 
 
 def _resposta(resposta):
@@ -940,8 +1012,14 @@ def _resposta(resposta):
         return (f'<div class="semdados"><b>{titulo}</b> — {_e(resposta.get("motivo"))}</div>')
     valor = resposta.get("valor")
     if isinstance(valor, list):
-        # numa lista, a unidade vale para cada linha — repeti-la embaixo do ranking só confunde
-        corpo = _ranking(valor)
+        # numa lista, a unidade vale para cada linha — repeti-la embaixo só confunde.
+        # Item de {chave, valor} é ranking com barra; item de vários campos é tabela.
+        if not valor:
+            corpo = '<p class="muted">nenhuma linha — a consulta respondeu com a lista vazia.</p>'
+        elif isinstance(valor[0], dict) and set(valor[0]) <= {"chave", "valor"}:
+            corpo = _ranking(valor)
+        else:
+            corpo = _tabela_de_campos(valor)
     else:
         unidade = pergunta.get("unidade")
         sufixo = f' <span class="un">{_e(unidade)}</span>' if unidade else ""
@@ -1113,14 +1191,26 @@ def _no_da_topologia(alvo, componente):
     classe = "bad" if abertos >= 2 else ("at" if abertos else "ok")
     from lib.perguntas import PERGUNTAS
 
+    from lib.perguntas import ORDEM
+
     respostas = [r for r in componente.get("respostas", []) if not r.get("sem_dados")]
+    # A leitura do nó é a primeira resposta ESCALAR; se não houver, a contagem da pergunta que
+    # descreve a população do papel (a primeira dele — em `fila`, "Filas"). O tamanho de outra
+    # lista qualquer não é contagem de nada: com "Filas" sem dados, o nó dizia "Consumidores por
+    # fila: 10" — o tamanho do corte apresentado como fato.
+    populacao = (ORDEM.get(componente.get("papel")) or [None])[0]
+    escalar = next((r for r in respostas if not isinstance(r.get("valor"), list)), None)
+    lista = next((r for r in respostas if r["pergunta"] == populacao
+                  and isinstance(r.get("valor"), list)), None)
     leitura = ""
-    if respostas:
-        primeira = respostas[0]
-        titulo = PERGUNTAS.get(primeira["pergunta"], {}).get("titulo", "")
-        leitura = f'<p class="leitura">{_e(titulo)}: {_numero(primeira.get("valor"))}</p>'
+    if escalar or lista:
+        escolhida = escalar or lista
+        titulo = PERGUNTAS.get(escolhida["pergunta"], {}).get("titulo", "")
+        valor = escolhida.get("valor")
+        mostrado = _numero(len(valor)) if isinstance(valor, list) else _numero(valor)
+        leitura = f'<p class="leitura">{_e(titulo)}: {mostrado}</p>'
     elif componente.get("respostas"):
-        leitura = '<p class="leitura vazio">sem fonte declarada</p>'
+        leitura = '<p class="leitura vazio">sem leitura nesta rodada</p>'
     qt = f'<span class="qt">{abertos}</span>' if abertos else ""
     return (f'<div class="no {classe}"><b>{_e(componente["nome"])}</b>'
             f'<span class="sub">{_e(componente.get("papel"))} · {_e(alvo["nome"])}</span>'

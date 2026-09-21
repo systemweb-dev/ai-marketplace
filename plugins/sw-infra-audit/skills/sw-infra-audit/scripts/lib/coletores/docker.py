@@ -361,6 +361,17 @@ def coletar(alvo, contexto):
             componente["usuario"] = declarado["usuario"]
         componentes.append(componente)
 
+    # Declaração que não casou com serviço nenhum é dita. No Swarm o serviço se chama
+    # `<stack>_<serviço>`, e declarar `rabbitmq` para `infra_rabbitmq` fazia a declaração sumir
+    # calada — a seção de pendências mandava declarar `admin_url` a quem já tinha declarado.
+    existentes = sorted(s.get("name") for s in bruto.get("services", []) if s.get("name"))
+    for nome in sorted(set(declarados) - set(existentes)):
+        parecidos = [s for s in existentes if s.endswith(f"_{nome}") or nome in s]
+        dica = (f" — talvez `{parecidos[0]}`; no Swarm o nome é `<stack>_<serviço>`"
+                if parecidos else "")
+        nao_coletado.append(report_mod.na(
+            f"o componente declarado {nome!r} não corresponde a nenhum serviço{dica}"))
+
     # o que o miolo não conseguiu ver precisa chegar ao relatório, senão "sem achados" mente
     for item in bruto.get("not_collected", []):
         nao_coletado.append(report_mod.na(f"{item.get('what')}: {item.get('reason')}"))

@@ -24,8 +24,9 @@ aceita_401 = true
 # --- o que existe. SEM `limite`: esta pergunta tem limiar, e o limiar precisa ver a população
 # inteira — com um corte aqui, 300 filas órfãs atrás de 10 filas cheias dariam zero achados.
 # O corte para exibição é do relatório; a lista completa fica no report.json.
-# `nao_confirmadas` está aqui porque é o caso pior que a regra NÃO vê: fila com consumidor
-# conectado que não confirma mensagem. Sem a coluna, ele ficaria invisível no relatório.
+# A ordem é pelo que está ACUMULADO — prontas + não confirmadas. Ordenar só por prontas mandava
+# para o fim o caso pior, que a regra não vê: a fila com consumidor conectado que recebe e nunca
+# confirma (80 mil mensagens "em trânsito", zero prontas). Por esta ordem, ela encabeça a lista.
 [[pergunta]]
 id = "fila.filas"
 caminho = "/api/queues?columns=name,vhost,messages_ready,messages_unacknowledged,consumers,message_stats.publish_details.rate,message_stats.deliver_get_details.rate"
@@ -33,9 +34,14 @@ lista = ""
 identidade = ["nome", "vhost"]
 campos = { nome = "/name", vhost = "/vhost", prontas = "/messages_ready", nao_confirmadas = "/messages_unacknowledged", consumidores = "/consumers" }
 transformar = { prontas = "inteiro", nao_confirmadas = "inteiro", consumidores = "inteiro" }
-ordenar_por = "prontas"
+derivar = { acumuladas = { tipo = "soma", parcelas = ["/messages_ready", "/messages_unacknowledged"] } }
+ordenar_por = "acumuladas"
 ordem = "desc"
 desempate = "nome"
+
+# Nenhuma lista corta aqui. O relatório mostra as 10 primeiras e diz quantas ficaram de fora;
+# o report.json guarda todas. Com `limite` na extração, nem o relatório nem o report.json
+# saberiam que havia mais — o corte seria silencioso.
 
 # --- quem consome
 [[pergunta]]
@@ -48,7 +54,6 @@ transformar = { consumidores = "inteiro" }
 ordenar_por = "consumidores"
 ordem = "desc"
 desempate = "nome"
-limite = 10
 
 # --- a que ritmo. A API expõe as taxas já calculadas; o saldo é derivação declarada, porque a
 # expressão de limiar não faz aritmética. Fila ociosa não traz `message_stats`: as taxas viram
@@ -64,4 +69,3 @@ derivar = { saldo = { tipo = "diferenca", de = "/message_stats/publish_details/r
 ordenar_por = "saldo"
 ordem = "desc"
 desempate = "nome"
-limite = 10

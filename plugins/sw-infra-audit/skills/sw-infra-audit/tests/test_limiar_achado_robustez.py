@@ -197,3 +197,16 @@ def test_objeto_explicito_do_item_tem_precedencia():
 
     assert achados[0]["objeto"] == "staging · emails"
     assert "staging" not in achados[0]["detalhe"], "o objeto não se repete no detalhe"
+
+
+def test_detalhe_nao_repete_o_que_ja_esta_na_identidade():
+    """`orfa-000@staging` já diz o vhost; `vhost: staging` no detalhe repetia isso em cada uma
+    das 300 linhas. O filtro é pelos NOMES de campo que a resposta declara como identidade."""
+    resposta = _resposta([{"objeto": "orfa-000@staging", "nome": "orfa-000",
+                           "vhost": "staging", "prontas": 3, "consumidores": 0}],
+                         identidade=["nome", "vhost"])
+
+    detalhe = achados_da_resposta(resposta, CRUZA, componente="broker")[0]["detalhe"]
+
+    assert "staging" not in detalhe
+    assert "prontas: 3" in detalhe and "consumidores: 0" in detalhe

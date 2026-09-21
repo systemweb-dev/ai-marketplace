@@ -2678,7 +2678,7 @@ git add -A && git commit -m "feat(sw-infra-audit): adaptador admin_http e a fami
 
 `_ranking()` foi escrito para o `promql`, que devolve itens `{chave, valor}` — um rótulo e um número, com barra proporcional. O `admin_http` devolve `{nome, prontas, consumidores}`: **vários campos por item**. Sem esta task, as filas apareceriam com rótulo vazio e valor zero, e a barra ficaria toda no mesmo tamanho.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_relatorio_lista_de_campos.py
@@ -2755,12 +2755,12 @@ def test_conteudo_do_campo_e_escapado():
     assert "<script>" not in html and "&lt;script&gt;" in html
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_relatorio_lista_de_campos.py -q`
 Expected: FAIL — `assert '<table' in html`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 Em `scripts/build_report.py`, acrescentar antes de `_resposta`:
 
@@ -2808,7 +2808,7 @@ por:
             corpo = _tabela_de_campos(valor)
 ```
 
-- [ ] **Step 4: Estilo da tabela no template**
+- [x] **Step 4: Estilo da tabela no template**
 
 Em `assets/report-template/template_v3.html`, junto do bloco `.rk`:
 
@@ -2829,12 +2829,12 @@ E na seção `@media print`, junto das outras regras de quebra:
   .campos thead{display:table-header-group}
 ```
 
-- [ ] **Step 5: Rodar e confirmar verde**
+- [x] **Step 5: Rodar e confirmar verde**
 
 Run: `.venv/bin/python -m pytest tests/test_relatorio_lista_de_campos.py -q`
 Expected: PASS (8 testes)
 
-- [ ] **Step 6: Prova por mutação**
+- [x] **Step 6: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -2843,7 +2843,7 @@ Expected: PASS (8 testes)
 | trocar `item.get(nome) is None` por `not item.get(nome)` | `test_zero_aparece_como_zero_e_nao_some` |
 | usar f-string sem `_e()` na célula de texto | `test_conteudo_do_campo_e_escapado` |
 
-- [ ] **Step 7: Rodar a suíte inteira e commitar**
+- [x] **Step 7: Rodar a suíte inteira e commitar**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 611
@@ -2864,7 +2864,7 @@ git add -A && git commit -m "feat(sw-infra-audit): relatorio desenha lista de va
 
 Nenhuma linha de produção nesta task. São as fitness functions do spec aplicadas ao código novo — e uma delas é a que faz "a auditoria é somente leitura" ser verificável em vez de prometida.
 
-- [ ] **Step 1: Escrever os testes**
+- [x] **Step 1: Escrever os testes**
 
 ```python
 # tests/test_admin_http_somente_leitura.py
@@ -2973,7 +2973,7 @@ def test_a_senha_nao_aparece_no_report_json(tmp_path, monkeypatch):
     assert "abre-te-sesamo" not in json.dumps(componente)
 ```
 
-- [ ] **Step 2: Estender a trava de import que já existe**
+- [x] **Step 2: Estender a trava de import que já existe**
 
 Ler `tests/test_egress.py` e confirmar que a lista de módulos autorizados a importar rede continua sendo só `lib/http_get.py`, e a de `subprocess` só `lib/runner.py`, `build_report.py` e `lib/ignorado.py`. O módulo novo `lib/credencial.py` importa `os` — **acrescentá-lo à lista de quem pode**, com o comentário do porquê:
 
@@ -2982,12 +2982,12 @@ Ler `tests/test_egress.py` e confirmar que a lista de módulos autorizados a imp
 # Concentrar isso num módulo é o que permite a trava `test_o_adaptador_nao_le_variavel_de_ambiente`.
 ```
 
-- [ ] **Step 3: Rodar**
+- [x] **Step 3: Rodar**
 
 Run: `.venv/bin/python -m pytest tests/test_admin_http_somente_leitura.py tests/test_egress.py -q`
 Expected: PASS
 
-- [ ] **Step 4: Prova por mutação**
+- [x] **Step 4: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -2997,7 +2997,7 @@ Expected: PASS
 | `perguntar` devolver `{"credencial": credencial.par()}` no retorno | `test_a_senha_nao_aparece_no_report_json` |
 | `get_autenticado` usar `method="POST"` | `test_get_autenticado_fixa_o_metodo_get` |
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
@@ -3013,7 +3013,7 @@ git add -A && git commit -m "test(sw-infra-audit): travas de somente-leitura e d
 - Modify: `references/commands-allowlist.md`
 - Create: `tests/test_determinismo_admin_http.py`
 
-- [ ] **Step 1: Escrever o teste de determinismo**
+- [x] **Step 1: Escrever o teste de determinismo**
 
 ```python
 # tests/test_determinismo_admin_http.py
@@ -3068,12 +3068,12 @@ def test_a_resposta_serializa_sem_nan(api):
     json.dumps(resposta, allow_nan=False)   # levanta ValueError se houver NaN
 ```
 
-- [ ] **Step 2: Rodar**
+- [x] **Step 2: Rodar**
 
 Run: `.venv/bin/python -m pytest tests/test_determinismo_admin_http.py -q`
 Expected: PASS (2 testes)
 
-- [ ] **Step 3: Documentar na `SKILL.md`**
+- [x] **Step 3: Documentar na `SKILL.md`**
 
 Na tabela da seção **"Regra: toda decisão é via AskUserQuestion"**, acrescentar a linha:
 
@@ -3111,7 +3111,7 @@ exchange). A skill **só faz GET**, e o catálogo em `references/apis/` é a lis
 ela alcança — um teste derruba a suíte se um caminho de escrita aparecer lá.
 ```
 
-- [ ] **Step 4: Atualizar `references/commands-allowlist.md`**
+- [x] **Step 4: Atualizar `references/commands-allowlist.md`**
 
 Acrescentar a seção:
 
@@ -3128,12 +3128,12 @@ Acrescentar a seção:
 | Origem da senha | variável de ambiente nomeada em `senha_env`, lida por `lib/credencial.py` |
 ```
 
-- [ ] **Step 5: Rodar a suíte inteira**
+- [x] **Step 5: Rodar a suíte inteira**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 621
 
-- [ ] **Step 6: Registrar no CHANGELOG e publicar**
+- [x] **Step 6: Registrar no CHANGELOG e publicar**
 
 ```bash
 cd /var/www/ai-marketplace
@@ -3143,7 +3143,7 @@ make check
 git add -A && git commit -m "feat(sw-infra-audit): papel fila responde pela API de administracao (v0.9.0)"
 ```
 
-- [ ] **Step 7: Marcar o estado do dossiê**
+- [x] **Step 7: Marcar o estado do dossiê**
 
 ```bash
 python3 ~/.claude/skills/sw-brainstorming/scripts/dossie.py estado \
@@ -3151,6 +3151,28 @@ python3 ~/.claude/skills/sw-brainstorming/scripts/dossie.py estado \
 ```
 
 > O dossiê só vira `concluido` quando os planos 3 e 4 também fecharem — o spec declara os quatro.
+
+---
+
+> ### Ajustes das Tasks 12–14 após a revisão do juiz (2026-09-21)
+>
+> A revisão leu o PDF de um broker de 500 filas e conferiu **cada frase** escrita na SKILL.md e no commands-allowlist.md contra o código. Três frases eram falsas, e uma recusa vazava a senha:
+>
+> | Achado | Correção |
+> |---|---|
+> | Colar `amqp://usuario:SENHA@host` na `admin_url` imprimia a senha no terminal: a checagem de esquema vinha antes da de credencial e repetia o valor | credencial checada primeiro; nenhuma mensagem repete a URL com senha |
+> | "A fila travada aparece na coluna de não confirmadas" — **falso**: a lista era ordenada por prontas, e a travada (0 prontas, 80 mil não confirmadas) ficava atrás do corte | a lista é ordenada pelo **acumulado** (derivação `soma` de prontas + não confirmadas): a travada encabeça |
+> | "Mostra as 10 primeiras de cada lista e diz quantas ficaram de fora" — **falso** para duas das três, que cortavam na extração | nenhuma lista do catálogo corta; o relatório corta todas e diz "e mais N" |
+> | "O carregador recusa rota de escrita" — **falso**: só um teste recusava | o carregador recusa rota de escrita, rota GET que devolve segredo (`/api/definitions`, `/api/users`, `/api/parameters`...) e parâmetro que não seja `columns` |
+> | A SKILL.md empurrava a dar `set_permissions ".*" ".*" ".*"` ao usuário da auditoria — escrita | usuário com a tag `monitoring` e **sem** configure/write, dito por extenso |
+> | Broker sem contadores: as listas sem limiar saíam como 500 linhas de "—" com a fonte carimbada | lista de pergunta numérica sem nenhum número vira `sem dados` |
+> | O nó da topologia mostrava "Consumidores por fila: 10" — o tamanho do corte como contagem | o nó mostra escalar, ou a contagem da pergunta que descreve a população do papel |
+> | O novo markdown transformava em lista qualquer linha quebrada que começasse com `- ` ou `12. ` no texto do agente | regras do markdown padrão: lista abre no início do bloco ou depois de `:`, e linha sem marcador continua o item |
+> | O sumário contava "3 leituras" para uma seção que dizia "nenhuma medida respondeu" | mesmo critério nos dois |
+> | Componente declarado como `rabbitmq` para o serviço `infra_rabbitmq` sumia calado | aviso em "não coletado", com a sugestão do nome |
+> | O detalhe do achado filtrava por **valor** — um vhost `stream` apagaria um campo `tipo: stream` | filtra pelos **nomes** de campo que a resposta declara como identidade |
+>
+> Três travas eram decorativas: a de "só GET" olhava só o argumento `method=` (agora olha o que chega ao opener); a de ambiente olhava só `adaptadores/` (agora a árvore inteira); e a de senha de ponta a ponta procurava só texto puro — o header Basic é justamente base64.
 
 ---
 

@@ -8,6 +8,69 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.9.0): **as filas do broker respondem**. O papel `fila` deixa de ser mudo:
+  o adaptador `admin_http` lê a API de administração e responde **filas** (mensagens prontas,
+  não confirmadas e consumidores), **consumidores por fila** e **entrada × saída**. Fila com
+  mensagem pronta e nenhum consumidor vira o achado `fila_sem_consumidor` (alto), um por fila,
+  identificado como `nome@vhost`. É a primeira regra da skill que nasce de uma **medida**, e
+  não de como o serviço está declarado — o campo `limiar` existia no registro de perguntas
+  desde a v0.7 e nenhuma linha do código o lia.
+  - O adaptador não sabe o que é o produto: a família é descrita em
+    `references/apis/amqp-mgmt.toml` (o nome é do formato, não do produto) numa **linguagem
+    fechada** — ponteiro JSON, campos, transformações e contas declaradas. Sem expressão
+    arbitrária: o limiar tem parser próprio, nunca `eval`.
+  - **A primeira porta autenticada da skill.** A senha vem do ambiente pelo nome declarado em
+    `senha_env`, vai só em header, é amarrada a (alvo, host, porta) e não aparece no
+    `alvos.toml`, no argv, no `report.json`, no HTML nem no PDF — um teste de ponta a ponta
+    procura a senha em todo arquivo gerado. Senha escrita na própria URL é recusada ao ler a
+    configuração.
+  - **Só leitura, verificável:** `GET` fixado no código, catálogo que recusa rota de escrita e
+    caminho que saia do host, e o único parâmetro de URL aceito é `columns`.
+  - O relatório desenha lista de vários campos como **tabela** e mostra as 10 primeiras, dizendo
+    quantas ficaram de fora; a lista inteira fica no `report.json`. O corte é de exibição: o
+    limiar vê **todas** as filas. A lista de filas é ordenada pelo total **acumulado**
+    (prontas + não confirmadas), então a fila travada — consumidor conectado que recebe e nunca
+    confirma, o caso que a regra não vê — aparece no topo.
+  - O carregador do catálogo recusa rota de escrita, rota GET que devolve segredo
+    (`/api/definitions`, `/api/users`, `/api/parameters`, `/api/connections`...) e qualquer
+    parâmetro de URL que não seja `columns`.
+  - A SKILL.md orienta criar um usuário só para a auditoria, com a tag `monitoring` e **sem**
+    permissão de configure ou write.
+  - `configurar.py aceitar` ganhou `--componente`, e a SKILL.md orienta o aceite mais estreito
+    possível (`--objeto emails@staging`).
+
+### Corrigido
+- `sw-infra-audit` (v0.9.0): o que a revisão por lote achou em seis rodadas, sempre reproduzido
+  em teste antes da correção:
+  - **senha no PDF**: `admin_url = "http://usuario:SENHA@host"` passava na validação e ia crua
+    para o componente, o `report.json`, o HTML e o PDF. A guarda contra credencial na URL foi
+    para `check_allowed`, por onde toda chamada de rede passa.
+  - **300 filas órfãs davam zero achados**: com o corte no top 10 feito na extração, o limiar
+    só via as filas mais cheias. O corte passou a ser do relatório.
+  - **broker com estatísticas desligadas dava verde**: 300 filas sem contador, zero achados. Lista
+    em que nenhum item traz os campos que a regra compara agora é `sem dados`, com esse motivo.
+  - **alvo verde com achado crítico aberto**: a saúde era decidida antes das perguntas. E, ao
+    corrigir isso, um achado aceito continuava deixando o alvo vermelho — a saúde passou a ser
+    recalculada depois dos aceites, e só por achado nascido de limiar (a nota do coletor docker
+    já conta os achados dele).
+  - **ranking errado em silêncio**: um nome de campo errado em `transformar` deixava o número
+    como texto, e "9" vinha antes de "42".
+  - **um NaN abortava a gravação do relatório inteiro**; resposta acima de 4 MB era cortada e
+    dita como "a API não respondeu"; o cache morria a cada pergunta (três downloads inteiros do
+    broker); o timeout de comando era usado em HTTP; 403 e redirect viravam "não reconheci a
+    família"; um adaptador com bug impedia o próximo de responder.
+  - **senha no terminal**: colar `amqp://usuario:SENHA@host` na `admin_url` fazia a mensagem de
+    recusa repetir a URL inteira. A credencial é checada antes do esquema, e nenhuma mensagem
+    repete a URL.
+  - três frases da própria documentação eram falsas no código (a fila travada "visível", o corte
+    "dito em toda lista", o carregador "recusando rota de escrita"); a revisão as conferiu uma a
+    uma, e o código passou a fazer o que o texto diz.
+  - a remediação ensinava a pôr a senha no argv (`curl -u "$USUARIO:$SENHA"`); agora o `curl`
+    pergunta, e uma trava varre todos os arquivos de remediação atrás do padrão.
+  - o nó da topologia despejava a lista de filas inteira como texto cru — três páginas A4; e o
+    canto arredondado das tabelas cortava a primeira letra da primeira coluna.
+
+### Adicionado
 - `sw-infra-audit` (v0.8.0): **o relatório aguenta volume**. Uma auditoria real trouxe 213
   achados e o PDF saiu com **121 páginas A4** — 75 deles eram a mesma regra, com um único
   detalhe distinto entre os 75, e cada ocorrência levava um cartão inteiro com o bloco de
