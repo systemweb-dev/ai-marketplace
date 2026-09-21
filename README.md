@@ -40,7 +40,6 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 | [`sw-brainstorming`](plugins/sw-brainstorming/) | productivity | Transforma uma ideia em design e spec ANTES de implementar, por diálogo guiado: explora o contexto, faz perguntas uma a uma, propõe abordagens e escreve um… | `/plugin install sw-brainstorming@ai-marketplace` |
 | [`sw-code-review`](plugins/sw-code-review/) | development | Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de… | `/plugin install sw-code-review@ai-marketplace` |
 | [`sw-dead-code-scan`](plugins/sw-dead-code-scan/) | development | Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos, variáveis e parâmetros mortos, funções/métodos/classes nunca chamados… | `/plugin install sw-dead-code-scan@ai-marketplace` |
-| [`sw-design-studio`](plugins/sw-design-studio/) | design | Diretor de design interativo: conduz o usuário, via AskUserQuestion, a DECIDIR a direção visual (referência/âncora, tom & ousadia, personalidade, paleta… | `/plugin install sw-design-studio@ai-marketplace` |
 | [`sw-flow-diagram`](plugins/sw-flow-diagram/) | development | Monta diagramas de fluxo/arquitetura visuais a partir de uma descrição em linguagem natural — pra apresentação, explicação ou documentação. | `/plugin install sw-flow-diagram@ai-marketplace` |
 | [`sw-frontend-component-kit`](plugins/sw-frontend-component-kit/) | design | Gera o kit de componentes frontend de um projeto (Button, Input, Modal, Table, etc.) como código real de produção, seguindo o design system, os tokens e as… | `/plugin install sw-frontend-component-kit@ai-marketplace` |
 | [`sw-frontend-mockup-preview`](plugins/sw-frontend-mockup-preview/) | design | Cria mockups HTML descartáveis de qualquer tela ou componente de UI usando os design tokens REAIS do projeto (cores, espaçamento, fonte), serve com live-reload… | `/plugin install sw-frontend-mockup-preview@ai-marketplace` |
@@ -174,6 +173,14 @@ de propósito** — continuam pedindo confirmação.
 ## Contribuir / adicionar uma skill nova
 
 Veja [`CONTRIBUTING.md`](CONTRIBUTING.md) para o template de skill e o passo a passo.
+
+## Créditos
+
+A `sw-frontend-mockup-preview` adapta, com texto próprio, ideias de dois projetos públicos: o
+[Impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) — piso de qualidade,
+variações por eixo com trava de identidade, knobs e vocabulário de refino — e a
+[Taste Skill](https://github.com/Leonxlnx/taste-skill) (MIT) — leitura do pedido e catálogo
+de padrões de IA a evitar. Nenhum texto deles foi copiado para este repositório.
 
 ## Licença
 

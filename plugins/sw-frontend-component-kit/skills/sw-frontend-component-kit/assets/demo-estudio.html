@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<!--
+  REFERÊNCIA VISUAL da "demo que ensina" (direção Estúdio), usada pela sw-frontend-component-kit.
+  Não copie como está: PORTE para a stack do projeto (Vue, React, Svelte...), usando os TOKENS do
+  projeto no lugar dos valores de exemplo abaixo e os componentes reais do kit no lugar de .kb/.kc.
+  O que precisa sobreviver ao porte, em toda tela de componente (ver references/demo-que-ensina.md):
+    lista lateral · cabeçalho · barra de controles DENTRO do conteúdo · palco de estúdio com a peça
+    viva e a legenda do estado · Todos os tipos · Quando usar cada variante · Exemplos em contexto.
+  Sem código na página: o código mora no docblock do componente.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo do kit de componentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /* Tokens de EXEMPLO: no projeto, use os tokens reais (claro e escuro). */
+  [data-theme="light"] {
+    --bg-primary: #f3f5f7; --bg-card: #ffffff; --bg-soft: #eceff3;
+    --text-primary: #14171c; --text-secondary: #5a6472;
+    --border-color: #dde3ea; --border-strong: #c3ccd6; --grid-dot: #d5dbe3;
+    --accent-primary: #2b50c8; --accent-strong: #213fa3; --accent-wash: #e8edfb; --accent-ink: #2442b0; --on-accent: #ffffff;
+    --danger: #c2362b; --danger-strong: #a02a20; --danger-ink: #a8322a; --danger-wash: #fbeceb;
+    --ring: rgb(43 80 200 / .3); --danger-ring: rgb(194 54 43 / .25);
+    --code-bg: #14171c; --code-ink: #dfe5ee; --code-line: #2c323c;
+    --bp-bg: #f2f6fd; --bp-line: #dfe7f5; --bp-edge: #cfdaee; --bp-ink: #2b50c8; --bp-pad: rgb(43 80 200 / .14);
+    --vit-bg: #dfe6fb; --vit-ink: #1c2f78; --vit-line: #c3cff5; --vit-chip: #eef2fd;
+    --font-sans: 'Geist', system-ui, sans-serif;
+  }
+  [data-theme="dark"] {
+    --bg-primary: #0f1216; --bg-card: #171b21; --bg-soft: #1f252d;
+    --text-primary: #e8ecf1; --text-secondary: #97a1ae;
+    --border-color: #262d36; --border-strong: #37404c; --grid-dot: #262d36;
+    --accent-primary: #6d8cf5; --accent-strong: #86a0f7; --accent-wash: #1b2340; --accent-ink: #9db2fa; --on-accent: #0b0e14;
+    --danger: #e5645a; --danger-strong: #ee7d74; --danger-ink: #f08a80; --danger-wash: #2c1716;
+    --ring: rgb(109 140 245 / .35); --danger-ring: rgb(229 100 90 / .3);
+    --code-bg: #0a0c0f; --code-ink: #d7dde6; --code-line: #262d36;
+    --bp-bg: #0f1726; --bp-line: #18243a; --bp-edge: #22314d; --bp-ink: #8ea8ff; --bp-pad: rgb(142 168 255 / .16);
+    --vit-bg: #1a2446; --vit-ink: #c9d5ff; --vit-line: #2c3a68; --vit-chip: #202c55;
+    --font-sans: 'Geist', system-ui, sans-serif;
+  }
+
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg-primary); color: var(--text-primary); font-family: var(--font-sans); }
+  .pagina { container-type: inline-size; max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .tema { position: fixed; top: 1rem; right: 1rem; z-index: 5; font: 600 13px/1 var(--font-sans); padding: 0.55rem 0.8rem; border-radius: 8px;
+           border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text-primary); cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+
+  /* ---- base comum às três direções: lista à esquerda, conteúdo com a barra de controles dentro ---- */
+  .pg { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 2.75rem; align-items: start;
+        font-family: var(--pg-sans); color: var(--text-primary); font-size: 15px; line-height: 1.55; }
+  .pg code, .pg pre { font-family: var(--pg-mono); }
+  .pg ::selection { background: var(--ring); }
+  .pg .rotulo { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .pg nav { position: sticky; top: 0; display: grid; gap: 0.1rem; }
+  .pg nav .grupo { margin: 1.1rem 0 0.35rem 0.6rem; }
+  .pg nav .grupo:first-child { margin-top: 0.2rem; }
+  .pg nav button { text-align: left; font: 500 14px/1.2 var(--pg-sans); padding: 0.5rem 0.6rem; border: 0; border-radius: 8px;
+                   background: none; color: var(--text-secondary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+  .pg nav button:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-soft); }
+  .pg nav button.on { background: var(--nav-on-bg); color: var(--nav-on-ink); font-weight: 600; }
+  .pg nav button.on small { color: inherit; opacity: 0.7; }
+  .pg nav button:disabled { opacity: 0.45; cursor: default; }
+  .pg nav button small { font: 500 11px/1 var(--pg-sans); color: var(--text-secondary); }
+  .pg .cabeca h2 { font: 700 var(--pg-h, 36px)/1.08 var(--pg-display); letter-spacing: var(--pg-track, -0.02em); }
+  .pg .cabeca p { margin-top: 0.55rem; max-width: 62ch; color: var(--text-secondary); font-size: 16px; }
+  .pg .barra { display: flex; flex-wrap: wrap; gap: 0.9rem 1.6rem; align-items: end; margin: 1.6rem 0 1rem; }
+  .pg .barra > div { display: grid; gap: 0.4rem; }
+  .pg .barra input[type=text] { height: 34px; width: 12rem; padding: 0 0.65rem; font: 400 14px/1 var(--pg-sans);
+                                border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); }
+  .pg .barra input[type=text]:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--ring); }
+  .pg .seg { display: inline-flex; flex-wrap: wrap; padding: 3px; gap: 2px; border-radius: 9px; background: var(--bg-soft); }
+  .pg .seg button { font: 600 13px/1 var(--pg-sans); padding: 0.5rem 0.7rem; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+  .pg .seg button:hover { color: var(--text-primary); }
+  .pg .seg button.on { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 2px rgb(20 23 28 / .14), 0 0 0 1px rgb(20 23 28 / .04); }
+  .pg .palco { position: relative; min-height: 300px; display: grid; place-items: center; padding: 3rem 2rem; overflow: hidden; }
+  .pg .palco .peca { position: relative; z-index: 1; }
+  .pg .codigo { position: relative; margin: 0; padding: 1rem 5.5rem 1rem 1.1rem; overflow-x: auto; font-size: 13px; line-height: 1.6;
+                background: var(--code-bg); color: var(--code-ink); }
+  .pg .copiar { position: absolute; top: 0.6rem; right: 0.6rem; font: 600 12px/1 var(--pg-sans); padding: 0.45rem 0.65rem; border-radius: 7px;
+                border: 1px solid var(--code-line); background: transparent; color: var(--code-ink); cursor: pointer; }
+  .pg .copiar:hover { background: var(--code-line); }
+  .pg .quando { margin-top: 2.4rem; }
+  .pg .quando h3 { font: 700 19px/1.2 var(--pg-display); margin-bottom: 0.9rem; letter-spacing: -0.01em; }
+  .pg .quando dl { display: grid; grid-template-columns: 170px minmax(0, 1fr); }
+  .pg .quando dt, .pg .quando dd { padding: 1rem 0; border-top: 1px solid var(--border-color); }
+  .pg .quando dt { display: grid; gap: 0.55rem; justify-items: start; align-content: start; font-weight: 600; }
+  .pg .quando dd .nao { display: block; margin-top: 0.3rem; color: var(--text-secondary); }
+  .pg .quando dd .nao b { color: var(--danger-ink); font-weight: 600; }
+
+  /* ---- o componente demonstrado ---- */
+  .kb { --h: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: var(--h); padding: 0 1rem;
+        border-radius: calc(var(--k-raio, 8) * 1px); font: 600 14px/1 var(--pg-sans, system-ui); border: 1px solid transparent; cursor: pointer;
+        transition: background-color .15s ease-out, box-shadow .15s ease-out; white-space: nowrap; }
+  .kb[data-size="sm"] { --h: 30px; padding: 0 0.7rem; font-size: 13px; }
+  .kb[data-size="lg"] { --h: 46px; padding: 0 1.35rem; font-size: 15px; }
+  .kb.primaria { background: var(--accent-primary); color: var(--on-accent); }
+  .kb.primaria:hover, .kb.primaria.is-hover { background: var(--accent-strong); }
+  .kb.secundaria { background: var(--bg-card); border-color: var(--border-strong); color: var(--text-primary); }
+  .kb.secundaria:hover, .kb.secundaria.is-hover { background: var(--bg-soft); }
+  .kb.fantasma { background: transparent; color: var(--accent-ink); }
+  .kb.fantasma:hover, .kb.fantasma.is-hover { background: var(--accent-wash); }
+  .kb.perigo { background: var(--danger); color: var(--on-accent); }
+  .kb.perigo:hover, .kb.perigo.is-hover { background: var(--danger-strong); }
+  .kb:focus-visible, .kb.is-foco { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+  .kb:disabled { opacity: 0.45; cursor: not-allowed; }
+  .kb .rodinha { width: 14px; height: 14px; border-radius: 99px; border: 2px solid currentColor; border-right-color: transparent; animation: girar .7s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+  .kc { display: grid; gap: 0.35rem; width: min(100%, 340px); text-align: left; }
+  .kc label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .kc input { height: 40px; padding: 0 0.75rem; font: 400 14px/1 var(--pg-sans, system-ui); color: var(--text-primary); background: var(--bg-card);
+              border: 1px solid var(--border-strong); border-radius: calc(var(--k-raio, 8) * 1px); caret-color: var(--accent-primary); }
+  .kc input::placeholder { color: var(--text-secondary); }
+  .kc input:focus, .kc.is-foco input { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--ring); }
+  .kc.is-erro input { border-color: var(--danger); }
+  .kc input:disabled { background: var(--bg-soft); color: var(--text-secondary); cursor: not-allowed; }
+  .kc .ajuda { font-size: 12.5px; color: var(--text-secondary); }
+  .kc.is-erro .ajuda { color: var(--danger-ink); }
+
+  /* ---- fundo do palco (knob em todas): claro, escuro ou pontilhado ---- */
+  .variation[data-k-palco="claro"] .palco { background: var(--bg-card); }
+  .variation[data-k-palco="pontilhado"] .palco { background: var(--bg-card) radial-gradient(var(--grid-dot) 1px, transparent 1px) 0 0 / 16px 16px; }
+  .variation[data-k-palco="escuro"] .palco { background: #0f1217; }
+  .variation[data-k-palco="escuro"] .palco .kc label { color: #e6eaf0; }
+  .variation[data-k-palco="escuro"] .palco .kc .ajuda { color: #9aa4b1; }
+
+  /* ---- Direção 1: Estúdio. O palco é um estúdio escuro com luz no centro; o código encosta nele ---- */
+  .tema-estudio { --pg-sans: 'Geist', system-ui, sans-serif; --pg-display: 'Geist', system-ui, sans-serif; --pg-mono: 'Geist Mono', ui-monospace, monospace;
+                  --pg-h: 40px; --pg-track: -0.035em; --nav-on-bg: var(--text-primary); --nav-on-ink: var(--bg-card); }
+  .tema-estudio .palco { border-radius: 16px; min-height: 340px; border: 1px solid #1c2129;
+                         background: radial-gradient(ellipse 60% 70% at 50% 45%, #262d38 0%, #12161c 62%, #0c0f13 100%); }
+  .tema-estudio .palco .kc label { color: #e6eaf0; }
+  .tema-estudio .palco .kc .ajuda { color: #9aa4b1; }
+  .tema-estudio .palco-legenda { position: absolute; left: 1.1rem; bottom: 0.9rem; font: 500 12px/1 var(--pg-mono); color: #7f8a98; }
+  .tema-estudio .codigo { border-radius: 0 0 16px 16px; border: 1px solid #1c2129; border-top: 1px solid #222833; }
+  .tema-estudio .quando dt, .tema-estudio .quando dd { border-top-color: var(--border-color); }
+
+  /* ---- todos os tipos: cada forma do componente à vista, sem depender dos controles ---- */
+  .pg .todos { margin-top: 2.4rem; }
+  .pg .todos > h3, .pg .exemplos > h3 { font: 700 19px/1.2 var(--pg-display); letter-spacing: -0.01em; }
+  .pg .todos > p { color: var(--text-secondary); margin: 0.3rem 0 1rem; }
+  .pg .todos .quadro { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow-x: auto; }
+  .pg .todos table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  .pg .todos th { font: 600 12px/1.2 var(--pg-sans); color: var(--text-secondary); text-align: left; padding: 0.85rem 1.1rem 0.6rem; }
+  .pg .todos td { padding: 0.9rem 1.1rem; border-top: 1px solid var(--border-color); vertical-align: middle; }
+  .pg .todos td:first-child { width: 180px; font-weight: 600; }
+  .pg .todos td:last-child, .pg .todos th:last-child { padding-right: 1.4rem; }
+  .pg .todos td:first-child small { display: block; font-weight: 400; font-size: 12.5px; color: var(--text-secondary); }
+  .pg .todos .formas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 1px; margin-top: 1rem;
+                       background: var(--border-color); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; }
+  .pg .todos .forma { background: var(--bg-card); padding: 1.1rem; display: grid; gap: 0.75rem; align-content: start; }
+  .pg .todos .forma h4 { font: 600 13.5px/1.2 var(--pg-sans); }
+  .pg .todos .forma p { font-size: 12.5px; color: var(--text-secondary); }
+  .pg .todos .forma .kc { width: 100%; }
+  .kb svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .kb.so-icone { width: var(--h); padding: 0; }
+  .kb.cheio { width: 100%; }
+  .kc .caixa { position: relative; display: flex; align-items: center; }
+  .kc .caixa input { width: 100%; }
+  .kc .caixa .pre { position: absolute; left: 0.75rem; font-size: 14px; color: var(--text-secondary); pointer-events: none; }
+  .kc .caixa .pre svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; display: block; }
+  .kc .caixa.com-pre input { padding-left: 2.2rem; }
+  .kc .caixa .depois { position: absolute; right: 0.35rem; height: 30px; padding: 0 0.55rem; border: 0; border-radius: 6px; background: none;
+                       font: 600 12.5px/1 var(--pg-sans); color: var(--accent-ink); cursor: pointer; }
+  .kc .caixa .depois:hover { background: var(--accent-wash); }
+  .kc .rodape { display: flex; justify-content: space-between; gap: 0.5rem; }
+  .kc .rodape .conta { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* ---- exemplos em contexto: o componente em uso de verdade, com o porquê e o código ---- */
+  .pg .exemplos { margin-top: 2.6rem; }
+  .pg .exemplos > h3 { font: 700 19px/1.2 var(--pg-display); letter-spacing: -0.01em; }
+  .pg .exemplos > p { color: var(--text-secondary); margin: 0.3rem 0 1rem; }
+  .pg .exemplos .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 1.1rem; }
+  .pg .exemplo { display: grid; grid-template-rows: auto 1fr; border: 1px solid var(--border-color); border-radius: var(--ex-raio, 14px); overflow: hidden; background: var(--bg-card); }
+  .pg .exemplo .ex-topo { padding: 0.9rem 1.1rem 0; }
+  .pg .exemplo .ex-topo h4 { font: 650 15px/1.3 var(--pg-display); }
+  .pg .exemplo .ex-topo p { font-size: 13.5px; color: var(--text-secondary); margin-top: 0.2rem; }
+  .pg .exemplo .ex-vivo { padding: 1.4rem 1.1rem; display: grid; align-content: center; gap: 0.9rem; }
+  .pg .exemplo .codigo { border-radius: 0; font-size: 12px; padding-top: 0.8rem; padding-bottom: 0.8rem; }
+  .tema-vitrine { --ex-raio: 20px; }
+  .tema-estudio .exemplo .ex-vivo { background: var(--bg-primary); margin: 0.9rem 1.1rem 1.1rem; border-radius: 10px; }
+  .tema-anatomia .exemplo .ex-vivo { background: var(--bp-bg) linear-gradient(var(--bp-line) 1px, transparent 1px) 0 0 / 100% 24px; margin: 0.9rem 1.1rem 1.1rem; border-radius: 8px; border: 1px solid var(--bp-edge); }
+  .ex-linha { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .ex-linha.fim { justify-content: flex-end; }
+  .ex-linha.entre { justify-content: space-between; }
+  .ex-dialogo { max-width: 360px; justify-self: center; padding: 1.1rem 1.2rem; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-color);
+                box-shadow: 0 12px 28px -8px rgb(20 23 28 / .22), 0 2px 6px rgb(20 23 28 / .08); display: grid; gap: 0.5rem; }
+  .ex-dialogo b { font-size: 15px; }
+  .ex-dialogo p { font-size: 13.5px; color: var(--text-secondary); }
+  .ex-dialogo .ex-linha { margin-top: 0.5rem; }
+  .ex-tabela { display: grid; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--bg-card); }
+  .ex-tabela > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; align-items: center; padding: 0.55rem 0.8rem; font-size: 13.5px; }
+  .ex-tabela > div + div { border-top: 1px solid var(--border-color); }
+  .ex-tabela small { display: block; color: var(--text-secondary); font-size: 12.5px; }
+  .ex-aviso { font-size: 13px; padding: 0.6rem 0.75rem; border-radius: 8px; background: var(--danger-wash); color: var(--danger-ink); }
+  .ex-busca { display: flex; gap: 0.5rem; align-items: end; }
+  .ex-busca .kc { flex: 1; }
+  .ex-form { display: grid; gap: 0.9rem; }
+
+  @container (max-width: 860px) {
+    .pg .codigo { padding: 2.6rem 1.1rem 1rem; }
+    .pg { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+    .pg nav { position: static; grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+    .pg nav .grupo { display: none; }
+    .pg .quando dl { grid-template-columns: minmax(0, 1fr); }
+    .pg .quando dd { border-top: 0; padding-top: 0; }
+    .tema-vitrine { --pg-h: 40px; }
+    .tema-vitrine .palco .peca { transform: none; }
+    .tema-vitrine .palco { padding-top: 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+    .tema-vitrine .palco > .barra { position: static; }
+  }
+
+
+
+</style>
+</head>
+<body data-theme="light">
+<button class="tema" type="button" onclick="document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'">Tema</button>
+<main class="pagina">
+  <div class="pg tema-estudio" data-pg data-legenda></div>
+</main>
+<script>
+  const VARIANTES = [
+    { id: 'primaria', nome: 'Primária', texto: 'Salvar alterações', resumo: 'A ação principal da tela',
+      usar: 'Para a ação que conclui o que a pessoa veio fazer: salvar, enviar o pedido, confirmar o pagamento.',
+      nao: 'duas na mesma área. Se tudo é principal, nada é: a segunda vira Secundária.' },
+    { id: 'secundaria', nome: 'Secundária', texto: 'Cancelar', resumo: 'Apoio à principal',
+      usar: 'Ao lado da Primária, para a alternativa segura: cancelar, voltar, salvar como rascunho.',
+      nao: 'na ação que conclui a tarefa, mesmo que ela seja rara.' },
+    { id: 'fantasma', nome: 'Fantasma', texto: 'Ver detalhes', resumo: 'Ação terciária, dentro de listas',
+      usar: 'Em linhas de tabela, cabeçalhos de card e barras de ferramenta, onde vários botões convivem.',
+      nao: 'sozinho num formulário: some no fundo e a pessoa não acha.' },
+    { id: 'perigo', nome: 'Perigo', texto: 'Excluir pedido', resumo: 'Destrói ou não tem volta',
+      usar: 'Para excluir, cancelar assinatura, revogar acesso. Sempre com confirmação que repete o nome do item.',
+      nao: 'para chamar atenção. Vermelho que não destrói ensina a ignorar o vermelho.' },
+  ];
+  const ESTADOS_BOTAO = [['padrao', 'Padrão'], ['hover', 'Hover'], ['foco', 'Foco'], ['desabilitado', 'Desabilitado'], ['carregando', 'Carregando']];
+  const ESTADOS_CAMPO = [
+    ['padrao', 'Padrão', 'Aparece na nota fiscal. Pode ser o do financeiro.'],
+    ['foco', 'Foco', 'Aparece na nota fiscal. Pode ser o do financeiro.'],
+    ['erro', 'Erro', 'Falta o domínio depois do @. Ex.: financeiro@padariaestrela.com.br'],
+    ['desabilitado', 'Desabilitado', 'Definido pelo administrador da conta.'],
+  ];
+  const TAMANHOS = [['sm', 'Pequeno'], ['md', 'Médio'], ['lg', 'Grande']];
+  const CAMPO_QUANDO = [
+    ['Rótulo', 'Sempre visível, acima do campo.', 'placeholder no lugar do rótulo: some quando a pessoa digita.'],
+    ['Ajuda', 'Uma frase que evita o erro antes dele: formato, para que serve.', 'repetir o rótulo com outras palavras.'],
+    ['Erro', 'Diz o problema e a saída, no lugar da ajuda. Validar ao sair do campo.', 'só "inválido", ou validar a cada tecla.'],
+    ['Desabilitado', 'Quando o valor existe mas a pessoa não pode mudar. A ajuda diz por quê.', 'desabilitar sem explicar.'],
+  ];
+
+  const EXEMPLOS = {
+    botao: [
+      { titulo: 'Rodapé de formulário', porque: 'A principal fica na ponta, onde o olho termina a leitura; a saída segura fica ao lado.',
+        vivo: () => linha('fim', botao({ variante: 'secundaria', texto: 'Cancelar' }), botao({ variante: 'primaria', texto: 'Salvar alterações' })),
+        codigo: '<footer class="form-acoes">\n  <Button variant="secundaria">Cancelar</Button>\n  <Button variant="primaria" type="submit">Salvar alterações</Button>\n</footer>' },
+      { titulo: 'Confirmação que destrói', porque: 'O botão repete o nome do item e a consequência. A saída segura diz o que fica, não só "Cancelar".',
+        vivo: () => { const d = novo('div', 'ex-dialogo'); d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Excluir pedido');
+          d.append(novo('b', '', 'Excluir o pedido #4821?'), novo('p', '', 'Os 3 itens voltam ao estoque e a cobrança é estornada. Isso não pode ser desfeito.'),
+                   linha('fim', botao({ variante: 'secundaria', texto: 'Manter pedido', tamanho: 'sm' }), botao({ variante: 'perigo', texto: 'Excluir pedido #4821', tamanho: 'sm' })));
+          return d; },
+        codigo: '<Dialog title="Excluir o pedido #4821?">\n  <p>Os 3 itens voltam ao estoque e a cobrança é estornada.</p>\n  <Button variant="secundaria" size="sm">Manter pedido</Button>\n  <Button variant="perigo" size="sm">Excluir pedido #4821</Button>\n</Dialog>' },
+      { titulo: 'Ações numa linha de tabela', porque: 'Várias ações convivendo pedem Fantasma pequeno: aparecem sem competir com os dados.',
+        vivo: () => { const t = novo('div', 'ex-tabela');
+          [['Pedido #4821', 'Heloísa Tavares · R$ 412,90'], ['Pedido #4822', 'Caio Brandão · R$ 87,40']].forEach(([a, b]) => {
+            const l = novo('div'); const d = novo('div'); d.append(a, novo('small', '', b));
+            l.append(d, linha('', botao({ variante: 'fantasma', texto: 'Ver detalhes', tamanho: 'sm' }), botao({ variante: 'fantasma', texto: 'Reenviar nota', tamanho: 'sm' })));
+            t.appendChild(l); });
+          return t; },
+        codigo: '<td class="acoes">\n  <Button variant="fantasma" size="sm">Ver detalhes</Button>\n  <Button variant="fantasma" size="sm">Reenviar nota</Button>\n</td>' },
+      { titulo: 'Enquanto salva', porque: 'O botão avisa que está trabalhando e trava o clique duplo; o resto do rodapé espera junto.',
+        vivo: () => linha('fim', botao({ variante: 'secundaria', texto: 'Cancelar', estado: 'desabilitado' }), botao({ variante: 'primaria', estado: 'carregando' })),
+        codigo: '<Button variant="secundaria" disabled>Cancelar</Button>\n<Button variant="primaria" loading>Salvando</Button>' },
+      { titulo: 'Barra de ferramentas', porque: 'No topo de uma lista, tamanho pequeno. Uma única Primária para criar; o resto é Secundária.',
+        vivo: () => linha('entre', linha('', botao({ variante: 'secundaria', texto: 'Filtrar', tamanho: 'sm' }), botao({ variante: 'secundaria', texto: 'Exportar CSV', tamanho: 'sm' })),
+                                   botao({ variante: 'primaria', texto: 'Novo pedido', tamanho: 'sm' })),
+        codigo: '<Toolbar>\n  <Button variant="secundaria" size="sm">Filtrar</Button>\n  <Button variant="secundaria" size="sm">Exportar CSV</Button>\n  <Button variant="primaria" size="sm">Novo pedido</Button>\n</Toolbar>' },
+    ],
+    campo: [
+      { titulo: 'Formulário de cobrança', porque: 'Rótulos sempre visíveis e ajuda só onde evita erro. Um campo por linha: a ordem de leitura é a de preenchimento.',
+        vivo: () => { const f = novo('div', 'ex-form');
+          f.append(campoLivre('Razão social', 'Padaria Estrela do Norte Ltda.', ''), campoLivre('CNPJ', '27.481.903/0001-56', 'Só os números também serve.'),
+                   campo({ estado: 'foco' }), linha('fim', botao({ variante: 'primaria', texto: 'Salvar cobrança', tamanho: 'sm' })));
+          return f; },
+        codigo: '<Input label="Razão social" />\n<Input label="CNPJ" hint="Só os números também serve." />\n<Input label="E-mail de cobrança" type="email" hint="Aparece na nota fiscal." />' },
+      { titulo: 'Busca com botão', porque: 'O rótulo continua lá, mesmo curto. O botão ao lado diz o que acontece.',
+        vivo: () => { const b = novo('div', 'ex-busca'); b.append(campoLivre('Buscar pedido', '4821', ''), botao({ variante: 'secundaria', texto: 'Buscar' })); return b; },
+        codigo: '<form role="search">\n  <Input label="Buscar pedido" />\n  <Button variant="secundaria" type="submit">Buscar</Button>\n</form>' },
+      { titulo: 'Erro ao salvar', porque: 'O aviso no topo diz quantos campos faltam; cada campo diz o seu problema e a saída.',
+        vivo: () => { const f = novo('div', 'ex-form'); const a = novo('p', 'ex-aviso', 'Confira 1 campo antes de salvar.'); a.setAttribute('role', 'alert');
+          f.append(a, campo({ estado: 'erro' })); return f; },
+        codigo: '<Alert tone="erro">Confira 1 campo antes de salvar.</Alert>\n<Input label="E-mail de cobrança" error="Falta o domínio depois do @." />' },
+      { titulo: 'Bloqueado por permissão', porque: 'O valor aparece, mas não muda. A ajuda diz por quê e quem pode mudar.',
+        vivo: () => campo({ estado: 'desabilitado' }),
+        codigo: '<Input label="E-mail de cobrança" disabled hint="Definido pelo administrador da conta." />' },
+    ],
+  };
+  const ICONES = {
+    mais: '<path d="M12 5v14M5 12h14"/>',
+    baixar: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    lixeira: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5"/>',
+    busca: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
+  };
+  function icone(nome) { const t = document.createElement('template');
+    t.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONES[nome] + '</svg>'; return t.content.firstChild; }
+  function botaoCom(o, nomeIcone, modo) {
+    const b = botao(o);
+    if (modo === 'so') { b.replaceChildren(icone(nomeIcone)); b.classList.add('so-icone'); b.setAttribute('aria-label', o.texto); b.title = o.texto; }
+    else if (nomeIcone) b.prepend(icone(nomeIcone));
+    if (modo === 'cheio') b.classList.add('cheio');
+    return b;
+  }
+  function campoTipo(o) {
+    const w = novo('div', 'kc'); const id = 'c' + Math.random().toString(36).slice(2, 8);
+    const l = novo('label', '', o.rotulo); l.htmlFor = id;
+    const caixa = novo('div', 'caixa' + (o.pre ? ' com-pre' : ''));
+    const i = novo('input'); i.id = id; i.type = o.tipo || 'text'; if (o.valor) i.value = o.valor; if (o.dica) i.placeholder = o.dica;
+    if (o.modo) i.inputMode = o.modo;
+    if (o.pre) { const p = novo('span', 'pre'); if (ICONES[o.pre]) p.appendChild(icone(o.pre)); else p.textContent = o.pre; caixa.appendChild(p); }
+    caixa.appendChild(i);
+    if (o.tipo === 'password') { const v = novo('button', 'depois', 'Mostrar'); v.type = 'button';
+      v.addEventListener('click', () => { const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; v.textContent = ver ? 'Ocultar' : 'Mostrar'; });
+      caixa.appendChild(v); }
+    w.append(l, caixa);
+    if (o.limite) { const r = novo('div', 'rodape'); const a = novo('span', 'ajuda', o.ajuda || ''); const c = novo('span', 'conta');
+      const at = () => { c.textContent = i.value.length + ' / ' + o.limite; }; i.maxLength = o.limite; i.addEventListener('input', at); at();
+      r.append(a, c); w.appendChild(r); }
+    else if (o.ajuda) w.appendChild(novo('span', 'ajuda', o.ajuda));
+    return w;
+  }
+  const TIPOS_CAMPO = [
+    { t: 'Texto', p: 'O padrão, para nomes e frases curtas.', o: { rotulo: 'Razão social', valor: 'Padaria Estrela do Norte Ltda.' } },
+    { t: 'E-mail', p: 'Teclado com @ no celular e validação do formato.', o: { rotulo: 'E-mail de cobrança', tipo: 'email', dica: 'nome@empresa.com.br' } },
+    { t: 'Senha', p: 'Mostrar e ocultar dentro do campo; nunca bloquear colar.', o: { rotulo: 'Senha', tipo: 'password', valor: 'estrela2026', ajuda: 'Pelo menos 10 caracteres.' } },
+    { t: 'Valor em reais', p: 'Prefixo fixo e teclado numérico. O prefixo não entra no valor.', o: { rotulo: 'Valor do frete', pre: 'R$', modo: 'decimal', valor: '18,90' } },
+    { t: 'Busca', p: 'Ícone de lupa à esquerda; o rótulo continua existindo.', o: { rotulo: 'Buscar pedido', tipo: 'search', pre: 'busca', dica: 'Número ou nome do cliente' } },
+    { t: 'Com contador', p: 'Quando há limite, o contador mostra quanto sobra enquanto a pessoa digita.', o: { rotulo: 'Observação na entrega', limite: 80, valor: 'Deixar com o porteiro', ajuda: 'Aparece para o entregador.' } },
+  ];
+  function desenharTodos(alvo, comp) {
+    alvo.replaceChildren(novo('h3', '', 'Todos os tipos'));
+    if (comp === 'botao') {
+      alvo.appendChild(novo('p', '', '4 variantes, 3 tamanhos, os estados de espera e bloqueio, e as formas com ícone.'));
+      const quadro = novo('div', 'quadro'); const t = novo('table'); const cab = t.insertRow();
+      ['', 'Pequeno', 'Médio', 'Grande', 'Desabilitado', 'Carregando'].forEach(h => { const th = novo('th', '', h); cab.appendChild(th); });
+      VARIANTES.forEach(v => {
+        const tr = t.insertRow(); const c0 = tr.insertCell(); c0.append(v.nome, novo('small', '', v.resumo));
+        ['sm', 'md', 'lg'].forEach(tam => tr.insertCell().appendChild(botao({ variante: v.id, texto: v.texto, tamanho: tam })));
+        tr.insertCell().appendChild(botao({ variante: v.id, texto: v.texto, estado: 'desabilitado' }));
+        tr.insertCell().appendChild(botao({ variante: v.id, texto: v.texto, estado: 'carregando' }));
+      });
+      quadro.appendChild(t); alvo.appendChild(quadro);
+      const formas = novo('div', 'formas');
+      [['Com ícone', 'O ícone reforça o verbo, não substitui. Fica antes do texto.', () => linha('', botaoCom({ variante: 'primaria', texto: 'Novo pedido' }, 'mais'), botaoCom({ variante: 'secundaria', texto: 'Exportar CSV' }, 'baixar'))],
+       ['Só ícone', 'Para ações repetidas em listas. Sempre com nome acessível e dica ao passar o mouse.', () => linha('', botaoCom({ variante: 'secundaria', texto: 'Novo pedido' }, 'mais', 'so'), botaoCom({ variante: 'fantasma', texto: 'Baixar nota' }, 'baixar', 'so'), botaoCom({ variante: 'perigo', texto: 'Excluir pedido' }, 'lixeira', 'so'))],
+       ['Largura total', 'No celular e em cartões estreitos, a ação principal ocupa a linha inteira.', () => botaoCom({ variante: 'primaria', texto: 'Confirmar pagamento' }, null, 'cheio')],
+      ].forEach(([t2, p2, f2]) => { const d = novo('div', 'forma'); d.append(novo('h4', '', t2), novo('p', '', p2), f2()); formas.appendChild(d); });
+      alvo.appendChild(formas);
+    } else {
+      alvo.appendChild(novo('p', '', '6 tipos de campo e os 4 estados. Mesmo rótulo, mesma ajuda, mesmo erro em todos.'));
+      const formas = novo('div', 'formas');
+      TIPOS_CAMPO.forEach(x => { const d = novo('div', 'forma'); d.append(novo('h4', '', x.t), novo('p', '', x.p), campoTipo(x.o)); formas.appendChild(d); });
+      alvo.appendChild(formas);
+      const estados = novo('div', 'formas');
+      ESTADOS_CAMPO.forEach(e => { const d = novo('div', 'forma'); d.append(novo('h4', '', 'Estado: ' + e[1]), campo({ estado: e[0] })); estados.appendChild(d); });
+      alvo.appendChild(estados);
+    }
+  }
+  function linha(tipo, ...filhos) { const d = novo('div', 'ex-linha' + (tipo ? ' ' + tipo : '')); d.append(...filhos); return d; }
+  function campoLivre(rotulo, valor, ajuda) {
+    const w = novo('div', 'kc'); const id = 'c' + Math.random().toString(36).slice(2, 8);
+    const l = novo('label', '', rotulo); l.htmlFor = id; const i = novo('input'); i.id = id; i.value = valor;
+    w.append(l, i); if (ajuda) w.append(novo('span', 'ajuda', ajuda)); return w;
+  }
+  function desenharExemplos(alvo, comp) {
+    const lista = EXEMPLOS[comp] || [];
+    alvo.replaceChildren(novo('h3', '', 'Exemplos em contexto'), novo('p', '', lista.length + ' usos reais, cada um com o porquê.'));
+    const grade = novo('div', 'grade');
+    lista.forEach(ex => {
+      const c = novo('article', 'exemplo'); const topo = novo('div', 'ex-topo'); topo.append(novo('h4', '', ex.titulo), novo('p', '', ex.porque));
+      const vivo = novo('div', 'ex-vivo'); vivo.appendChild(ex.vivo());
+      c.append(topo, vivo); grade.appendChild(c);
+    });
+    alvo.appendChild(grade);
+  }
+  const novo = (tag, classe, texto) => { const n = document.createElement(tag); if (classe) n.className = classe; if (texto !== undefined) n.textContent = texto; return n; };
+
+  function botao(o) {
+    const b = novo('button', 'kb ' + o.variante + (o.estado === 'hover' ? ' is-hover' : '') + (o.estado === 'foco' ? ' is-foco' : ''));
+    b.type = 'button';
+    b.dataset.size = o.tamanho || 'md';
+    if (o.estado === 'desabilitado' || o.estado === 'carregando') b.disabled = true;
+    if (o.estado === 'carregando') { const r = novo('span', 'rodinha'); r.setAttribute('aria-hidden', 'true'); b.appendChild(r); b.setAttribute('aria-busy', 'true'); }
+    b.appendChild(document.createTextNode(o.estado === 'carregando' ? 'Salvando' : (o.texto || 'Salvar alterações')));
+    return b;
+  }
+  function codigoBotao(o) {
+    const attrs = ['variant="' + o.variante + '"'];
+    if ((o.tamanho || 'md') !== 'md') attrs.push('size="' + o.tamanho + '"');
+    if (o.estado === 'desabilitado') attrs.push('disabled');
+    if (o.estado === 'carregando') attrs.push('loading');
+    return '<Button ' + attrs.join(' ') + '>' + (o.texto || 'Salvar alterações') + '</Button>';
+  }
+  function campo(o) {
+    const w = novo('div', 'kc' + (o.estado === 'erro' ? ' is-erro' : '') + (o.estado === 'foco' ? ' is-foco' : ''));
+    const id = 'c' + Math.random().toString(36).slice(2, 8);
+    const l = novo('label', '', 'E-mail de cobrança'); l.htmlFor = id;
+    const i = novo('input'); i.id = id; i.type = 'email';
+    i.value = o.estado === 'erro' ? 'financeiro@padariaestrela' : (o.estado === 'padrao' ? '' : 'financeiro@padariaestrela.com.br');
+    i.placeholder = 'nome@empresa.com.br';
+    if (o.estado === 'desabilitado') i.disabled = true;
+    const a = novo('span', 'ajuda', (ESTADOS_CAMPO.find(e => e[0] === o.estado) || ESTADOS_CAMPO[0])[2]); a.id = id + '-ajuda';
+    i.setAttribute('aria-describedby', a.id);
+    if (o.estado === 'erro') i.setAttribute('aria-invalid', 'true');
+    w.append(l, i, a);
+    return w;
+  }
+  function codigoCampo(o) {
+    const attrs = ['label="E-mail de cobrança"', 'type="email"'];
+    attrs.push(o.estado === 'erro' ? 'error="Falta o domínio depois do @."' : 'hint="Aparece na nota fiscal."');
+    if (o.estado === 'desabilitado') attrs.push('disabled');
+    return '<Input ' + attrs.join(' ') + ' />';
+  }
+  function blocoCodigo(texto) {
+    const pre = novo('pre', 'codigo'); const c = novo('code', '', texto); pre.appendChild(c);
+    const copiar = novo('button', 'copiar', 'Copiar'); copiar.type = 'button';
+    copiar.addEventListener('click', () => {
+      try { navigator.clipboard.writeText(c.textContent); copiar.textContent = 'Copiado'; } catch (e) { copiar.textContent = 'Selecione e copie'; }
+      setTimeout(() => { copiar.textContent = 'Copiar'; }, 1400);
+    });
+    pre.appendChild(copiar);
+    return pre;
+  }
+  function segmentado(opcoes, atual, aoEscolher) {
+    const s = novo('div', 'seg');
+    opcoes.forEach(([v, rot]) => {
+      const b = novo('button', v === atual ? 'on' : '', rot); b.type = 'button';
+      b.addEventListener('click', () => aoEscolher(v));
+      s.appendChild(b);
+    });
+    return s;
+  }
+  function grupo(rotulo, filho) { const d = novo('div'); d.append(novo('span', 'rotulo', rotulo), filho); return d; }
+
+  // Medidas desenhadas em volta da peça (direção Anatomia): largura, altura e o respiro interno.
+  function desenharMedidas(palco, peca) {
+    let camada = palco.querySelector('.medidas');
+    if (!camada) { camada = novo('div', 'medidas'); palco.appendChild(camada); }
+    camada.replaceChildren();
+    const alvo = peca.querySelector('.kb, .kc input');
+    if (!alvo || !alvo.getClientRects().length) return;
+    const base = palco.getBoundingClientRect(), r = alvo.getBoundingClientRect(), s = getComputedStyle(alvo);
+    const x = r.left - base.left, y = r.top - base.top, w = r.width, h = r.height;
+    const pl = parseFloat(s.paddingLeft), pr = parseFloat(s.paddingRight);
+    const pos = (n, o) => { Object.entries(o).forEach(([k, v]) => { n.style[k] = v + 'px'; }); return n; };
+    camada.append(pos(novo('div', 'area'), { left: x, top: y, width: pl, height: h }),
+                  pos(novo('div', 'area'), { left: x + w - pr, top: y, width: pr, height: h }),
+                  pos(novo('div', 'cota h'), { left: x, top: y - 22, width: w }),
+                  pos(novo('span', 'valor', Math.round(w) + ' px'), { left: x + w / 2 - 20, top: y - 30 }),
+                  pos(novo('div', 'cota v'), { left: x + w + 14, top: y, height: h }),
+                  pos(novo('span', 'valor', Math.round(h) + ' px'), { left: x + w + 28, top: y + h / 2 - 8 }),
+                  pos(novo('div', 'cota h'), { left: x, top: y + h + 14, width: pl }),
+                  pos(novo('span', 'valor', 'respiro ' + Math.round(pl)), { left: x - 4, top: y + h + 28 }));
+  }
+
+  document.querySelectorAll('[data-pg]').forEach(pg => {
+    const secao = pg.closest('.variation');
+    const estado = { comp: 'botao', variante: 'primaria', tamanho: 'md', estado: 'padrao', texto: 'Salvar alterações', campo: 'padrao' };
+    const nav = novo('nav'); nav.setAttribute('aria-label', 'Componentes');
+    [['Essenciais'], ['botao', 'Button', '4'], ['campo', 'Input', '4'], [null, 'Card'], [null, 'Badge'], ['Formulários'], [null, 'Select'], [null, 'Checkbox']].forEach(item => {
+      if (item.length === 1) { nav.appendChild(novo('span', 'rotulo grupo', item[0])); return; }
+      const b = novo('button', item[0] === 'botao' ? 'on' : '', item[1]);
+      b.type = 'button';
+      if (item[2]) b.appendChild(novo('small', '', item[2])); else b.disabled = true;
+      if (item[0]) b.addEventListener('click', () => { nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); estado.comp = item[0]; desenhar(); });
+      nav.appendChild(b);
+    });
+    const conteudo = novo('div');
+    const cabeca = novo('header', 'cabeca'), barra = novo('div', 'barra'), palco = novo('div', 'palco'), codigo = novo('div'), quando = novo('div', 'quando'), exemplos = novo('section', 'exemplos'), todos = novo('section', 'todos');
+    if (pg.hasAttribute('data-vitrine')) { conteudo.append(cabeca, palco, codigo, quando, exemplos); palco.appendChild(barra); }
+    else conteudo.append(cabeca, barra, palco, codigo, todos, quando, exemplos);
+    pg.append(nav, conteudo);
+
+    function desenhar() {
+      const eBotao = estado.comp === 'botao';
+      cabeca.replaceChildren(novo('span', 'rotulo', 'Essenciais'), novo('h2', '', eBotao ? 'Button' : 'Input'),
+        novo('p', '', eBotao ? 'Dispara uma ação. Quatro variantes pela consequência do clique, três tamanhos e os estados de espera e bloqueio.'
+                             : 'Recebe um valor curto. O rótulo fica sempre visível; a ajuda embaixo vira a mensagem de erro, que diz o problema e a saída.'));
+      barra.replaceChildren();
+      if (eBotao) {
+        barra.append(grupo('Variante', segmentado(VARIANTES.map(v => [v.id, v.nome]), estado.variante, v => { estado.variante = v; estado.texto = VARIANTES.find(x => x.id === v).texto; desenhar(); })),
+                     grupo('Tamanho', segmentado(TAMANHOS, estado.tamanho, v => { estado.tamanho = v; desenhar(); })),
+                     grupo('Estado', segmentado(ESTADOS_BOTAO, estado.estado, v => { estado.estado = v; desenhar(); })));
+        const t = novo('input'); t.type = 'text'; t.value = estado.texto; t.setAttribute('aria-label', 'Texto do botão');
+        t.addEventListener('input', () => { estado.texto = t.value; desenharPeca(); });
+        barra.append(grupo('Texto', t));
+      } else {
+        barra.append(grupo('Estado', segmentado(ESTADOS_CAMPO.map(e => [e[0], e[1]]), estado.campo, v => { estado.campo = v; desenhar(); })));
+      }
+      desenharPeca();
+      desenharTodos(todos, estado.comp);
+      desenharExemplos(exemplos, estado.comp);
+      quando.replaceChildren(novo('h3', '', eBotao ? 'Quando usar cada variante' : 'Como o campo conversa'));
+      const linhas = eBotao ? VARIANTES.map(v => [v.nome, v.usar, v.nao, botao({ variante: v.id, texto: v.texto, tamanho: 'sm' })])
+                            : CAMPO_QUANDO.map(c => [c[0], c[1], c[2], null]);
+      if (pg.dataset.quando === 'cartoes') {
+        const grade = novo('div', 'cartoes');
+        linhas.forEach(([nome, usar, nao, peca]) => {
+          const a = novo('article'); if (peca) a.appendChild(peca);
+          const n = novo('p', 'nao'); n.append(novo('b', '', 'Não use '), nao);
+          a.append(novo('h4', '', nome), novo('p', '', usar), n); grade.appendChild(a);
+        });
+        quando.appendChild(grade);
+      } else {
+        const dl = novo('dl');
+        linhas.forEach(([nome, usar, nao, peca]) => {
+          const dt = novo('dt'); dt.append(nome); if (peca) dt.appendChild(peca);
+          const dd = novo('dd', '', usar); const n = novo('span', 'nao'); n.append(novo('b', '', 'Não use '), nao); dd.appendChild(n);
+          dl.append(dt, dd);
+        });
+        quando.appendChild(dl);
+      }
+    }
+
+    function desenharPeca() {
+      const eBotao = estado.comp === 'botao';
+      const peca = novo('div', 'peca'); peca.appendChild(eBotao ? botao(estado) : campo({ estado: estado.campo }));
+      palco.querySelectorAll(':scope > .peca, :scope > .palco-legenda').forEach(n => n.remove());
+      palco.appendChild(peca);
+      if (pg.hasAttribute('data-legenda')) palco.appendChild(novo('span', 'palco-legenda', eBotao ? estado.variante + ' · ' + estado.tamanho + ' · ' + estado.estado : 'input · ' + estado.campo));
+      codigo.replaceChildren();
+      if (pg.hasAttribute('data-anatomia')) {
+        requestAnimationFrame(() => desenharMedidas(palco, peca));
+        const ficha = novo('div', 'ficha');
+        requestAnimationFrame(() => {
+          const el = peca.querySelector('.kb, .kc input'); if (!el) return;
+          const cs = getComputedStyle(el);
+          [['altura', Math.round(el.getBoundingClientRect().height) + 'px'], ['raio', cs.borderTopLeftRadius], ['fonte', cs.fontSize + ' / ' + cs.fontWeight],
+           ['cor', eBotao ? '--' + (estado.variante === 'perigo' ? 'danger' : estado.variante === 'primaria' ? 'accent-primary' : 'bg-card') : '--bg-card']]
+            .forEach(([k, v]) => { const i = novo('span'); i.append(k + ' ', novo('b', '', v)); ficha.appendChild(i); });
+        });
+        codigo.prepend(ficha);
+      }
+    }
+    if (pg.hasAttribute('data-anatomia')) {
+      new ResizeObserver(() => { const p = palco.querySelector('.peca'); if (p) desenharMedidas(palco, p); }).observe(palco);
+      new MutationObserver(() => { const p = palco.querySelector('.peca'); if (p) requestAnimationFrame(() => desenharMedidas(palco, p)); })
+        .observe(secao, { attributes: true, attributeFilter: ['style'] });
+    }
+    desenhar();
+  });
+</script>
+</body>
+</html>

@@ -11,7 +11,10 @@ description: >-
   de componentes, ou disser coisas como "cria os componentes do projeto",
   "kit de componentes", "componentes base", "scaffolding de UI", "monta a
   component library", "preciso de Button/Input/Modal padrão", "cria o design
-  system com componentes". Dispare mesmo sem a palavra "kit" quando a intenção
+  system com componentes". Gera também a página de demo QUE ENSINA: para cada
+  componente, a peça viva com controles, todos os tipos de uma vez, quando usar cada
+  variante e exemplos em contexto. Use também para "página de demo dos componentes",
+  "documenta os componentes", "mostra as variações pra equipe entender". Dispare mesmo sem a palavra "kit" quando a intenção
   for criar componentes reutilizáveis — vários de uma vez ou um único
   componente padrão que entra na biblioteca do projeto (ex.: "cria um
   componente de Table reutilizável seguindo nossos tokens"). NÃO usar para:
@@ -25,9 +28,9 @@ description: >-
 
 Gerar a base de componentes reutilizáveis de um projeto frontend — código real,
 no repositório, seguindo o design system e as convenções do projeto. Ela **roda
-sozinha** (não exige nenhuma outra skill), mas faz parte do **trio de design** —
-`sw-design-studio` decide a direção visual · `sw-frontend-mockup-preview` visualiza —
-e se integra a ele quando as irmãs estão disponíveis. Tudo que ela produz (componentes,
+sozinha** (não exige nenhuma outra skill), mas faz dupla com a
+`sw-frontend-mockup-preview`, que decide a direção visual vendo as variações — e se integra a
+ela quando está disponível. Tudo que ela produz (componentes,
 tokens, página de demo) é **código de produção dentro do projeto** — nada de artefatos
 descartáveis em `/tmp`.
 
@@ -45,7 +48,7 @@ aí só siga e mencione a suposição.
 
 ## Fluxo
 
-**Detectar → Tokens (+ direção via Button, em projeto novo) → Perguntar combos → Gerar → Demo + resumo**
+**Detectar → Tokens (+ direção via amostra, em projeto novo) → Perguntar combos → Gerar → Demo que ensina + resumo**
 
 ### Fase 1: Detectar o projeto
 
@@ -82,51 +85,57 @@ inconsistente. Por isso esta fase vem antes da geração.
 
 - **Projeto já tem tokens/design system** → use-os. Toda cor, espaçamento,
   raio e fonte nos componentes referencia o token, nunca o valor literal.
-- **Projeto sem tokens** → faça o **bootstrap guiado**: pergunte via
-  AskUserQuestion o essencial:
-  - Cor primária (oferecer 3–4 paletas como opções + "Other" para hex)
-  - Estilo de borda: arredondado (8px), suave (4px), quadrado (0) ou pill
-  - Fonte: system stack, Inter, ou outra
-  - Tema: só claro, só escuro, ou ambos (light + dark com toggle)
-  
-  Com as respostas, gere a fundação no formato nativo do projeto
-  (`tailwind.config.*` theme, ou `:root`/`[data-theme]` custom properties, ou
-  `_variables.scss`): escala da cor primária (50–900), neutros, cores
-  semânticas (success/warning/error/info), espaçamento, raios, tipografia e
-  sombras. Mostre os tokens criados antes de seguir para os componentes.
+- **Projeto sem tokens** → faça o **bootstrap guiado**, sem cair no visual genérico. Pergunte
+  via AskUserQuestion (até 4 perguntas numa chamada):
+  - **Cena de uso:** quem usa, onde e sob que luz (ex.: "atendente no balcão, tela clara, o dia
+    todo" / "gestor no celular, à noite"). É ela que decide claro ou escuro e a densidade, não a
+    categoria do produto.
+  - **Tom:** três palavras (ex.: sóbrio, preciso, caloroso), com opções prováveis + "Other".
+  - **Cor da marca**, se existir (hex no "Other"). Sem marca, **proponha 2 ou 3 paletas
+    derivadas da cena e do tom**, cada uma com o nome do que ela evoca. Nunca ofereça a lista
+    pronta de "azul, roxo, verde".
+  - **Tema:** só claro, só escuro, ou ambos.
 
-**Direção já decidida a montante?** Se a **`sw-design-studio`** já rodou nesta sessão,
-ou existe um **`DESIGN.md`/Direção** no projeto, **siga essa direção e PULE a exploração
-via Button abaixo** — a estética já foi decidida; refazê-la aqui gera conflito. E no
-**bootstrap de projeto novo**, se a `sw-design-studio` estiver instalada, **ofereça-a via
-`AskUserQuestion`** antes de materializar os tokens (evita o kit nascer com "cara de IA"
-genérica). Só caia no fluxo do Button quando não há direção nem design-studio à mão.
+  **Fontes vêm do Google Fonts**, escolhidas para o tom: um par (títulos + texto) com contraste
+  real entre os dois, e mono só se o produto mostra código ou dado tabular. Inter, Roboto e
+  "system stack" não são padrão: só entram se o usuário pedir ou se o projeto já usa.
 
-**Definir a direção visual via Button (só no bootstrap, sem direção a montante).** Antes de
-gerar o kit inteiro, ofereça variações de **um componente-chave — o Button** — pra fixar a
-estética que todos os outros vão herdar. Em vez de gerar 3 versões de cada
-componente (desperdício), você explora a direção **uma vez**, no Button, e o resto
-nasce consistente.
+  Com as respostas, gere a fundação no formato nativo do projeto (`tailwind.config.*` theme, ou
+  `:root`/`[data-theme]` custom properties, ou `_variables.scss`): escala da cor primária
+  (50–900), neutros **tingidos** pela cor da marca (nunca cinza puro nem preto `#000`), cores
+  semânticas (success/warning/error/info), espaçamento, raios, tipografia e sombras com
+  hierarquia (não a mesma sombra em tudo). Mostre os tokens criados antes de seguir.
 
-- **Dispare um `AskUserQuestion`**: *"Quer ver variações do Button pra definir o
-  estilo do kit?"* → **Não, segue um padrão neutro** / **Sim, 3 variações** /
-  **Sim, 5**. (Menu único — a quantidade já está nas opções, nada de pergunta
-  separada de "quantos".)
-- Se sim, gere as N variações em **direções genuinamente distintas** (ex.: A =
-  arredondado + sombra suave + fill sólido; B = reto + flat + borda fina; C = pill
-  + bold + alto contraste), todas usando os **tokens reais** já criados.
-- **A pessoa precisa VER pra escolher**: renderize as N variações (claro + escuro)
-  na **própria página de demo do projeto** (a mesma da Fase 5, só começando cedo) —
-  é **código do projeto, não `/tmp`**, e mostra o botão renderizado de verdade com
-  os tokens reais. Abra pela rota de dev do projeto. Depois da escolha, a demo passa
-  a mostrar só o Button final e evolui pro kit completo. A escolha em si é outro
-  `AskUserQuestion` (as variações como opções + "Other" pra misturar).
-- A direção escolhida (raio, sombra, preenchimento, peso, transições) vira **regra
-  para TODO o kit** — Card, Input, Modal, Tabs etc. herdam o mesmo tom. Só então
-  siga para a Fase 4.
+**Direção já decidida a montante?** Se a **`sw-frontend-mockup-preview`** já fixou a direção
+nesta sessão (a leitura do pedido e a variação escolhida), ou existe um **`DESIGN.md`/Direção**
+no projeto, **siga essa direção e PULE a exploração via amostra abaixo** — a estética já foi
+decidida; refazê-la aqui gera conflito. E no **bootstrap de projeto novo**, se a mockup estiver
+instalada, **ofereça-a via `AskUserQuestion`** antes de materializar os tokens (evita o kit
+nascer com "cara de IA" genérica). Só caia no fluxo da amostra quando não há direção nem mockup
+à mão.
 
-Pule esse passo quando o projeto **já tem design system**: a direção já existe, e
-variação só geraria inconsistência — gere seguindo o padrão.
+**Definir a direção visual com uma amostra (só no bootstrap, sem direção a montante).** Um
+botão sozinho não decide densidade, tipografia, superfícies nem o formato dos campos. Por isso a
+direção é explorada numa **amostra**: um Button (primária + secundária), um Input com rótulo e
+ajuda, um Card com título e texto, dois Badges e **uma linha de tabela**. É pequeno de gerar e
+cobre as decisões que o kit inteiro herda.
+
+- **Dispare um `AskUserQuestion`**: *"Quer ver variações da amostra pra definir o estilo do
+  kit?"* → **Não, sigo a direção dos tokens** / **Sim, 3 variações** / **Sim, 5**.
+- As variações diferem em **eixos diferentes**, não em ajustes do mesmo: uma muda a
+  **tipografia** (par de fontes e escala), outra a **superfície** (borda, sombra, raio,
+  profundidade), outra a **densidade** (espaçamento, altura dos controles). Todas com os tokens
+  reais já criados. Se sair "a mesma coisa com outra cor", refaça.
+- **A pessoa precisa VER pra escolher**: renderize a amostra, nas N variações, claro e escuro, na
+  **própria página de demo do projeto** (a mesma da Fase 5, começando cedo): é código do projeto,
+  não `/tmp`. Abra pela rota de dev. A escolha é outro `AskUserQuestion` (as variações como
+  opções + "Other" pra misturar).
+- A variação escolhida vira **regra para TODO o kit**: raio, sombra, preenchimento, peso,
+  densidade e transições. Registre-a no topo do arquivo de tokens (um comentário curto com as
+  decisões), para os próximos componentes seguirem o mesmo tom. Só então siga para a Fase 3.
+
+Pule esse passo quando o projeto **já tem design system**: a direção já existe, e variação só
+geraria inconsistência.
 
 ### Fase 3: Perguntar quais componentes gerar
 
@@ -169,6 +178,12 @@ Para cada componente:
   `role="dialog"` + foco preso, toast com `aria-live`), navegação por teclado
   em menus/tabs/modais, contraste respeitando os tokens.
 - **Tokens, sempre** — nenhuma cor/espaçamento/raio hardcoded.
+- **Piso anti-genérico** (vale para cada componente): nada de texto em gradiente, preto puro,
+  borda colorida grossa num lado só de card ou aviso, halo colorido sem deslocamento, "pill soup"
+  (toda etiqueta virando a mesma pílula cinza), toggle iOS padrão sem adaptação, a mesma sombra
+  e o mesmo raio em tudo, emoji no lugar de ícone. Easing sem quique; movimento curto, com saída
+  exponencial, e o guard de `prefers-reduced-motion`. Se a `sw-frontend-mockup-preview` estiver
+  instalada, o catálogo completo está em `references/piso-e-recusas.md` dela.
 - **Dark mode**: se os tokens suportam, todo componente funciona nos dois
   temas sem código extra (essa é a vantagem de tokens semânticos).
 - **Zero dependências novas sem aprovação.** Se um componente pede uma lib
@@ -178,14 +193,28 @@ Para cada componente:
   descrição em uma linha, tabela de props (nome, tipo, default) e 1–2 exemplos
   de uso. Padrão JSDoc/docblock da stack.
 
-### Fase 5: Página de demo + resumo
+### Fase 5: A demo que ensina + resumo
 
-1. **Página de demo dentro do projeto** (código real, versionado): uma rota de
-   desenvolvimento (`/dev/components`, ou `ComponentsDemo` acessível só em
-   dev) que renderiza todos os componentes gerados com suas variantes e
-   estados. Serve como documentação viva e smoke test visual. Siga o sistema
-   de rotas do projeto; se não houver router, gere um `components-demo.html`
-   na pasta de dev do projeto.
+**Leia [`references/demo-que-ensina.md`](references/demo-que-ensina.md) antes de gerar a demo**
+e abra [`assets/demo-estudio.html`](assets/demo-estudio.html) no navegador: é a referência
+visual aprovada (direção "Estúdio").
+
+1. **Página de demo dentro do projeto** (código real, versionado): uma rota de desenvolvimento
+   (`/dev/components`, ou `ComponentsDemo` acessível só em dev), no sistema de rotas do projeto;
+   sem router, um `components-demo.html` na pasta de dev. **Toda tela de componente** tem, nesta
+   ordem:
+   - lista lateral dos componentes do kit, com o número de variantes;
+   - cabeçalho com o nome e uma frase do que faz;
+   - **barra de controles dentro do conteúdo** (variante, tamanho, estado, texto), acima do palco;
+   - **palco de estúdio** com o componente real vivo e a legenda do estado atual;
+   - **Todos os tipos**: todas as variantes, tamanhos, estados e formas **ao mesmo tempo**
+     (tabela variantes × tamanhos/estados, e cartões para as formas extras);
+   - **Quando usar cada variante**: amostra, quando usar, e "Não use" com a consequência;
+   - **Exemplos em contexto**: de 3 a 5 usos reais, cada um com o porquê em uma frase.
+
+   **Nada de código na página**: sem bloco de código nem "copiar". O código e os exemplos de uso
+   ficam no docblock do componente. O catálogo do que mostrar em "Todos os tipos" e nos exemplos,
+   componente por componente, está na referência.
 2. **Resumo final**:
    - Tokens criados/usados (e onde estão)
    - Componentes gerados, agrupados por combo, com paths
@@ -195,7 +224,7 @@ Para cada componente:
 3. **Ver os componentes — ofereça via `AskUserQuestion`** (visualizar é o padrão, não um extra):
    - **Rodar a demo do projeto** — suba o app e abra a rota `/dev/components` gerada acima. É o
      jeito real de ver o kit: código de produção renderizado com os tokens reais.
-   - Sem router/app pra subir? O `components-demo.html` estático (Fase 5) abre direto no navegador.
+   - Sem router/app pra subir? O `components-demo.html` estático abre direto no navegador.
 
    > **Não** ofereça a `sw-frontend-mockup-preview` pra "ver o kit gerado" — ela cria HTML
    > **descartável do zero** e não ingere seus componentes Vue/React (seria reescrever tudo). O
@@ -209,12 +238,14 @@ Para cada componente:
 User: "cria os componentes base do projeto"
 → Detect: Vue 3 + Vite + Tailwind, sem theme customizado, zero componentes
 → Bootstrap: pergunta cor primária, raio, fonte, dark mode → estende tailwind.config
-→ Direção: AskUserQuestion "ver variações do Button? Não/3/5" → usuário pede 3
-  → renderiza 3 Buttons distintos (claro+escuro) na página de demo do projeto → escolhe a B
-  → a direção da B vira regra do kit
+→ Direção: AskUserQuestion "ver variações da amostra? Não/3/5" → usuário pede 3
+  → renderiza a amostra (Button, Input, Card, Badges, linha de tabela) em 3 eixos diferentes
+    (tipografia, superfície, densidade), claro+escuro, na página de demo do projeto → escolhe a B
+  → a direção da B vira regra do kit (registrada no topo do arquivo de tokens)
 → Pergunta combos → usuário marca Essenciais + Formulários
 → Confirma o escopo via AskUserQuestion (16 componentes → Pode gerar / Quero ajustar)
 → Gera src/components/ui/*.vue + src/pages/dev/ComponentsDemo.vue + rota /dev/components
+  (cada componente com controles, palco, todos os tipos, quando usar e exemplos em contexto)
 → Resumo: tokens, 16 componentes, demo em http://localhost:5173/dev/components
 ```
 
@@ -235,8 +266,10 @@ User: "preciso dos componentes de feedback: modal, toast, essas coisas"
 - Esta skill gera **código de produção no repositório** — não confundir com
   mockup descartável. Se o usuário quer só visualizar/explorar um design antes
   de decidir, isso é caso para a sw-frontend-mockup-preview, não para esta skill.
-- Skill autossuficiente: não invoque outras skills. Testes dos componentes,
-  se o usuário quiser, são um pedido separado.
+- Skill autossuficiente: roda sem nenhuma outra skill. A única que ela **oferece** (via
+  `AskUserQuestion`, nunca invoca por conta própria) é a `sw-frontend-mockup-preview`, para
+  explorar a direção antes do bootstrap (Fase 2). Testes dos componentes, se o usuário quiser, são
+  um pedido separado.
 - Nunca sobrescreva componente existente; nunca instale dependência sem
   aprovação explícita.
 - Em dúvida real de design (lib vs implementação própria, onde montar a rota
@@ -254,4 +287,8 @@ Antes de dar o resumo final, releia e confirme cada item — é onde a execuçã
 - [ ] **Acessibilidade real** em cada um (foco visível, `aria-*`, foco preso no modal, `aria-live` no toast, teclado em menus/tabs)?
 - [ ] **Dark mode** funciona nos componentes (se os tokens suportam)?
 - [ ] **Página de demo gerada** e citada no resumo (com a rota/URL)?
+- [ ] **Cada tela de componente** tem controles no conteúdo, palco, **todos os tipos**, quando
+      usar / não use e **3 a 5 exemplos em contexto**, sem nenhum bloco de código?
+- [ ] **Sem visual genérico**: nada de paleta ou fonte "padrão de IA" no bootstrap, fontes do
+      Google Fonts escolhidas pelo tom, e o piso anti-genérico em cada componente?
 - [ ] **Toda pergunta foi via `AskUserQuestion`** — nenhuma decisão em texto solto?

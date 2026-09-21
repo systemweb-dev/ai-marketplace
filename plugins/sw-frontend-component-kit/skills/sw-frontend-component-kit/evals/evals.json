@@ -5,7 +5,7 @@
       "id": 0,
       "name": "vue-fresh-bootstrap",
       "prompt": "to começando esse projeto vue novo, cria os componentes base pra mim. quero os essenciais e os de formulário. a cor principal é roxo #7C3AED, bordas arredondadas, fonte Inter, e quero dark mode",
-      "expected_output": "Tokens criados no tailwind.config (escala da primária roxa, semânticas, dark mode), componentes dos combos Essenciais + Formulários em src/components/ui como SFCs Vue 3 script setup usando tokens (sem cor hardcoded), com variantes/estados/a11y e docblock, página de demo com rota /dev/components registrada no router",
+      "expected_output": "Tokens criados no tailwind.config (escala da primária roxa, semânticas, dark mode), componentes dos combos Essenciais + Formulários em src/components/ui como SFCs Vue 3 script setup usando tokens (sem cor hardcoded), com variantes/estados/a11y e docblock, página de demo com rota /dev/components registrada no router; cada componente na demo tem barra de controles no conteúdo, palco, todos os tipos (variantes × tamanhos/estados), quando usar / não use e 3 a 5 exemplos em contexto, sem bloco de código; fontes do bootstrap vêm do Google Fonts",
       "files": ["fixtures/vue-fresh"]
     },
     {
