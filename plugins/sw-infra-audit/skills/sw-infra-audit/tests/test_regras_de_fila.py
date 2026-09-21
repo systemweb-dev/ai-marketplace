@@ -18,7 +18,7 @@ def test_severidade_padrao_bate_com_o_limiar_da_pergunta():
     relatório mostrar uma e a nota do alvo usar a outra."""
     from lib.perguntas import PERGUNTAS
 
-    limiar = PERGUNTAS["fila.filas_com_acumulo"]["limiar"]
+    limiar = PERGUNTAS["fila.filas"]["limiar"]
 
     assert severidade(limiar["regra"]) == limiar["severidade"]
 

@@ -10,7 +10,7 @@ from collect import achados_da_resposta, agravar_saude
 
 
 def _resposta(valor, **extra):
-    return dict({"pergunta": "fila.filas_com_acumulo", "fonte": "admin_http:amqp-mgmt",
+    return dict({"pergunta": "fila.filas", "fonte": "admin_http:amqp-mgmt",
                  "valor": valor}, **extra)
 
 

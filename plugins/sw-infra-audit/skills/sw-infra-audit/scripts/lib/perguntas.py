@@ -40,16 +40,18 @@ _p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms",
 
 
 # --- papel `fila`: tudo sai do mesmo endpoint de listagem de filas, então o custo marginal de
-# cada pergunta é uma extração, não uma requisição. A ordem é a do relatório: o que existe, o
-# que está acumulando, quem consome e a que ritmo.
+# cada pergunta é uma extração, não uma requisição. A ordem é a do relatório: o que existe (e,
+# pelo limiar, o que está parado), quem consome e a que ritmo.
+#
+# "Filas" e "Filas com acúmulo" eram duas perguntas e saíam no relatório como a MESMA lista,
+# ordenada do mesmo jeito, duas vezes. Viraram uma: a lista é "Filas", e as paradas aparecem
+# como achado, uma por linha, na seção de achados. (Decisão do dono, 2026-09-21.)
 #
 # Fila morta NÃO entra nesta versão: a visão geral da API traz o total de mensagens do broker,
 # não o da fila morta, e distinguir as duas exigiria filtrar por convenção de nome (`dlq`,
 # `dead`). Convenção de nome é expressão, e expressão não cabe na linguagem fechada — publicar
 # o total do broker com aquele rótulo seria mentir com número certo.
-_p("fila.filas", "fila", "Filas", "lista", unidade="mensagens", desempate="nome")
-_p("fila.filas_com_acumulo", "fila", "Filas com acúmulo", "lista", unidade="mensagens",
-   desempate="nome",
+_p("fila.filas", "fila", "Filas", "lista", unidade="mensagens", desempate="nome",
    limiar={"quando": "consumidores == 0 e prontas > 0",
            "regra": "fila_sem_consumidor", "severidade": "high"})
 _p("fila.consumidores_por_fila", "fila", "Consumidores por fila", "lista",

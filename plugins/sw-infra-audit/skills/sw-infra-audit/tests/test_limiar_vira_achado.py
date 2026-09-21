@@ -9,7 +9,7 @@ from collect import achados_da_resposta
 
 
 def _resposta(valor):
-    return {"pergunta": "fila.filas_com_acumulo", "fonte": "admin_http:amqp-mgmt",
+    return {"pergunta": "fila.filas", "fonte": "admin_http:amqp-mgmt",
             "valor": valor}
 
 
@@ -57,7 +57,7 @@ def test_cada_item_que_cruza_gera_o_seu():
 
 def test_resposta_sem_dados_nunca_vira_achado():
     """A regra mais importante da skill: achado nasce de fato presente, nunca de ausência."""
-    resposta = {"pergunta": "fila.filas_com_acumulo", "sem_dados": True,
+    resposta = {"pergunta": "fila.filas", "sem_dados": True,
                 "motivo": "a API não respondeu"}
 
     assert achados_da_resposta(resposta, LIMIAR, componente="broker") == []
@@ -71,7 +71,7 @@ def test_sem_dados_com_valor_residual_tambem_nao_vira_achado():
     MISTA: um adaptador que marca `sem_dados` e deixa um valor parcial para trás. Sem ela,
     dado residual de uma coleta que falhou viraria achado.
     """
-    resposta = {"pergunta": "fila.filas_com_acumulo", "sem_dados": True,
+    resposta = {"pergunta": "fila.filas", "sem_dados": True,
                 "motivo": "a API respondeu pela metade",
                 "valor": [{"nome": "emails", "prontas": 7, "consumidores": 0}]}
 
@@ -79,7 +79,7 @@ def test_sem_dados_com_valor_residual_tambem_nao_vira_achado():
 
 
 def test_erro_interno_nunca_vira_achado():
-    resposta = {"pergunta": "fila.filas_com_acumulo", "erro_interno": True,
+    resposta = {"pergunta": "fila.filas", "erro_interno": True,
                 "motivo": "admin_http: KeyError: x"}
 
     assert achados_da_resposta(resposta, LIMIAR, componente="broker") == []
@@ -87,7 +87,7 @@ def test_erro_interno_nunca_vira_achado():
 
 def test_erro_interno_com_valor_residual_tambem_nao_vira_achado():
     """Mesma coisa pelo outro lado: o adaptador estourou no meio e deixou o que já tinha."""
-    resposta = {"pergunta": "fila.filas_com_acumulo", "erro_interno": True,
+    resposta = {"pergunta": "fila.filas", "erro_interno": True,
                 "motivo": "admin_http: KeyError: x",
                 "valor": [{"nome": "emails", "prontas": 7, "consumidores": 0}]}
 

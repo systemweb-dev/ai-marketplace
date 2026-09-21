@@ -6,11 +6,10 @@ relatório com nome, papel e mais nada. Era o item que o dono pediu por extenso.
 """
 from lib.perguntas import PERGUNTAS, REGRAS_PRODUZIDAS, do_papel
 
-IDS = ["fila.filas", "fila.filas_com_acumulo", "fila.consumidores_por_fila",
-       "fila.taxa_entrada_saida"]
+IDS = ["fila.filas", "fila.consumidores_por_fila", "fila.taxa_entrada_saida"]
 
 
-def test_as_quatro_perguntas_estao_registradas():
+def test_as_tres_perguntas_estao_registradas():
     assert [p["id"] for p in do_papel("fila")] == IDS
 
 
@@ -21,17 +20,22 @@ def test_toda_pergunta_de_lista_declara_desempate():
     assert sem == []
 
 
-def test_filas_com_acumulo_dispara_por_fila_sem_consumidor():
-    limiar = PERGUNTAS["fila.filas_com_acumulo"]["limiar"]
+def test_a_lista_de_filas_dispara_por_fila_sem_consumidor():
+    limiar = PERGUNTAS["fila.filas"]["limiar"]
 
     assert limiar["regra"] == "fila_sem_consumidor"
     assert limiar["severidade"] == "high"
 
 
 def test_perguntas_sem_limiar_sao_so_informacao():
-    """`filas` e `consumidores_por_fila` descrevem; não acusam."""
-    assert PERGUNTAS["fila.filas"]["limiar"] is None
+    """`consumidores_por_fila` e `taxa_entrada_saida` descrevem; não acusam."""
     assert PERGUNTAS["fila.consumidores_por_fila"]["limiar"] is None
+    assert PERGUNTAS["fila.taxa_entrada_saida"]["limiar"] is None
+
+
+def test_filas_e_filas_com_acumulo_viraram_uma_so():
+    """Eram a mesma lista, ordenada do mesmo jeito, impressa duas vezes no relatório."""
+    assert "fila.filas_com_acumulo" not in PERGUNTAS
 
 
 def test_o_registro_declara_as_regras_que_produz():
@@ -73,7 +77,7 @@ def test_o_papel_entrada_nao_foi_mexido():
 def _dispara(item):
     from lib.limiar import avaliar
 
-    return avaliar(PERGUNTAS["fila.filas_com_acumulo"]["limiar"]["quando"], item)
+    return avaliar(PERGUNTAS["fila.filas"]["limiar"]["quando"], item)
 
 
 def test_fila_orfa_com_mensagem_dispara():
@@ -99,7 +103,7 @@ def test_os_campos_do_limiar_sao_os_que_a_pergunta_devolve():
     """
     import re
 
-    quando = PERGUNTAS["fila.filas_com_acumulo"]["limiar"]["quando"]
+    quando = PERGUNTAS["fila.filas"]["limiar"]["quando"]
     campos = set(re.findall(r"([^\W\d]\w*)\s*(?:==|!=|>=|<=|>|<)", quando))
 
     assert campos == {"consumidores", "prontas"}

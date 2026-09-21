@@ -1811,7 +1811,9 @@ git add -A && git commit -m "feat(sw-infra-audit): papel fila com quatro pergunt
 > - **`promql` mandava declarar `metricas_url` para fila**, conselho que não faz a fila responder. Quando nenhuma família do catálogo responde a pergunta, o motivo agora diz isso.
 > - `_objeto` passou a preferir um campo `objeto` explícito do item (ver regra 2 abaixo).
 >
-> **Duas regras que o batch 5 (Tasks 9–11) precisa cumprir** — vieram de sondas do juiz e mudam o desenho escrito nessas tasks:
+> **Decisões do dono no checkpoint (2026-09-21):** severidade de `fila_sem_consumidor` fica **alta fixa**; e `fila.filas` + `fila.filas_com_acumulo` **viraram uma pergunta só** — eram a mesma lista impressa duas vezes. `fila.filas` carrega o limiar; o papel `fila` fica com 3 perguntas.
+
+**Duas regras que o batch 5 (Tasks 9–11) precisa cumprir** — vieram de sondas do juiz e mudam o desenho escrito nessas tasks:
 >
 > 1. **O limiar roda sobre a população inteira, nunca sobre a lista cortada.** Com `limite = 10` na extração, o limiar via só as 10 filas com mais mensagens: 300 filas órfãs com 3 mensagens atrás de 10 filas consumidas com 5000 davam **🟢 e zero achados** — falso negativo completo. E uma órfã entrando ou saindo do top 10 aparecia no histórico como "resolvida" sem nada ter mudado. Portanto: **pergunta com limiar não pode ter `limite` no catálogo** (`catalogo_api` recusa); o corte para exibição é do relatório (Task 12), com "e mais N", e a lista inteira fica no `report.json` — que é o que o spec já dizia ("Top 10 no corpo; a lista completa fica no `report.json`").
 > 2. **Identidade composta.** `/api/queues` lista filas de todos os vhosts, e `emails` em `/` e em `staging` viravam dois achados com o mesmo objeto — no histórico colapsavam numa chave, e um aceite de `emails` aceitava os dois. O catálogo passa a declarar `identidade = ["vhost", "nome"]` e o adaptador compõe `objeto = "vhost · nome"` em cada item.
