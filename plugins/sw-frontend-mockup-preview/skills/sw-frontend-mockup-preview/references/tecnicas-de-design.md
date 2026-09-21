@@ -1,6 +1,6 @@
 # Glossário de técnicas de design (para não-designers)
 
-Lido pela `sw-design-studio` no **modo didático**. Cada técnica: o **nome** (pra você
+Lido pela `sw-frontend-mockup-preview` no **modo didático** (opcional: só quando o usuário pede). Cada técnica: o **nome** (pra você
 reconhecer e reaplicar), o que é **em linguagem simples**, e **por que importa**. Use o nome
 exato na dica do terminal, no formato:
 

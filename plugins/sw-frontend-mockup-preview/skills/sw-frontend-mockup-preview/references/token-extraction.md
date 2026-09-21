@@ -4,10 +4,10 @@ Guia de referência para o passo 2 do workflow. O objetivo é montar um bloco de
 CSS variables (light + dark) para injetar no harness, traduzindo o que o projeto
 usar para esse formato comum. Leia só a seção do stack detectado.
 
-> **Guia canônico de detecção de tokens do trio de design.** As skills irmãs
-> (`sw-design-studio`, `sw-frontend-component-kit`) apontam pra cá pra não duplicar a
+> **Guia canônico de detecção de tokens das skills de design.** A skill irmã
+> (`sw-frontend-component-kit`) aponta pra cá pra não duplicar a
 > lógica — a detecção por stack (CSS vars / Tailwind / SCSS / fonte) vive aqui. Se você
-> está numa delas e esta skill não estiver instalada, use o resumo inline que elas trazem.
+> está nela e esta skill não estiver instalada, use o resumo inline que ela traz.
 
 ## Como detectar o stack
 

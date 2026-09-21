@@ -187,18 +187,19 @@ Vale só no **fluxo completo**. No caminho trivial (design de 1-2 frases) não h
 um fluxo de interface). Se tiver, o *look & feel* não é trabalho do brainstorming — sugira, via
 `AskUserQuestion`, encaminhar a **direção visual** para as skills de design **se instaladas**:
 
-- **`sw-design-studio`** — decide a direção visual (paleta, tipografia, motion, anti-genérico).
+- **`sw-frontend-mockup-preview`** — decide a direção visual **vendo**: lê o pedido, gera
+  variações que diferem de verdade (hierarquia, layout, tipografia, cor, densidade), passa por
+  um detector de visual genérico de IA e serve com live-reload para escolher antes de aplicar.
 - **`sw-frontend-component-kit`** — se a feature precisa da **base de componentes** (Button,
   Input, Modal, Table…), gerar o kit seguindo os tokens do projeto.
-- **`sw-frontend-mockup-preview`** — ver um preview antes de aplicar.
 
-Ordem natural: **direção (`sw-design-studio`) → kit (`sw-frontend-component-kit`) → preview
-(`sw-frontend-mockup-preview`)**. Você escolhe quais sugerir conforme a feature pede — nem toda
-UI precisa das três.
+Ordem natural: **direção e preview (`sw-frontend-mockup-preview`) → kit
+(`sw-frontend-component-kit`)**. Você escolhe quais sugerir conforme a feature pede — nem toda
+UI precisa das duas.
 
-**Regra:** sempre que envolver design (direção OU kit), **ofereça também ver no preview**
-(`sw-frontend-mockup-preview`) via `AskUserQuestion` — **visualizar antes de aplicar é o
-padrão**, não um extra. Cada oferta é um menu (Sim/Não), nunca texto solto.
+**Regra:** sempre que envolver design, **ofereça ver no preview** (`sw-frontend-mockup-preview`)
+via `AskUserQuestion` — **visualizar antes de aplicar é o padrão**, não um extra. Cada oferta é
+um menu (Sim/Não), nunca texto solto.
 
 Se não estiverem instaladas, recomende `/plugin install <skill>@ai-marketplace`; se o usuário
 não quiser, siga sem elas. É **sugestão**, não obrigação — e **não** levante isso pra feature
