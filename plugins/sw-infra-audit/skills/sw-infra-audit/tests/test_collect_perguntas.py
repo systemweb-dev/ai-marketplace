@@ -208,7 +208,7 @@ def test_achado_de_limiar_agrava_a_saude_no_relatorio(tmp_path, monkeypatch):
     from lib import perguntas
 
     monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
-                        {"quando": "valor > 100", "regra": "OPS_NODE_DOWN",
+                        {"quando": "valor > 100", "regra": "fila_sem_consumidor",
                          "severidade": "critical"})
     AdaptadorFalso.RESPOSTAS = {"entrada.volume_na_janela": {"fonte": "falso:x", "valor": 900}}
     AdaptadorFalso.VISTAS = []
@@ -230,3 +230,47 @@ def test_sem_achado_a_saude_do_coletor_e_preservada(tmp_path):
                  coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
 
     assert ler(tmp_path)["alvos"][0]["saude"] == "🟢"
+
+
+def test_risco_aceito_nao_deixa_o_alvo_vermelho(tmp_path, monkeypatch):
+    """O aceite tira o achado; a saúde precisa acompanhar.
+
+    `agravar_saude` rodava dentro de `coletar_alvo`, ANTES do `aceites.aplicar` que o `main`
+    chama depois — nada recalculava. Um broker de dev com filas órfãs que o dono já aceitou
+    pintava o cluster de 🔴, e nenhum achado no relatório explicava por quê.
+    """
+    from lib import perguntas
+
+    monkeypatch.setitem(perguntas.PERGUNTAS["entrada.volume_na_janela"], "limiar",
+                        {"quando": "valor > 100", "regra": "fila_sem_consumidor",
+                         "severidade": "high"})
+    AdaptadorFalso.RESPOSTAS = {"entrada.volume_na_janela": {"fonte": "falso:x", "valor": 900}}
+    AdaptadorFalso.VISTAS = []
+    argumentos = ambiente(tmp_path)
+    (tmp_path / "config.toml").write_text(
+        'alvos = ["cluster"]\n'
+        '[[aceite]]\nalvo = "cluster"\ncomponente = "proxy"\nregra = "fila_sem_consumidor"\n'
+        'motivo = "fila de desenvolvimento, sem consumidor por desenho"\n'
+        'revisar_em = "2026-12-31"\n', encoding="utf-8")
+
+    collect.main([*argumentos, "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_componente()}, adaptadores=[AdaptadorFalso])
+    relatorio = ler(tmp_path)
+
+    assert relatorio["alvos"][0]["achados"] == []
+    assert relatorio["alvos"][0]["saude"] == "🟢"
+    assert relatorio["inventario"][0]["saude"] == "🟢"
+
+
+def test_achado_do_coletor_nao_agrava_a_saude(tmp_path):
+    """A nota do coletor docker já leva os achados DELE em conta. Agravar de novo por eles
+    mudaria, calado, a saúde de relatórios que não têm nada a ver com limiar."""
+    def coletor(alvo, contexto):
+        return {"saude": "🟡", "componentes": [],
+                "achados": [{"regra": "SEC_PRIVILEGED", "severidade": "high",
+                             "objeto": "svc", "detalhe": "privileged"}]}
+
+    collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
+                 coletores={"docker": coletor}, adaptadores=[AdaptadorFalso])
+
+    assert ler(tmp_path)["alvos"][0]["saude"] == "🟡"

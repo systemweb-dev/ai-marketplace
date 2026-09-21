@@ -39,6 +39,31 @@ _p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms",
    faixa={"sentido": "menor_melhor", "bom_ate": 700, "ruim_a_partir": 1500, "maximo": 3000})
 
 
+# --- papel `fila`: tudo sai do mesmo endpoint de listagem de filas, então o custo marginal de
+# cada pergunta é uma extração, não uma requisição. A ordem é a do relatório: o que existe, o
+# que está acumulando, quem consome e a que ritmo.
+#
+# Fila morta NÃO entra nesta versão: a visão geral da API traz o total de mensagens do broker,
+# não o da fila morta, e distinguir as duas exigiria filtrar por convenção de nome (`dlq`,
+# `dead`). Convenção de nome é expressão, e expressão não cabe na linguagem fechada — publicar
+# o total do broker com aquele rótulo seria mentir com número certo.
+_p("fila.filas", "fila", "Filas", "lista", unidade="mensagens", desempate="nome")
+_p("fila.filas_com_acumulo", "fila", "Filas com acúmulo", "lista", unidade="mensagens",
+   desempate="nome",
+   limiar={"quando": "consumidores == 0 e prontas > 0",
+           "regra": "fila_sem_consumidor", "severidade": "high"})
+_p("fila.consumidores_por_fila", "fila", "Consumidores por fila", "lista",
+   unidade="consumidores", desempate="nome")
+_p("fila.taxa_entrada_saida", "fila", "Entrada × saída", "lista", unidade="mensagens/s",
+   desempate="nome")
+
+
+# O limiar é um produtor de achado, ao lado de `lib/rules.py` e do coletor http. Declarar o que
+# ele produz — derivado, nunca digitado — é o que deixa o teste do registro de regras enxergar
+# os três produtores em vez de dois.
+REGRAS_PRODUZIDAS = {p["limiar"]["regra"] for p in PERGUNTAS.values() if p["limiar"]}
+
+
 def do_papel(papel):
     """As perguntas daquele papel, na ordem declarada (barata → cara).
 

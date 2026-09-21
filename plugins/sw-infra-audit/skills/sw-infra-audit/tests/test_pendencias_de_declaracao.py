@@ -37,13 +37,15 @@ def test_agrupa_componentes_que_esperam_a_mesma_declaracao():
 def test_componente_sem_nenhuma_pergunta_tambem_e_pendencia():
     """O caso mais comum e o mais invisível: papel sem pergunta registrada não gera nem
     `sem_dados` — gera lista vazia, e o componente some do relatório sem deixar rastro."""
-    alvos = [_alvo("prod", [_comp("rabbitmq", "fila", []),
+    # `cache` e `banco` seguem sem pergunta registrada. (`fila` servia de exemplo aqui até o
+    # plano 2 dar a ela quatro perguntas — o exemplo precisa ser um papel que continue mudo.)
+    alvos = [_alvo("prod", [_comp("redis", "cache", []),
                             _comp("postgres", "banco", [])])]
 
     pend = pendencias_de_declaracao(alvos)
 
     papeis = {p["papel"] for p in pend}
-    assert papeis == {"fila", "banco"}
+    assert papeis == {"cache", "banco"}
     assert all("nenhuma pergunta" in p["motivo"] for p in pend)
 
 
@@ -81,6 +83,21 @@ def test_sem_pendencia_o_bloco_diz_que_esta_completo():
     html = _pendencias(alvos)
 
     assert "traefik" not in html
+
+
+def test_papel_que_ganhou_pergunta_deixa_de_ser_pendencia_de_papel():
+    """`fila` ganhou perguntas no plano 2: um componente `fila` nunca mais pode aparecer com o
+    motivo "papel sem pergunta".
+
+    O componente vem SEM respostas de propósito — é esse o caminho que decide "papel sem
+    pergunta". A primeira versão deste teste trazia respostas preenchidas, então o ramo nunca
+    rodava, e apagar as quatro perguntas de `fila` não derrubava nada.
+    """
+    alvos = [_alvo("prod", [_comp("broker", "fila", [])])]
+
+    pend = pendencias_de_declaracao(alvos)
+
+    assert not any("papel `fila`" in p["motivo"] for p in pend)
 
 
 def test_insight_so_existe_para_componente_que_tem_o_que_dizer():

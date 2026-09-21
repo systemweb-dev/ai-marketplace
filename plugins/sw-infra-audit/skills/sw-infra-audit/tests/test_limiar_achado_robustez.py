@@ -30,7 +30,7 @@ def test_achado_de_limiar_agrava_a_saude_do_alvo(severidade, esperada):
     """`saude` vinha do coletor e era gravada ANTES de as perguntas serem feitas. O painel
     anunciava "1 alvo 🟢 · 1 achado" com um achado crítico aberto — e o estado é o único
     número que o leitor bate o olho."""
-    registro = {"saude": "🟢", "achados": [{"regra": "r", "severidade": severidade}]}
+    registro = {"saude": "🟢", "achados": [{"regra": "fila_sem_consumidor", "severidade": severidade}]}
 
     agravar_saude(registro)
 
@@ -44,7 +44,7 @@ def test_agravar_nunca_melhora_a_saude():
     O `low` não serve para provar isto: ele não propõe estado nenhum, então a comparação de
     gravidade nem chega a ser exercida e a mutação sobrevive.
     """
-    registro = {"saude": "🔴", "achados": [{"regra": "r", "severidade": "medium"}]}
+    registro = {"saude": "🔴", "achados": [{"regra": "fila_sem_consumidor", "severidade": "medium"}]}
 
     agravar_saude(registro)
 
@@ -52,7 +52,7 @@ def test_agravar_nunca_melhora_a_saude():
 
 
 def test_achado_de_baixa_severidade_nao_muda_nada():
-    registro = {"saude": "🟢", "achados": [{"regra": "r", "severidade": "low"}]}
+    registro = {"saude": "🟢", "achados": [{"regra": "fila_sem_consumidor", "severidade": "low"}]}
 
     agravar_saude(registro)
 
@@ -61,8 +61,8 @@ def test_achado_de_baixa_severidade_nao_muda_nada():
 
 def test_o_pior_achado_e_quem_manda():
     """Vários achados: vale o mais grave, não o último da lista."""
-    registro = {"saude": "🟢", "achados": [{"regra": "r", "severidade": "critical"},
-                                          {"regra": "r", "severidade": "low"}]}
+    registro = {"saude": "🟢", "achados": [{"regra": "fila_sem_consumidor", "severidade": "critical"},
+                                          {"regra": "fila_sem_consumidor", "severidade": "low"}]}
 
     agravar_saude(registro)
 
@@ -71,6 +71,15 @@ def test_o_pior_achado_e_quem_manda():
 
 def test_alvo_sem_achado_mantem_o_que_o_coletor_disse():
     registro = {"saude": "🟡", "achados": []}
+
+    agravar_saude(registro)
+
+    assert registro["saude"] == "🟡"
+
+
+def test_achado_que_nao_nasce_de_limiar_nao_agrava():
+    """A nota do coletor já leva os achados dele em conta."""
+    registro = {"saude": "🟡", "achados": [{"regra": "SEC_PRIVILEGED", "severidade": "high"}]}
 
     agravar_saude(registro)
 
@@ -174,3 +183,17 @@ def test_nome_que_nao_e_texto_nao_vai_cru_para_o_objeto():
     achados = achados_da_resposta(resposta, CRUZA, componente="broker")
 
     assert achados[0]["objeto"] == "broker"
+
+
+def test_objeto_explicito_do_item_tem_precedencia():
+    """Filas de mesmo nome em vhosts diferentes (`emails` em `/` e em `staging`) viravam dois
+    achados com o mesmo objeto: no histórico, colapsavam numa chave só, e consertar um deles
+    não aparecia como resolvido. O adaptador compõe um `objeto` que distingue os dois
+    (`/ · emails`), e a ponte usa esse campo antes de `nome`."""
+    resposta = _resposta([{"objeto": "staging · emails", "nome": "emails", "prontas": 3,
+                           "consumidores": 0}])
+
+    achados = achados_da_resposta(resposta, CRUZA, componente="broker")
+
+    assert achados[0]["objeto"] == "staging · emails"
+    assert "staging" not in achados[0]["detalhe"], "o objeto não se repete no detalhe"

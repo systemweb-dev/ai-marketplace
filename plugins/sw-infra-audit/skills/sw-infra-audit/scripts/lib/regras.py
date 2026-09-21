@@ -39,6 +39,10 @@ REGRAS = {
     "sem_tls":                  {"severidade_padrao": "medium",  "origem": "coletor_http", "esperada": False},
     "http_fora_do_ar":          {"severidade_padrao": "critical", "origem": "coletor_http", "esperada": False},
     "http_resposta_de_erro":    {"severidade_padrao": "medium",  "origem": "coletor_http", "esperada": False},
+    # --- limiar de pergunta canônica (lib/perguntas.py)
+    # A primeira regra da skill que nasce de uma MEDIDA, e não de como o serviço está declarado.
+    # Por isso depende de coleta que respondeu: `sem_dados` nunca vira este achado.
+    "fila_sem_consumidor":      {"severidade_padrao": "high",    "origem": "limiar", "esperada": False},
 }
 
 

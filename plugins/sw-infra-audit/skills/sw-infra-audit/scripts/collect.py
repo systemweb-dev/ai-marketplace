@@ -37,16 +37,28 @@ _GRAVIDADE = {"🟢": 0, "🟡": 1, "🔴": 2}
 
 
 def agravar_saude(registro):
-    """Sobe a saúde do alvo até o que os achados exigem. Nunca desce.
+    """Sobe a saúde do alvo até o que os achados DE LIMIAR exigem. Nunca desce.
 
     Só agrava: um achado `low` não pode promover um alvo que o coletor deu como degradado. E
     `sem dados` fica como está — não é um estado bom a ser piorado, é a ausência de leitura.
+
+    Só olha achado nascido de limiar (`origem = "limiar"` no registro de regras). A nota do
+    coletor docker já leva os achados DELE em conta; agravar de novo por eles mudaria, calado,
+    a saúde de relatórios que não têm nada a ver com limiar — a primeira versão desta função
+    fazia isso, e um `SEC_PRIVILEGED` subia um alvo de 🟡 para 🔴.
+
+    Roda no `main`, DEPOIS dos aceites. Rodando antes, o aceite tirava o achado e o alvo
+    continuava vermelho — sem nenhum achado no relatório para explicar por quê.
     """
+    from lib.regras import REGRAS
+
     atual = registro.get("saude")
     if atual not in _GRAVIDADE:
         return registro
     for achado in registro.get("achados") or []:
         if not isinstance(achado, dict):
+            continue
+        if REGRAS.get(achado.get("regra"), {}).get("origem") != "limiar":
             continue
         exigido = _PIOR_ESTADO.get(achado.get("severidade"))
         if exigido and _GRAVIDADE[exigido] > _GRAVIDADE[registro["saude"]]:
@@ -109,10 +121,11 @@ def achados_da_resposta(resposta, limiar, componente):
 
 
 def _objeto(item, componente):
-    """Quem é o item. `nome` é o que a extração de API produz; `chave` é o que o `promql`
-    produz — sem o segundo, todo achado de lista vindo dele teria o nome do componente e o
-    relatório mostraria N linhas indistinguíveis."""
-    for campo in ("nome", "chave"):
+    """Quem é o item. `objeto` é a identidade composta que o adaptador monta quando o nome sozinho
+    não distingue (fila de mesmo nome em vhosts diferentes); `nome` é o que a extração de API
+    produz; `chave` é o que o `promql` produz — sem ele, todo achado de lista vindo do `promql`
+    teria o nome do componente e o relatório mostraria N linhas indistinguíveis."""
+    for campo in ("objeto", "nome", "chave"):
         valor = item.get(campo)
         if isinstance(valor, (str, int, float)) and not isinstance(valor, bool) and str(valor):
             return str(valor)
@@ -122,11 +135,11 @@ def _objeto(item, componente):
 def _detalhe(item):
     """Os números que fizeram o limiar disparar.
 
-    `nome` e `chave` ficam de fora: já são o `objeto` do achado, e repeti-los faria o relatório
-    imprimir a mesma palavra duas vezes em cada linha.
+    `objeto`, `nome` e `chave` ficam de fora: já são o `objeto` do achado, e repeti-los faria o
+    relatório imprimir a mesma palavra duas vezes em cada linha.
     """
     partes = [f"{nome}: {valor}" for nome, valor in item.items()
-              if nome not in ("nome", "chave") and valor is not None]
+              if nome not in ("objeto", "nome", "chave") and valor is not None]
     return " · ".join(partes) or "sem detalhe"
 
 
@@ -268,7 +281,6 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     for componente in registro["componentes"]:
         responder(componente, contexto, adaptadores, prazo)
     promover_achados(registro)
-    agravar_saude(registro)
 
     extras = resultado.get("nao_coletado", [])
     if isinstance(extras, list):
@@ -358,6 +370,9 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
     except ValueError as erro:        # aceite mal escrito: dizer qual linha arrumar, não um traceback
         print(f"aceite inválido: {erro}", file=sys.stderr)
         return EXIT_PARADA
+    # a saúde só depois do aceite: achado aceito não pode deixar o alvo vermelho
+    for registro in relatorio["alvos"]:
+        agravar_saude(registro)
     # a remediação vem do catálogo versionado, depois do aceite: achado aceito não precisa de
     # passo a passo, e achado que sobrou precisa — inclusive o de aceite vencido
     from lib import remediacao

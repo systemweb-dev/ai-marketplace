@@ -2,7 +2,7 @@
 import json
 
 import collect
-from lib import rules
+from lib import perguntas, rules
 from lib.coletores import http as coletor_http
 from lib.regras import REGRAS, esperada, exigem_remediacao, severidade
 
@@ -13,12 +13,16 @@ def test_todo_produtor_declara_suas_regras_no_registro():
     assert rules.REGRAS_PRODUZIDAS <= set(REGRAS), sorted(rules.REGRAS_PRODUZIDAS - set(REGRAS))
     assert coletor_http.REGRAS_PRODUZIDAS <= set(REGRAS), \
         sorted(coletor_http.REGRAS_PRODUZIDAS - set(REGRAS))
+    # o terceiro produtor: limiar declarado numa pergunta canônica
+    assert perguntas.REGRAS_PRODUZIDAS <= set(REGRAS), \
+        sorted(perguntas.REGRAS_PRODUZIDAS - set(REGRAS))
 
 
 def test_o_registro_nao_guarda_regra_que_ninguem_produz():
     """`rule_meta` carregava OPS_SERVICE_DOWN, que nenhum produtor emite. Entrada morta em
     catálogo é pior que ausência: dá a impressão de cobertura que não existe."""
-    produzidas = rules.REGRAS_PRODUZIDAS | coletor_http.REGRAS_PRODUZIDAS
+    produzidas = (rules.REGRAS_PRODUZIDAS | coletor_http.REGRAS_PRODUZIDAS
+                  | perguntas.REGRAS_PRODUZIDAS)
     assert set(REGRAS) == produzidas, sorted(set(REGRAS) ^ produzidas)
 
 

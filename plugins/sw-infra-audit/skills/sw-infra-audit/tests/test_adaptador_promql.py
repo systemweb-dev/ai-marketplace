@@ -229,3 +229,28 @@ def test_pergunta_que_a_familia_nao_expoe_diz_isso(prometheus):
     finally:
         perguntas.PERGUNTAS.pop("entrada.inventada")
         perguntas.ORDEM["entrada"].remove("entrada.inventada")
+
+
+def test_pergunta_que_nenhuma_familia_responde_nao_manda_declarar_metricas_url():
+    """Enquanto só existe o `promql`, toda pergunta de `fila` recebia o motivo "o componente não
+    declara `metricas_url`" — e o dono ia declarar algo que não faz a fila responder, porque
+    nenhuma família de exporter do catálogo sabe falar de fila. O motivo tem que ser o
+    verdadeiro: ninguém aqui responde isto."""
+    from lib.adaptadores import promql
+
+    resposta = promql.perguntar("fila.filas", {"nome": "broker", "papel": "fila"},
+                                {"timeout": 5})
+
+    assert resposta["sem_dados"] is True
+    assert "metricas_url" not in resposta["motivo"]
+    assert "exporter" in resposta["motivo"]
+
+
+def test_pergunta_que_alguma_familia_responde_continua_pedindo_metricas_url():
+    """Regressão: para `entrada`, declarar `metricas_url` É o conserto."""
+    from lib.adaptadores import promql
+
+    resposta = promql.perguntar("entrada.latencia", {"nome": "proxy", "papel": "entrada"},
+                                {"timeout": 5})
+
+    assert "metricas_url" in resposta["motivo"]

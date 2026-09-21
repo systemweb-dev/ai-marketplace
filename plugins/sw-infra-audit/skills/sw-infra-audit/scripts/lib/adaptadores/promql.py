@@ -133,6 +133,15 @@ def perguntar(pergunta, componente, contexto):
     """Responde a pergunta, ou devolve `sem_dados` com o motivo real."""
     base = componente.get("metricas_url")
     if not base:
+        if not any(p.get("id") == pergunta for familia in catalogo.familias()
+                   for p in familia.get("pergunta", [])):
+            # Nenhuma família do catálogo sabe responder isto. Pedir `metricas_url` aqui
+            # mandaria o dono configurar algo que não faz a pergunta responder — era o que
+            # acontecia com todo componente de `fila` antes de existir o adaptador de API.
+            # Com `metricas_url` declarado, o caminho normal dá o motivo mais específico
+            # ("o exporter X não expõe..."), então esta checagem fica só neste ramo.
+            return _sem_dados(pergunta, "nenhuma família de exporter conhecida responde a "
+                                        "esta pergunta")
         return _sem_dados(pergunta, "o componente não declara `metricas_url` no alvos.toml")
 
     base = base_de(base)

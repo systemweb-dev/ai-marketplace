@@ -1546,7 +1546,7 @@ git add -A && git commit -m "feat(sw-infra-audit): limiar declarado vira achado 
 
 Vem antes do catálogo de propósito: `catalogo_api.py` recusa arquivo que cite pergunta inexistente, então o registro precisa existir primeiro.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_perguntas_fila.py
@@ -1604,12 +1604,12 @@ def test_o_papel_entrada_nao_foi_mexido():
         "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia"]
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_perguntas_fila.py -q`
 Expected: FAIL — `assert [] == ['fila.filas', ...]`
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 No fim de `scripts/lib/perguntas.py`, antes de `def do_papel`:
 
@@ -1634,12 +1634,12 @@ _p("fila.taxa_entrada_saida", "fila", "Entrada × saída", "lista", unidade="men
 
 > A regra `fila_sem_consumidor` entra no registro na Task 8. Rodar `test_o_limiar_aponta_para_regra_registrada` antes dela **falha de propósito** — é a ordem natural: a pergunta declara o que quer, e a task seguinte registra a regra e escreve a remediação.
 
-- [ ] **Step 4: Rodar e confirmar o verde parcial**
+- [x] **Step 4: Rodar e confirmar o verde parcial**
 
 Run: `.venv/bin/python -m pytest tests/test_perguntas_fila.py -q`
 Expected: 5 PASS, 1 FAIL (`test_o_limiar_aponta_para_regra_registrada` — as regras entram na Task 8)
 
-- [ ] **Step 5: Sem commit ainda**
+- [x] **Step 5: Sem commit ainda**
 
 Esta task e a Task 8 fecham juntas: registro de pergunta que cita regra inexistente não é estado para commitar. Siga direto.
 
@@ -1656,7 +1656,7 @@ A fitness function que já existe (`tests/test_remediacao.py`) derruba a suíte 
 
 `fila_morta_com_mensagens` **não entra** — a decisão do dono foi tirar `fila.fila_morta` do plano 2, porque o número disponível não é o que o nome promete.
 
-- [ ] **Step 1: Escrever os testes que falham**
+- [x] **Step 1: Escrever os testes que falham**
 
 ```python
 # tests/test_regras_de_fila.py
@@ -1706,12 +1706,12 @@ def test_a_origem_diz_de_onde_a_regra_nasce():
     assert REGRAS["fila_sem_consumidor"]["origem"] == "limiar"
 ```
 
-- [ ] **Step 2: Rodar e confirmar que falha pelo motivo certo**
+- [x] **Step 2: Rodar e confirmar que falha pelo motivo certo**
 
 Run: `.venv/bin/python -m pytest tests/test_regras_de_fila.py -q`
 Expected: FAIL — `assert 'fila_sem_consumidor' in REGRAS`
 
-- [ ] **Step 3: Registrar as regras**
+- [x] **Step 3: Registrar as regras**
 
 Em `scripts/lib/regras.py`, no fim do dicionário `REGRAS`, antes do `}`:
 
@@ -1722,7 +1722,7 @@ Em `scripts/lib/regras.py`, no fim do dicionário `REGRAS`, antes do `}`:
     "fila_sem_consumidor":      {"severidade_padrao": "high",   "origem": "limiar", "esperada": False},
 ```
 
-- [ ] **Step 4: Escrever `references/remediacao/fila_sem_consumidor.md`**
+- [x] **Step 4: Escrever `references/remediacao/fila_sem_consumidor.md`**
 
 ```markdown
 ---
@@ -1771,12 +1771,12 @@ reprocessamento manual). Aí o acúmulo é esperado, e o caminho é registrar co
 prazo de revisão em vez de criar um consumidor para calar o alerta.
 ```
 
-- [ ] **Step 5: Rodar os testes das regras e a fitness function de remediação**
+- [x] **Step 5: Rodar os testes das regras e a fitness function de remediação**
 
 Run: `.venv/bin/python -m pytest tests/test_regras_de_fila.py tests/test_remediacao.py tests/test_perguntas_fila.py -q`
 Expected: PASS (todos, incluindo o `test_o_limiar_aponta_para_regra_registrada` que faltava)
 
-- [ ] **Step 6: Prova por mutação**
+- [x] **Step 6: Prova por mutação**
 
 | Mutação | Teste que precisa cair |
 |---|---|
@@ -1785,7 +1785,7 @@ Expected: PASS (todos, incluindo o `test_o_limiar_aponta_para_regra_registrada` 
 | trocar a severidade do registro para `low` | `test_severidade_padrao_bate_com_o_limiar_da_pergunta` |
 | apagar o bloco "Quando NÃO fazer" do arquivo | `test_a_remediacao_tem_os_quatro_blocos` |
 
-- [ ] **Step 7: Rodar a suíte inteira e commitar**
+- [x] **Step 7: Rodar a suíte inteira e commitar**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: PASS — 568
@@ -1794,6 +1794,29 @@ Expected: PASS — 568
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit && make check
 git add -A && git commit -m "feat(sw-infra-audit): papel fila com quatro perguntas e a regra de fila sem consumidor"
 ```
+
+---
+
+> ### Ajustes das Tasks 7–8 após a revisão do juiz (2026-09-21)
+>
+> **Bug que veio do batch 3 e este batch tornou alcançável:** risco aceito tirava o achado, mas o alvo **continuava 🔴**. `agravar_saude` rodava dentro de `coletar_alvo`, antes do `aceites.aplicar` do `main`. Um broker de dev com filas órfãs que o dono já aceitou pintava o cluster de vermelho, e nenhum achado explicava por quê. `agravar_saude` foi para o `main`, **depois** dos aceites.
+>
+> **E um segundo, meu, do batch 3:** `agravar_saude` agravava por **qualquer** achado — inclusive os do coletor docker, cuja nota já leva os próprios achados em conta. Um `SEC_PRIVILEGED` subia um alvo de 🟡 para 🔴, mudando calado a saúde de relatórios que não têm nada a ver com limiar. Agora só achado com `origem = "limiar"` no registro agrava.
+>
+> Outras correções:
+>
+> - **A semântica do limiar real não era testada.** Só se provava que compila: trocar `e` por `ou`, `>` por `>=` ou errar o nome do campo passava com a suíte verde. Agora há testes de disparo com itens realistas e um que fixa os campos do contrato (`consumidores`, `prontas`).
+> - **A remediação ensinava a expor a senha:** `curl -u "$USUARIO:$SENHA"` põe a senha no argv — visível em `ps` e na transcrição do agente. Passou a `-u "$USUARIO"` (o curl pergunta). Uma trava nova varre **todos** os arquivos de remediação atrás desse padrão.
+> - **Falsos positivos documentados** em "Quando NÃO fazer": fila morta, fila de espera para nova tentativa, stream e fila sazonal ficam sem consumidor por desenho. E o caso pior que a regra **não** vê — fila com consumidor que não confirma — ficou dito em "Como confirmar".
+> - **`promql` mandava declarar `metricas_url` para fila**, conselho que não faz a fila responder. Quando nenhuma família do catálogo responde a pergunta, o motivo agora diz isso.
+> - `_objeto` passou a preferir um campo `objeto` explícito do item (ver regra 2 abaixo).
+>
+> **Duas regras que o batch 5 (Tasks 9–11) precisa cumprir** — vieram de sondas do juiz e mudam o desenho escrito nessas tasks:
+>
+> 1. **O limiar roda sobre a população inteira, nunca sobre a lista cortada.** Com `limite = 10` na extração, o limiar via só as 10 filas com mais mensagens: 300 filas órfãs com 3 mensagens atrás de 10 filas consumidas com 5000 davam **🟢 e zero achados** — falso negativo completo. E uma órfã entrando ou saindo do top 10 aparecia no histórico como "resolvida" sem nada ter mudado. Portanto: **pergunta com limiar não pode ter `limite` no catálogo** (`catalogo_api` recusa); o corte para exibição é do relatório (Task 12), com "e mais N", e a lista inteira fica no `report.json` — que é o que o spec já dizia ("Top 10 no corpo; a lista completa fica no `report.json`").
+> 2. **Identidade composta.** `/api/queues` lista filas de todos os vhosts, e `emails` em `/` e em `staging` viravam dois achados com o mesmo objeto — no histórico colapsavam numa chave, e um aceite de `emails` aceitava os dois. O catálogo passa a declarar `identidade = ["vhost", "nome"]` e o adaptador compõe `objeto = "vhost · nome"` em cada item.
+>
+> Também: **o `limiar` sai do catálogo TOML**. Ele pertence à pergunta canônica (não depende de quem responde), e `responder()` só lê o da pergunta — o do catálogo seria letra morta que diverge com o tempo. O que o catálogo precisa garantir é **extrair os campos que o limiar da pergunta usa**, e `catalogo_api` passa a recusar catálogo que não os extraia.
 
 ---
 
