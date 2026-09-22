@@ -229,6 +229,23 @@ interpretar a descrição da pessoa, mapeie os termos dela pra esses blocos (ex.
 Gateway/`gateway`). Precisa de um bloco que não está no catálogo? É só criar o nó com um
 `icon` do set e um label claro — o catálogo é atalho, não limite.
 
+## Exemplos prontos (`examples/`)
+
+Cinco diagramas completos, um de cada arranjo — abra qualquer um com o `serve_flow.py` para ver,
+ou use como ponto de partida copiando o `flow.json`:
+
+| Pasta | Arranjo | Serve para |
+|---|---|---|
+| `request-http` | `flow` · LR | caminho de um request pela infraestrutura |
+| `aprovacao-de-despesa` | `flow` · **TB** | fluxograma clássico, com decisões em losango, espera, recusa e junção |
+| `jornada-de-assinatura` | `flow` · **TB** | jornada do usuário em etapas, com grupos por fase e caminhos de recuperação |
+| `camadas-saas` | `tiers` | arquitetura em faixas (cliente, borda, aplicação, dados, observabilidade) |
+| `microservicos-pedido` | `graph` · LR | serviços conversando, com ida e volta entre os mesmos dois nós |
+
+**Escolha o arranjo pelo formato da história, não por hábito:** processo com decisões e telas
+altas pede **TB**; caminho de request e telas largas pedem **LR**; arquitetura em camadas pede
+`tiers`; serviço que responde para quem chamou pede `graph`.
+
 ## flow.json — formato resumido
 
 ```json

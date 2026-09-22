@@ -1,0 +1,49 @@
+{
+  "title": "Jornada até a primeira cobrança",
+  "layout": "flow",
+  "direction": "TB",
+  "accent": "#8b5cf6",
+  "animation": { "mode": "highlight", "speed": 1 },
+  "groups": [
+    { "id": "descoberta", "label": "Descoberta", "color": "#8b5cf6" },
+    { "id": "cadastro", "label": "Cadastro", "color": "#3563e9" },
+    { "id": "ativacao", "label": "Ativação", "color": "#0f9d76" },
+    { "id": "cobranca", "label": "Cobrança", "color": "#e8743b" }
+  ],
+  "nodes": [
+    { "id": "anuncio", "label": "Anúncio", "icon": "globe", "group": "descoberta" },
+    { "id": "site", "label": "Página de preços", "icon": "browser", "group": "descoberta" },
+    { "id": "teste", "label": "Começar teste", "icon": "user", "group": "descoberta",
+      "note": "Sem cartão: o cartão só entra quando o valor já apareceu." },
+    { "id": "conta", "label": "Cria conta", "icon": "lock", "group": "cadastro" },
+    { "id": "email", "label": "Confirma e-mail", "icon": "message", "group": "cadastro" },
+    { "id": "convite", "label": "Convida o time", "icon": "team", "group": "cadastro",
+      "note": "Quem convida alguém na primeira semana renova muito mais." },
+    { "id": "setup", "label": "Importa os dados", "icon": "storage", "group": "ativacao" },
+    { "id": "aha", "label": "Primeiro resultado", "icon": "chart", "group": "ativacao",
+      "note": "O momento em que a ferramenta faz o trabalho pela primeira vez. É a métrica que importa." },
+    { "id": "habito", "label": "Uso recorrente", "icon": "clock", "group": "ativacao" },
+    { "id": "fim_teste", "label": "Teste acaba", "shape": "diamond", "group": "cobranca" },
+    { "id": "cartao", "label": "Cadastra cartão", "icon": "money", "group": "cobranca" },
+    { "id": "cobra", "label": "Primeira cobrança", "icon": "money", "group": "cobranca" },
+    { "id": "recupera", "label": "Recuperação", "icon": "chat", "group": "cobranca",
+      "note": "Cartão recusado ou teste vencido sem conversão: contato com o motivo, não com um lembrete genérico." }
+  ],
+  "edges": [
+    { "from": "anuncio", "to": "site" },
+    { "from": "site", "to": "teste", "label": "clicou" },
+    { "from": "teste", "to": "conta" },
+    { "from": "conta", "to": "email" },
+    { "from": "email", "to": "setup" },
+    { "from": "conta", "to": "convite", "style": "dashed" },
+    { "from": "convite", "to": "setup", "style": "dashed" },
+    { "from": "setup", "to": "aha" },
+    { "from": "aha", "to": "habito" },
+    { "from": "habito", "to": "fim_teste" },
+    { "from": "fim_teste", "to": "cartao", "label": "converteu" },
+    { "from": "fim_teste", "to": "recupera", "label": "não converteu", "style": "dashed" },
+    { "from": "recupera", "to": "cartao", "label": "voltou", "style": "dashed" },
+    { "from": "cartao", "to": "cobra" },
+    { "from": "cobra", "to": "recupera", "label": "recusado", "style": "dashed" }
+  ]
+}

@@ -8,6 +8,20 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-flow-diagram` (v0.2.2): **quatro exemplos novos**, um de cada arranjo, em `examples/`:
+  `aprovacao-de-despesa` (vertical, fluxograma clássico com decisão, espera, recusa e junção),
+  `jornada-de-assinatura` (vertical, jornada em fases com caminhos de recuperação),
+  `camadas-saas` (faixas por camada) e `microservicos-pedido` (grafo, com ida e volta entre os
+  mesmos dois serviços). O `SKILL.md` ganhou a tabela dos exemplos e a regra de escolha do
+  arranjo: processo com decisões pede vertical; caminho de request pede horizontal.
+
+### Corrigido
+- `sw-flow-diagram` (v0.2.2): no arranjo **em faixas**, dois nós da mesma faixa que caíssem na
+  mesma coluna eram desenhados **exatamente um sobre o outro** e sumiam do diagrama (o `y`
+  dependia só da faixa). Agora eles empilham dentro da faixa, e a faixa cresce para caber a
+  maior pilha.
+
+### Adicionado
 - `sw-flow-diagram` (v0.2.0): **o editor aguenta diagrama grande.** O `flow.json` ganhou um
   contrato validado antes de qualquer gravação, o salvar virou atômico com detecção de
   conflito, e o editor passou a ter organização, navegação e edição em lote.

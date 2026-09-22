@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aprovação de despesa — Flow</title>
+<script>(function(){try{if(localStorage.getItem('flow-theme')==='dark')document.documentElement.dataset.theme='dark';}catch(e){}})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8fc;--bg2:#eef2f9;--surface:#ffffff;--ink:#16203a;--muted:#7c879c;
+    --line:#e3e9f3;--accent:#0f9d76;--accent-dk:color-mix(in oklab,var(--accent),#000 24%);
+    --accent-lt:color-mix(in oklab,var(--accent),#fff 18%);--node:#ffffff;--node-line:#dbe3f1;
+    --edge:#9fb0cf;--display:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  }
+  html[data-theme="dark"]{
+    --bg:#0c1322;--bg2:#0a1020;--surface:#141d30;--ink:#e8eef9;--muted:#8392ab;
+    --line:#243049;--node:#16213a;--node-line:#2a3a59;--edge:#46577a;
+    --accent:color-mix(in oklab,#0f9d76,#fff 18%);
+    --accent-dk:color-mix(in oklab,var(--accent),#fff 30%);--accent-lt:color-mix(in oklab,var(--accent),#fff 12%);
+  }
+  *{box-sizing:border-box;} body{margin:0;background:radial-gradient(1100px 600px at 80% -10%,color-mix(in oklab,var(--accent),transparent 90%),transparent 60%),linear-gradient(180deg,var(--bg),var(--bg2));color:var(--ink);font-family:var(--display);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+  .bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:12px 20px;backdrop-filter:blur(10px);background:color-mix(in oklab,var(--bg),transparent 25%);border-bottom:1px solid var(--line);}
+  .bar h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.01em;}
+  .bar .sp{flex:1;}
+  .ed-hint{font:500 10.5px/1.3 var(--mono);color:var(--muted);max-width:430px;}
+  @media(max-width:900px){.ed-hint{display:none;}}
+  /* foco visível em tudo que recebe teclado: sem isso, navegar por Tab é andar no escuro */
+  .bar button:focus-visible,.fpanel button:focus-visible,.fdock button:focus-visible,
+  .fpanel input:focus-visible,.fpanel select:focus-visible,.fpanel textarea:focus-visible,
+  .fdock input:focus-visible,.diagram .node:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  /* o que só o leitor de tela precisa ouvir (erro de validação, resultado de uma ação) */
+  .btn.primary.sujo::after{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;margin-left:6px;vertical-align:middle;}
+  .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  /* telas estreitas: paleta e painel viram gavetas sobre o canvas, que continua utilizável */
+  @media(max-width:900px){
+    .fdock{position:fixed;z-index:24;top:52px;bottom:0;left:0;width:min(78vw,300px);box-shadow:0 10px 40px -12px rgba(10,20,50,.35);}
+    .fdock.closed{transform:translateX(-100%);}
+    .fpanel{position:fixed;z-index:25;top:52px;bottom:0;right:0;width:min(84vw,320px);box-shadow:0 10px 40px -12px rgba(10,20,50,.35);}
+    .stage{margin:0;}
+  }
+  @media(max-width:640px){
+    .bar h1{max-width:9rem;}
+    /* um de cada vez: com os dois abertos não sobra canvas nenhum */
+    body.painel-aberto .fdock{transform:translateX(-100%);}
+  }
+  .btn{font:600 12px/1 var(--mono);letter-spacing:.04em;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;transition:.15s;}
+  .btn:hover{border-color:var(--accent);color:var(--accent-dk);}
+  .btn.primary{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-dk));border:0;}
+  .stage{flex:1;min-height:0;overflow:auto;padding:0;}
+  svg.diagram{display:block;}
+  .gbox{fill:color-mix(in oklab,var(--gc),transparent 92%);stroke:color-mix(in oklab,var(--gc),transparent 60%);stroke-width:1.5;stroke-dasharray:5 5;}
+  .lbox{fill:color-mix(in oklab,var(--gc),transparent 94%);stroke:color-mix(in oklab,var(--gc),transparent 70%);stroke-width:1.4;}
+  .glabel{fill:color-mix(in oklab,var(--gc),#000 10%);font:700 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;}
+  html[data-theme="dark"] .glabel{fill:color-mix(in oklab,var(--gc),#fff 25%);}
+  .nbox{fill:var(--node);stroke:var(--node-line);stroke-width:1.5;filter:drop-shadow(0 10px 18px rgba(20,30,60,.10));}
+  .node .ico{color:var(--accent-dk);}
+  .nlabel{fill:var(--ink);font:600 13px/1 var(--display);}
+  .noteDot{fill:var(--accent);}
+  .node.hl .nbox{animation:pulse 3s ease-in-out infinite;animation-delay:var(--d);}
+  @keyframes pulse{0%,72%,100%{stroke:var(--node-line);}80%{stroke:var(--accent);filter:drop-shadow(0 0 10px var(--accent));}}
+  .edge{fill:none;stroke:var(--edge);stroke-width:2;}
+  .edge.dashed{stroke-dasharray:6 5;}
+  .edge.animated{stroke-dasharray:7 6;animation:flow 2.2s linear infinite;}
+  @keyframes flow{to{stroke-dashoffset:-26;}}
+  .packet{fill:var(--accent);filter:drop-shadow(0 0 5px var(--accent));}
+  .elabel{fill:var(--muted);font:600 11px/1 var(--mono);text-anchor:middle;}
+  #arrow path{fill:var(--edge);}
+  body.paused .edge.animated{animation:none;} body.paused .packet{display:none;} body.paused .node.hl .nbox{animation:none;}
+  body.export{height:auto;overflow:visible;} body.export .bar{display:none!important;} body.export .stage{overflow:visible;}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:7px 10px;border-radius:8px;max-width:260px;opacity:0;transition:.12s;z-index:9;}
+  svg .node{cursor:grab;} body.dragging,body.dragging *{cursor:grabbing!important;} body.dragging .tip{opacity:0!important;}
+  .stage{cursor:grab;} body.panning,body.panning *{cursor:grabbing!important;} body.panning .tip{opacity:0!important;}
+  /* editor de canvas */
+  .node.sel .nbox{stroke:var(--accent);stroke-width:2.5;}
+  .edge.sel{stroke:var(--accent);stroke-width:3;}
+  .edge.ghost{stroke:var(--accent);stroke-dasharray:4 4;opacity:.7;pointer-events:none;}
+  .port{fill:var(--accent);stroke:var(--surface);stroke-width:1.5;opacity:0;cursor:crosshair;transition:opacity .12s;}
+  .node:hover .port,.node.sel .port{opacity:.95;}
+  .ehandle{fill:var(--surface);stroke:var(--accent);stroke-width:2.5;cursor:grab;}
+  .ntb{position:fixed;display:none;gap:5px;z-index:20;}
+  .ntb button{font-size:14px;line-height:1;width:28px;height:28px;border:1px solid var(--line);background:var(--surface);border-radius:7px;cursor:pointer;box-shadow:0 6px 18px -8px rgba(10,20,50,.4);}
+  .ntb button:hover{border-color:var(--accent);}
+  .ipal{position:fixed;z-index:21;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:7px;display:grid;grid-template-columns:repeat(6,1fr);gap:3px;box-shadow:0 16px 50px -16px rgba(10,20,50,.45);max-width:236px;}
+  .ipal button{width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--ink);background:var(--bg);border:1px solid transparent;border-radius:7px;cursor:pointer;}
+  .ipal button:hover{border-color:var(--accent);color:var(--accent-dk);}
+  .inlED{position:fixed;z-index:22;font:600 13px var(--display);text-align:center;border:2px solid var(--accent);border-radius:7px;padding:3px 6px;background:var(--surface);color:var(--ink);outline:none;box-shadow:0 8px 24px -10px rgba(10,20,50,.4);}
+  /* paleta de componentes (catálogo) */
+  .cpal{position:fixed;z-index:23;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 20px 60px -18px rgba(10,20,50,.5);width:302px;max-height:66vh;overflow:auto;}
+  .cpal .srch{width:100%;margin-bottom:8px;font:500 12px var(--display);padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);outline:none;}
+  .cpal .srch:focus{border-color:var(--accent);}
+  .cpal h4{margin:9px 4px 4px;font:700 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  .cpal h4:first-child{margin-top:0;}
+  .cpal .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+  .cpal button{display:flex;align-items:center;gap:7px;padding:7px 8px;font:600 12px var(--display);color:var(--ink);background:var(--bg);border:1px solid transparent;border-radius:8px;cursor:pointer;text-align:left;overflow:hidden;}
+  .cpal button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cpal button:hover{border-color:var(--accent);color:var(--accent-dk);}
+  .cpal button svg{flex:none;color:var(--accent-dk);}
+  .cpal .blank{grid-column:1/-1;justify-content:center;color:var(--muted);}
+  /* menu de grupos (atribuir/criar) */
+  .gmenu{position:fixed;z-index:23;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:6px;min-width:176px;box-shadow:0 16px 50px -16px rgba(10,20,50,.45);}
+  .gmenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;font:600 12px var(--display);color:var(--ink);background:none;border:0;border-radius:7px;cursor:pointer;}
+  .gmenu button:hover{background:var(--bg);}
+  .gmenu .dot{width:11px;height:11px;border-radius:3px;flex:none;}
+  .gmenu .sep{height:1px;background:var(--line);margin:4px 2px;}
+  .gmenu input{width:100%;font:500 12px var(--display);padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);outline:none;margin-top:3px;}
+  .gmenu input:focus{border-color:var(--accent);}
+
+  /* ---------- toolbar: botões de ícone agrupados ---------- */
+  .grp{display:flex;gap:2px;padding:2px;background:var(--soft,rgba(127,127,127,.09));border-radius:9px;}
+  .ib{width:29px;height:29px;display:grid;place-items:center;border:0;background:transparent;color:var(--ink);
+      border-radius:7px;cursor:pointer;font:600 15px/1 var(--display);transition:background .12s;}
+  .ib:hover:not(:disabled){background:var(--bg);}
+  .ib:disabled{opacity:.3;cursor:default;}
+
+  /* ---------- painel de propriedades ---------- */
+  .fpanel{position:fixed;top:56px;right:0;bottom:0;width:288px;background:var(--card,var(--bg));
+          border-left:1px solid var(--line);padding:16px;overflow-y:auto;z-index:40;
+          transform:translateX(100%);transition:transform .18s ease;display:flex;flex-direction:column;gap:13px;}
+  .fpanel.open{transform:none;}
+  body.presenting .fpanel,body.export .fpanel{display:none;}
+  .ph{display:flex;flex-direction:column;gap:2px;padding-bottom:11px;border-bottom:1px solid var(--line);}
+  .ph b{font:700 13px var(--display);}
+  .ph span{font:500 10.5px var(--mono);color:var(--muted);}
+  .fld{display:flex;flex-direction:column;gap:5px;}
+  .fl{font:700 9.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+  .finp,.fsel,.fta{width:100%;font:500 12.5px var(--display);padding:7px 9px;border:1px solid var(--line);
+                   border-radius:8px;background:var(--bg);color:var(--ink);outline:none;}
+  .fta{min-height:62px;resize:vertical;line-height:1.5;}
+  .finp:focus,.fsel:focus,.fta:focus{border-color:var(--accent);}
+  .fico{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .fico button{aspect-ratio:1;display:grid;place-items:center;border:1px solid transparent;border-radius:7px;
+               background:var(--bg);color:var(--ink);cursor:pointer;}
+  .fico button:hover{border-color:var(--line);}
+  .fico button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft,transparent);}
+  .fchk{display:flex;align-items:center;gap:8px;font:500 12px var(--display);color:var(--ink);cursor:pointer;}
+  .frow{display:flex;gap:7px;margin-top:auto;padding-top:11px;}
+  .fbtn{flex:1;font:600 12px var(--display);padding:8px;border:1px solid var(--line);border-radius:8px;
+        background:var(--bg);color:var(--ink);cursor:pointer;}
+  .fbtn:hover{border-color:var(--accent);}
+  .fbtn.danger:hover{border-color:#d3453b;color:#d3453b;}
+
+  /* ---------- guias de alinhamento e laço ---------- */
+  .guide{stroke:#e0407f;stroke-width:1;stroke-dasharray:4 4;opacity:.85;pointer-events:none;}
+  .marquee{fill:var(--accent);fill-opacity:.08;stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3;}
+
+  /* ---------- grupo recolhido ---------- */
+  .gcollapsed{cursor:pointer;}
+  .cbox{fill:var(--gc);fill-opacity:.1;stroke:var(--gc);stroke-width:1.5;}
+  .clabel{font:700 14px var(--display);fill:var(--ink);}
+  .csub{font:500 10px var(--mono);fill:var(--muted);}
+  .cchev{font:700 17px var(--display);fill:var(--muted);}
+  .gtoggle{font:700 15px var(--display);fill:var(--gc);cursor:pointer;opacity:.75;}
+  .gtoggle:hover{opacity:1;}
+  .nstripe{fill:var(--gc);}
+
+  /* ---------- apresentação ---------- */
+  .node.dim,.edge.dim,.elabel.dim{opacity:.13;transition:opacity .3s;}
+  body.presenting .bar .btn,body.presenting .bar .ib,body.presenting .bar .grp{display:none;}
+  .pbar{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;align-items:center;gap:11px;
+        background:var(--card,var(--bg));border:1px solid var(--line);border-radius:13px;padding:9px 11px;
+        box-shadow:0 10px 34px rgba(0,0,0,.19);z-index:60;max-width:min(720px,92vw);}
+  .pbar button{width:31px;height:31px;border:0;border-radius:8px;background:var(--bg);color:var(--ink);
+               cursor:pointer;font:600 17px/1 var(--display);}
+  .pbar button:hover{background:var(--accent);color:#fff;}
+  .pbar button.x{width:auto;padding:0 13px;font:600 12px var(--display);}
+  .pinfo{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .pinfo b{font:700 11.5px var(--display);}
+  .pinfo span{font:500 10.5px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* ---------- busca ---------- */
+  .fsearch{position:fixed;top:76px;left:50%;transform:translateX(-50%);width:min(430px,92vw);z-index:70;
+           background:var(--card,var(--bg));border:1px solid var(--line);border-radius:13px;padding:9px;
+           box-shadow:0 14px 40px rgba(0,0,0,.2);}
+  .fsearch input{width:100%;font:500 13.5px var(--display);padding:9px 11px;border:1px solid var(--line);
+                 border-radius:9px;background:var(--bg);color:var(--ink);outline:none;}
+  .fsearch input:focus{border-color:var(--accent);}
+  .fsearch .res{max-height:290px;overflow-y:auto;margin-top:7px;display:flex;flex-direction:column;gap:2px;}
+  .fsearch .res button{display:flex;justify-content:space-between;align-items:center;gap:9px;width:100%;
+                       text-align:left;border:0;background:transparent;color:var(--ink);cursor:pointer;
+                       padding:7px 10px;border-radius:8px;font:500 12.5px var(--display);}
+  .fsearch .res button:hover,.fsearch .res button.on{background:var(--accent);color:#fff;}
+  .fsearch .res em{font:500 10px var(--mono);opacity:.65;font-style:normal;}
+
+  /* ---------- paleta fixa (arrastar para o diagrama) ---------- */
+  .fdock{position:fixed;top:56px;left:0;bottom:0;width:196px;background:var(--card,var(--bg));
+         border-right:1px solid var(--line);display:flex;flex-direction:column;z-index:35;}
+  .fdock.closed{width:38px;}
+  body.presenting .fdock,body.export .fdock{display:none;}
+  .dkh{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 8px 8px 12px;
+       font:700 9.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+  .fdock.closed .dkh span{display:none;}
+  .dktog{width:22px;height:22px;border:0;background:transparent;color:var(--muted);cursor:pointer;
+         border-radius:6px;font:600 14px/1 var(--display);}
+  .dktog:hover{background:var(--bg);color:var(--ink);}
+  .dksrch{margin:0 8px 8px;font:500 11.5px var(--display);padding:6px 8px;border:1px solid var(--line);
+          border-radius:7px;background:var(--bg);color:var(--ink);outline:none;}
+  .dksrch:focus{border-color:var(--accent);}
+  .dkbody{flex:1;overflow-y:auto;padding:0 8px 12px;}
+  .dksection{display:block;width:100%;margin:8px 0 3px;padding:7px 5px;border:0;border-bottom:1px solid var(--line);
+             background:transparent;color:var(--muted);cursor:pointer;text-align:left;font:700 9px var(--mono);
+             letter-spacing:.1em;text-transform:uppercase;}
+  .dksection:hover{color:var(--accent);}
+  .dkbody h5{margin:9px 0 5px 4px;font:700 8.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .dkgrid{display:flex;flex-direction:column;gap:2px;}
+  /* formas em duas colunas: são 21 e, em lista, empurravam as categorias para fora da tela */
+  .dkgrid.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;}
+  .dkgrid[hidden]{display:none;}
+  .dkit{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid transparent;
+        background:transparent;color:var(--ink);cursor:grab;padding:6px 8px;border-radius:7px;
+        font:500 11.5px var(--display);}
+  .dkit:hover{background:var(--bg);border-color:var(--line);}
+  .dkit:active{cursor:grabbing;}
+  .dkit span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dkit .shp{flex:none;fill:none;stroke:currentColor;stroke-width:1.6;opacity:.72;}
+  .dkit.dksh{flex-direction:column;align-items:center;gap:4px;text-align:center;padding:7px 4px;}
+  .dkit.dksh span{max-width:100%;font-size:10.5px;line-height:1.2;white-space:normal;}
+  .dkit:hover .shp{opacity:1;color:var(--accent);}
+  .fnote{margin:0;font:500 11px/1.5 var(--display);color:var(--muted);}
+  .nlabel.mid{text-anchor:middle;}
+  .nedge{stroke:var(--line);stroke-width:1.3;fill:none;}
+  /* as 4 portas só aparecem quando são úteis: ao passar sobre o nó ou ao conectar */
+  .node .port{opacity:0;transition:opacity .12s;cursor:crosshair;}
+  .node:hover .port,.node.sel .port,body.connecting .node .port{opacity:1;}
+  body.connecting .node:hover .port{r:7.5;}
+  .dkempty{margin:12px 4px;font:500 11px var(--display);color:var(--muted);}
+  .dkghost{position:fixed;z-index:90;pointer-events:none;display:flex;align-items:center;gap:7px;
+           padding:7px 11px;border-radius:10px;font:600 12px var(--display);
+           background:var(--card,var(--bg));border:1px solid var(--line);color:var(--muted);
+           box-shadow:0 8px 22px rgba(0,0,0,.17);opacity:.9;}
+  .dkghost.ok{border-color:var(--accent);color:var(--accent);}
+  /* o canvas encolhe quando as laterais abrem — sem isso os nós ficam DEBAIXO do painel,
+     impossíveis de clicar ou de receber uma conexão solta em cima */
+  .stage{margin-left:196px;transition:margin .18s ease;}
+  body:has(.fpanel.open) .stage{margin-right:288px;}
+  body:has(.fdock.closed) .stage{margin-left:38px;}
+  body.presenting .stage,body.export .stage{margin-left:0;}
+</style>
+</head>
+<body>
+<div class="bar" role="toolbar" aria-label="Ferramentas do diagrama">
+  <h1>Aprovação de despesa</h1>
+  <div class="grp">
+    <button class="ib" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><span aria-hidden="true">↶</span></button>
+    <button class="ib" id="redoBtn" title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer"><span aria-hidden="true">↷</span></button>
+  </div>
+  <div class="grp">
+    <button class="ib" id="zoomOut" title="Diminuir (−)" aria-label="Diminuir o zoom"><span aria-hidden="true">−</span></button>
+    <button class="ib" id="fitBtn" title="Enquadrar (0)" aria-label="Enquadrar o diagrama"><span aria-hidden="true">⊡</span></button>
+    <button class="ib" id="zoomIn" title="Aumentar (+)" aria-label="Aumentar o zoom"><span aria-hidden="true">+</span></button>
+  </div>
+  <button class="ib" id="searchBtn" title="Buscar nó (Ctrl+F)" aria-label="Buscar nó"><span aria-hidden="true">⌕</span></button>
+  <div class="sp"></div>
+  <button class="btn" id="presentBtn" title="Percorrer o fluxo etapa por etapa" aria-label="Apresentar o fluxo etapa por etapa"><span aria-hidden="true">▶</span> Apresentar</button>
+  <button class="btn" id="autoPos" title="Voltar ao layout automático" aria-label="Voltar ao layout automático"><span aria-hidden="true">⤢</span> Auto</button>
+  <button class="btn" id="play" aria-label="Pausar a animação do fluxo"><span aria-hidden="true">⏸</span> Pausar</button>
+  <button class="btn" onclick="exp('svg')" aria-label="Exportar em SVG">SVG</button>
+  <button class="btn" onclick="exp('png')" aria-label="Exportar em PNG">PNG</button>
+  <button class="btn" onclick="tg()" aria-label="Alternar tema claro e escuro"><span aria-hidden="true">◑</span> Tema</button>
+  <button class="btn primary" id="savePos" title="Salvar no flow.json (Ctrl+S)" aria-label="Salvar no flow.json">Salvar</button>
+  <button class="ib" id="helpBtn" title="Atalhos" aria-label="Ver os atalhos de teclado"><span aria-hidden="true">?</span></button>
+</div>
+<p class="sr" id="anuncio" role="status" aria-live="polite"></p>
+<div class="stage">
+  <svg class="diagram" id="dg" data-vb="0 0 544 1566" viewBox="0 0 544 1566" width="544" height="1566" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>
+    
+    <path id="e0" data-from="inicio" data-to="anexo" d="M272.0,126.0 C272.0,162.0 272.0,162.0 272.0,198.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="0.00s" repeatCount="indefinite"><mpath href="#e0"/></animateMotion></circle>
+<path id="e1" data-from="anexo" data-to="tem_nota" d="M272.0,264.0 C272.0,300.0 272.0,300.0 272.0,336.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="0.25s" repeatCount="indefinite"><mpath href="#e1"/></animateMotion></circle>
+<path id="e2" data-from="tem_nota" data-to="pendencia" d="M272.0,402.0 C272.0,438.0 144.0,438.0 144.0,474.0" class="edge animated dashed" marker-end="url(#arrow)"/>
+<text data-from="tem_nota" data-to="pendencia" x="208" y="430" class="elabel">não</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="0.50s" repeatCount="indefinite"><mpath href="#e2"/></animateMotion></circle>
+<path id="e3" data-from="pendencia" data-to="anexo" d="M144.0,540.0 C214.0,600.0 342.0,138.0 272.0,198.0" class="edge animated dashed" marker-end="url(#arrow)"/>
+<text data-from="pendencia" data-to="anexo" x="208" y="361" class="elabel">anexou</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="0.75s" repeatCount="indefinite"><mpath href="#e3"/></animateMotion></circle>
+<path id="e4" data-from="tem_nota" data-to="politica" d="M272.0,402.0 C272.0,438.0 400.0,438.0 400.0,474.0" class="edge animated" marker-end="url(#arrow)"/>
+<text data-from="tem_nota" data-to="politica" x="336" y="430" class="elabel">sim</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="1.00s" repeatCount="indefinite"><mpath href="#e4"/></animateMotion></circle>
+<path id="e5" data-from="politica" data-to="recusa" d="M400.0,540.0 C400.0,852.0 144.0,852.0 144.0,1164.0" class="edge animated dashed" marker-end="url(#arrow)"/>
+<text data-from="politica" data-to="recusa" x="272" y="844" class="elabel">não</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="1.25s" repeatCount="indefinite"><mpath href="#e5"/></animateMotion></circle>
+<path id="e6" data-from="politica" data-to="gestor" d="M400.0,540.0 C400.0,576.0 272.0,576.0 272.0,612.0" class="edge animated" marker-end="url(#arrow)"/>
+<text data-from="politica" data-to="gestor" x="336" y="568" class="elabel">sim</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="1.50s" repeatCount="indefinite"><mpath href="#e6"/></animateMotion></circle>
+<path id="e7" data-from="gestor" data-to="valor" d="M272.0,678.0 C272.0,714.0 272.0,714.0 272.0,750.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="1.75s" repeatCount="indefinite"><mpath href="#e7"/></animateMotion></circle>
+<path id="e8" data-from="valor" data-to="diretoria" d="M272.0,816.0 C272.0,852.0 272.0,852.0 272.0,888.0" class="edge animated" marker-end="url(#arrow)"/>
+<text data-from="valor" data-to="diretoria" x="272" y="844" class="elabel">sim</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="2.00s" repeatCount="indefinite"><mpath href="#e8"/></animateMotion></circle>
+<path id="e9" data-from="valor" data-to="decisao" d="M272.0,816.0 C272.0,921.0 272.0,921.0 272.0,1026.0" class="edge animated" marker-end="url(#arrow)"/>
+<text data-from="valor" data-to="decisao" x="272" y="913" class="elabel">não</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="2.25s" repeatCount="indefinite"><mpath href="#e9"/></animateMotion></circle>
+<path id="e10" data-from="diretoria" data-to="decisao" d="M272.0,954.0 C272.0,990.0 272.0,990.0 272.0,1026.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="2.50s" repeatCount="indefinite"><mpath href="#e10"/></animateMotion></circle>
+<path id="e11" data-from="decisao" data-to="recusa" d="M272.0,1092.0 C272.0,1128.0 144.0,1128.0 144.0,1164.0" class="edge animated dashed" marker-end="url(#arrow)"/>
+<text data-from="decisao" data-to="recusa" x="208" y="1120" class="elabel">não</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="2.75s" repeatCount="indefinite"><mpath href="#e11"/></animateMotion></circle>
+<path id="e12" data-from="decisao" data-to="junta" d="M272.0,1092.0 C272.0,1128.0 400.0,1128.0 400.0,1164.0" class="edge animated" marker-end="url(#arrow)"/>
+<text data-from="decisao" data-to="junta" x="336" y="1120" class="elabel">sim</text>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="3.00s" repeatCount="indefinite"><mpath href="#e12"/></animateMotion></circle>
+<path id="e13" data-from="junta" data-to="pagamento" d="M400.0,1230.0 C400.0,1266.0 272.0,1266.0 272.0,1302.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="3.25s" repeatCount="indefinite"><mpath href="#e13"/></animateMotion></circle>
+<path id="e14" data-from="pagamento" data-to="fim" d="M272.0,1368.0 C272.0,1404.0 272.0,1404.0 272.0,1440.0" class="edge animated" marker-end="url(#arrow)"/>
+<circle r="4.5" class="packet"><animateMotion dur="2.2s" begin="3.50s" repeatCount="indefinite"><mpath href="#e14"/></animateMotion></circle>
+    <g class="node" data-id="inicio" transform="translate(188.0,60.0)" data-note="O colaborador lança valor, data e categoria no sistema."><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><circle cx="156" cy="12" r="3" class="noteDot"/><text x="16" y="37.5" class="nlabel">Despesa lançada</text></g>
+<g class="node" data-id="anexo" transform="translate(188.0,198.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><g transform="translate(14,22.0)" class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg></g><text x="44" y="37.5" class="nlabel">Confere nota</text></g>
+<g class="node" data-id="tem_nota" transform="translate(188.0,336.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Tem nota?</text></g>
+<g class="node" data-id="pendencia" transform="translate(60.0,474.0)" data-note="Fica parada até 7 dias. Sem anexo, volta para quem lançou."><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><circle cx="156" cy="12" r="3" class="noteDot"/><text x="16" y="37.5" class="nlabel">Aguarda anexo</text></g>
+<g class="node" data-id="politica" transform="translate(316.0,474.0)" data-note="Teto por categoria, prazo de lançamento e centro de custo ativo."><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><circle cx="156" cy="12" r="3" class="noteDot"/><text x="16" y="37.5" class="nlabel">Na política?</text></g>
+<g class="node" data-id="gestor" transform="translate(188.0,612.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Gestor aprova</text></g>
+<g class="node" data-id="valor" transform="translate(188.0,750.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Acima de 2k?</text></g>
+<g class="node" data-id="diretoria" transform="translate(188.0,888.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Diretoria aprova</text></g>
+<g class="node" data-id="decisao" transform="translate(188.0,1026.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Aprovado?</text></g>
+<g class="node" data-id="recusa" transform="translate(60.0,1164.0)" data-note="O motivo é obrigatório: é ele que ensina a próxima despesa a vir certa."><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><circle cx="156" cy="12" r="3" class="noteDot"/><text x="16" y="37.5" class="nlabel">Recusa com motivo</text></g>
+<g class="node" data-id="junta" transform="translate(316.0,1164.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Fila</text></g>
+<g class="node" data-id="pagamento" transform="translate(188.0,1302.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><g transform="translate(14,22.0)" class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6.4 12h.01M17.6 12h.01"/></svg></g><text x="44" y="37.5" class="nlabel">Agenda pagamento</text></g>
+<g class="node" data-id="fim" transform="translate(188.0,1440.0)"><rect x="0" y="0" width="168" height="66" rx="13" class="nbox"/><text x="16" y="37.5" class="nlabel">Reembolso pago</text></g>
+  </svg>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+  window.FLOW = {"title": "Aprovação de despesa", "layout": "flow", "direction": "TB", "accent": "#0f9d76", "animation": {"mode": "packet", "speed": 1}, "nodes": [{"id": "inicio", "label": "Despesa lançada", "shape": "stadium", "note": "O colaborador lança valor, data e categoria no sistema."}, {"id": "anexo", "label": "Confere nota", "shape": "rounded", "icon": "document"}, {"id": "tem_nota", "label": "Tem nota?", "shape": "diamond"}, {"id": "pendencia", "label": "Aguarda anexo", "shape": "delay", "note": "Fica parada até 7 dias. Sem anexo, volta para quem lançou."}, {"id": "politica", "label": "Na política?", "shape": "diamond", "note": "Teto por categoria, prazo de lançamento e centro de custo ativo."}, {"id": "gestor", "label": "Gestor aprova", "shape": "operation"}, {"id": "valor", "label": "Acima de 2k?", "shape": "diamond"}, {"id": "diretoria", "label": "Diretoria aprova", "shape": "operation"}, {"id": "decisao", "label": "Aprovado?", "shape": "diamond"}, {"id": "recusa", "label": "Recusa com motivo", "shape": "document", "note": "O motivo é obrigatório: é ele que ensina a próxima despesa a vir certa."}, {"id": "junta", "label": "Fila", "shape": "merge"}, {"id": "pagamento", "label": "Agenda pagamento", "shape": "rounded", "icon": "money"}, {"id": "fim", "label": "Reembolso pago", "shape": "stadium"}], "edges": [{"from": "inicio", "to": "anexo"}, {"from": "anexo", "to": "tem_nota"}, {"from": "tem_nota", "to": "pendencia", "label": "não", "style": "dashed"}, {"from": "pendencia", "to": "anexo", "label": "anexou", "style": "dashed"}, {"from": "tem_nota", "to": "politica", "label": "sim"}, {"from": "politica", "to": "recusa", "label": "não", "style": "dashed"}, {"from": "politica", "to": "gestor", "label": "sim"}, {"from": "gestor", "to": "valor"}, {"from": "valor", "to": "diretoria", "label": "sim"}, {"from": "valor", "to": "decisao", "label": "não"}, {"from": "diretoria", "to": "decisao"}, {"from": "decisao", "to": "recusa", "label": "não", "style": "dashed"}, {"from": "decisao", "to": "junta", "label": "sim"}, {"from": "junta", "to": "pagamento"}, {"from": "pagamento", "to": "fim"}]};
+  window.POS = {"inicio": [188.0, 60], "anexo": [188.0, 198], "tem_nota": [188.0, 336], "pendencia": [60.0, 474], "politica": [316.0, 474], "gestor": [188.0, 612], "valor": [188.0, 750], "diretoria": [188.0, 888], "decisao": [188.0, 1026], "recusa": [60.0, 1164], "junta": [316.0, 1164], "pagamento": [188.0, 1302], "fim": [188.0, 1440]};
+  window.ICON_SVG = {"brain": "<path d=\"M12 6a3 3 0 0 0-5.8-1A2.7 2.7 0 0 0 4.2 9.4 2.7 2.7 0 0 0 5.6 14a2.8 2.8 0 0 0 3.2 5 3 3 0 0 0 3.2-1.5\"/><path d=\"M12 6a3 3 0 0 1 5.8-1 2.7 2.7 0 0 1 2 4.4 2.7 2.7 0 0 1-1.4 4.6 2.8 2.8 0 0 1-3.2 5A3 3 0 0 1 12 17.5\"/><path d=\"M12 6v11.5\"/>", "chat": "<path d=\"M4.5 6.5A2.5 2.5 0 0 1 7 4h10a2.5 2.5 0 0 1 2.5 2.5v6A2.5 2.5 0 0 1 17 15h-6l-4.5 4v-4A2 2 0 0 1 4.5 13z\"/><path d=\"M8.5 8.5h7M8.5 11.5h4\"/>", "money": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><circle cx=\"12\" cy=\"12\" r=\"2.6\"/><path d=\"M6.4 12h.01M17.6 12h.01\"/>", "truck": "<path d=\"M3 7.5A1.5 1.5 0 0 1 4.5 6H13v9.5H3z\"/><path d=\"M13 10h3.6l3.4 3.4v2.1H13z\"/><circle cx=\"7.2\" cy=\"17.6\" r=\"1.6\"/><circle cx=\"16.8\" cy=\"17.6\" r=\"1.6\"/>", "key": "<circle cx=\"8\" cy=\"12\" r=\"3.2\"/><path d=\"M11.2 12H21l-2.2 2.4M16.6 12v2.4\"/>", "flask": "<path d=\"M10 3.5v5.9L5.5 17A2 2 0 0 0 7.2 20h9.6a2 2 0 0 0 1.7-3L14 9.4V3.5\"/><path d=\"M9 3.5h6M8.4 14h7.2\"/>", "chart": "<path d=\"M4 4v16h16\"/><path d=\"M8 17v-4.5M12.4 17V8.5M16.8 17v-7\"/>", "team": "<circle cx=\"9\" cy=\"9\" r=\"3\"/><path d=\"M3.6 19a5.4 5.4 0 0 1 10.8 0\"/><path d=\"M16 6.6a3 3 0 0 1 0 5.8M20.4 19a5.6 5.6 0 0 0-2.6-4.3\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"3.4\"/><path d=\"M5.5 19a6.5 6.5 0 0 1 13 0\"/>", "server": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"7\" rx=\"1.5\"/><rect x=\"4\" y=\"13\" width=\"16\" height=\"7\" rx=\"1.5\"/><circle cx=\"7.5\" cy=\"7.5\" r=\"0.9\"/><circle cx=\"7.5\" cy=\"16.5\" r=\"0.9\"/>", "database": "<ellipse cx=\"12\" cy=\"6\" rx=\"7\" ry=\"3\"/><path d=\"M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6\"/><path d=\"M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3\"/>", "storage": "<path d=\"M4 7h16l-1.4 11.2a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8L4 7z\"/><path d=\"M3 5h18\"/>", "queue": "<rect x=\"3\" y=\"6\" width=\"5\" height=\"12\" rx=\"1\"/><rect x=\"9.5\" y=\"6\" width=\"5\" height=\"12\" rx=\"1\"/><rect x=\"16\" y=\"6\" width=\"5\" height=\"12\" rx=\"1\"/>", "cache": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><path d=\"M13 7l-4 6h3l-1 4 4-6h-3l1-4z\"/>", "shield": "<path d=\"M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z\"/>", "cloud": "<path d=\"M7 18a4 4 0 0 1 .5-7.95A5 5 0 0 1 17 9.5a3.5 3.5 0 0 1-.5 8.5H7z\"/>", "balancer": "<circle cx=\"6\" cy=\"12\" r=\"2.3\"/><circle cx=\"18\" cy=\"6\" r=\"2.3\"/><circle cx=\"18\" cy=\"12\" r=\"2.3\"/><circle cx=\"18\" cy=\"18\" r=\"2.3\"/><path d=\"M8.3 12H15M8 11l7.7-4M8 13l7.7 4\"/>", "gateway": "<path d=\"M4 20V8l8-4 8 4v12\"/><path d=\"M9 20v-6h6v6\"/>", "gear": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2\"/>", "service": "<path d=\"M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z\"/><circle cx=\"12\" cy=\"12\" r=\"2.6\"/>", "document": "<path d=\"M6 3h8l4 4v14H6z\"/><path d=\"M14 3v4h4M9 12h6M9 16h6\"/>", "message": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"M3.5 6.5L12 13l8.5-6.5\"/>", "mobile": "<rect x=\"7\" y=\"3\" width=\"10\" height=\"18\" rx=\"2\"/><path d=\"M11 18h2\"/>", "browser": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 8h18M6.5 6.2h.01M9 6.2h.01\"/>", "lock": "<rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/>", "clock": "<circle cx=\"12\" cy=\"12\" r=\"8\"/><path d=\"M12 8v4l3 2\"/>", "decision": "<path d=\"M12 3l9 9-9 9-9-9 9-9z\"/>", "external": "<path d=\"M14 4h6v6M20 4l-8 8M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6\"/>", "api": "<path d=\"M8 5l-5 7 5 7M16 5l5 7-5 7M13 4l-2 16\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M3.5 12h17M12 3.5c2.5 2.4 2.5 14.6 0 17M12 3.5c-2.5 2.4-2.5 14.6 0 17\"/>", "proxy": "<rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M9 9l-2.5 3 2.5 3M15 9l2.5 3-2.5 3\"/>", "cdn": "<path d=\"M7 16.5a3.4 3.4 0 0 1 .4-6.8A4.4 4.4 0 0 1 16 8.3a2.9 2.9 0 0 1 .3 6.2\"/><circle cx=\"5.5\" cy=\"20\" r=\"1.2\"/><circle cx=\"12\" cy=\"21\" r=\"1.2\"/><circle cx=\"18.5\" cy=\"20\" r=\"1.2\"/><path d=\"M11 14.5l-4.7 4.3M13 14.5l4.7 4.3M12 15v5\"/>", "firewall": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"16\" rx=\"1.5\"/><path d=\"M3 9.3h18M3 14.6h18M9 4v5.3M15 9.3v5.3M9 14.6V20M15 14.6V20\"/>", "function": "<path d=\"M15.5 5.5A2.5 2.5 0 0 0 13 8v8a2.5 2.5 0 0 1-2.5 2.5M8.5 12H15\"/>", "container": "<path d=\"M3 8l9-5 9 5-9 5-9-5z\"/><path d=\"M3 8v8l9 5 9-5V8M12 13v8\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.2\"/><path d=\"M20 20l-4.6-4.6\"/>", "monitor": "<path d=\"M3 13h3.5l2-6 3.5 12 2.5-9 1.5 4H21\"/>", "box": "<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/>"};
+  window.CATALOG = [{"cat": "Cliente", "items": [{"label": "Usuário", "icon": "user"}, {"label": "Navegador", "icon": "browser"}, {"label": "App Mobile", "icon": "mobile"}, {"label": "App Desktop", "icon": "monitor"}, {"label": "Terminal / PDV", "icon": "monitor"}, {"label": "Sistema externo", "icon": "external"}, {"label": "Parceiro / SaaS", "icon": "external"}, {"label": "Dispositivo IoT", "icon": "monitor"}, {"label": "Chatbot", "icon": "chat"}, {"label": "Atendente", "icon": "team"}]}, {"cat": "Rede / Edge", "items": [{"label": "DNS", "icon": "globe"}, {"label": "CDN", "icon": "cdn"}, {"label": "WAF", "icon": "shield"}, {"label": "Firewall", "icon": "firewall"}, {"label": "Reverse Proxy", "icon": "proxy"}, {"label": "Load Balancer", "icon": "balancer"}, {"label": "API Gateway", "icon": "gateway"}, {"label": "Ingress Controller", "icon": "gateway"}, {"label": "Service Mesh", "icon": "service"}, {"label": "NAT Gateway", "icon": "gateway"}, {"label": "VPN", "icon": "lock"}, {"label": "Rate Limiter", "icon": "shield"}, {"label": "Edge Function", "icon": "function"}, {"label": "Proteção DDoS", "icon": "shield"}, {"label": "Terminação TLS", "icon": "key"}, {"label": "Bastion Host", "icon": "server"}, {"label": "VPC / Rede privada", "icon": "cloud"}]}, {"cat": "Aplicação", "items": [{"label": "App Server", "icon": "server"}, {"label": "Front-end SPA", "icon": "browser"}, {"label": "Renderização SSR", "icon": "browser"}, {"label": "Microserviço", "icon": "service"}, {"label": "API", "icon": "api"}, {"label": "API gRPC", "icon": "api"}, {"label": "WebSocket", "icon": "api"}, {"label": "Function", "icon": "function"}, {"label": "Container", "icon": "container"}, {"label": "Worker", "icon": "gear"}, {"label": "Job em lote", "icon": "gear"}, {"label": "Orquestrador de fluxo", "icon": "gear"}, {"label": "Máquina de estados", "icon": "decision"}, {"label": "Motor de regras", "icon": "decision"}, {"label": "Auth", "icon": "lock"}, {"label": "Cron Job", "icon": "clock"}, {"label": "Webhook", "icon": "api"}, {"label": "GraphQL", "icon": "api"}, {"label": "BFF", "icon": "service"}, {"label": "Feature Flag", "icon": "decision"}]}, {"cat": "Dados", "items": [{"label": "Banco SQL", "icon": "database"}, {"label": "Banco NoSQL", "icon": "database"}, {"label": "Banco de grafos", "icon": "database"}, {"label": "Série temporal", "icon": "chart"}, {"label": "Cache", "icon": "cache"}, {"label": "Object Storage", "icon": "storage"}, {"label": "Busca", "icon": "search"}, {"label": "Data Warehouse", "icon": "database"}, {"label": "Data Lake", "icon": "storage"}, {"label": "Vector Database", "icon": "database"}, {"label": "Read Replica", "icon": "database"}, {"label": "Session Store", "icon": "storage"}, {"label": "ETL / Pipeline", "icon": "gear"}, {"label": "CDC / Replicação", "icon": "database"}, {"label": "Backup", "icon": "storage"}, {"label": "Migração", "icon": "document"}]}, {"cat": "Mensageria", "items": [{"label": "Fila", "icon": "queue"}, {"label": "Message Broker", "icon": "message"}, {"label": "Stream de eventos", "icon": "queue"}, {"label": "E-mail", "icon": "message"}, {"label": "Notificação", "icon": "message"}, {"label": "Push mobile", "icon": "mobile"}, {"label": "Dead Letter Queue", "icon": "queue"}, {"label": "Event Bus", "icon": "message"}, {"label": "Pub/Sub", "icon": "message"}, {"label": "SMS", "icon": "message"}, {"label": "WhatsApp", "icon": "chat"}, {"label": "Outbox", "icon": "queue"}, {"label": "Retry / Backoff", "icon": "clock"}]}, {"cat": "Segurança", "items": [{"label": "Identity Provider", "icon": "lock"}, {"label": "OAuth / OIDC", "icon": "lock"}, {"label": "Secrets Manager", "icon": "key"}, {"label": "KMS", "icon": "key"}, {"label": "Certificado TLS", "icon": "key"}, {"label": "MFA", "icon": "mobile"}, {"label": "Permissões / RBAC", "icon": "shield"}, {"label": "Antivírus", "icon": "shield"}, {"label": "Zero Trust", "icon": "shield"}, {"label": "Assinatura digital", "icon": "document"}, {"label": "Anonimização", "icon": "shield"}, {"label": "SIEM", "icon": "monitor"}]}, {"cat": "DevOps / Deploy", "items": [{"label": "Git Repository", "icon": "document"}, {"label": "CI Pipeline", "icon": "gear"}, {"label": "CD Pipeline", "icon": "gear"}, {"label": "Build", "icon": "gear"}, {"label": "Testes automatizados", "icon": "flask"}, {"label": "Artifact Registry", "icon": "storage"}, {"label": "Registro de imagens", "icon": "container"}, {"label": "Kubernetes", "icon": "container"}, {"label": "Serverless", "icon": "function"}, {"label": "Infra como código", "icon": "document"}, {"label": "Ambiente de staging", "icon": "server"}, {"label": "Blue / Green", "icon": "decision"}, {"label": "Canary", "icon": "decision"}, {"label": "Rollback", "icon": "clock"}]}, {"cat": "IA / ML", "items": [{"label": "Modelo LLM", "icon": "brain"}, {"label": "API de inferência", "icon": "brain"}, {"label": "Embeddings", "icon": "brain"}, {"label": "Pipeline RAG", "icon": "search"}, {"label": "Feature Store", "icon": "storage"}, {"label": "Model Registry", "icon": "storage"}, {"label": "Treino / Fine-tuning", "icon": "flask"}, {"label": "GPU Worker", "icon": "gear"}, {"label": "Moderação / Guardrail", "icon": "shield"}, {"label": "Avaliação do modelo", "icon": "chart"}]}, {"cat": "Integrações", "items": [{"label": "Gateway de pagamento", "icon": "money"}, {"label": "Pix", "icon": "money"}, {"label": "Boleto", "icon": "document"}, {"label": "Nota fiscal", "icon": "document"}, {"label": "Antifraude", "icon": "shield"}, {"label": "Transportadora", "icon": "truck"}, {"label": "CRM", "icon": "external"}, {"label": "ERP", "icon": "external"}, {"label": "Analytics", "icon": "chart"}, {"label": "Maps API", "icon": "globe"}, {"label": "Open Finance", "icon": "money"}, {"label": "Assinatura / SaaS", "icon": "external"}]}, {"cat": "Observabilidade / Fluxo", "items": [{"label": "Monitoring", "icon": "monitor"}, {"label": "Métricas", "icon": "chart"}, {"label": "Logs", "icon": "document"}, {"label": "Tracing", "icon": "monitor"}, {"label": "APM", "icon": "chart"}, {"label": "Health check", "icon": "monitor"}, {"label": "Alertas", "icon": "shield"}, {"label": "Dashboard", "icon": "chart"}, {"label": "Plantão / On-call", "icon": "team"}, {"label": "Auditoria", "icon": "document"}, {"label": "Scheduler", "icon": "clock"}, {"label": "Decisão", "icon": "decision"}]}, {"cat": "Negócio / Processo", "items": [{"label": "Cliente", "icon": "user"}, {"label": "Equipe", "icon": "team"}, {"label": "Aprovação", "icon": "decision"}, {"label": "Contrato", "icon": "document"}, {"label": "Proposta", "icon": "document"}, {"label": "Pedido", "icon": "box"}, {"label": "Pagamento", "icon": "money"}, {"label": "Estoque", "icon": "box"}, {"label": "Entrega", "icon": "truck"}, {"label": "Atendimento", "icon": "chat"}, {"label": "Relatório", "icon": "chart"}, {"label": "Prazo / SLA", "icon": "clock"}]}];
+  window.ANIM = "packet";
+  window.DUR = 2.2;
+  window.NW = 168; window.NH = 66;
+</script>
+<script>(function(){
+'use strict';
+/* === 00-util.js === */
+/* ---- util: DOM/SVG, geometria e ids. Sem estado. ---- */
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('dg');
+const stage = svg.parentElement;
+
+const F = window.FLOW, POS = window.POS, ICN = window.ICON_SVG;
+const NW = window.NW, NH = window.NH, CAT = window.CATALOG || [];
+const ANIM = window.ANIM, DUR = window.DUR;
+const VERT = (F.direction || 'LR').toUpperCase() === 'TB' && F.layout !== 'tiers';
+
+/** Cria elemento SVG com atributos. `inner` entra como innerHTML (usado só p/ ícones nossos). */
+function mk(tag, attrs, inner) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (inner != null) el.innerHTML = inner;
+  return el;
+}
+/** Cria elemento HTML com classe e conteúdo opcionais. */
+function h(tag, cls, inner) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (inner != null) el.innerHTML = inner;
+  return el;
+}
+/** Ponto do evento convertido para coordenadas do SVG (respeita zoom/pan). */
+function toSvg(e) {
+  const p = svg.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+/** Ponto do SVG convertido para coordenadas de tela (posicionar UI HTML sobre o canvas). */
+function toScreen(x, y) {
+  const p = svg.createSVGPoint();
+  p.x = x; p.y = y;
+  return p.matrixTransform(svg.getScreenCTM());
+}
+
+// Os quatro lados de conexão. Guardar o lado (e não só "entrada/saída") é o que permite
+// ligar por cima/baixo: a curva sai perpendicular à borda, como em Miro/Whimsical.
+const SIDES = ['right', 'bottom', 'left', 'top'];
+const SIDE_VEC = { right: [1, 0], left: [-1, 0], bottom: [0, 1], top: [0, -1] };
+
+/** Ponto de um lado de uma caixa em (p) com tamanho w×hh. */
+function anchorSide(p, side, w, hh) {
+  w = w || NW; hh = hh || NH;
+  switch (side) {
+    case 'left':   return [p[0], p[1] + hh / 2];
+    case 'top':    return [p[0] + w / 2, p[1]];
+    case 'bottom': return [p[0] + w / 2, p[1] + hh];
+    default:       return [p[0] + w, p[1] + hh / 2];
+  }
+}
+/** Lado padrão quando a aresta não guarda um: escolhe pelo eixo dominante entre os centros. */
+function autoSides(a, b, wa, ha, wb, hb) {
+  const ca = [a[0] + (wa || NW) / 2, a[1] + (ha || NH) / 2];
+  const cb = [b[0] + (wb || NW) / 2, b[1] + (hb || NH) / 2];
+  const dx = cb[0] - ca[0], dy = cb[1] - ca[1];
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? ['right', 'left'] : ['left', 'right'];
+  }
+  return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom'];
+}
+/** Bézier que sai perpendicular a cada lado — funciona pra qualquer combinação. */
+function edgePath(x1, y1, x2, y2, s1, s2) {
+  const v1 = SIDE_VEC[s1] || SIDE_VEC.right, v2 = SIDE_VEC[s2] || SIDE_VEC.left;
+  const dist = Math.hypot(x2 - x1, y2 - y1);
+  const d = clamp(dist * .42, 34, 130);
+  return `M${x1},${y1} C${x1 + v1[0] * d},${y1 + v1[1] * d} ${x2 + v2[0] * d},${y2 + v2[1] * d} ${x2},${y2}`;
+}
+// mantidos p/ compatibilidade com o layout automático do build
+const anchorOut = p => VERT ? anchorSide(p, 'bottom') : anchorSide(p, 'right');
+const anchorIn  = p => VERT ? anchorSide(p, 'top')    : anchorSide(p, 'left');
+
+let _uid = 0;
+const newId = () => 'n' + Date.now().toString(36).slice(-4) + (_uid++);
+const slug = s => (String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'g');
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* === 05-state.js === */
+/* Núcleo de histórico compartilhado pelo bundle e pelos testes Node. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.FlowState = factory();
+})(typeof globalThis === 'object' ? globalThis : this, function () {
+  function clone(value) { return structuredClone(value); }
+  function createHistory(initial, max) {
+    return { current: clone(initial), past: [], future: [], revision: 0, savedRevision: 0, max: max || 60 };
+  }
+  function transact(history, mutation) {
+    history.past.push(clone(history.current));
+    if (history.past.length > history.max) history.past.shift();
+    history.current = mutation(clone(history.current)); history.future.length = 0; history.revision += 1;
+    return history.current;
+  }
+  function begin(history, current) {
+    history.current = clone(current);
+    history.past.push(clone(current));
+    if (history.past.length > history.max) history.past.shift();
+    history.future.length = 0; history.revision += 1;
+  }
+  function undo(history) {
+    if (!history.past.length) return false;
+    history.future.push(clone(history.current)); history.current = history.past.pop(); history.revision += 1; return true;
+  }
+  function redo(history) {
+    if (!history.future.length) return false;
+    history.past.push(clone(history.current)); history.current = history.future.pop(); history.revision += 1; return true;
+  }
+  function markSaved(history) { history.savedRevision = history.revision; }
+  function isDirty(history) { return history.revision !== history.savedRevision; }
+  return { createHistory, transact, begin, undo, redo, markSaved, isDirty };
+});
+
+/* === 10-model.js === */
+/* ---- modelo + histórico (desfazer/refazer) ----
+   Toda mutação do diagrama passa por `commit()`. É o que torna Ctrl+Z confiável:
+   em vez de tentar inverter cada operação (fonte infinita de bug), guardamos o
+   estado inteiro antes de mudar. Um diagrama é pequeno o bastante pra isso ser barato. */
+
+const GROUP_COLORS = ['#e8743b', '#2f6bf0', '#37a86b', '#8b5cf6', '#e0407f', '#0ea5b7', '#d9a406'];
+const HISTORY_MAX = 60;
+
+const history = FlowState.createHistory(null, HISTORY_MAX);
+let modelRevision = 0, savedRevision = 0;
+let dirty = false;
+
+function snapshot() {
+  return JSON.stringify({ nodes: F.nodes || [], edges: F.edges || [], groups: F.groups || [], pos: POS });
+}
+function restore(snap) {
+  const s = JSON.parse(snap);
+  F.nodes = s.nodes; F.edges = s.edges; F.groups = s.groups;
+  for (const k in POS) delete POS[k];
+  for (const k in s.pos) POS[k] = s.pos[k];
+}
+
+/** Registra o estado ANTES de uma mudança. Chame no início de toda mutação. */
+function beginChange() {
+  FlowState.begin(history, snapshot());
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
+}
+function undo() {
+  if (!FlowState.undo(history)) return false;
+  restore(history.current);
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
+  return true;
+}
+function redo() {
+  if (!FlowState.redo(history)) return false;
+  restore(history.current);
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
+  return true;
+}
+const canUndo = () => history.past.length > 0;
+const canRedo = () => history.future.length > 0;
+function markSaved() { savedRevision = modelRevision; dirty = false; }
+
+// ---- consultas
+const nodeById = id => (F.nodes || []).find(n => n.id === id);
+const groupById = id => (F.groups || []).find(g => g.id === id);
+const nodesOfGroup = gid => (F.nodes || []).filter(n => n.group === gid);
+const edgeEnds = ed => {
+  const a = POS[ed.from], b = POS[ed.to];
+  if (!a || !b) return null;
+  const o = anchorOut(a), i = anchorIn(b);
+  return [o[0], o[1], i[0], i[1]];
+};
+/** Retângulo que envolve os nós de um grupo (null se o grupo está vazio/recolhido). */
+function groupBBox(gid) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, has = false;
+  (F.nodes || []).forEach(n => {
+    if (n.group !== gid || !POS[n.id]) return;
+    has = true; const p = POS[n.id];
+    x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+    x1 = Math.max(x1, p[0] + NW); y1 = Math.max(y1, p[1] + NH);
+  });
+  return has ? [x0, y0, x1, y1] : null;
+}
+
+// ---- mutações
+function addNode(pt, label, icon, group) {
+  const id = newId();
+  const n = { id, label: label || 'Novo', icon: icon || 'box' };
+  if (group) n.group = group;
+  F.nodes.push(n);
+  POS[id] = [pt[0] - NW / 2, pt[1] - NH / 2];
+  return id;
+}
+function removeNodes(ids) {
+  removeNodesFrom(F, ids);            // tira os nós e as conexões que dependiam deles
+  ids.forEach(id => delete POS[id]);
+}
+function addEdge(from, to) {
+  if (from === to) return false;
+  F.edges = F.edges || [];
+  if (F.edges.some(e => e.from === from && e.to === to)) return false;  // não duplica
+  F.edges.push({ from, to, animated: true });
+  return true;
+}
+/** Copia nós e as arestas INTERNAS à seleção, deslocados. Arestas para fora não são
+    duplicadas: o clone apontaria pro mesmo destino e viraria ruído no diagrama. */
+function duplicateNodes(ids, dx, dy) {
+  const map = {}, novos = [];
+  ids.forEach(id => {
+    const n = nodeById(id); if (!n || !POS[id]) return;
+    const clone = JSON.parse(JSON.stringify(n));
+    clone.id = newId(); map[id] = clone.id;
+    F.nodes.push(clone);
+    POS[clone.id] = [POS[id][0] + dx, POS[id][1] + dy];
+    novos.push(clone.id);
+  });
+  (F.edges || []).slice().forEach(e => {
+    if (map[e.from] && map[e.to]) F.edges.push({ ...e, from: map[e.from], to: map[e.to] });
+  });
+  return novos;
+}
+function ensureGroup(name) {
+  const existentes = new Set((F.groups || []).map(g => g.id));
+  let id = slug(name), u = id, i = 2;
+  while (existentes.has(u)) u = id + '-' + (i++);
+  F.groups = F.groups || [];
+  F.groups.push({ id: u, label: name, color: GROUP_COLORS[F.groups.length % GROUP_COLORS.length] });
+  return u;
+}
+
+/* === 20-select.js === */
+/* ---- seleção (um ou vários) ---- */
+const sel = { nodes: new Set(), edge: null };   // edge = índice, ou null
+
+const hasSel = () => sel.nodes.size > 0 || sel.edge !== null;
+const selNodeIds = () => [...sel.nodes];
+function clearSel() { sel.nodes.clear(); sel.edge = null; }
+function selectNode(id, additive) {
+  if (!additive) { sel.nodes.clear(); sel.edge = null; }
+  if (additive && sel.nodes.has(id)) sel.nodes.delete(id); else sel.nodes.add(id);
+}
+function selectEdge(i) { sel.nodes.clear(); sel.edge = i; }
+const isNodeSelected = id => sel.nodes.has(id);
+
+/* === 30-camera.js === */
+/* ---- câmera: zoom, pan, enquadrar ---- */
+const CONTENT = (svg.getAttribute('data-vb') || '0 0 1200 800').split(' ').map(Number);
+const cam = { x: 0, y: 0, k: 1 };
+const ZOOM_MIN = 0.15, ZOOM_MAX = 4;
+
+function applyCam() {
+  const w = stage.clientWidth || CONTENT[2], hh = stage.clientHeight || CONTENT[3];
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', hh);
+  svg.setAttribute('viewBox', `${cam.x} ${cam.y} ${w / cam.k} ${hh / cam.k}`);
+  onCameraMove();
+}
+/** Retângulo que envolve TUDO que está desenhado — não o data-vb do build, que fica
+    desatualizado assim que alguém move ou adiciona um nó. */
+function contentBBox() {
+  const ids = Object.keys(POS);
+  if (!ids.length) return [CONTENT[0], CONTENT[1], CONTENT[0] + CONTENT[2], CONTENT[1] + CONTENT[3]];
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  ids.forEach(id => {
+    const p = POS[id];
+    x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+    x1 = Math.max(x1, p[0] + NW); y1 = Math.max(y1, p[1] + NH);
+  });
+  return [x0 - 30, y0 - 46, x1 + 30, y1 + 30];      // folga extra em cima: rótulo do grupo
+}
+function fitView(animate) {
+  const b = contentBBox();
+  const w = stage.clientWidth || CONTENT[2], hh = stage.clientHeight || CONTENT[3];
+  const pad = 40, cw = b[2] - b[0], ch = b[3] - b[1];
+  const k = clamp(Math.min((w - 2 * pad) / cw, (hh - 2 * pad) / ch), ZOOM_MIN, 1.6);
+  const nx = b[0] + cw / 2 - (w / k) / 2, ny = b[1] + ch / 2 - (hh / k) / 2;
+  if (animate) glideTo(nx, ny, k); else { cam.x = nx; cam.y = ny; cam.k = k; applyCam(); }
+}
+/** Movimento suave da câmera — usado pelo modo apresentação, onde um salto seco
+    faz a plateia perder a referência de onde estava. */
+let glideRAF = null;
+function glideTo(x, y, k, ms) {
+  cancelAnimationFrame(glideRAF);
+  const from = { ...cam }, t0 = performance.now(), dur = ms || 380;
+  const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  (function step(now) {
+    const t = Math.min(1, (now - t0) / dur), e = ease(t);
+    cam.x = from.x + (x - from.x) * e;
+    cam.y = from.y + (y - from.y) * e;
+    cam.k = from.k + (k - from.k) * e;
+    applyCam();
+    if (t < 1) glideRAF = requestAnimationFrame(step);
+  })(t0);
+}
+/** Enquadra um conjunto de nós (apresentação passo-a-passo). */
+function focusNodes(ids, zoomMax) {
+  const pts = ids.map(id => POS[id]).filter(Boolean);
+  if (!pts.length) return;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  pts.forEach(p => {
+    x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]);
+    x1 = Math.max(x1, p[0] + NW); y1 = Math.max(y1, p[1] + NH);
+  });
+  const pad = 120, w = stage.clientWidth, hh = stage.clientHeight;
+  const k = clamp(Math.min((w - 2 * pad) / (x1 - x0), (hh - 2 * pad) / (y1 - y0)), ZOOM_MIN, zoomMax || 1.25);
+  glideTo((x0 + x1) / 2 - (w / k) / 2, (y0 + y1) / 2 - (hh / k) / 2, k);
+}
+function zoomBy(factor, cx, cy) {
+  const r = svg.getBoundingClientRect();
+  const px = cx == null ? r.width / 2 : cx - r.left, py = cy == null ? r.height / 2 : cy - r.top;
+  const mx = cam.x + px / cam.k, my = cam.y + py / cam.k;
+  cam.k = clamp(cam.k * factor, ZOOM_MIN, ZOOM_MAX);
+  cam.x = mx - px / cam.k; cam.y = my - py / cam.k;
+  applyCam();
+}
+
+/* === 35-shapes.js === */
+/* ---- formas de fluxograma ----
+   Cada forma é desenhada dentro da MESMA caixa NW×NH que o layout já reserva. Manter a
+   caixa constante é o que permite trocar a forma de um nó sem recalcular posições nem
+   re-rotear as setas — as âncoras continuam onde estavam. */
+const SHAPES = [
+  { id: 'rounded',   label: 'Processo',            hint: 'etapa comum',            center: false },
+  { id: 'rect',      label: 'Retângulo',           hint: 'caixa reta',             center: false },
+  { id: 'stadium',   label: 'Início / Fim',        hint: 'terminador',             center: true  },
+  { id: 'diamond',   label: 'Decisão',             hint: 'sim / não',              center: true  },
+  { id: 'parallel',  label: 'Entrada / Saída',     hint: 'dado',                   center: true  },
+  { id: 'cylinder',  label: 'Banco de dados',      hint: 'armazenamento',          center: true  },
+  { id: 'circle',    label: 'Conector',            hint: 'liga trechos',           center: true  },
+  { id: 'hexagon',   label: 'Preparação',          hint: 'laço / setup',           center: true  },
+  { id: 'document',  label: 'Documento',           hint: 'relatório, arquivo',     center: true  },
+  { id: 'docs',      label: 'Vários documentos',   hint: 'lote',                   center: true  },
+  { id: 'subroutine',label: 'Subprocesso',         hint: 'processo definido fora', center: false },
+  { id: 'manual',    label: 'Entrada manual',      hint: 'digitação',              center: true  },
+  { id: 'operation', label: 'Operação manual',     hint: 'passo humano',           center: true  },
+  { id: 'delay',     label: 'Espera',              hint: 'atraso, fila',           center: true  },
+  { id: 'display',   label: 'Exibição',            hint: 'tela, saída visual',     center: true  },
+  { id: 'storage',   label: 'Armazenamento',       hint: 'disco, volume',          center: true  },
+  { id: 'merge',     label: 'Junção',              hint: 'converge caminhos',      center: true  },
+  { id: 'extract',   label: 'Separação',           hint: 'divide caminhos',        center: true  },
+  { id: 'offpage',   label: 'Fora da página',      hint: 'continua noutro ponto',  center: true  },
+  { id: 'cloud',     label: 'Nuvem / externo',     hint: 'serviço de terceiro',    center: true  },
+  { id: 'note',      label: 'Anotação',            hint: 'comentário',             center: false },
+];
+const SHAPE_BY_ID = Object.fromEntries(SHAPES.map(s => [s.id, s]));
+const isCentered = id => (SHAPE_BY_ID[id] || SHAPE_BY_ID.rounded).center;
+
+/* Detalhe em pixel (raio do canto, barra, dobra) encolhe junto com a caixa: a miniatura da
+   paleta usa uma caixa bem menor que a do nó, e raio fixo transformava "Processo" em pílula. */
+const kDet = (w, hh) => Math.min(1, (window.NW ? w / window.NW : 1), (window.NH ? hh / window.NH : 1));
+
+/** Devolve {tag, attrs} do contorno da forma, inscrito em w×h. */
+function shapeGeom(id, w, hh) {
+  const k = kDet(w, hh), r = 13 * k, m = Math.min(w, hh);
+  switch (id) {
+    case 'rect':      return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: 2 } };
+    case 'stadium':   return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: hh / 2 } };
+    case 'circle':    return { tag: 'ellipse', attrs: { cx: w / 2, cy: hh / 2, rx: w / 2, ry: hh / 2 } };
+    case 'diamond':   return { tag: 'path', attrs: { d: `M${w / 2},0 L${w},${hh / 2} L${w / 2},${hh} L0,${hh / 2} Z` } };
+    case 'parallel':  return { tag: 'path', attrs: { d: `M${w * .18},0 L${w},0 L${w * .82},${hh} L0,${hh} Z` } };
+    case 'hexagon':   return { tag: 'path', attrs: { d: `M${w * .16},0 L${w * .84},0 L${w},${hh / 2} L${w * .84},${hh} L${w * .16},${hh} L0,${hh / 2} Z` } };
+    case 'manual':    return { tag: 'path', attrs: { d: `M0,${hh * .26} L${w},0 L${w},${hh} L0,${hh} Z` } };
+    case 'operation': return { tag: 'path', attrs: { d: `M0,0 L${w},0 L${w * .84},${hh} L${w * .16},${hh} Z` } };
+    case 'offpage':   return { tag: 'path', attrs: { d: `M0,0 L${w},0 L${w},${hh * .62} L${w / 2},${hh} L0,${hh * .62} Z` } };
+    case 'delay':     return { tag: 'path', attrs: { d: `M0,0 L${w - hh / 2},0 A${hh / 2},${hh / 2} 0 0 1 ${w - hh / 2},${hh} L0,${hh} Z` } };
+    case 'display':   return { tag: 'path', attrs: { d: `M${hh * .22},0 L${w - hh / 2},0 A${hh / 2},${hh / 2} 0 0 1 ${w - hh / 2},${hh} L${hh * .22},${hh} L0,${hh / 2} Z` } };
+    case 'cylinder': {
+      const e = hh * .17;
+      return { tag: 'path', attrs: { d: `M0,${e} A${w / 2},${e} 0 0 1 ${w},${e} L${w},${hh - e} A${w / 2},${e} 0 0 1 0,${hh - e} Z` } };
+    }
+    case 'document':  return { tag: 'path', attrs: { d: `M0,0 L${w},0 L${w},${hh * .82} Q${w * .75},${hh} ${w / 2},${hh * .9} T0,${hh * .82} Z` } };
+    case 'docs': {
+      // folha da FRENTE em baixo-à-direita; as de trás saem em shapeExtras, acima-à-esquerda
+      const dx = w * .07, dy = hh * .17;
+      const bw = w - dx;
+      return { tag: 'path', attrs: { d: `M${dx},${dy} L${w},${dy} L${w},${hh * .82} Q${dx + bw * .75},${hh} ${dx + bw / 2},${hh * .9} T${dx},${hh * .82} Z` } };
+    }
+    case 'subroutine':return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: 3 * k } };
+    case 'storage':   return { tag: 'path', attrs: { d: `M${hh * .22},0 L${w},0 Q${w - hh * .22},${hh / 2} ${w},${hh} L${hh * .22},${hh} Q0,${hh / 2} ${hh * .22},0 Z` } };
+    case 'merge':     return { tag: 'path', attrs: { d: `M0,0 L${w},0 L${w / 2},${hh} Z` } };
+    case 'extract':   return { tag: 'path', attrs: { d: `M${w / 2},0 L${w},${hh} L0,${hh} Z` } };
+    case 'cloud': {
+      const k = hh / 2;
+      return { tag: 'path', attrs: { d: `M${w * .24},${hh} A${k * .78},${k * .78} 0 0 1 ${w * .22},${hh * .42} A${k * .82},${k * .82} 0 0 1 ${w * .52},${hh * .16} A${k * .78},${k * .78} 0 0 1 ${w * .8},${hh * .44} A${k * .72},${k * .72} 0 0 1 ${w * .78},${hh} Z` } };
+    }
+    case 'note':      return { tag: 'path', attrs: { d: `M0,0 L${w - 16 * k},0 L${w},${16 * k} L${w},${hh} L0,${hh} Z` } };
+    default:          return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: r } };
+  }
+}
+/** Enfeites que não cabem no contorno (as barras do subprocesso, a dobra da anotação). */
+function shapeExtras(id, w, hh) {
+  const k = kDet(w, hh);
+  if (id === 'subroutine') return [
+    { tag: 'line', attrs: { x1: 11 * k, y1: 0, x2: 11 * k, y2: hh, class: 'nedge' } },
+    { tag: 'line', attrs: { x1: w - 11 * k, y1: 0, x2: w - 11 * k, y2: hh, class: 'nedge' } }];
+  if (id === 'note') return [
+    // fill:none explícito — sem isso o triângulo da dobra herda preenchimento preto
+    { tag: 'path', attrs: { d: `M${w - 16 * k},0 L${w - 16 * k},${16 * k} L${w},${16 * k}`, class: 'nedge', fill: 'none' } }];
+  if (id === 'cylinder') {
+    const e = hh * .17;
+    // aresta frontal da tampa: é ela que dá a leitura de cilindro em vez de barril
+    return [{ tag: 'path', attrs: { d: `M0,${e} A${w / 2},${e} 0 0 0 ${w},${e}`, class: 'nedge', fill: 'none' } }];
+  }
+  if (id === 'docs') {
+    // duas folhas atrás: só a borda superior e um toco de lateral — o resto fica escondido
+    // pela folha da frente, que é o que produz a leitura de pilha
+    const dx = w * .07, dy = hh * .17, bw = w - dx, stub = hh * .12;
+    return [2, 1].map(k => {
+      const ox = dx - (dx / 2) * k, oy = dy - (dy / 2) * k;
+      return { tag: 'path', attrs: {
+        d: `M${ox},${oy + stub} L${ox},${oy} L${ox + bw},${oy} L${ox + bw},${oy + stub}`,
+        class: 'nedge', fill: 'none' } };
+    });
+  }
+  return [];
+}
+/** Área útil de texto: formas com bico/ponta perdem largura nas bordas. */
+function textInset(id, w) {
+  if (id === 'diamond') return w * .22;
+  if (['parallel', 'hexagon', 'operation', 'merge', 'extract', 'cloud'].includes(id)) return w * .17;
+  if (['delay', 'display', 'storage'].includes(id)) return w * .12;
+  return 14;
+}
+
+/* === 40-render.js === */
+/* ---- render do modelo em SVG ---- */
+const COLLAPSED = new Set();          // ids de grupos recolhidos
+const CW = 210, CH = 74;              // caixa do grupo recolhido
+
+const isCollapsed = gid => COLLAPSED.has(gid);
+/** Nó visível? Não, se pertence a grupo recolhido. */
+const nodeVisible = n => !(n.group && COLLAPSED.has(n.group));
+/** Para onde uma aresta aponta de fato: se o nó está escondido, vale a caixa do grupo. */
+const endpointOf = id => {
+  const n = nodeById(id);
+  return (n && n.group && COLLAPSED.has(n.group)) ? 'g:' + n.group : id;
+};
+
+/** Posição da caixa do grupo recolhido: centro de onde seus nós estavam. */
+function collapsedPos(gid) {
+  const ns = nodesOfGroup(gid).map(n => POS[n.id]).filter(Boolean);
+  if (!ns.length) return [0, 0];
+  const cx = ns.reduce((s, p) => s + p[0] + NW / 2, 0) / ns.length;
+  const cy = ns.reduce((s, p) => s + p[1] + NH / 2, 0) / ns.length;
+  return [cx - CW / 2, cy - CH / 2];
+}
+/** Caixa de uma extremidade: nó normal ou grupo recolhido. */
+function endBox(key) {
+  if (String(key).startsWith('g:')) {
+    const p = collapsedPos(key.slice(2));
+    return { pos: p, w: CW, h: CH };
+  }
+  const p = POS[key];
+  return p ? { pos: p, w: NW, h: NH } : null;
+}
+/* Deslocamento de cada aresta no leque, recalculado a cada render. Quem pergunta a geometria
+   (clique, religar, exportar) recebe a MESMA linha que está desenhada — senão o clique erra. */
+let EDGE_OFF = [];
+function offsetDe(ed) {
+  const i = (F.edges || []).indexOf(ed);
+  return i < 0 ? 0 : (EDGE_OFF[i] || 0);
+}
+
+/** Geometria completa de uma aresta: pontos e lados de saída/chegada. `off` abre o leque
+    quando há mais de uma conexão entre os mesmos dois pontos (ver 77-connectors.js). */
+function edgeGeom(ed, off) {
+  const A = endBox(endpointOf(ed.from)), B = endBox(endpointOf(ed.to));
+  if (!A || !B) return null;
+  const auto = autoSides(A.pos, B.pos, A.w, A.h, B.w, B.h);
+  const s1 = ed.fromSide || auto[0], s2 = ed.toSide || auto[1];
+  const d = off === undefined ? offsetDe(ed) : off;
+  const p1 = shiftAnchor(anchorSide(A.pos, s1, A.w, A.h), s1, d);
+  const p2 = shiftAnchor(anchorSide(B.pos, s2, B.w, B.h), s2, d);
+  return { p1, p2, s1, s2, d: edgePath(p1[0], p1[1], p2[0], p2[1], s1, s2) };
+}
+// compatibilidade com chamadas antigas
+function endAnchors(key) {
+  const b = endBox(key);
+  return b ? { out: anchorSide(b.pos, VERT ? 'bottom' : 'right', b.w, b.h),
+               in:  anchorSide(b.pos, VERT ? 'top' : 'left', b.w, b.h) } : null;
+}
+
+function render() {
+  svg.querySelectorAll('.group,.lane,.edge,.elabel,.packet,.node,.ehandle,.gcollapsed').forEach(e => e.remove());
+  renderGroups();
+  renderEdges();
+  (F.nodes || []).forEach((n, i) => { if (POS[n.id] && nodeVisible(n)) svg.appendChild(nodeNode(n, i)); });
+  renderEdgeHandles();
+  onRender();
+}
+
+function renderGroups() {
+  (F.groups || []).forEach(gp => {
+    const color = gp.color || '#8893a6';
+    if (COLLAPSED.has(gp.id)) {
+      const p = collapsedPos(gp.id), qtd = nodesOfGroup(gp.id).length;
+      const g = mk('g', { class: 'gcollapsed', 'data-gid': gp.id, transform: `translate(${p[0]},${p[1]})` });
+      g.appendChild(mk('rect', { x: 0, y: 0, width: CW, height: CH, rx: 14, class: 'cbox', style: '--gc:' + color }));
+      const t = mk('text', { x: 16, y: 30, class: 'clabel' }); t.textContent = gp.label || gp.id;
+      const s = mk('text', { x: 16, y: 52, class: 'csub' }); s.textContent = qtd + (qtd === 1 ? ' item' : ' itens') + ' · clique p/ abrir';
+      g.appendChild(t); g.appendChild(s);
+      g.appendChild(mk('text', { x: CW - 20, y: 34, class: 'cchev' }, '+'));
+      g.addEventListener('pointerdown', ev => ev.stopPropagation());
+      g.addEventListener('click', () => { COLLAPSED.delete(gp.id); render(); });
+      svg.appendChild(g);
+      return;
+    }
+    const b = groupBBox(gp.id); if (!b) return;
+    const pad = 16, g = mk('g', { class: 'group', 'data-gid': gp.id });
+    g.appendChild(mk('rect', { x: b[0] - pad, y: b[1] - pad - 14, width: b[2] - b[0] + 2 * pad,
+                               height: b[3] - b[1] + 2 * pad + 14, rx: 16, class: 'gbox', style: '--gc:' + color }));
+    const t = mk('text', { x: b[0] - pad + 6, y: b[1] - pad - 2, class: 'glabel', style: '--gc:' + color });
+    t.textContent = gp.label || gp.id;
+    g.appendChild(t);
+    // botão de recolher, colado no rótulo
+    const bx = b[0] - pad + 12 + (gp.label || gp.id).length * 6.4;
+    const btn = mk('text', { x: bx, y: b[1] - pad - 2, class: 'gtoggle', style: '--gc:' + color }, '−');
+    btn.addEventListener('pointerdown', ev => ev.stopPropagation());
+    btn.addEventListener('click', ev => { ev.stopPropagation(); COLLAPSED.add(gp.id); clearSel(); render(); });
+    g.appendChild(btn);
+    svg.appendChild(g);
+  });
+}
+
+function renderEdges() {
+  const vistas = new Set();
+  EDGE_OFF = parallelOffsets(F.edges || [], endpointOf);
+  const fundidas = mergedCounts(F.edges || [], endpointOf);
+  (F.edges || []).forEach((ed, i) => {
+    const a = endpointOf(ed.from), b = endpointOf(ed.to);
+    if (a === b) return;                            // aresta interna a um grupo recolhido
+    const chave = a + '>' + b;
+    if (vistas.has(chave)) return;                  // grupo recolhido funde paralelas
+    vistas.add(chave);
+    const qtd = fundidas.get(chave) || 1;
+    const agregada = qtd > 1 && (a.startsWith('g:') || b.startsWith('g:'));
+    const geo = edgeGeom(ed, agregada ? 0 : EDGE_OFF[i]);
+    if (!geo) return;
+    const c = [geo.p1[0], geo.p1[1], geo.p2[0], geo.p2[1]];
+    const anim = ed.animated !== false;
+    const cls = 'edge' + (anim ? ' animated' : '') + (ed.style === 'dashed' ? ' dashed' : '')
+      + (sel.edge === i ? ' sel' : '') + (dimmed(a, b) ? ' dim' : '');
+    const p = mk('path', { id: 'e' + i, 'data-i': i, d: geo.d, class: cls, 'marker-end': 'url(#arrow)' });
+    p.style.pointerEvents = 'stroke';
+    p.addEventListener('pointerdown', ev => { ev.stopPropagation(); selectEdge(i); render(); });
+    p.addEventListener('dblclick', ev => { ev.stopPropagation(); editLabel('e', i); });
+    svg.appendChild(p);
+    if (ANIM === 'packet' && anim && !dimmed(a, b)) {
+      // animateMotion SOMA uma translação sobre cx/cy — por isso o círculo fica em (0,0)
+      // e quem o posiciona é o movimento. Só que, com `begin` escalonado, ele apareceria
+      // parado no canto até a sua vez: nasce invisível e acende junto com o movimento.
+      const atraso = (i * .25).toFixed(2) + 's';
+      const pk = mk('circle', { r: 4.5, class: 'packet', opacity: 0 });
+      const am = mk('animateMotion', { dur: DUR + 's', begin: atraso, repeatCount: 'indefinite' });
+      am.appendChild(mk('mpath', { href: '#e' + i }));
+      pk.appendChild(am);
+      pk.appendChild(mk('set', { attributeName: 'opacity', to: 1, begin: atraso, fill: 'freeze' }));
+      svg.appendChild(pk);
+    }
+    // Com grupo recolhido, várias conexões viram uma linha só: o número evita ler "só uma".
+    const texto = agregada ? (ed.label ? ed.label + ' (' + qtd + ')' : qtd + ' conexões') : ed.label;
+    if (texto) {
+      // No leque, cada rótulo acompanha a SUA linha: no mesmo lugar, os dois viravam um borrão.
+      const off = agregada ? 0 : (EDGE_OFF[i] || 0);
+      const horizontal = geo.s1 === 'left' || geo.s1 === 'right';
+      const t = mk('text', {
+        x: ((c[0] + c[2]) / 2 + (horizontal ? 0 : off)).toFixed(0),
+        y: ((c[1] + c[3]) / 2 + (horizontal && off > 0 ? 16 : -8)).toFixed(0),
+        class: 'elabel' + (dimmed(a, b) ? ' dim' : '') });
+      t.textContent = texto; svg.appendChild(t);
+    }
+  });
+}
+
+function renderEdgeHandles() {
+  if (sel.edge === null || !F.edges[sel.edge]) return;
+  const ed = F.edges[sel.edge];
+  const geo = edgeGeom(ed);
+  if (!geo) return;
+  [['from', geo.p1], ['to', geo.p2]].forEach(([end, pt]) => {
+    const el = mk('circle', { cx: pt[0], cy: pt[1], r: 7, class: 'ehandle', 'data-end': end });
+    el.addEventListener('pointerdown', ev => startRelink(ev, sel.edge, end));
+    svg.appendChild(el);
+  });
+}
+
+/** Trunca o rótulo ao que cabe na forma. Sem isso, "Decisão de roteamento" transborda
+    o losango e encosta na seta vizinha. ~6.6px por caractere no tamanho do rótulo. */
+function ajustarTexto(txt, largura, centrado) {
+  const max = Math.max(4, Math.floor(largura / 6.6));
+  return txt.length <= max ? txt : txt.slice(0, max - 1).trimEnd() + '…';
+}
+
+function nodeNode(n, idx) {
+  const at = {
+    class: 'node' + (isNodeSelected(n.id) ? ' sel' : '') + (ANIM === 'highlight' ? ' hl' : '')
+      + (dimmedNode(n.id) ? ' dim' : ''),
+    'data-id': n.id, transform: `translate(${POS[n.id][0]},${POS[n.id][1]})`
+  };
+  if (ANIM === 'highlight') at.style = '--d:' + ((idx || 0) * .3).toFixed(2) + 's';
+  if (n.note) at['data-note'] = n.note;
+  // Teclado: cada nó é um alvo alcançável por Tab, com nome dito por extenso — a seleção
+  // deixa de depender de enxergar a borda azul.
+  const grupo = (F.groups || []).find(gp => gp.id === n.group);
+  at.tabindex = 0;
+  at.role = 'button';
+  at['aria-pressed'] = isNodeSelected(n.id) ? 'true' : 'false';
+  at['aria-label'] = (n.label || n.id) + (grupo ? ', no grupo ' + (grupo.label || grupo.id) : '')
+    + (n.note ? '. Nota: ' + n.note : '');
+  const g = mk('g', at);
+  g.addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    selectNode(n.id, ev.shiftKey);
+    render();
+    const alvo = svg.querySelector(`g.node[data-id="${n.id}"]`);
+    if (alvo) alvo.focus();
+  });
+  const forma = n.shape || 'rounded';
+  const geo = shapeGeom(forma, NW, NH);
+  g.appendChild(mk(geo.tag, { ...geo.attrs, class: 'nbox' }));
+  shapeExtras(forma, NW, NH).forEach(e => g.appendChild(mk(e.tag, e.attrs)));
+
+  const gp = n.group && groupById(n.group);
+  // a tarja de cor do grupo só faz sentido em forma retangular; nas demais ela cortaria o contorno
+  if (gp && (forma === 'rounded' || forma === 'rect' || forma === 'subroutine'))
+    g.appendChild(mk('rect', { x: 0, y: 0, width: 4, height: NH, rx: 2, class: 'nstripe',
+                               style: '--gc:' + (gp.color || '#8893a6') }));
+
+  const centrado = isCentered(forma);
+  const ic = !centrado && n.icon !== 'none' ? (ICN[n.icon] || ICN['box']) : null;
+  if (ic) {
+    const ig = mk('g', { transform: `translate(15,${NH / 2 - 11})`, class: 'ico' });
+    ig.appendChild(mk('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+                               'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, ic));
+    g.appendChild(ig);
+  }
+  const inset = textInset(forma, NW);
+  const t = mk('text', centrado
+    ? { x: NW / 2, y: NH / 2 + 4.5, class: 'nlabel mid', 'text-anchor': 'middle' }
+    : { x: ic ? 45 : inset, y: NH / 2 + 4.5, class: 'nlabel' });
+  t.textContent = ajustarTexto(n.label || n.id, NW - 2 * inset, centrado);
+  g.appendChild(t);
+  if (n.note) g.appendChild(mk('circle', { cx: NW - 12, cy: 12, r: 3, class: 'noteDot' }));
+  // uma porta por lado: é o que permite ligar por cima/baixo além dos lados
+  SIDES.forEach(side => {
+    const a = anchorSide([0, 0], side, NW, NH);
+    g.appendChild(mk('circle', { cx: a[0], cy: a[1], r: 6, class: 'port', 'data-side': side }));
+  });
+  bindNode(g, n);
+  return g;
+}
+
+/* === 50-interact.js === */
+/* ---- interação: arrastar (com guias), laço, conectar, religar, teclado ---- */
+const SNAP = 6;                        // tolerância de encaixe, em unidades do diagrama
+
+/** Guias de alinhamento: compara o nó arrastado com os demais e devolve o
+    deslocamento que encaixa, mais as linhas a desenhar. É o detalhe que faz o
+    diagrama sair alinhado sem ninguém medir nada. */
+function alignmentGuides(movingIds, x, y) {
+  const moving = new Set(movingIds);
+  const alvos = [];
+  (F.nodes || []).forEach(n => {
+    if (moving.has(n.id) || !POS[n.id] || !nodeVisible(n)) return;
+    const p = POS[n.id];
+    alvos.push({ cx: p[0] + NW / 2, cy: p[1] + NH / 2, x0: p[0], y0: p[1], x1: p[0] + NW, y1: p[1] + NH });
+  });
+  const meu = { cx: x + NW / 2, cy: y + NH / 2, x0: x, y0: y, x1: x + NW, y1: y + NH };
+  let dx = 0, dy = 0; const linhas = [];
+  let melhorX = SNAP + 1, melhorY = SNAP + 1;
+  alvos.forEach(a => {
+    [['cx', 'cx'], ['x0', 'x0'], ['x1', 'x1'], ['x0', 'x1'], ['x1', 'x0']].forEach(([m, o]) => {
+      const d = a[o] - meu[m];
+      if (Math.abs(d) < Math.abs(melhorX)) { melhorX = d; }
+    });
+    [['cy', 'cy'], ['y0', 'y0'], ['y1', 'y1'], ['y0', 'y1'], ['y1', 'y0']].forEach(([m, o]) => {
+      const d = a[o] - meu[m];
+      if (Math.abs(d) < Math.abs(melhorY)) { melhorY = d; }
+    });
+  });
+  if (Math.abs(melhorX) <= SNAP) { dx = melhorX; linhas.push(['v', meu.cx + dx]); }
+  if (Math.abs(melhorY) <= SNAP) { dy = melhorY; linhas.push(['h', meu.cy + dy]); }
+  return { dx, dy, linhas };
+}
+function drawGuides(linhas) {
+  svg.querySelectorAll('.guide').forEach(e => e.remove());
+  const b = contentBBox();
+  linhas.forEach(([dir, v]) => {
+    const at = dir === 'v' ? { x1: v, y1: b[1] - 400, x2: v, y2: b[3] + 400 }
+                           : { x1: b[0] - 400, y1: v, x2: b[2] + 400, y2: v };
+    svg.appendChild(mk('line', { ...at, class: 'guide' }));
+  });
+}
+
+/** Reflete a seleção no DOM sem re-renderizar.
+
+    Um render() aqui destruiria o próprio elemento que recebeu o pointerdown — junto com
+    o pointer capture e os listeners do arrasto. Era exatamente por isso que arrastar
+    parava de funcionar assim que o nó ficava selecionado. */
+function pintarSelecao() {
+  svg.querySelectorAll('.node').forEach(el => {
+    el.classList.toggle('sel', isNodeSelected(el.getAttribute('data-id')));
+  });
+  svg.querySelectorAll('.edge').forEach(el => {
+    el.classList.toggle('sel', sel.edge === +el.getAttribute('data-i'));
+  });
+  renderPanel();
+}
+
+function bindNode(g, n) {
+  g.querySelectorAll('.port').forEach(port => {
+    port.addEventListener('pointerdown', ev => {
+      ev.stopPropagation();
+      startConnect(ev, n.id, port.getAttribute('data-side'));
+    });
+  });
+  g.addEventListener('dblclick', ev => { ev.stopPropagation(); editLabel('n', n.id); });
+  g.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || ev.target.classList.contains('port')) return;
+    ev.preventDefault();
+    const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+    if (!isNodeSelected(n.id)) selectNode(n.id, additive);
+    else if (additive) { selectNode(n.id, true); pintarSelecao(); return; }
+    pintarSelecao();
+
+    const ids = selNodeIds();
+    const inicio = toSvg(ev);
+    const base = {}; ids.forEach(id => { if (POS[id]) base[id] = [...POS[id]]; });
+    let mexeu = false, registrou = false;
+    document.body.classList.add('dragging');
+
+    const mv = e => {
+      const q = toSvg(e);
+      let dx = q.x - inicio.x, dy = q.y - inicio.y;
+      if (!mexeu && Math.abs(dx) + Math.abs(dy) < 3) return;
+      if (!registrou) { beginChange(); registrou = true; }   // só grava histórico se moveu de fato
+      mexeu = true;
+      if (base[n.id]) {
+        const gd = alignmentGuides(ids, base[n.id][0] + dx, base[n.id][1] + dy);
+        dx += gd.dx; dy += gd.dy;
+        drawGuides(gd.linhas);
+      }
+      ids.forEach(id => { if (base[id]) POS[id] = [Math.max(0, base[id][0] + dx), Math.max(0, base[id][1] + dy)]; });
+      quickRedraw(ids);
+    };
+    const up = () => {
+      // na janela, não no nó: durante o arrasto o ponteiro sai de cima da caixa a toda hora
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      document.body.classList.remove('dragging');
+      svg.querySelectorAll('.guide').forEach(e => e.remove());
+      render();
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  });
+}
+
+/** Redesenho barato durante o arrasto: move só os nós afetados e reroteia as arestas.
+    Um render() completo a cada pointermove trava em diagrama grande. */
+function quickRedraw(ids) {
+  ids.forEach(id => {
+    const el = svg.querySelector(`.node[data-id="${id}"]`);
+    if (el && POS[id]) el.setAttribute('transform', `translate(${POS[id][0].toFixed(1)},${POS[id][1].toFixed(1)})`);
+  });
+  const set = new Set(ids);
+  svg.querySelectorAll('.edge').forEach(p => {
+    const ed = F.edges[+p.getAttribute('data-i')];
+    if (!ed || (!set.has(ed.from) && !set.has(ed.to))) return;
+    const geo = edgeGeom(ed);
+    if (geo) p.setAttribute('d', geo.d);
+  });
+  svg.querySelectorAll('.group,.gcollapsed').forEach(e => e.remove());
+  const antes = svg.querySelector('.edge') || svg.querySelector('.node');
+  const tmp = document.createDocumentFragment();
+  const alvo = svg;
+  renderGroupsInto(tmp);
+  if (antes) alvo.insertBefore(tmp, antes); else alvo.appendChild(tmp);
+  onRender();
+}
+function renderGroupsInto(frag) {
+  const guarda = svg.appendChild.bind(svg);
+  svg.appendChild = el => frag.appendChild(el);
+  try { renderGroups(); } finally { svg.appendChild = guarda; }
+}
+
+let ghost = null;
+function startConnect(ev, fromId, lado) {
+  ghost = mk('path', { class: 'edge ghost', d: '' });
+  svg.appendChild(ghost);
+  document.body.classList.add('dragging');
+  document.body.classList.add('connecting');       // acende as portas de todos os nós
+  const box = endBox(endpointOf(fromId));
+  const p1 = anchorSide(box.pos, lado || 'right', box.w, box.h);
+  let ladoAlvo = null;
+  const mv = e => {
+    const l = toSvg(e);
+    const sob = nodeUnder(e);
+    // enquanto está sobre um nó, mostra em qual lado vai encostar
+    ladoAlvo = sob && POS[sob] ? ladoMaisProximo(POS[sob], l) : null;
+    const p2 = ladoAlvo ? anchorSide(POS[sob], ladoAlvo, NW, NH) : [l.x, l.y];
+    ghost.setAttribute('d', edgePath(p1[0], p1[1], p2[0], p2[1], lado || 'right', ladoAlvo || 'left'));
+  };
+  const up = e => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    document.body.classList.remove('dragging', 'connecting');
+    ghost.remove(); ghost = null;
+    const alvo = nodeUnder(e);
+    if (alvo && alvo !== fromId) {
+      const duplicada = (F.edges || []).some(ed => ed.from === fromId && ed.to === alvo);
+      if (!duplicada) {
+        beginChange();
+      }
+      if (!duplicada && addEdge(fromId, alvo)) {
+        const nova = F.edges[F.edges.length - 1];
+        if (lado) nova.fromSide = lado;
+        if (ladoAlvo) nova.toSide = ladoAlvo;
+      }
+    }
+    render();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+/** Lado da caixa mais próximo do ponto — decide onde a seta encosta ao soltar. */
+function ladoMaisProximo(pos, pt) {
+  let melhor = 'left', dist = Infinity;
+  SIDES.forEach(s => {
+    const a = anchorSide(pos, s, NW, NH);
+    const d = (a[0] - pt.x) ** 2 + (a[1] - pt.y) ** 2;
+    if (d < dist) { dist = d; melhor = s; }
+  });
+  return melhor;
+}
+function startRelink(ev, idx, end) {
+  ev.stopPropagation();
+  const ed = F.edges[idx];
+  document.body.classList.add('dragging');
+  let ladoNovo = null;
+  const mv = e => {
+    const l = toSvg(e);
+    const geo = edgeGeom(ed);
+    if (!geo) return;
+    const sob = nodeUnder(e);
+    ladoNovo = sob && POS[sob] ? ladoMaisProximo(POS[sob], l) : null;
+    const movel = ladoNovo && sob ? anchorSide(POS[sob], ladoNovo, NW, NH) : [l.x, l.y];
+    const fixo = end === 'from' ? geo.p2 : geo.p1;
+    const p = svg.querySelector(`.edge[data-i="${idx}"]`);
+    if (!p) return;
+    p.setAttribute('d', end === 'from'
+      ? edgePath(movel[0], movel[1], fixo[0], fixo[1], ladoNovo || 'right', geo.s2)
+      : edgePath(fixo[0], fixo[1], movel[0], movel[1], geo.s1, ladoNovo || 'left'));
+  };
+  const up = e => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    document.body.classList.remove('dragging');
+    const alvo = nodeUnder(e);
+    const outro = ed[end === 'from' ? 'to' : 'from'];
+    if (alvo && alvo !== outro) {
+      const from = end === 'from' ? alvo : ed.from;
+      const to = end === 'to' ? alvo : ed.to;
+      const duplicada = (F.edges || []).some((candidate, i) => i !== idx && candidate.from === from && candidate.to === to);
+      if (!duplicada && (ed[end] !== alvo || ladoNovo)) {
+        beginChange();
+        ed[end] = alvo;
+        if (ladoNovo) ed[end === 'from' ? 'fromSide' : 'toSide'] = ladoNovo;
+      }
+    }
+    render();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+function nodeUnder(e) {
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const g = el && el.closest && el.closest('.node');
+  return g ? g.getAttribute('data-id') : null;
+}
+
+/** Laço de seleção: arrastar no fundo com Shift, ou com a ferramenta de seleção ativa. */
+function startMarquee(ev) {
+  const a = toSvg(ev);
+  const r = mk('rect', { class: 'marquee', x: a.x, y: a.y, width: 0, height: 0 });
+  svg.appendChild(r);
+  const mv = e => {
+    const b = toSvg(e);
+    r.setAttribute('x', Math.min(a.x, b.x)); r.setAttribute('y', Math.min(a.y, b.y));
+    r.setAttribute('width', Math.abs(b.x - a.x)); r.setAttribute('height', Math.abs(b.y - a.y));
+  };
+  const up = e => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+    const b = toSvg(e);
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y);
+    r.remove();
+    if (!(ev.shiftKey && (x1 - x0) < 4)) clearSel();
+    (F.nodes || []).forEach(n => {
+      const p = POS[n.id];
+      if (!p || !nodeVisible(n)) return;
+      if (p[0] + NW > x0 && p[0] < x1 && p[1] + NH > y0 && p[1] < y1) sel.nodes.add(n.id);
+    });
+    render();
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+
+/* === 60-panel.js === */
+/* ---- painel de propriedades (lateral) ----
+   Reúne num lugar só o que antes exigia caçar botão: rótulo, ícone, grupo, nota,
+   e o estilo da conexão. */
+const panel = h('aside', 'fpanel');
+document.body.appendChild(panel);
+
+/** A largura útil do palco muda quando o painel abre/fecha; sem reaplicar a câmera o
+    viewBox fica com o tamanho antigo e o diagrama aparece esticado. */
+function ajustarCamera() { setTimeout(() => applyCam(), 190); }
+
+function campo(rotulo, ctrl) {
+  const w = h('label', 'fld');
+  w.appendChild(h('span', 'fl', rotulo));
+  w.appendChild(ctrl);
+  return w;
+}
+function editarNota(n) {
+  const ta = h('textarea', 'fta');
+  ta.value = n.note || '';
+  ta.placeholder = 'Explicação que aparece no diagrama e no tooltip…';
+  ta.addEventListener('change', () => {
+    beginChange();
+    const v = ta.value.trim();
+    if (v) n.note = v; else delete n.note;
+    render();
+  });
+  return ta;
+}
+
+/* Diz quantos itens a ação pegou: sem isso, aplicar a 12 nós e ver 1 mudar passa batido.
+   Fica guardado porque quem aplica chama render() logo em seguida, e o painel é refeito. */
+let loteAviso = null;
+function avisarLote(quantos, oque, ids) {
+  loteAviso = {
+    chave: (ids || []).join(','),
+    texto: quantos ? `${oque} aplicado a ${quantos} ${quantos > 1 ? 'itens' : 'item'}.`
+                   : `Nenhum item mudou de ${oque}.`,
+  };
+}
+
+function renderPanel() {
+  const ids = selNodeIds();
+  const estavaAberto = panel.classList.contains('open');
+  if (!hasSel()) {
+    panel.classList.remove('open'); panel.innerHTML = '';
+    document.body.classList.remove('painel-aberto');
+    if (estavaAberto) ajustarCamera();
+    return;
+  }
+  panel.classList.add('open');
+  document.body.classList.add('painel-aberto');     // em tela estreita, fecha a paleta
+  if (!estavaAberto) ajustarCamera();
+  panel.innerHTML = '';
+
+  // ---- vários nós selecionados: ações em lote
+  if (ids.length > 1) {
+    panel.appendChild(h('div', 'ph', `<b>${ids.length} itens</b><span>selecionados</span>`));
+    const gsel = h('select', 'fsel');
+    gsel.innerHTML = '<option value="">— manter —</option><option value="__none">Sem grupo</option>'
+      + (F.groups || []).map(g => `<option value="${g.id}">${g.label || g.id}</option>`).join('')
+      + '<option value="__new">+ Novo grupo…</option>';
+    gsel.addEventListener('change', () => {
+      const v = gsel.value; if (!v) return;
+      let gid = v;
+      if (v === '__new') { const nome = prompt('Nome do grupo:'); if (!nome) { gsel.value = ''; return; } beginChange(); gid = ensureGroup(nome); }
+      else beginChange();
+      ids.forEach(id => { const n = nodeById(id); if (!n) return; if (gid === '__none') delete n.group; else n.group = gid; });
+      render();
+    });
+    panel.appendChild(campo('Mover para o grupo', gsel));
+
+    // Formato e ícone do lote: uma transação para todos, e "manter" não toca em nada.
+    const fmt = h('select', 'fsel');
+    fmt.innerHTML = '<option value="">— manter —</option>'
+      + SHAPES.map(sh => `<option value="${sh.id}">${sh.label} — ${sh.hint}</option>`).join('');
+    fmt.addEventListener('change', () => {
+      if (!fmt.value) return;
+      beginChange();
+      const n = batchNodes(F, ids, { shape: fmt.value === 'rounded' ? null : fmt.value });
+      fmt.value = '';
+      avisarLote(n, 'formato', ids);
+      render();
+    });
+    panel.appendChild(campo('Formato de todos', fmt));
+
+    const icones = h('div', 'fico');
+    Object.keys(ICN).sort().forEach(nome => {
+      const b = h('button', '');
+      b.title = 'Aplicar o ícone ' + nome + ' a todos';
+      b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[nome]}</svg>`;
+      b.onclick = () => { beginChange(); avisarLote(batchNodes(F, ids, { icon: nome }), 'ícone', ids); render(); };
+      icones.appendChild(b);
+    });
+    panel.appendChild(campo('Ícone de todos', icones));
+
+    // Conexões internas: as duas pontas estão na seleção, então mexer nelas não surpreende.
+    const internas = edgesWithin(F, ids);
+    if (internas.length) {
+      const est = h('select', 'fsel');
+      est.innerHTML = '<option value="">— manter —</option><option value="solid">Contínua</option><option value="dashed">Tracejada</option>';
+      est.addEventListener('change', () => {
+        if (!est.value) return;
+        beginChange();
+        const n = batchEdges(F, internas, { style: est.value === 'dashed' ? 'dashed' : null });
+        est.value = ''; avisarLote(n, 'traço', ids); render();
+      });
+      panel.appendChild(campo(`Traço das ${internas.length} conexões internas`, est));
+      const linha = h('div', 'frow');
+      [['Animar', true], ['Parar', false]].forEach(([rot, valor]) => {
+        const b = h('button', 'fbtn', rot);
+        b.onclick = () => { beginChange(); avisarLote(batchEdges(F, internas, { animated: valor }), 'animação', ids); render(); };
+        linha.appendChild(b);
+      });
+      panel.appendChild(campo('Fluxo dessas conexões', linha));
+    }
+
+    const bDup = h('button', 'fbtn', 'Duplicar (Ctrl+D)');
+    bDup.onclick = () => duplicarSelecao();
+    const bDel = h('button', 'fbtn danger', 'Excluir (Del)');
+    bDel.onclick = () => excluirSelecao();
+    const acoes = h('div', 'frow'); acoes.appendChild(bDup); acoes.appendChild(bDel);
+    panel.appendChild(acoes);
+    if (loteAviso && loteAviso.chave === ids.join(',')) panel.appendChild(h('p', 'fnote flote', loteAviso.texto));
+    return;
+  }
+
+  // ---- uma conexão
+  if (sel.edge !== null && F.edges[sel.edge]) {
+    const ed = F.edges[sel.edge];
+    const de = nodeById(ed.from), para = nodeById(ed.to);
+    panel.appendChild(h('div', 'ph', `<b>Conexão</b><span>${(de && de.label) || ed.from} → ${(para && para.label) || ed.to}</span>`));
+    const lab = h('input', 'finp'); lab.value = ed.label || ''; lab.placeholder = 'ex.: 443, async, cache miss';
+    lab.addEventListener('change', () => { beginChange(); const v = lab.value.trim(); if (v) ed.label = v; else delete ed.label; render(); });
+    panel.appendChild(campo('Rótulo', lab));
+    const est = h('select', 'fsel');
+    est.innerHTML = '<option value="solid">Contínua</option><option value="dashed">Tracejada</option>';
+    est.value = ed.style === 'dashed' ? 'dashed' : 'solid';
+    est.addEventListener('change', () => { beginChange(); if (est.value === 'dashed') ed.style = 'dashed'; else delete ed.style; render(); });
+    panel.appendChild(campo('Traço', est));
+    const anim = h('input'); anim.type = 'checkbox'; anim.checked = ed.animated !== false;
+    anim.addEventListener('change', () => { beginChange(); ed.animated = anim.checked; render(); });
+    const wrapA = h('label', 'fchk'); wrapA.appendChild(anim); wrapA.appendChild(h('span', null, 'Animar o fluxo nesta conexão'));
+    panel.appendChild(wrapA);
+    const bInv = h('button', 'fbtn', 'Inverter sentido');
+    bInv.onclick = () => { beginChange(); const t = ed.from; ed.from = ed.to; ed.to = t; render(); };
+    const bDel = h('button', 'fbtn danger', 'Excluir');
+    bDel.onclick = () => excluirSelecao();
+    const acoes = h('div', 'frow'); acoes.appendChild(bInv); acoes.appendChild(bDel);
+    panel.appendChild(acoes);
+    return;
+  }
+
+  // ---- um nó
+  const n = nodeById(ids[0]); if (!n) return;
+  panel.appendChild(h('div', 'ph', `<b>Nó</b><span>${n.id}</span>`));
+  const lab = h('input', 'finp'); lab.value = n.label || '';
+  lab.addEventListener('change', () => { beginChange(); n.label = lab.value.trim() || 'Nó'; render(); });
+  panel.appendChild(campo('Rótulo', lab));
+
+  const fsel = h('select', 'fsel');
+  fsel.innerHTML = SHAPES.map(s => `<option value="${s.id}">${s.label} — ${s.hint}</option>`).join('');
+  fsel.value = n.shape || 'rounded';
+  fsel.addEventListener('change', () => {
+    beginChange();
+    if (fsel.value === 'rounded') delete n.shape; else n.shape = fsel.value;
+    render();
+  });
+  panel.appendChild(campo('Formato', fsel));
+
+  const grid = h('div', 'fico');
+  Object.keys(ICN).sort().forEach(nome => {
+    const b = h('button', n.icon === nome ? 'on' : '');
+    b.title = nome;
+    b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[nome]}</svg>`;
+    b.onclick = () => { beginChange(); n.icon = nome; render(); };
+    grid.appendChild(b);
+  });
+  if (isCentered(n.shape || 'rounded')) {
+    const aviso = h('p', 'fnote', 'Esta forma usa o rótulo centralizado — o ícone não aparece nela.');
+    panel.appendChild(campo('Ícone', aviso));
+  } else {
+    panel.appendChild(campo('Ícone', grid));
+  }
+
+  const gsel = h('select', 'fsel');
+  gsel.innerHTML = '<option value="__none">Sem grupo</option>'
+    + (F.groups || []).map(g => `<option value="${g.id}">${g.label || g.id}</option>`).join('')
+    + '<option value="__new">+ Novo grupo…</option>';
+  gsel.value = n.group || '__none';
+  gsel.addEventListener('change', () => {
+    const v = gsel.value;
+    if (v === '__new') { const nome = prompt('Nome do grupo:'); if (!nome) { gsel.value = n.group || '__none'; return; } beginChange(); n.group = ensureGroup(nome); }
+    else { beginChange(); if (v === '__none') delete n.group; else n.group = v; }
+    render();
+  });
+  panel.appendChild(campo('Grupo', gsel));
+  panel.appendChild(campo('Nota', editarNota(n)));
+
+  const bDup = h('button', 'fbtn', 'Duplicar');
+  bDup.onclick = () => duplicarSelecao();
+  const bDel = h('button', 'fbtn danger', 'Excluir');
+  bDel.onclick = () => excluirSelecao();
+  const acoes = h('div', 'frow'); acoes.appendChild(bDup); acoes.appendChild(bDel);
+  panel.appendChild(acoes);
+}
+
+/* === 61-panel-actions.js === */
+/* ---- edição em lote ----
+   Mudar o grupo de oito nós clicando oito vezes é o tipo de trabalho que faz a pessoa
+   desistir de organizar o diagrama. Estas funções aplicam uma mudança a toda a seleção,
+   e quem chama abre UMA transação: o desfazer volta o lote inteiro de uma vez. */
+
+/** Aplica os campos de `patch` a cada nó. Valor `null` apaga o campo (é o "voltar ao padrão"
+    do formato e do grupo). Devolve quantos nós mudaram de fato. */
+function batchNodes(flow, ids, patch) {
+  const alvo = new Set(ids || []);
+  let mudados = 0;
+  (flow.nodes || []).forEach(n => {
+    if (!alvo.has(n.id)) return;
+    let mudou = false;
+    Object.entries(patch || {}).forEach(([campo, valor]) => {
+      if (valor === null || valor === undefined) {
+        if (campo in n) { delete n[campo]; mudou = true; }
+      } else if (n[campo] !== valor) { n[campo] = valor; mudou = true; }
+    });
+    if (mudou) mudados += 1;
+  });
+  return mudados;
+}
+
+/** Índices das conexões cujas duas pontas estão na seleção — as que o lote pode mexer sem
+    surpresa. Uma conexão com um pé fora da seleção fica de fora de propósito. */
+function edgesWithin(flow, ids) {
+  const dentro = new Set(ids || []);
+  const indices = [];
+  (flow.edges || []).forEach((e, i) => { if (dentro.has(e.from) && dentro.has(e.to)) indices.push(i); });
+  return indices;
+}
+
+/** Mesma ideia de `batchNodes`, para conexões. */
+function batchEdges(flow, indices, patch) {
+  let mudados = 0;
+  (indices || []).forEach(i => {
+    const e = (flow.edges || [])[i];
+    if (!e) return;
+    let mudou = false;
+    Object.entries(patch || {}).forEach(([campo, valor]) => {
+      if (valor === null || valor === undefined) {
+        if (campo in e) { delete e[campo]; mudou = true; }
+      } else if (e[campo] !== valor) { e[campo] = valor; mudou = true; }
+    });
+    if (mudou) mudados += 1;
+  });
+  return mudados;
+}
+
+/** Remove nós e, junto, as conexões que dependiam deles — conexão órfã é documento inválido
+    (o contrato recusa ponta inexistente), então os dois sempre saem na mesma transação. */
+function removeNodesFrom(flow, ids) {
+  const set = new Set(ids || []);
+  const antes = (flow.nodes || []).length + (flow.edges || []).length;
+  flow.nodes = (flow.nodes || []).filter(n => !set.has(n.id));
+  flow.edges = (flow.edges || []).filter(e => !set.has(e.from) && !set.has(e.to));
+  return antes - ((flow.nodes || []).length + (flow.edges || []).length);
+}
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = { batchNodes, edgesWithin, batchEdges, removeNodesFrom };
+}
+
+/* === 65-dock.js === */
+/* ---- paleta fixa lateral: arraste o componente para dentro do diagrama ----
+   O duplo-clique no vazio continua valendo, mas exige saber que existe. Uma paleta
+   sempre visível mostra o que dá pra usar, e arrastar é o gesto que as pessoas já
+   trazem de Miro/Whimsical. */
+const dock = h('aside', 'fdock');
+document.body.appendChild(dock);
+
+let dockAberto = true;
+const dockSections = Object.create(null);
+function montarDock() {
+  dock.innerHTML = '';
+  const topo = h('div', 'dkh');
+  topo.appendChild(h('span', null, 'Componentes'));
+  const tog = h('button', 'dktog', dockAberto ? '‹' : '›');
+  tog.title = dockAberto ? 'Recolher paleta' : 'Abrir paleta';
+  tog.onclick = () => { dockAberto = !dockAberto; dock.classList.toggle('closed', !dockAberto); montarDock(); };
+  topo.appendChild(tog);
+  dock.appendChild(topo);
+  if (!dockAberto) return;
+
+  const busca = h('input', 'dksrch');
+  busca.placeholder = 'Buscar…';
+  dock.appendChild(busca);
+  const corpo = h('div', 'dkbody');
+  dock.appendChild(corpo);
+
+  function desenhar(q) {
+    corpo.innerHTML = '';
+    q = (q || '').toLowerCase().trim();
+    function secao(titulo, itens, montar, padraoAberta, classe) {
+      if (!itens.length) return;
+      const aberta = q ? true : (dockSections[titulo] ?? padraoAberta);
+      const cab = h('button', 'dksection', `${aberta ? '▾' : '▸'} ${titulo}`);
+      cab.type = 'button'; cab.setAttribute('aria-expanded', String(aberta));
+      const grid = h('div', 'dkgrid' + (classe ? ' ' + classe : ''));
+      grid.hidden = !aberta;
+      itens.forEach(item => grid.appendChild(montar(item)));
+      cab.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); grid.hidden = !grid.hidden; dockSections[titulo] = !grid.hidden; cab.setAttribute('aria-expanded', String(!grid.hidden)); cab.textContent = `${grid.hidden ? '▸' : '▾'} ${titulo}`; };
+      corpo.appendChild(cab); corpo.appendChild(grid);
+    }
+
+    // Formas e componentes usam a mesma navegação recolhível. A busca abre só as seções com resultado.
+    const formas = SHAPES.filter(s => !q || s.label.toLowerCase().includes(q) || s.hint.includes(q));
+    secao('Formas', formas, s => {
+        const b = h('button', 'dkit dksh');
+        b.title = s.hint + ' — arraste para o diagrama';
+        b.innerHTML = `<svg class="shp" width="34" height="24" viewBox="0 0 40 28">${miniForma(s.id)}</svg><span>${s.label}</span>`;
+        b.addEventListener('pointerdown', ev => arrastarDoDock(ev, { label: s.label, icon: 'box', shape: s.id }));
+        return b;
+      }, true, 'duas');
+    CAT.forEach(grupo => {
+      const itens = (grupo.items || []).filter(it => !q || it.label.toLowerCase().includes(q));
+      secao(grupo.cat, itens, it => {
+        const b = h('button', 'dkit');
+        b.title = 'Arraste para o diagrama (ou clique)';
+        b.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[it.icon] || ICN['box']}</svg><span>${it.label}</span>`;
+        b.addEventListener('pointerdown', ev => arrastarDoDock(ev, it));
+        return b;
+      }, false);
+    });
+    if (!corpo.children.length) corpo.appendChild(h('p', 'dkempty', 'Nada encontrado.'));
+  }
+  desenhar('');
+  busca.addEventListener('input', () => desenhar(busca.value));
+}
+
+/** Arrasta um item da paleta até o canvas. Solta fora do canvas = cancela. */
+function arrastarDoDock(ev, item) {
+  ev.preventDefault();
+  const fantasma = h('div', 'dkghost');
+  fantasma.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[item.icon] || ICN['box']}</svg><span>${item.label}</span>`;
+  document.body.appendChild(fantasma);
+  const mover = e => {
+    fantasma.style.left = (e.clientX + 12) + 'px';
+    fantasma.style.top = (e.clientY + 12) + 'px';
+    const sobre = dentroDoCanvas(e);
+    fantasma.classList.toggle('ok', sobre);
+  };
+  mover(ev);
+  const soltar = e => {
+    window.removeEventListener('pointermove', mover);
+    window.removeEventListener('pointerup', soltar);
+    fantasma.remove();
+    if (!dentroDoCanvas(e)) return;                       // soltou fora: não cria nada
+    const p = toSvg(e);
+    beginChange();
+    const id = addNode([p.x, p.y], item.label, item.icon, grupoSob(p));
+    if (item.shape) nodeById(id).shape = item.shape;
+    clearSel(); selectNode(id);
+    render();
+  };
+  window.addEventListener('pointermove', mover);
+  window.addEventListener('pointerup', soltar);
+}
+function dentroDoCanvas(e) {
+  const r = stage.getBoundingClientRect();
+  if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return false;
+  return !(dock.contains(e.target) || panel.contains(e.target));
+}
+/** Se soltou dentro da caixa de um grupo, o nó já nasce nele — é o que a pessoa espera
+    ao arrastar para dentro de uma área nomeada. */
+function grupoSob(p) {
+  let achado = null;
+  (F.groups || []).forEach(g => {
+    if (COLLAPSED.has(g.id)) return;
+    const b = groupBBox(g.id);
+    if (b && p.x >= b[0] - 16 && p.x <= b[2] + 16 && p.y >= b[1] - 30 && p.y <= b[3] + 16) achado = g.id;
+  });
+  return achado;
+}
+/** Miniatura da forma para a paleta (mesma geometria do render, em caixa 40×28). */
+function miniForma(id) {
+  const g = shapeGeom(id, 38, 26);
+  const at = Object.entries({ ...g.attrs, transform: 'translate(1,1)' })
+    .map(([k, v]) => `${k}="${v}"`).join(' ');
+  const ex = shapeExtras(id, 38, 26)
+    .map(e => `<${e.tag} ${Object.entries(e.attrs).filter(([k]) => k !== 'class').map(([k, v]) => `${k}="${v}"`).join(' ')} transform="translate(1,1)"/>`).join('');
+  return `<${g.tag} ${at}/>${ex}`;
+}
+montarDock();
+
+/* === 70-palettes.js === */
+/* ---- paletas e edição inline de rótulo ---- */
+function fecharAoClicarFora(el) {
+  setTimeout(() => document.addEventListener('pointerdown', function fn(e) {
+    if (!el.contains(e.target)) { el.remove(); document.removeEventListener('pointerdown', fn); }
+  }), 0);
+}
+
+/** Paleta do catálogo: escolhe um componente pronto (rótulo + ícone) ou nó em branco. */
+function componentPalette(sx, sy, pt) {
+  document.querySelectorAll('.cpal').forEach(e => e.remove());
+  const pal = h('div', 'cpal');
+  const busca = h('input', 'srch'); busca.placeholder = 'Buscar componente…';
+  const corpo = h('div');
+  pal.appendChild(busca); pal.appendChild(corpo);
+  function desenhar(q) {
+    corpo.innerHTML = ''; q = (q || '').toLowerCase().trim();
+    CAT.forEach(grupo => {
+      const itens = (grupo.items || []).filter(it => !q || it.label.toLowerCase().includes(q));
+      if (!itens.length) return;
+      corpo.appendChild(h('h4', null, grupo.cat));
+      const grid = h('div', 'grid');
+      itens.forEach(it => {
+        const b = document.createElement('button');
+        b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[it.icon] || ICN['box']}</svg><span>${it.label}</span>`;
+        b.onclick = () => { beginChange(); const id = addNode(pt, it.label, it.icon); selectNode(id); pal.remove(); render(); };
+        grid.appendChild(b);
+      });
+      corpo.appendChild(grid);
+    });
+    const wrap = h('div', 'grid');
+    const vazio = h('button', 'blank', '+ Nó em branco');
+    vazio.onclick = () => { beginChange(); const id = addNode(pt, 'Novo', 'box'); selectNode(id); pal.remove(); render(); setTimeout(() => editLabel('n', id), 0); };
+    wrap.appendChild(vazio); corpo.appendChild(wrap);
+  }
+  desenhar('');
+  busca.addEventListener('input', () => desenhar(busca.value));
+  busca.addEventListener('keydown', e => {
+    if (e.key === 'Escape') pal.remove();
+    if (e.key === 'Enter') { const p = corpo.querySelector('.grid button:not(.blank)'); if (p) p.click(); }
+  });
+  pal.style.left = Math.min(sx - 20, innerWidth - 330) + 'px';
+  pal.style.top = Math.min(sy - 10, innerHeight - 80) + 'px';
+  document.body.appendChild(pal); busca.focus();
+  fecharAoClicarFora(pal);
+}
+
+/** Busca de nós — indispensável quando o diagrama passa de algumas dezenas de caixas. */
+function abrirBusca() {
+  document.querySelectorAll('.fsearch').forEach(e => e.remove());
+  const box = h('div', 'fsearch');
+  const inp = h('input'); inp.placeholder = 'Ir para o nó…';
+  const lista = h('div', 'res');
+  box.appendChild(inp); box.appendChild(lista);
+  document.body.appendChild(box); inp.focus();
+  let marcado = 0, atuais = [];
+  function desenhar() {
+    const q = inp.value.toLowerCase().trim();
+    atuais = (F.nodes || []).filter(n => !q || (n.label || n.id).toLowerCase().includes(q)).slice(0, 12);
+    lista.innerHTML = '';
+    atuais.forEach((n, i) => {
+      const b = document.createElement('button');
+      if (i === marcado) b.className = 'on';
+      const gp = n.group && groupById(n.group);
+      b.innerHTML = `<span>${n.label || n.id}</span>` + (gp ? `<em>${gp.label || gp.id}</em>` : '');
+      b.onclick = () => irPara(n.id);
+      lista.appendChild(b);
+    });
+  }
+  function irPara(id) {
+    const n = nodeById(id);
+    if (n && n.group && COLLAPSED.has(n.group)) COLLAPSED.delete(n.group);   // abre o grupo p/ mostrar
+    clearSel(); selectNode(id); render();
+    focusNodes([id], 1.1);
+    box.remove();
+  }
+  inp.addEventListener('input', () => { marcado = 0; desenhar(); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Escape') box.remove();
+    if (e.key === 'ArrowDown') { marcado = Math.min(atuais.length - 1, marcado + 1); desenhar(); e.preventDefault(); }
+    if (e.key === 'ArrowUp') { marcado = Math.max(0, marcado - 1); desenhar(); e.preventDefault(); }
+    if (e.key === 'Enter' && atuais[marcado]) irPara(atuais[marcado].id);
+  });
+  desenhar();
+  fecharAoClicarFora(box);
+}
+
+/** Edição do rótulo direto sobre o elemento. */
+let editando = null;
+const isEditing = () => !!editando;
+function editLabel(tipo, chave) {
+  const inp = h('input', 'inlED');
+  editando = inp;
+  let cx, cy, w, atual;
+  if (tipo === 'n') {
+    const p = POS[chave]; atual = nodeById(chave).label || '';
+    const sp = toScreen(p[0] + NW / 2, p[1] + NH / 2);
+    cx = sp.x; cy = sp.y; w = NW - 30;
+  } else {
+    const ed = F.edges[chave];
+    const geo = edgeGeom(ed);
+    if (!geo) { editando = null; return; }
+    atual = ed.label || '';
+    const sp = toScreen((geo.p1[0] + geo.p2[0]) / 2, (geo.p1[1] + geo.p2[1]) / 2 - 8);
+    cx = sp.x; cy = sp.y; w = 130;
+  }
+  inp.value = atual;
+  inp.style.left = (cx - w / 2) + 'px'; inp.style.top = (cy - 14) + 'px'; inp.style.width = w + 'px';
+  document.body.appendChild(inp); inp.focus(); inp.select();
+  let fechado = false;
+  const done = salvar => {
+    if (fechado) return; fechado = true;
+    const v = inp.value.trim();
+    if (salvar && v !== atual) {
+      beginChange();
+      if (tipo === 'n') nodeById(chave).label = v || 'Nó';
+      else if (v) F.edges[chave].label = v; else delete F.edges[chave].label;
+    }
+    inp.remove(); editando = null; render();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); });
+  inp.addEventListener('blur', () => done(true));
+}
+
+/* === 75-navigator.js === */
+/* ---- navegação de diagramas grandes ---- */
+function shortestDirectedPath(from, to) {
+  if (!from || !to) return [];
+  const next = {};
+  (F.edges || []).forEach(e => { (next[e.from] ||= []).push(e.to); });
+  Object.values(next).forEach(list => list.sort());
+  const queue = [from], previous = { [from]: null };
+  while (queue.length) {
+    const id = queue.shift();
+    if (id === to) break;
+    (next[id] || []).forEach(child => { if (!(child in previous)) { previous[child] = id; queue.push(child); } });
+  }
+  if (!(to in previous)) return [];
+  const path = []; for (let id = to; id !== null; id = previous[id]) path.unshift(id);
+  return path;
+}
+
+function openNavigator() {
+  document.querySelectorAll('.navigator').forEach(el => el.remove());
+  const box = document.createElement('aside'); box.className = 'navigator';
+  box.innerHTML = '<strong>Navegação</strong><input aria-label="Filtrar nós" placeholder="Filtrar nós…"><svg class="navmini" aria-label="Minimap"></svg><div class="navpath"><select aria-label="Origem"></select><select aria-label="Destino"></select><button>Focar caminho</button></div><div class="navlist"></div>';
+  document.body.appendChild(box);
+  const input = box.querySelector('input'), list = box.querySelector('.navlist'), from = box.querySelectorAll('select')[0], to = box.querySelectorAll('select')[1];
+  const nodes = () => (F.nodes || []).slice().sort((a, b) => (a.label || a.id).localeCompare(b.label || b.id));
+  nodes().forEach(n => { [from, to].forEach(select => { const opt = document.createElement('option'); opt.value = n.id; opt.textContent = n.label || n.id; select.appendChild(opt); }); });
+  function drawMini() {
+    const mini = box.querySelector('.navmini'), points = Object.values(POS);
+    if (!points.length) return;
+    const maxX = Math.max(...points.map(p => p[0] + NW)) + 40, maxY = Math.max(...points.map(p => p[1] + NH)) + 40;
+    mini.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`); mini.innerHTML = '';
+    (F.nodes || []).forEach(n => { const p = POS[n.id]; if (!p) return; const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('x', p[0]); r.setAttribute('y', p[1]); r.setAttribute('width', NW); r.setAttribute('height', NH); r.setAttribute('rx', 8); r.setAttribute('class', sel.nodes.has(n.id) ? 'on' : ''); r.onclick = () => { clearSel(); selectNode(n.id); focusNodes([n.id], 1.1); render(); }; mini.appendChild(r); });
+  }
+  function draw() {
+    list.innerHTML = '';
+    nodes().filter(n => !input.value || (n.label || n.id).toLowerCase().includes(input.value.toLowerCase())).forEach(n => {
+      const b = document.createElement('button'); b.textContent = n.label || n.id; b.onclick = () => { clearSel(); selectNode(n.id); focusNodes([n.id], 1.1); render(); }; list.appendChild(b);
+    });
+    drawMini();
+  }
+  input.oninput = draw;
+  box.querySelector('button').onclick = () => { const path = shortestDirectedPath(from.value, to.value); if (!path.length) return alert('Não há caminho dirigido entre estes nós.'); clearSel(); path.forEach(id => sel.nodes.add(id)); focusNodes(path, 1.05); render(); };
+  draw(); input.focus();
+}
+
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style'); style.textContent = '.navigator{position:fixed;z-index:80;right:14px;top:58px;width:270px;max-height:calc(100vh - 76px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card,var(--bg));box-shadow:0 14px 32px #0002;color:var(--ink);font:12px var(--display)}.navigator strong{display:block;margin-bottom:8px}.navigator input,.navigator select,.navigator button{box-sizing:border-box;width:100%;margin:3px 0;padding:7px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}.navmini{width:100%;height:110px;margin:8px 0;border:1px solid var(--line);background:var(--bg)}.navmini rect{fill:var(--muted);opacity:.5;cursor:pointer}.navmini rect.on{fill:var(--accent);opacity:1}.navpath{display:grid;grid-template-columns:1fr 1fr;gap:3px}.navpath button{grid-column:1/-1;background:var(--accent);color:white}.navlist button{text-align:left;cursor:pointer}'; document.head.appendChild(style);
+}
+if (typeof module === 'object' && module.exports) module.exports = { shortestDirectedPath };
+
+function addNavigatorButton() {
+  const bar = document.querySelector('.bar'), anchor = bar && bar.querySelector('.sp');
+  if (!anchor || document.getElementById('navBtn')) return;
+  const b = document.createElement('button'); b.id = 'navBtn'; b.className = 'btn'; b.textContent = 'Navegar'; b.title = 'Abrir navegação'; b.setAttribute('aria-label', b.title); b.onclick = openNavigator;
+  bar.insertBefore(b, anchor);
+}
+if (typeof document !== 'undefined') addNavigatorButton();
+
+/* === 76-layout.js === */
+/* ---- organização determinística da seleção e do fluxo ---- */
+function selectedPoints(ids) {
+  return ids.map(id => POS[id]).filter(Boolean);
+}
+
+function alignNodes(ids, axis, edge) {
+  const points = selectedPoints(ids);
+  if (points.length < 2) return false;
+  const value = edge === 'min' ? Math.min(...points.map(p => p[axis])) : Math.max(...points.map(p => p[axis]));
+  ids.forEach(id => { if (POS[id]) POS[id][axis] = value; });
+  return true;
+}
+
+function distributeNodes(ids, axis) {
+  const ordered = ids.filter(id => POS[id]).sort((a, b) => POS[a][axis] - POS[b][axis] || a.localeCompare(b));
+  if (ordered.length < 3) return false;
+  const first = POS[ordered[0]][axis], last = POS[ordered.at(-1)][axis];
+  const gap = (last - first) / (ordered.length - 1);
+  ordered.forEach((id, i) => { POS[id][axis] = first + gap * i; });
+  return true;
+}
+
+function autoLayoutModel() {
+  const nodes = F.nodes || [], edges = F.edges || [];
+  const ids = nodes.map(n => n.id).sort();
+  const indegree = Object.fromEntries(ids.map(id => [id, 0]));
+  const next = Object.fromEntries(ids.map(id => [id, []]));
+  edges.forEach(e => { if (next[e.from] && next[e.to]) { next[e.from].push(e.to); indegree[e.to] += 1; } });
+  const layers = [], remaining = new Set(ids);
+  while (remaining.size) {
+    const layer = ids.filter(id => remaining.has(id) && indegree[id] === 0);
+    const chosen = layer.length ? layer : [Array.from(remaining).sort()[0]];
+    chosen.forEach(id => { remaining.delete(id); next[id].forEach(to => { indegree[to] -= 1; }); });
+    layers.push(chosen);
+  }
+  layers.forEach((layer, x) => layer.forEach((id, y) => {
+    POS[id] = [60 + x * (NW + 88), 60 + y * (NH + 34)];
+  }));
+  return layers;
+}
+
+function addLayoutControls() {
+  const bar = document.querySelector('.bar');
+  const anchor = bar && bar.querySelector('.sp');
+  if (!anchor || document.getElementById('layoutTools')) return;
+  const tools = document.createElement('div');
+  tools.id = 'layoutTools'; tools.className = 'grp';
+  const button = (id, label, title, fn) => {
+    const el = document.createElement('button'); el.className = 'btn'; el.id = id; el.textContent = label; el.title = title;
+    el.setAttribute('aria-label', title); el.onclick = fn; tools.appendChild(el);
+  };
+  button('arrangeBtn', 'Organizar', 'Organizar o diagrama', () => { beginChange(); autoLayoutModel(); render(); });
+  button('alignBtn', 'Alinhar', 'Alinhar seleção pela esquerda', () => { if (sel.nodes.size > 1) { beginChange(); alignNodes(selNodeIds(), 0, 'min'); render(); } });
+  button('distributeBtn', 'Distribuir', 'Distribuir seleção horizontalmente', () => { if (sel.nodes.size > 2) { beginChange(); distributeNodes(selNodeIds(), 0); render(); } });
+  bar.insertBefore(tools, anchor);
+}
+
+if (typeof document !== 'undefined') addLayoutControls();
+if (typeof module === 'object' && module.exports) module.exports = { alignNodes, distributeNodes, autoLayoutModel };
+
+/* === 77-connectors.js === */
+/* ---- conectores legíveis: paralelas que não se escondem ----
+   Duas conexões entre os mesmos dois nós (ida e volta, ou dois protocolos) saíam desenhadas
+   uma EM CIMA da outra: o diagrama mentia, mostrando uma seta onde havia duas. Aqui cada
+   par ganha um leque de deslocamentos, calculado só a partir da ordem no documento — o
+   mesmo flow.json desenha sempre igual, e ida e volta continuam sendo duas setas. */
+const EDGE_GAP = 15;
+
+/** Chave do par, sem direção: ida e volta compartilham o mesmo leque. */
+function pairKey(a, b) {
+  return a < b ? a + '|' + b : b + '|' + a;
+}
+
+/** Deslocamento de cada aresta visível, em pixels, perpendicular ao traço.
+    `resolve` traduz um id de nó no que ele representa na tela (o grupo, se recolhido). */
+function parallelOffsets(edges, resolve, gap) {
+  const passo = gap || EDGE_GAP;
+  const id = resolve || (x => x);
+  const baldes = new Map();
+  const representante = new Map();             // linha desenhada -> índice que a representa
+  const copia = new Map();                     // índice fundido -> índice do representante
+  (edges || []).forEach((ed, i) => {
+    const a = id(ed.from), b = id(ed.to);
+    if (a === b) return;                       // some no grupo recolhido: não ocupa lugar no leque
+    const direcao = a + '>' + b;
+    if (representante.has(direcao)) { copia.set(i, representante.get(direcao)); return; }
+    representante.set(direcao, i);             // a vaga no leque é por LINHA desenhada,
+    const k = pairKey(a, b);                   // não por aresta do documento: as fundidas
+    if (!baldes.has(k)) baldes.set(k, []);     // pelo grupo recolhido viram uma só.
+    baldes.get(k).push(i);
+  });
+  const offsets = new Array((edges || []).length).fill(0);
+  baldes.forEach(indices => {
+    if (indices.length < 2) return;
+    indices.forEach((idx, pos) => { offsets[idx] = (pos - (indices.length - 1) / 2) * passo; });
+  });
+  copia.forEach((rep, idx) => { offsets[idx] = offsets[rep]; });
+  return offsets;
+}
+
+/** Quantas arestas do documento cada par visível representa. Com um grupo recolhido, várias
+    viram uma só na tela — e o número é o que impede a leitura errada de "há uma conexão". */
+function mergedCounts(edges, resolve) {
+  const id = resolve || (x => x);
+  const contagem = new Map();
+  (edges || []).forEach(ed => {
+    const a = id(ed.from), b = id(ed.to);
+    if (a === b) return;
+    const k = a + '>' + b;
+    contagem.set(k, (contagem.get(k) || 0) + 1);
+  });
+  return contagem;
+}
+
+/** Move um ponto de ancoragem ao longo do lado de onde ele sai (o traço anda de lado,
+    não para frente: o leque abre sem mudar de qual borda a seta parte). */
+function shiftAnchor(point, side, offset) {
+  if (!offset) return point;
+  return (side === 'left' || side === 'right')
+    ? [point[0], point[1] + offset]
+    : [point[0] + offset, point[1]];
+}
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = { pairKey, parallelOffsets, mergedCounts, shiftAnchor, EDGE_GAP };
+}
+
+/* === 80-present.js === */
+/* ---- modo apresentação: percorre o diagrama por estágios ----
+   Em diagrama grande, mostrar tudo de uma vez é o mesmo que não mostrar nada.
+   Aqui cada passo acende um trecho e escurece o resto, com a câmera acompanhando. */
+let present = { on: false, passo: 0, etapas: [] };
+
+/** Etapas em ordem topológica: cada uma é o conjunto de nós alcançados naquele "nível".
+    Nós sem predecessor abrem; ciclos não travam (o que sobra entra como etapa final). */
+function montarEtapas() {
+  const nos = (F.nodes || []).filter(nodeVisible).map(n => n.id);
+  const dentro = new Set(nos);
+  const grau = {}; nos.forEach(id => grau[id] = 0);
+  const saida = {}; nos.forEach(id => saida[id] = []);
+  (F.edges || []).forEach(e => {
+    if (!dentro.has(e.from) || !dentro.has(e.to) || e.from === e.to) return;
+    grau[e.to]++; saida[e.from].push(e.to);
+  });
+  const etapas = [];
+  let atual = nos.filter(id => grau[id] === 0);
+  const visto = new Set(atual);
+  while (atual.length) {
+    etapas.push(atual);
+    const prox = [];
+    atual.forEach(id => saida[id].forEach(t => {
+      if (--grau[t] === 0 && !visto.has(t)) { visto.add(t); prox.push(t); }
+    }));
+    atual = prox;
+  }
+  const restantes = nos.filter(id => !visto.has(id));
+  if (restantes.length) etapas.push(restantes);
+  return etapas.length ? etapas : [nos];
+}
+
+/** Nós acesos até o passo atual (acumulativo: o caminho já percorrido continua visível). */
+function acesos() {
+  const s = new Set();
+  for (let i = 0; i <= present.passo && i < present.etapas.length; i++) present.etapas[i].forEach(id => s.add(id));
+  return s;
+}
+const dimmedNode = id => present.on && !acesos().has(id);
+const dimmed = (a, b) => {
+  if (!present.on) return false;
+  const on = acesos();
+  const vale = k => String(k).startsWith('g:') ? nodesOfGroup(String(k).slice(2)).some(n => on.has(n.id)) : on.has(k);
+  return !(vale(a) && vale(b));
+};
+
+function presentStart() {
+  present.on = true; present.passo = 0; present.etapas = montarEtapas();
+  clearSel();
+  document.body.classList.add('presenting');
+  render(); presentFocus();
+  atualizarBarra();
+}
+function presentStop() {
+  present.on = false;
+  document.body.classList.remove('presenting');
+  const b = document.querySelector('.pbar'); if (b) b.remove();
+  render(); fitView(true);
+}
+function presentGo(delta) {
+  const n = present.passo + delta;
+  if (n < 0) return;
+  if (n >= present.etapas.length) { presentStop(); return; }
+  present.passo = n;
+  render(); presentFocus(); atualizarBarra();
+}
+function presentFocus() {
+  const etapa = present.etapas[present.passo] || [];
+  const anterior = present.etapas[present.passo - 1] || [];
+  focusNodes([...new Set([...etapa, ...anterior])], 1.15);
+}
+function atualizarBarra() {
+  let bar = document.querySelector('.pbar');
+  if (!bar) {
+    bar = h('div', 'pbar');
+    document.body.appendChild(bar);
+  }
+  const total = present.etapas.length;
+  const nomes = (present.etapas[present.passo] || []).map(id => {
+    const n = nodeById(id); return n ? (n.label || n.id) : id;
+  });
+  bar.innerHTML = `<button data-a="prev" title="Anterior (←)">‹</button>`
+    + `<div class="pinfo"><b>Etapa ${present.passo + 1} de ${total}</b><span>${nomes.join(' · ')}</span></div>`
+    + `<button data-a="next" title="Próxima (→)">›</button>`
+    + `<button data-a="exit" class="x" title="Sair (Esc)">Sair</button>`;
+  bar.querySelector('[data-a="prev"]').onclick = () => presentGo(-1);
+  bar.querySelector('[data-a="next"]').onclick = () => presentGo(1);
+  bar.querySelector('[data-a="exit"]').onclick = presentStop;
+}
+
+/* === 90-main.js === */
+/* ---- montagem: atalhos, toolbar, salvar, modo export ---- */
+const QS = new URLSearchParams(location.search);
+const EXPORT = QS.has('export');
+const tema = QS.get('theme');
+if (tema === 'dark') document.documentElement.dataset.theme = 'dark';
+else if (tema === 'light') document.documentElement.removeAttribute('data-theme');
+
+async function hashFlowOnLoad() {
+  const response = await fetch('flow.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error('não foi possível ler o flow.json atual');
+  const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+const baseHashPromise = hashFlowOnLoad();
+
+function onRender() { renderPanel(); atualizarBotoes(); }
+function onCameraMove() { const p = document.querySelector('.inlED'); if (p) p.remove(); }
+
+function excluirSelecao() {
+  if (!hasSel()) return;
+  beginChange();
+  if (sel.edge !== null) F.edges.splice(sel.edge, 1);
+  else removeNodes(selNodeIds());
+  clearSel(); render();
+}
+function duplicarSelecao() {
+  const ids = selNodeIds();
+  if (!ids.length) return;
+  beginChange();
+  const novos = duplicateNodes(ids, 40, 40);
+  clearSel(); novos.forEach(id => sel.nodes.add(id));
+  render();
+}
+function selecionarTudo() {
+  clearSel();
+  (F.nodes || []).forEach(n => { if (nodeVisible(n)) sel.nodes.add(n.id); });
+  render();
+}
+
+// ---- atalhos
+document.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+  if (isEditing() || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+    if (e.key === 'Escape') document.activeElement.blur();
+    return;
+  }
+  if (present.on) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); presentGo(1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); presentGo(-1); }
+    if (e.key === 'Escape') presentStop();
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); if (undo()) { clearSel(); render(); } return; }
+  if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); if (redo()) { clearSel(); render(); } return; }
+  if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicarSelecao(); return; }
+  if (mod && e.key.toLowerCase() === 'a') { e.preventDefault(); selecionarTudo(); return; }
+  if (mod && e.key.toLowerCase() === 'f') { e.preventDefault(); abrirBusca(); return; }
+  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); salvar(false); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); excluirSelecao(); return; }
+  if (e.key === 'Escape') { clearSel(); render(); return; }
+  if (e.key === '=' || e.key === '+') { zoomBy(1.15); return; }
+  if (e.key === '-') { zoomBy(1 / 1.15); return; }
+  if (e.key === '0') { fitView(true); return; }
+  // setas movem a seleção (1px, ou 10 com Shift)
+  if (/^Arrow/.test(e.key) && sel.nodes.size) {
+    e.preventDefault();
+    const d = e.shiftKey ? 10 : 1;
+    const dx = e.key === 'ArrowRight' ? d : e.key === 'ArrowLeft' ? -d : 0;
+    const dy = e.key === 'ArrowDown' ? d : e.key === 'ArrowUp' ? -d : 0;
+    beginChange();
+    selNodeIds().forEach(id => { if (POS[id]) POS[id] = [Math.max(0, POS[id][0] + dx), Math.max(0, POS[id][1] + dy)]; });
+    render();
+  }
+});
+
+// ---- fundo: duplo-clique adiciona · arrasto faz pan (ou laço com Shift)
+svg.addEventListener('dblclick', e => {
+  if (present.on) return;
+  const bg = e.target === svg || e.target.classList.contains('gbox') || e.target.classList.contains('lbox');
+  if (!bg) return;
+  const l = toSvg(e);
+  componentPalette(e.clientX, e.clientY, [l.x, l.y]);
+});
+
+if (!EXPORT) {
+  fitView();
+  window.addEventListener('resize', () => applyCam());
+  stage.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
+  }, { passive: false });
+
+  svg.addEventListener('pointerdown', e => {
+    const bg = e.target === svg || e.target.classList.contains('gbox') || e.target.classList.contains('lbox');
+    if (!bg || present.on) return;
+    if (e.shiftKey) { startMarquee(e); return; }
+    const sx = e.clientX, sy = e.clientY, x0 = cam.x, y0 = cam.y;
+    let moveu = false;
+    document.body.classList.add('panning');
+    const mv = ev => {
+      cam.x = x0 - (ev.clientX - sx) / cam.k; cam.y = y0 - (ev.clientY - sy) / cam.k;
+      if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moveu = true;
+      applyCam();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      document.body.classList.remove('panning');
+      if (!moveu) { clearSel(); render(); }
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  });
+} else {
+  const b = contentBBox();
+  svg.setAttribute('viewBox', `${b[0]} ${b[1]} ${b[2] - b[0]} ${b[3] - b[1]}`);
+  svg.setAttribute('width', b[2] - b[0]);
+  svg.setAttribute('height', b[3] - b[1]);
+  document.body.classList.add('export', 'paused');
+}
+
+/* O que acontece precisa CHEGAR a quem não vê a tela: alert some do histórico e o botão
+   "Salvar" muda só de cor. Toda mensagem passa por aqui e vai para a região aria-live. */
+function anunciar(texto) {
+  const alvo = document.getElementById('anuncio');
+  if (alvo) alvo.textContent = texto;
+}
+
+// ---- salvar
+async function salvar(auto) {
+  const payload = structuredClone(F);
+  (payload.nodes || []).forEach(n => {
+    if (auto) delete n.pos;
+    else if (POS[n.id]) n.pos = [Math.round(POS[n.id][0]), Math.round(POS[n.id][1])];
+  });
+  try {
+    const baseHash = await baseHashPromise;
+    const r = await fetch('/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow: payload, baseHash })
+    });
+    if (r.ok) { markSaved(); anunciar('Diagrama salvo no flow.json.'); location.reload(); }
+    else {
+      const erro = await r.json().catch(() => ({}));
+      if (erro.code === 'conflict') {
+        anunciar('Conflito: o flow.json mudou fora deste editor.');
+        const recarregar = confirm('O flow.json mudou fora deste editor. Recarregar e descartar esta edição local?');
+        if (recarregar) location.reload();
+        else {
+          const blob = new Blob([JSON.stringify(F, null, 2) + '\n'], { type: 'application/json' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob); link.download = 'flow-conflict.json'; link.click();
+          URL.revokeObjectURL(link.href);
+          alert('Edição local mantida e baixada como flow-conflict.json.');
+        }
+      } else {
+        const msg = 'Erro ao salvar: ' + (erro.message || 'operação recusada')
+          + (erro.path ? ' (em ' + erro.path + ')' : '');
+        anunciar(msg);
+        alert(msg);
+      }
+    }
+  } catch (err) {
+    anunciar('Sem servidor de edição: o diagrama não foi salvo.');
+    alert('Sem servidor de edição. Use serve_flow.py (não o http.server) para salvar.\n' + err);
+  }
+}
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+function atualizarBotoes() {
+  const u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if (u) u.disabled = !canUndo();
+  if (r) r.disabled = !canRedo();
+  // Alteração não salva dita por extenso, não só por cor: o botão diz o que ainda falta.
+  const sv = document.getElementById('savePos');
+  if (sv) {
+    sv.textContent = dirty ? 'Salvar alterações' : 'Salvar';
+    sv.setAttribute('aria-label', dirty ? 'Salvar no flow.json. Há alterações não salvas.'
+                                        : 'Salvar no flow.json. Nada mudou desde o último salvamento.');
+    sv.classList.toggle('sujo', !!dirty);
+  }
+}
+function ligar(id, fn) { const el = document.getElementById(id); if (el) el.onclick = fn; }
+ligar('savePos', () => salvar(false));
+ligar('autoPos', () => salvar(true));
+ligar('fitBtn', () => fitView(true));
+ligar('undoBtn', () => { if (undo()) { clearSel(); render(); } });
+ligar('redoBtn', () => { if (redo()) { clearSel(); render(); } });
+ligar('presentBtn', presentStart);
+ligar('searchBtn', abrirBusca);
+ligar('zoomIn', () => zoomBy(1.2));
+ligar('zoomOut', () => zoomBy(1 / 1.2));
+
+render();
+
+// ?present na URL já abre apresentando — serve pra deixar o link pronto antes da reunião,
+// sem ter que achar o botão com a sala olhando.
+if (QS.has('present') && !EXPORT) {
+  const passo = parseInt(QS.get('present'), 10);
+  presentStart();
+  if (passo > 1) for (let i = 1; i < passo; i++) presentGo(1);
+}
+
+})();</script>
+<script>
+  function tg(){const h=document.documentElement;const d=h.dataset.theme==='dark';if(d)h.removeAttribute('data-theme');else h.dataset.theme='dark';try{localStorage.setItem('flow-theme',d?'light':'dark');}catch(e){}}
+  const pb=document.getElementById('play');
+  pb.onclick=()=>{document.body.classList.toggle('paused');pb.textContent=document.body.classList.contains('paused')?'▶ Tocar':'⏸ Pausar';};
+  // tooltips de nota (delegação — sobrevive ao re-render do editor)
+  const tip=document.getElementById('tip'), dg=document.getElementById('dg');
+  dg.addEventListener('mousemove',e=>{const n=e.target.closest&&e.target.closest('.node[data-note]');
+    if(n){tip.textContent=n.getAttribute('data-note');tip.style.opacity=1;tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px';}else tip.style.opacity=0;});
+  dg.addEventListener('mouseleave',()=>tip.style.opacity=0);
+  // export
+  function exp(kind){
+    const src=document.getElementById('dg');
+    const svg=src.cloneNode(true);
+    const vb=src.getAttribute('data-vb'); // exporta justo no conteúdo, não no canvas expandido
+    if(vb){const p=vb.split(' ');svg.setAttribute('viewBox',vb);svg.setAttribute('width',p[2]);svg.setAttribute('height',p[3]);}
+    svg.querySelectorAll('.port,.ehandle').forEach(e=>e.remove());
+    const cs=getComputedStyle(document.body);
+    svg.setAttribute('style','background:'+cs.backgroundColor);
+    const xml=new XMLSerializer().serializeToString(svg);
+    const blob=new Blob([xml],{type:'image/svg+xml'});
+    if(kind==='svg'){dl(URL.createObjectURL(blob),'flow.svg');return;}
+    const img=new Image();const url=URL.createObjectURL(blob);
+    img.onload=()=>{const sc=2,c=document.createElement('canvas');c.width=img.width*sc;c.height=img.height*sc;
+      const ctx=c.getContext('2d');ctx.scale(sc,sc);ctx.drawImage(img,0,0);URL.revokeObjectURL(url);
+      c.toBlob(b=>dl(URL.createObjectURL(b),'flow.png'));};
+    img.src=url;
+  }
+  function dl(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click();}
+  // live-reload
+  let _lm=null;setInterval(async()=>{try{const r=await fetch(location.pathname,{method:'HEAD',cache:'no-store'});
+    const lm=r.headers.get('Last-Modified');if(_lm&&lm&&lm!==_lm)location.reload();_lm=lm;}catch(e){}},1500);
+</script>
+</body>
+</html>

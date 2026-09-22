@@ -1,0 +1,158 @@
+{
+  "title": "Aprovação de despesa",
+  "layout": "flow",
+  "direction": "TB",
+  "accent": "#0f9d76",
+  "animation": {
+    "mode": "packet",
+    "speed": 1
+  },
+  "nodes": [
+    {
+      "id": "inicio",
+      "label": "Despesa lançada",
+      "shape": "stadium",
+      "note": "O colaborador lança valor, data e categoria no sistema."
+    },
+    {
+      "id": "anexo",
+      "label": "Confere nota",
+      "shape": "rounded",
+      "icon": "document"
+    },
+    {
+      "id": "tem_nota",
+      "label": "Tem nota?",
+      "shape": "diamond"
+    },
+    {
+      "id": "pendencia",
+      "label": "Aguarda anexo",
+      "shape": "delay",
+      "note": "Fica parada até 7 dias. Sem anexo, volta para quem lançou."
+    },
+    {
+      "id": "politica",
+      "label": "Na política?",
+      "shape": "diamond",
+      "note": "Teto por categoria, prazo de lançamento e centro de custo ativo."
+    },
+    {
+      "id": "gestor",
+      "label": "Gestor aprova",
+      "shape": "operation"
+    },
+    {
+      "id": "valor",
+      "label": "Acima de 2k?",
+      "shape": "diamond"
+    },
+    {
+      "id": "diretoria",
+      "label": "Diretoria aprova",
+      "shape": "operation"
+    },
+    {
+      "id": "decisao",
+      "label": "Aprovado?",
+      "shape": "diamond"
+    },
+    {
+      "id": "recusa",
+      "label": "Recusa com motivo",
+      "shape": "document",
+      "note": "O motivo é obrigatório: é ele que ensina a próxima despesa a vir certa."
+    },
+    {
+      "id": "junta",
+      "label": "Fila",
+      "shape": "merge"
+    },
+    {
+      "id": "pagamento",
+      "label": "Agenda pagamento",
+      "shape": "rounded",
+      "icon": "money"
+    },
+    {
+      "id": "fim",
+      "label": "Reembolso pago",
+      "shape": "stadium"
+    }
+  ],
+  "edges": [
+    {
+      "from": "inicio",
+      "to": "anexo"
+    },
+    {
+      "from": "anexo",
+      "to": "tem_nota"
+    },
+    {
+      "from": "tem_nota",
+      "to": "pendencia",
+      "label": "não",
+      "style": "dashed"
+    },
+    {
+      "from": "pendencia",
+      "to": "anexo",
+      "label": "anexou",
+      "style": "dashed"
+    },
+    {
+      "from": "tem_nota",
+      "to": "politica",
+      "label": "sim"
+    },
+    {
+      "from": "politica",
+      "to": "recusa",
+      "label": "não",
+      "style": "dashed"
+    },
+    {
+      "from": "politica",
+      "to": "gestor",
+      "label": "sim"
+    },
+    {
+      "from": "gestor",
+      "to": "valor"
+    },
+    {
+      "from": "valor",
+      "to": "diretoria",
+      "label": "sim"
+    },
+    {
+      "from": "valor",
+      "to": "decisao",
+      "label": "não"
+    },
+    {
+      "from": "diretoria",
+      "to": "decisao"
+    },
+    {
+      "from": "decisao",
+      "to": "recusa",
+      "label": "não",
+      "style": "dashed"
+    },
+    {
+      "from": "decisao",
+      "to": "junta",
+      "label": "sim"
+    },
+    {
+      "from": "junta",
+      "to": "pagamento"
+    },
+    {
+      "from": "pagamento",
+      "to": "fim"
+    }
+  ]
+}

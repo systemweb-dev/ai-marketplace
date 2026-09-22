@@ -348,19 +348,35 @@ def layout_tiers(node_ids, edges, nodes_by_id, groups):
         g = nodes_by_id[n].get("group") or "_"
         if g not in seen:
             seen.append(g)
-    lane_index = {g: i for i, g in enumerate(seen)}
-    lane_h = NODE_H + 2 * LANE_PAD
-    pos = {}
-    ncols = (max(layer.values()) + 1) if layer else 1
+
+    # Dois nós da mesma faixa podem cair na mesma coluna (duas origens, dois bancos). Eles
+    # EMPILHAM dentro da faixa, e a faixa cresce para caber a maior pilha — sem isso um
+    # ficava desenhado exatamente sobre o outro e sumia do diagrama.
+    pilhas: dict[tuple[str, int], list[str]] = {}
     for n in node_ids:
         g = nodes_by_id[n].get("group") or "_"
-        x = MARGIN + layer[n] * (NODE_W + GAPX)
-        y = MARGIN + lane_index[g] * lane_h + LANE_PAD
-        pos[n] = (x, y)
+        pilhas.setdefault((g, layer[n]), []).append(n)
+    linhas = {g: 1 for g in seen}
+    for (g, _col), membros in pilhas.items():
+        linhas[g] = max(linhas[g], len(membros))
+    alturas = {g: linhas[g] * NODE_H + (linhas[g] - 1) * GAPY + 2 * LANE_PAD for g in seen}
+    topo, y = {}, MARGIN
+    for g in seen:
+        topo[g] = y
+        y += alturas[g]
+
+    pos = {}
+    for (g, col), membros in pilhas.items():
+        for i, n in enumerate(membros):
+            x = MARGIN + col * (NODE_W + GAPX)
+            pos[n] = (x, topo[g] + LANE_PAD + i * (NODE_H + GAPY))
+
+    ncols = (max(layer.values()) + 1) if layer else 1
     w = MARGIN * 2 + ncols * (NODE_W + GAPX) - GAPX
-    h = MARGIN * 2 + len(seen) * lane_h
-    lanes = [(g, MARGIN + lane_index[g] * lane_h, lane_h) for g in seen if g != "_"]
+    h = MARGIN + y
+    lanes = [(g, topo[g], alturas[g]) for g in seen if g != "_"]
     return pos, w, h, lanes
+
 
 
 # ---------------------------------------------------------------- svg helpers

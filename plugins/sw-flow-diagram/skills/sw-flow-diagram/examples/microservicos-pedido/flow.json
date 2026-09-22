@@ -1,0 +1,48 @@
+{
+  "title": "Microserviços de um pedido",
+  "layout": "graph",
+  "direction": "LR",
+  "accent": "#e8743b",
+  "animation": { "mode": "packet", "speed": 1 },
+  "groups": [
+    { "id": "venda", "label": "Venda", "color": "#e8743b" },
+    { "id": "suporte", "label": "Serviços de apoio", "color": "#3563e9" },
+    { "id": "externo", "label": "Fora de casa", "color": "#64748b" }
+  ],
+  "nodes": [
+    { "id": "checkout", "label": "Checkout", "icon": "browser", "group": "venda" },
+    { "id": "pedidos", "label": "Pedidos", "icon": "service", "group": "venda",
+      "note": "Dono do estado do pedido. Só ele muda o status; os outros pedem." },
+    { "id": "estoque", "label": "Estoque", "icon": "box", "group": "venda",
+      "note": "Reserva no pedido e confirma no pagamento. Reserva que não confirma expira sozinha." },
+    { "id": "pagamento", "label": "Pagamento", "icon": "money", "group": "venda" },
+    { "id": "entrega", "label": "Entrega", "icon": "truck", "group": "venda" },
+    { "id": "barramento", "label": "Event bus", "icon": "queue", "group": "suporte",
+      "note": "Quem quiser saber do pedido assina o evento; ninguém liga direto no dono." },
+    { "id": "notificacao", "label": "Notificação", "icon": "message", "group": "suporte" },
+    { "id": "fiscal", "label": "Fiscal", "icon": "document", "group": "suporte" },
+    { "id": "antifraude", "label": "Antifraude", "icon": "shield", "group": "suporte" },
+    { "id": "adquirente", "label": "Adquirente", "icon": "external", "group": "externo" },
+    { "id": "transportadora", "label": "Transportadora", "icon": "external", "group": "externo" }
+  ],
+  "edges": [
+    { "from": "checkout", "to": "pedidos", "label": "cria pedido" },
+    { "from": "pedidos", "to": "estoque", "label": "reserva" },
+    { "from": "estoque", "to": "pedidos", "label": "confirma reserva", "style": "dashed" },
+    { "from": "pedidos", "to": "pagamento", "label": "cobra" },
+    { "from": "pagamento", "to": "antifraude", "label": "analisa" },
+    { "from": "antifraude", "to": "pagamento", "label": "score", "style": "dashed" },
+    { "from": "pagamento", "to": "adquirente", "label": "autoriza" },
+    { "from": "adquirente", "to": "pagamento", "label": "webhook", "style": "dashed" },
+    { "from": "pagamento", "to": "barramento", "label": "pagamento aprovado" },
+    { "from": "pedidos", "to": "barramento", "label": "pedido criado" },
+    { "from": "barramento", "to": "notificacao" },
+    { "from": "barramento", "to": "fiscal", "label": "emite nota" },
+    { "from": "barramento", "to": "entrega", "label": "separar" },
+    { "from": "entrega", "to": "transportadora", "label": "coleta" },
+    { "from": "transportadora", "to": "entrega", "label": "rastreio", "style": "dashed" },
+    { "from": "entrega", "to": "barramento", "label": "entregue" },
+    { "from": "barramento", "to": "pedidos", "label": "atualiza status", "style": "dashed" },
+    { "from": "fiscal", "to": "notificacao", "label": "nota emitida", "style": "dashed" }
+  ]
+}
