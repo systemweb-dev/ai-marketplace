@@ -32,7 +32,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   - **Telas estreitas:** abaixo de 900px a paleta e o painel viram gavetas sobre o canvas;
     abaixo de 640px, abrir o painel recolhe a paleta.
   - **Paleta de componentes:** categorias recolhíveis (a primeira aberta), formas em duas
-    colunas e 94 itens no total.
+    colunas, e o catálogo passou de 73 para **148 componentes em 11 categorias** — entram
+    IA / ML e Negócio / Processo, além de mais itens em todas as outras. Oito ícones novos
+    (`brain`, `chat`, `money`, `truck`, `key`, `flask`, `chart`, `team`) para esses tipos não
+    nascerem todos com o mesmo desenho.
 
 ### Corrigido
 - `sw-flow-diagram` (v0.2.0): a paleta **não minimizava ao clicar**. O CSS dava `display:flex`

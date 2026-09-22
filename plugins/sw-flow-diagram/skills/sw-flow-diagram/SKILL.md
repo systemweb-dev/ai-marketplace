@@ -161,7 +161,9 @@ justo, estático) e cai num aviso claro se não houver navegador (aí use o SVG/
 `user`, `server`, `database`, `storage`, `queue`, `cache`, `shield`, `cloud`, `balancer`,
 `gateway`, `gear`, `service`, `document`, `message`, `mobile`, `browser`, `lock`, `clock`,
 `decision`, `external`, `api`, `globe`, `proxy`, `cdn`, `firewall`, `function`, `container`,
-`search`, `monitor`, `box` (genérico/fallback).
+`search`, `monitor`, `brain` (IA/modelo), `chat` (conversa/atendimento), `money` (pagamento),
+`truck` (entrega/logística), `key` (chave/certificado), `flask` (teste/experimento),
+`chart` (métrica/relatório), `team` (equipe/pessoas), `box` (genérico/fallback).
 
 Escolha o que **comunica o papel** do nó (ex.: CDN/WAF → `shield`; fila → `queue`; serviço →
 `service`; usuário/cliente → `user`; storage/bucket → `storage`). Se nada encaixar, use `box`
@@ -189,14 +191,38 @@ o miolo. O rótulo é truncado ao que cabe na forma, então prefira nomes curtos
 O `build_flow.py` traz um **catálogo** (`CATALOG`) de blocos comuns já com label + ícone —
 é o vocabulário pra montar o fluxo rápido, sem inventar. Categorias e itens:
 
-- **Cliente:** Usuário · Navegador · App Mobile · Sistema externo
-- **Rede / Edge:** DNS · CDN · WAF · Firewall · Reverse Proxy · Load Balancer · API Gateway
-- **Aplicação:** App Server · Microserviço · API · Function · Container · Worker · Auth
-- **Dados:** Banco SQL · Cache · Object Storage · Busca
-- **Mensageria:** Fila · Message Broker · E-mail · Notificação
-- **Observabilidade / Fluxo:** Monitoring · Logs · Scheduler · Decisão
+São **148 componentes em 11 categorias** (a lista viva está em `CATALOG`, no
+`scripts/build_flow.py`):
 
-No canvas, **duplo-clique numa área vazia abre a paleta do catálogo** (com busca) — escolhe o
+- **Cliente:** Usuário · Navegador · App Mobile · App Desktop · Terminal/PDV · Sistema externo ·
+  Parceiro/SaaS · Dispositivo IoT · Chatbot · Atendente
+- **Rede / Edge:** DNS · CDN · WAF · Firewall · Reverse Proxy · Load Balancer · API Gateway ·
+  Ingress · Service Mesh · NAT · VPN · Rate Limiter · Edge Function · Proteção DDoS ·
+  Terminação TLS · Bastion · VPC
+- **Aplicação:** App Server · Front-end SPA · SSR · Microserviço · API · gRPC · WebSocket ·
+  Function · Container · Worker · Job em lote · Orquestrador · Máquina de estados ·
+  Motor de regras · Auth · Cron · Webhook · GraphQL · BFF · Feature Flag
+- **Dados:** SQL · NoSQL · Grafos · Série temporal · Cache · Object Storage · Busca ·
+  Data Warehouse · Data Lake · Vector DB · Read Replica · Session Store · ETL · CDC ·
+  Backup · Migração
+- **Mensageria:** Fila · Broker · Stream · E-mail · Notificação · Push · DLQ · Event Bus ·
+  Pub/Sub · SMS · WhatsApp · Outbox · Retry
+- **Segurança:** IdP · OAuth/OIDC · Secrets · KMS · Certificado · MFA · RBAC · Antivírus ·
+  Zero Trust · Assinatura digital · Anonimização · SIEM
+- **DevOps / Deploy:** Git · CI · CD · Build · Testes · Artifact Registry · Registro de
+  imagens · Kubernetes · Serverless · IaC · Staging · Blue/Green · Canary · Rollback
+- **IA / ML:** Modelo LLM · API de inferência · Embeddings · Pipeline RAG · Feature Store ·
+  Model Registry · Treino/Fine-tuning · GPU Worker · Moderação/Guardrail · Avaliação
+- **Integrações:** Gateway de pagamento · Pix · Boleto · Nota fiscal · Antifraude ·
+  Transportadora · CRM · ERP · Analytics · Maps · Open Finance · Assinatura/SaaS
+- **Observabilidade / Fluxo:** Monitoring · Métricas · Logs · Tracing · APM · Health check ·
+  Alertas · Dashboard · Plantão · Auditoria · Scheduler · Decisão
+- **Negócio / Processo:** Cliente · Equipe · Aprovação · Contrato · Proposta · Pedido ·
+  Pagamento · Estoque · Entrega · Atendimento · Relatório · Prazo/SLA
+
+A **paleta lateral** mostra tudo isso em categorias recolhíveis (a primeira já aberta, as
+demais a um clique) com busca, e as formas de fluxograma em duas colunas. No canvas,
+**duplo-clique numa área vazia abre a paleta do catálogo** (com busca) — escolhe o
 componente e o nó já nasce com label + ícone certos ("+ Nó em branco" pra um genérico). Ao
 interpretar a descrição da pessoa, mapeie os termos dela pra esses blocos (ex.: "balanceador"
 → Load Balancer/`balancer`, "proxy reverso" → Reverse Proxy/`proxy`, "gateway" → API

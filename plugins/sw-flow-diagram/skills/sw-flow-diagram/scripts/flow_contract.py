@@ -23,6 +23,7 @@ ICONS = {
     "gateway", "gear", "service", "document", "message", "mobile", "browser", "lock", "clock",
     "decision", "external", "api", "globe", "proxy", "cdn", "firewall", "function", "container",
     "search", "monitor", "box", "none",
+    "brain", "chat", "money", "truck", "key", "flask", "chart", "team",
 }
 
 
