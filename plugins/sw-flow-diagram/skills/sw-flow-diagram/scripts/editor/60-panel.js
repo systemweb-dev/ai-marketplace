@@ -27,15 +27,28 @@ function editarNota(n) {
   return ta;
 }
 
+/* Diz quantos itens a ação pegou: sem isso, aplicar a 12 nós e ver 1 mudar passa batido.
+   Fica guardado porque quem aplica chama render() logo em seguida, e o painel é refeito. */
+let loteAviso = null;
+function avisarLote(quantos, oque, ids) {
+  loteAviso = {
+    chave: (ids || []).join(','),
+    texto: quantos ? `${oque} aplicado a ${quantos} ${quantos > 1 ? 'itens' : 'item'}.`
+                   : `Nenhum item mudou de ${oque}.`,
+  };
+}
+
 function renderPanel() {
   const ids = selNodeIds();
   const estavaAberto = panel.classList.contains('open');
   if (!hasSel()) {
     panel.classList.remove('open'); panel.innerHTML = '';
+    document.body.classList.remove('painel-aberto');
     if (estavaAberto) ajustarCamera();
     return;
   }
   panel.classList.add('open');
+  document.body.classList.add('painel-aberto');     // em tela estreita, fecha a paleta
   if (!estavaAberto) ajustarCamera();
   panel.innerHTML = '';
 
@@ -55,12 +68,59 @@ function renderPanel() {
       render();
     });
     panel.appendChild(campo('Mover para o grupo', gsel));
+
+    // Formato e ícone do lote: uma transação para todos, e "manter" não toca em nada.
+    const fmt = h('select', 'fsel');
+    fmt.innerHTML = '<option value="">— manter —</option>'
+      + SHAPES.map(sh => `<option value="${sh.id}">${sh.label} — ${sh.hint}</option>`).join('');
+    fmt.addEventListener('change', () => {
+      if (!fmt.value) return;
+      beginChange();
+      const n = batchNodes(F, ids, { shape: fmt.value === 'rounded' ? null : fmt.value });
+      fmt.value = '';
+      avisarLote(n, 'formato', ids);
+      render();
+    });
+    panel.appendChild(campo('Formato de todos', fmt));
+
+    const icones = h('div', 'fico');
+    Object.keys(ICN).sort().forEach(nome => {
+      const b = h('button', '');
+      b.title = 'Aplicar o ícone ' + nome + ' a todos';
+      b.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[nome]}</svg>`;
+      b.onclick = () => { beginChange(); avisarLote(batchNodes(F, ids, { icon: nome }), 'ícone', ids); render(); };
+      icones.appendChild(b);
+    });
+    panel.appendChild(campo('Ícone de todos', icones));
+
+    // Conexões internas: as duas pontas estão na seleção, então mexer nelas não surpreende.
+    const internas = edgesWithin(F, ids);
+    if (internas.length) {
+      const est = h('select', 'fsel');
+      est.innerHTML = '<option value="">— manter —</option><option value="solid">Contínua</option><option value="dashed">Tracejada</option>';
+      est.addEventListener('change', () => {
+        if (!est.value) return;
+        beginChange();
+        const n = batchEdges(F, internas, { style: est.value === 'dashed' ? 'dashed' : null });
+        est.value = ''; avisarLote(n, 'traço', ids); render();
+      });
+      panel.appendChild(campo(`Traço das ${internas.length} conexões internas`, est));
+      const linha = h('div', 'frow');
+      [['Animar', true], ['Parar', false]].forEach(([rot, valor]) => {
+        const b = h('button', 'fbtn', rot);
+        b.onclick = () => { beginChange(); avisarLote(batchEdges(F, internas, { animated: valor }), 'animação', ids); render(); };
+        linha.appendChild(b);
+      });
+      panel.appendChild(campo('Fluxo dessas conexões', linha));
+    }
+
     const bDup = h('button', 'fbtn', 'Duplicar (Ctrl+D)');
     bDup.onclick = () => duplicarSelecao();
     const bDel = h('button', 'fbtn danger', 'Excluir (Del)');
     bDel.onclick = () => excluirSelecao();
     const acoes = h('div', 'frow'); acoes.appendChild(bDup); acoes.appendChild(bDel);
     panel.appendChild(acoes);
+    if (loteAviso && loteAviso.chave === ids.join(',')) panel.appendChild(h('p', 'fnote flote', loteAviso.texto));
     return;
   }
 

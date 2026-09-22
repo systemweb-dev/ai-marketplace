@@ -152,8 +152,11 @@ function startConnect(ev, fromId, lado) {
     ghost.remove(); ghost = null;
     const alvo = nodeUnder(e);
     if (alvo && alvo !== fromId) {
-      beginChange();
-      if (addEdge(fromId, alvo)) {
+      const duplicada = (F.edges || []).some(ed => ed.from === fromId && ed.to === alvo);
+      if (!duplicada) {
+        beginChange();
+      }
+      if (!duplicada && addEdge(fromId, alvo)) {
         const nova = F.edges[F.edges.length - 1];
         if (lado) nova.fromSide = lado;
         if (ladoAlvo) nova.toSide = ladoAlvo;
@@ -198,9 +201,14 @@ function startRelink(ev, idx, end) {
     const alvo = nodeUnder(e);
     const outro = ed[end === 'from' ? 'to' : 'from'];
     if (alvo && alvo !== outro) {
-      beginChange();
-      ed[end] = alvo;
-      if (ladoNovo) ed[end === 'from' ? 'fromSide' : 'toSide'] = ladoNovo;
+      const from = end === 'from' ? alvo : ed.from;
+      const to = end === 'to' ? alvo : ed.to;
+      const duplicada = (F.edges || []).some((candidate, i) => i !== idx && candidate.from === from && candidate.to === to);
+      if (!duplicada && (ed[end] !== alvo || ladoNovo)) {
+        beginChange();
+        ed[end] = alvo;
+        if (ladoNovo) ed[end === 'from' ? 'fromSide' : 'toSide'] = ladoNovo;
+      }
     }
     render();
   };

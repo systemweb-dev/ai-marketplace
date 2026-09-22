@@ -28,13 +28,24 @@ function endBox(key) {
   const p = POS[key];
   return p ? { pos: p, w: NW, h: NH } : null;
 }
-/** Geometria completa de uma aresta: pontos e lados de saída/chegada. */
-function edgeGeom(ed) {
+/* Deslocamento de cada aresta no leque, recalculado a cada render. Quem pergunta a geometria
+   (clique, religar, exportar) recebe a MESMA linha que está desenhada — senão o clique erra. */
+let EDGE_OFF = [];
+function offsetDe(ed) {
+  const i = (F.edges || []).indexOf(ed);
+  return i < 0 ? 0 : (EDGE_OFF[i] || 0);
+}
+
+/** Geometria completa de uma aresta: pontos e lados de saída/chegada. `off` abre o leque
+    quando há mais de uma conexão entre os mesmos dois pontos (ver 77-connectors.js). */
+function edgeGeom(ed, off) {
   const A = endBox(endpointOf(ed.from)), B = endBox(endpointOf(ed.to));
   if (!A || !B) return null;
   const auto = autoSides(A.pos, B.pos, A.w, A.h, B.w, B.h);
   const s1 = ed.fromSide || auto[0], s2 = ed.toSide || auto[1];
-  const p1 = anchorSide(A.pos, s1, A.w, A.h), p2 = anchorSide(B.pos, s2, B.w, B.h);
+  const d = off === undefined ? offsetDe(ed) : off;
+  const p1 = shiftAnchor(anchorSide(A.pos, s1, A.w, A.h), s1, d);
+  const p2 = shiftAnchor(anchorSide(B.pos, s2, B.w, B.h), s2, d);
   return { p1, p2, s1, s2, d: edgePath(p1[0], p1[1], p2[0], p2[1], s1, s2) };
 }
 // compatibilidade com chamadas antigas
@@ -88,13 +99,17 @@ function renderGroups() {
 
 function renderEdges() {
   const vistas = new Set();
+  EDGE_OFF = parallelOffsets(F.edges || [], endpointOf);
+  const fundidas = mergedCounts(F.edges || [], endpointOf);
   (F.edges || []).forEach((ed, i) => {
     const a = endpointOf(ed.from), b = endpointOf(ed.to);
     if (a === b) return;                            // aresta interna a um grupo recolhido
     const chave = a + '>' + b;
     if (vistas.has(chave)) return;                  // grupo recolhido funde paralelas
     vistas.add(chave);
-    const geo = edgeGeom(ed);
+    const qtd = fundidas.get(chave) || 1;
+    const agregada = qtd > 1 && (a.startsWith('g:') || b.startsWith('g:'));
+    const geo = edgeGeom(ed, agregada ? 0 : EDGE_OFF[i]);
     if (!geo) return;
     const c = [geo.p1[0], geo.p1[1], geo.p2[0], geo.p2[1]];
     const anim = ed.animated !== false;
@@ -117,10 +132,17 @@ function renderEdges() {
       pk.appendChild(mk('set', { attributeName: 'opacity', to: 1, begin: atraso, fill: 'freeze' }));
       svg.appendChild(pk);
     }
-    if (ed.label) {
-      const t = mk('text', { x: ((c[0] + c[2]) / 2).toFixed(0), y: ((c[1] + c[3]) / 2 - 8).toFixed(0),
-                             class: 'elabel' + (dimmed(a, b) ? ' dim' : '') });
-      t.textContent = ed.label; svg.appendChild(t);
+    // Com grupo recolhido, várias conexões viram uma linha só: o número evita ler "só uma".
+    const texto = agregada ? (ed.label ? ed.label + ' (' + qtd + ')' : qtd + ' conexões') : ed.label;
+    if (texto) {
+      // No leque, cada rótulo acompanha a SUA linha: no mesmo lugar, os dois viravam um borrão.
+      const off = agregada ? 0 : (EDGE_OFF[i] || 0);
+      const horizontal = geo.s1 === 'left' || geo.s1 === 'right';
+      const t = mk('text', {
+        x: ((c[0] + c[2]) / 2 + (horizontal ? 0 : off)).toFixed(0),
+        y: ((c[1] + c[3]) / 2 + (horizontal && off > 0 ? 16 : -8)).toFixed(0),
+        class: 'elabel' + (dimmed(a, b) ? ' dim' : '') });
+      t.textContent = texto; svg.appendChild(t);
     }
   });
 }
@@ -152,7 +174,23 @@ function nodeNode(n, idx) {
   };
   if (ANIM === 'highlight') at.style = '--d:' + ((idx || 0) * .3).toFixed(2) + 's';
   if (n.note) at['data-note'] = n.note;
+  // Teclado: cada nó é um alvo alcançável por Tab, com nome dito por extenso — a seleção
+  // deixa de depender de enxergar a borda azul.
+  const grupo = (F.groups || []).find(gp => gp.id === n.group);
+  at.tabindex = 0;
+  at.role = 'button';
+  at['aria-pressed'] = isNodeSelected(n.id) ? 'true' : 'false';
+  at['aria-label'] = (n.label || n.id) + (grupo ? ', no grupo ' + (grupo.label || grupo.id) : '')
+    + (n.note ? '. Nota: ' + n.note : '');
   const g = mk('g', at);
+  g.addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    selectNode(n.id, ev.shiftKey);
+    render();
+    const alvo = svg.querySelector(`g.node[data-id="${n.id}"]`);
+    if (alvo) alvo.focus();
+  });
   const forma = n.shape || 'rounded';
   const geo = shapeGeom(forma, NW, NH);
   g.appendChild(mk(geo.tag, { ...geo.attrs, class: 'nbox' }));

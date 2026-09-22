@@ -94,15 +94,30 @@ Infira pelo cenário; se ficar ambíguo, **pergunte via `AskUserQuestion`**.
 
   **Editar**
   - **Painel da direita** (abre ao selecionar): rótulo, **formato**, ícone, grupo, nota; na seta,
-    rótulo, traço, animação e inverter sentido. Com vários selecionados, move todos de grupo.
+    rótulo, traço, animação e inverter sentido.
+  - **Em lote:** com vários nós selecionados, o painel aplica **grupo, formato e ícone** a todos
+    de uma vez e, para as **conexões internas à seleção** (as duas pontas selecionadas), traço e
+    animação. O painel diz quantos itens a ação pegou, e **um Ctrl+Z desfaz o lote inteiro**.
   - **Duplo-clique** no nó ou na seta edita o rótulo no lugar.
   - **Delete** exclui a seleção (nó leva junto as conexões).
   - **Ctrl+Z / Ctrl+Shift+Z** desfazem e refazem qualquer uma dessas ações.
 
+  **Organizar**
+  - **Organizar** refaz o layout do diagrama inteiro em camadas, de forma determinística: o
+    mesmo `flow.json` sempre cai no mesmo desenho.
+  - **Alinhar** e **Distribuir** valem para a seleção (2 e 3 nós, no mínimo). Cada ação é uma
+    transação: desfaz de uma vez.
+
   **Navegar em diagrama grande**
+  - **Navegar** abre o minimapa com a estrutura do diagrama, o filtro por grupo e o **foco de
+    caminho**: escolhidos dois nós, o editor acende o menor caminho dirigido entre eles e apaga
+    o resto. Caminho que só existiria indo contra a seta não é inventado.
   - **Ctrl+F** busca o nó pelo nome e voa até ele (abre o grupo se estiver recolhido).
   - **Recolher grupo:** o **−** ao lado do nome do grupo vira uma caixa única; as setas que
-    cruzavam a fronteira se religam à caixa. Clique nela pra reabrir.
+    cruzavam a fronteira se religam à caixa, e a que representa várias mostra o número
+    (`3 conexões`) para ninguém ler "só uma". Clique na caixa pra reabrir.
+  - **Conexões paralelas** entre os mesmos dois nós (ida e volta, dois protocolos) abrem em
+    leque, cada uma com o seu rótulo, em vez de se esconderem uma atrás da outra.
   - Roda = zoom, arrastar o fundo = pan, **0** enquadra, **+/−** ajustam o zoom.
 
   **Apresentar**
@@ -113,7 +128,20 @@ Infira pelo cenário; se ficar ambíguo, **pergunte via `AskUserQuestion`**.
   **Salvar**
   - **Salvar** (ou **Ctrl+S**) grava no `flow.json`, incluindo as posições (`pos:[x,y]`).
     **⤢ Auto** apaga as posições e volta pro layout automático. O `flow.json` segue sendo a
-    **fonte da verdade**. Sair com alterações não salvas pede confirmação.
+    **fonte da verdade**. Com alterações pendentes o botão diz **"Salvar alterações"**, e sair
+    sem salvar pede confirmação.
+  - **Conflito (409):** se o `flow.json` mudou fora do editor desde que a página abriu, o
+    servidor recusa a gravação e pergunta o que fazer: recarregar (descartando a edição local)
+    ou **baixar `flow-conflict.json`** com o que estava na tela. Nada é sobrescrito em silêncio,
+    e um documento inválido nunca substitui um válido: o build roda antes da troca, e a troca do
+    `flow.json` e do `flow.html` é atômica.
+
+  **Teclado e telas pequenas**
+  - Todo botão da barra tem nome falado, o foco é visível e **cada nó é alcançável por Tab**
+    (Enter seleciona, Shift+Enter soma à seleção). O resultado de salvar e os erros de validação
+    são anunciados em texto, não só por cor.
+  - Abaixo de 900px de largura, a paleta e o painel viram gavetas sobre o canvas; abaixo de
+    640px, abrir o painel recolhe a paleta, para sempre sobrar diagrama na tela.
 
 ### 6. Exportar
 
@@ -204,6 +232,10 @@ Gateway/`gateway`). Precisa de um bloco que não está no catálogo? É só cria
 
 ## Limites
 
+- **Fora do escopo neste ciclo:** subgrupos aninhados, waypoints manuais gravados no
+  `flow.json` (a rota das setas é calculada), colaboração multiusuário e histórico entre
+  sessões. Uma seta que precise desviar de um nó no meio do caminho ainda passa por trás dele:
+  mova os nós ou quebre o diagrama.
 - Focado em **fluxos, processos e arquiteturas pra apresentar/explicar**. O canvas é um editor de diagrama de verdade (arrastar da paleta, formas, multi-seleção, desfazer, apresentar), mas não é um programa de design gráfico livre: não há texto solto, imagem, desenho à mão nem camadas.
 - O layout é determinístico em camadas/faixas (bom e previsível); grafos muito densos/cíclicos ficam legíveis mas não pixel-perfect — nesse caso, simplifique ou quebre em partes.
 - Export SVG/PNG pela toolbar; PNG@2x/3x e PDF headless via `export_flow.py` (precisa de um

@@ -7,6 +7,42 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-flow-diagram` (v0.2.0): **o editor aguenta diagrama grande.** O `flow.json` ganhou um
+  contrato validado antes de qualquer gravação, o salvar virou atômico com detecção de
+  conflito, e o editor passou a ter organização, navegação e edição em lote.
+  - **Contrato e salvar seguro:** `scripts/flow_contract.py` recusa id repetido, ponta de
+    aresta inexistente, grupo desconhecido, cor e enum inválidos, sempre dizendo o campo
+    (`nodes[2].id`). O `POST /save` compara o hash do arquivo em disco: mudou por fora, responde
+    **409** e o editor oferece recarregar ou baixar `flow-conflict.json`. O build roda antes da
+    troca, e a troca do `flow.json` e do `flow.html` é atômica: falha no meio restaura os dois.
+  - **Organizar, alinhar e distribuir**, com layout determinístico — o mesmo documento cai
+    sempre no mesmo desenho.
+  - **Navegar:** minimapa, estrutura, filtro por grupo e **foco de caminho**, que acende o menor
+    caminho dirigido entre dois nós e nunca inventa caminho indo contra a seta.
+  - **Edição em lote:** grupo, formato e ícone para todos os nós selecionados, e traço e
+    animação para as conexões internas à seleção. O painel diz quantos itens pegou e um
+    Ctrl+Z desfaz o lote inteiro.
+  - **Conexões paralelas** entre os mesmos dois nós abrem em leque, cada uma com o seu rótulo,
+    em vez de se esconderem uma atrás da outra; com grupo recolhido, a linha que representa
+    várias mostra o número.
+  - **Acessibilidade:** nome falado em cada botão, foco visível, todo nó alcançável por Tab
+    (Enter seleciona), resultado de salvar e erro de validação anunciados em texto, e o botão
+    passa a dizer "Salvar alterações" quando há pendência, em vez de só mudar de cor.
+  - **Telas estreitas:** abaixo de 900px a paleta e o painel viram gavetas sobre o canvas;
+    abaixo de 640px, abrir o painel recolhe a paleta.
+  - **Paleta de componentes:** categorias recolhíveis (a primeira aberta), formas em duas
+    colunas e 94 itens no total.
+
+### Corrigido
+- `sw-flow-diagram` (v0.2.0): a paleta **não minimizava ao clicar**. O CSS dava `display:flex`
+  à grade, e isso vence o atributo `hidden` — o estado alternava e nada sumia da tela. As
+  miniaturas também mentiam: com raio de canto fixo em 13px numa caixa de 26px, "Processo"
+  saía igual a "Início / Fim". Agora o detalhe em pixel encolhe junto com a caixa.
+- `sw-flow-diagram`: os testes em Python exigiam `pytest`. Foram portados para a biblioteca
+  padrão (`python3 -m unittest`), como o resto do marketplace — a skill roda na máquina de quem
+  instala, sem dependência nova.
+
 ### Removido
 - `sw-design-studio`: saiu do marketplace. O papel dela — decidir a direção visual — foi absorvido
   pela `sw-frontend-mockup-preview`, que decide **vendo** as variações em vez de entrevistar eixo

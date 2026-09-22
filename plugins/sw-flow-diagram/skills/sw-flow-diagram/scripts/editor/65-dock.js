@@ -6,22 +6,14 @@ const dock = h('aside', 'fdock');
 document.body.appendChild(dock);
 
 let dockAberto = true;
+const dockSections = Object.create(null);
 function montarDock() {
   dock.innerHTML = '';
   const topo = h('div', 'dkh');
   topo.appendChild(h('span', null, 'Componentes'));
   const tog = h('button', 'dktog', dockAberto ? '‹' : '›');
   tog.title = dockAberto ? 'Recolher paleta' : 'Abrir paleta';
-  tog.onclick = () => { dockAberto = !dockAberto; dock.classList.toggle('closed', !dockAberto); /** Miniatura da forma para a paleta (mesma geometria do render, em caixa 40×28). */
-function miniForma(id) {
-  const g = shapeGeom(id, 38, 26);
-  const at = Object.entries({ ...g.attrs, transform: 'translate(1,1)' })
-    .map(([k, v]) => `${k}="${v}"`).join(' ');
-  const ex = shapeExtras(id, 38, 26)
-    .map(e => `<${e.tag} ${Object.entries(e.attrs).filter(([k]) => k !== 'class').map(([k, v]) => `${k}="${v}"`).join(' ')} transform="translate(1,1)"/>`).join('');
-  return `<${g.tag} ${at}/>${ex}`;
-}
-montarDock(); };
+  tog.onclick = () => { dockAberto = !dockAberto; dock.classList.toggle('closed', !dockAberto); montarDock(); };
   topo.appendChild(tog);
   dock.appendChild(topo);
   if (!dockAberto) return;
@@ -35,33 +27,36 @@ montarDock(); };
   function desenhar(q) {
     corpo.innerHTML = '';
     q = (q || '').toLowerCase().trim();
-    // formas primeiro: é o vocabulário de fluxograma, independe do catálogo de infra
-    const formas = SHAPES.filter(s => !q || s.label.toLowerCase().includes(q) || s.hint.includes(q));
-    if (formas.length) {
-      corpo.appendChild(h('h5', null, 'Formas'));
-      const gridF = h('div', 'dkgrid');
-      formas.forEach(s => {
-        const b = h('button', 'dkit');
-        b.title = s.hint + ' — arraste para o diagrama';
-        b.innerHTML = `<svg class="shp" width="21" height="15" viewBox="0 0 40 28">${miniForma(s.id)}</svg><span>${s.label}</span>`;
-        b.addEventListener('pointerdown', ev => arrastarDoDock(ev, { label: s.label, icon: 'box', shape: s.id }));
-        gridF.appendChild(b);
-      });
-      corpo.appendChild(gridF);
+    function secao(titulo, itens, montar, padraoAberta, classe) {
+      if (!itens.length) return;
+      const aberta = q ? true : (dockSections[titulo] ?? padraoAberta);
+      const cab = h('button', 'dksection', `${aberta ? '▾' : '▸'} ${titulo}`);
+      cab.type = 'button'; cab.setAttribute('aria-expanded', String(aberta));
+      const grid = h('div', 'dkgrid' + (classe ? ' ' + classe : ''));
+      grid.hidden = !aberta;
+      itens.forEach(item => grid.appendChild(montar(item)));
+      cab.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); grid.hidden = !grid.hidden; dockSections[titulo] = !grid.hidden; cab.setAttribute('aria-expanded', String(!grid.hidden)); cab.textContent = `${grid.hidden ? '▸' : '▾'} ${titulo}`; };
+      corpo.appendChild(cab); corpo.appendChild(grid);
     }
+
+    // Formas e componentes usam a mesma navegação recolhível. A busca abre só as seções com resultado.
+    const formas = SHAPES.filter(s => !q || s.label.toLowerCase().includes(q) || s.hint.includes(q));
+    secao('Formas', formas, s => {
+        const b = h('button', 'dkit dksh');
+        b.title = s.hint + ' — arraste para o diagrama';
+        b.innerHTML = `<svg class="shp" width="34" height="24" viewBox="0 0 40 28">${miniForma(s.id)}</svg><span>${s.label}</span>`;
+        b.addEventListener('pointerdown', ev => arrastarDoDock(ev, { label: s.label, icon: 'box', shape: s.id }));
+        return b;
+      }, true, 'duas');
     CAT.forEach(grupo => {
       const itens = (grupo.items || []).filter(it => !q || it.label.toLowerCase().includes(q));
-      if (!itens.length) return;
-      corpo.appendChild(h('h5', null, grupo.cat));
-      const grid = h('div', 'dkgrid');
-      itens.forEach(it => {
+      secao(grupo.cat, itens, it => {
         const b = h('button', 'dkit');
         b.title = 'Arraste para o diagrama (ou clique)';
         b.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICN[it.icon] || ICN['box']}</svg><span>${it.label}</span>`;
         b.addEventListener('pointerdown', ev => arrastarDoDock(ev, it));
-        grid.appendChild(b);
-      });
-      corpo.appendChild(grid);
+        return b;
+      }, false);
     });
     if (!corpo.children.length) corpo.appendChild(h('p', 'dkempty', 'Nada encontrado.'));
   }

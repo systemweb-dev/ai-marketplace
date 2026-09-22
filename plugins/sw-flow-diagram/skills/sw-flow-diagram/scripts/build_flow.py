@@ -28,6 +28,8 @@ import shutil
 import sys
 from collections import defaultdict
 
+from flow_contract import assert_valid_flow
+
 NODE_W, NODE_H = 168, 66
 GAPX, GAPY = 88, 34
 VGAP = 72       # espaço entre camadas no layout vertical (TB)
@@ -78,6 +80,8 @@ CATALOG = [
         {"label": "Navegador", "icon": "browser"},
         {"label": "App Mobile", "icon": "mobile"},
         {"label": "Sistema externo", "icon": "external"},
+        {"label": "Parceiro / SaaS", "icon": "external"},
+        {"label": "Dispositivo IoT", "icon": "monitor"},
     ]},
     {"cat": "Rede / Edge", "items": [
         {"label": "DNS", "icon": "globe"},
@@ -87,6 +91,11 @@ CATALOG = [
         {"label": "Reverse Proxy", "icon": "proxy"},
         {"label": "Load Balancer", "icon": "balancer"},
         {"label": "API Gateway", "icon": "gateway"},
+        {"label": "Ingress Controller", "icon": "gateway"},
+        {"label": "Service Mesh", "icon": "service"},
+        {"label": "NAT Gateway", "icon": "gateway"},
+        {"label": "VPN", "icon": "lock"},
+        {"label": "Rate Limiter", "icon": "shield"},
     ]},
     {"cat": "Aplicação", "items": [
         {"label": "App Server", "icon": "server"},
@@ -96,24 +105,66 @@ CATALOG = [
         {"label": "Container", "icon": "container"},
         {"label": "Worker", "icon": "gear"},
         {"label": "Auth", "icon": "lock"},
+        {"label": "Cron Job", "icon": "clock"},
+        {"label": "Webhook", "icon": "api"},
+        {"label": "GraphQL", "icon": "api"},
+        {"label": "BFF", "icon": "service"},
+        {"label": "Feature Flag", "icon": "decision"},
     ]},
     {"cat": "Dados", "items": [
         {"label": "Banco SQL", "icon": "database"},
         {"label": "Cache", "icon": "cache"},
         {"label": "Object Storage", "icon": "storage"},
         {"label": "Busca", "icon": "search"},
+        {"label": "Data Warehouse", "icon": "database"},
+        {"label": "Data Lake", "icon": "storage"},
+        {"label": "Vector Database", "icon": "database"},
+        {"label": "Read Replica", "icon": "database"},
+        {"label": "Session Store", "icon": "storage"},
     ]},
     {"cat": "Mensageria", "items": [
         {"label": "Fila", "icon": "queue"},
         {"label": "Message Broker", "icon": "message"},
         {"label": "E-mail", "icon": "message"},
         {"label": "Notificação", "icon": "message"},
+        {"label": "Dead Letter Queue", "icon": "queue"},
+        {"label": "Event Bus", "icon": "message"},
+        {"label": "Pub/Sub", "icon": "message"},
+        {"label": "SMS", "icon": "message"},
+    ]},
+    {"cat": "Segurança", "items": [
+        {"label": "Identity Provider", "icon": "lock"},
+        {"label": "OAuth / OIDC", "icon": "lock"},
+        {"label": "Secrets Manager", "icon": "lock"},
+        {"label": "KMS", "icon": "shield"},
+        {"label": "Antivírus", "icon": "shield"},
+        {"label": "Zero Trust", "icon": "shield"},
+    ]},
+    {"cat": "DevOps / Deploy", "items": [
+        {"label": "Git Repository", "icon": "document"},
+        {"label": "CI Pipeline", "icon": "gear"},
+        {"label": "CD Pipeline", "icon": "gear"},
+        {"label": "Artifact Registry", "icon": "storage"},
+        {"label": "Kubernetes", "icon": "container"},
+        {"label": "Serverless", "icon": "function"},
+    ]},
+    {"cat": "Integrações", "items": [
+        {"label": "Stripe", "icon": "external"},
+        {"label": "CRM", "icon": "external"},
+        {"label": "ERP", "icon": "external"},
+        {"label": "Analytics", "icon": "monitor"},
+        {"label": "Maps API", "icon": "globe"},
+        {"label": "Payment Gateway", "icon": "gateway"},
     ]},
     {"cat": "Observabilidade / Fluxo", "items": [
         {"label": "Monitoring", "icon": "monitor"},
         {"label": "Logs", "icon": "document"},
         {"label": "Scheduler", "icon": "clock"},
         {"label": "Decisão", "icon": "decision"},
+        {"label": "Tracing", "icon": "monitor"},
+        {"label": "Alertas", "icon": "shield"},
+        {"label": "Dashboard", "icon": "monitor"},
+        {"label": "Auditoria", "icon": "document"},
     ]},
 ]
 
@@ -260,12 +311,13 @@ def _node_svg(n, x, y, accent):
 def build(d):
     with open(os.path.join(d, "flow.json"), encoding="utf-8") as f:
         flow = json.load(f)
+    assert_valid_flow(flow)
 
     nodes = flow.get("nodes", [])
     edges = flow.get("edges", [])
     groups = flow.get("groups", [])
-    nodes_by_id = {n["id"]: n for n in nodes if "id" in n}
-    node_ids = [n["id"] for n in nodes if "id" in n]
+    nodes_by_id = {n["id"]: n for n in nodes}
+    node_ids = [n["id"] for n in nodes]
     layout = flow.get("layout", "flow")
     direction = (flow.get("direction") or "LR").upper()
     vertical = direction == "TB" and layout != "tiers"
@@ -286,7 +338,7 @@ def build(d):
             try:
                 pos[n["id"]] = (float(p[0]), float(p[1]))
             except (TypeError, ValueError):
-                pass
+                raise ValueError(f"posição inválida para o nó {n['id']}")
     if pos:
         W = max(W, max(x for x, _ in pos.values()) + NODE_W + MARGIN)
         H = max(H, max(y for _, y in pos.values()) + NODE_H + MARGIN)
@@ -433,6 +485,25 @@ TEMPLATE = r"""<!DOCTYPE html>
   .bar .sp{flex:1;}
   .ed-hint{font:500 10.5px/1.3 var(--mono);color:var(--muted);max-width:430px;}
   @media(max-width:900px){.ed-hint{display:none;}}
+  /* foco visível em tudo que recebe teclado: sem isso, navegar por Tab é andar no escuro */
+  .bar button:focus-visible,.fpanel button:focus-visible,.fdock button:focus-visible,
+  .fpanel input:focus-visible,.fpanel select:focus-visible,.fpanel textarea:focus-visible,
+  .fdock input:focus-visible,.diagram .node:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  /* o que só o leitor de tela precisa ouvir (erro de validação, resultado de uma ação) */
+  .btn.primary.sujo::after{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;margin-left:6px;vertical-align:middle;}
+  .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  /* telas estreitas: paleta e painel viram gavetas sobre o canvas, que continua utilizável */
+  @media(max-width:900px){
+    .fdock{position:fixed;z-index:24;top:52px;bottom:0;left:0;width:min(78vw,300px);box-shadow:0 10px 40px -12px rgba(10,20,50,.35);}
+    .fdock.closed{transform:translateX(-100%);}
+    .fpanel{position:fixed;z-index:25;top:52px;bottom:0;right:0;width:min(84vw,320px);box-shadow:0 10px 40px -12px rgba(10,20,50,.35);}
+    .stage{margin:0;}
+  }
+  @media(max-width:640px){
+    .bar h1{max-width:9rem;}
+    /* um de cada vez: com os dois abertos não sobra canvas nenhum */
+    body.painel-aberto .fdock{transform:translateX(-100%);}
+  }
   .btn{font:600 12px/1 var(--mono);letter-spacing:.04em;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 12px;cursor:pointer;transition:.15s;}
   .btn:hover{border-color:var(--accent);color:var(--accent-dk);}
   .btn.primary{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-dk));border:0;}
@@ -586,8 +657,15 @@ TEMPLATE = r"""<!DOCTYPE html>
           border-radius:7px;background:var(--bg);color:var(--ink);outline:none;}
   .dksrch:focus{border-color:var(--accent);}
   .dkbody{flex:1;overflow-y:auto;padding:0 8px 12px;}
+  .dksection{display:block;width:100%;margin:8px 0 3px;padding:7px 5px;border:0;border-bottom:1px solid var(--line);
+             background:transparent;color:var(--muted);cursor:pointer;text-align:left;font:700 9px var(--mono);
+             letter-spacing:.1em;text-transform:uppercase;}
+  .dksection:hover{color:var(--accent);}
   .dkbody h5{margin:9px 0 5px 4px;font:700 8.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   .dkgrid{display:flex;flex-direction:column;gap:2px;}
+  /* formas em duas colunas: são 21 e, em lista, empurravam as categorias para fora da tela */
+  .dkgrid.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;}
+  .dkgrid[hidden]{display:none;}
   .dkit{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid transparent;
         background:transparent;color:var(--ink);cursor:grab;padding:6px 8px;border-radius:7px;
         font:500 11.5px var(--display);}
@@ -595,6 +673,8 @@ TEMPLATE = r"""<!DOCTYPE html>
   .dkit:active{cursor:grabbing;}
   .dkit span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .dkit .shp{flex:none;fill:none;stroke:currentColor;stroke-width:1.6;opacity:.72;}
+  .dkit.dksh{flex-direction:column;align-items:center;gap:4px;text-align:center;padding:7px 4px;}
+  .dkit.dksh span{max-width:100%;font-size:10.5px;line-height:1.2;white-space:normal;}
   .dkit:hover .shp{opacity:1;color:var(--accent);}
   .fnote{margin:0;font:500 11px/1.5 var(--display);color:var(--muted);}
   .nlabel.mid{text-anchor:middle;}
@@ -618,28 +698,29 @@ TEMPLATE = r"""<!DOCTYPE html>
 </style>
 </head>
 <body>
-<div class="bar">
+<div class="bar" role="toolbar" aria-label="Ferramentas do diagrama">
   <h1>%%TITLE%%</h1>
   <div class="grp">
-    <button class="ib" id="undoBtn" title="Desfazer (Ctrl+Z)">↶</button>
-    <button class="ib" id="redoBtn" title="Refazer (Ctrl+Shift+Z)">↷</button>
+    <button class="ib" id="undoBtn" title="Desfazer (Ctrl+Z)" aria-label="Desfazer"><span aria-hidden="true">↶</span></button>
+    <button class="ib" id="redoBtn" title="Refazer (Ctrl+Shift+Z)" aria-label="Refazer"><span aria-hidden="true">↷</span></button>
   </div>
   <div class="grp">
-    <button class="ib" id="zoomOut" title="Diminuir (−)">−</button>
-    <button class="ib" id="fitBtn" title="Enquadrar (0)">⊡</button>
-    <button class="ib" id="zoomIn" title="Aumentar (+)">+</button>
+    <button class="ib" id="zoomOut" title="Diminuir (−)" aria-label="Diminuir o zoom"><span aria-hidden="true">−</span></button>
+    <button class="ib" id="fitBtn" title="Enquadrar (0)" aria-label="Enquadrar o diagrama"><span aria-hidden="true">⊡</span></button>
+    <button class="ib" id="zoomIn" title="Aumentar (+)" aria-label="Aumentar o zoom"><span aria-hidden="true">+</span></button>
   </div>
-  <button class="ib" id="searchBtn" title="Buscar nó (Ctrl+F)">⌕</button>
+  <button class="ib" id="searchBtn" title="Buscar nó (Ctrl+F)" aria-label="Buscar nó"><span aria-hidden="true">⌕</span></button>
   <div class="sp"></div>
-  <button class="btn" id="presentBtn" title="Percorrer o fluxo etapa por etapa">▶ Apresentar</button>
-  <button class="btn" id="autoPos" title="Voltar ao layout automático">⤢ Auto</button>
-  <button class="btn" id="play">⏸ Pausar</button>
-  <button class="btn" onclick="exp('svg')">SVG</button>
-  <button class="btn" onclick="exp('png')">PNG</button>
-  <button class="btn" onclick="tg()">◑ Tema</button>
-  <button class="btn primary" id="savePos" title="Salvar no flow.json (Ctrl+S)">Salvar</button>
-  <button class="ib" id="helpBtn" title="Atalhos">?</button>
+  <button class="btn" id="presentBtn" title="Percorrer o fluxo etapa por etapa" aria-label="Apresentar o fluxo etapa por etapa"><span aria-hidden="true">▶</span> Apresentar</button>
+  <button class="btn" id="autoPos" title="Voltar ao layout automático" aria-label="Voltar ao layout automático"><span aria-hidden="true">⤢</span> Auto</button>
+  <button class="btn" id="play" aria-label="Pausar a animação do fluxo"><span aria-hidden="true">⏸</span> Pausar</button>
+  <button class="btn" onclick="exp('svg')" aria-label="Exportar em SVG">SVG</button>
+  <button class="btn" onclick="exp('png')" aria-label="Exportar em PNG">PNG</button>
+  <button class="btn" onclick="tg()" aria-label="Alternar tema claro e escuro"><span aria-hidden="true">◑</span> Tema</button>
+  <button class="btn primary" id="savePos" title="Salvar no flow.json (Ctrl+S)" aria-label="Salvar no flow.json">Salvar</button>
+  <button class="ib" id="helpBtn" title="Atalhos" aria-label="Ver os atalhos de teclado"><span aria-hidden="true">?</span></button>
 </div>
+<p class="sr" id="anuncio" role="status" aria-live="polite"></p>
 <div class="stage">
   <svg class="diagram" id="dg" data-vb="0 0 %%W%% %%H%%" viewBox="0 0 %%W%% %%H%%" width="%%W%%" height="%%H%%" xmlns="http://www.w3.org/2000/svg">
     <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>

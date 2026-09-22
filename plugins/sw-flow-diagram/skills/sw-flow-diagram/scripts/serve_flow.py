@@ -9,13 +9,115 @@ Uso:
   python3 serve_flow.py --dir ./flows/<slug> [--port 8900]
 """
 import argparse
+import fcntl
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 BUILDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build_flow.py")
+SAVE_LOCK = threading.Lock()
+
+
+class BuildError(RuntimeError):
+    pass
+
+
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_directory(path):
+    try:
+        subprocess.run([sys.executable, BUILDER, "--dir", str(path)],
+                       check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        raise BuildError(exc.stderr or "build falhou") from exc
+
+
+class FlowFileLock:
+    def __init__(self, path):
+        self.path = path
+        self.stream = None
+
+    def __enter__(self):
+        self.stream = open(self.path, "r+", encoding="utf-8")
+        fcntl.flock(self.stream.fileno(), fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *_):
+        fcntl.flock(self.stream.fileno(), fcntl.LOCK_UN)
+        self.stream.close()
+
+
+def commit_pair(staged_json, staged_html, flow_path, html_path, backup_dir):
+    old_json = os.path.join(backup_dir, "flow.json")
+    old_html = os.path.join(backup_dir, "flow.html")
+    shutil.copy2(flow_path, old_json)
+    if os.path.exists(html_path):
+        shutil.copy2(html_path, old_html)
+    try:
+        os.replace(staged_json, flow_path)
+        os.replace(staged_html, html_path)
+    except Exception:
+        os.replace(old_json, flow_path)
+        if os.path.isfile(old_html):
+            os.replace(old_html, html_path)
+        elif os.path.exists(html_path):
+            os.unlink(html_path)
+        raise
+
+
+def save_candidate(dirpath, data, expected_hash, build_fn=build_directory):
+    flow_path = os.path.join(dirpath, "flow.json")
+    from flow_contract import validate_flow
+
+    errors = validate_flow(data)
+    if errors:
+        return {"status": 400, "ok": False, "code": "invalid_flow", "message": errors}
+
+    with SAVE_LOCK, FlowFileLock(flow_path):
+        if file_sha256(flow_path) != expected_hash:
+            return {"status": 409, "ok": False, "code": "conflict", "message": "flow.json mudou no disco"}
+
+        staging = tempfile.mkdtemp(prefix=".flow-save-", dir=dirpath)
+        backup = tempfile.mkdtemp(prefix=".flow-backup-", dir=dirpath)
+        try:
+            with open(os.path.join(staging, "flow.json"), "w", encoding="utf-8") as stream:
+                json.dump(data, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+            build_fn(staging)
+            staged_json = os.path.join(staging, "flow.json")
+            staged_html = os.path.join(staging, "flow.html")
+            if not os.path.isfile(staged_html):
+                raise BuildError("build não gerou flow.html")
+            if file_sha256(flow_path) != expected_hash:
+                return {"status": 409, "ok": False, "code": "conflict", "message": "flow.json mudou durante o build"}
+            html_path = os.path.join(dirpath, "flow.html")
+            commit_pair(staged_json, staged_html, flow_path, html_path, backup)
+            return {"status": 200, "ok": True, "code": "saved", "message": "salvo"}
+        except BuildError as exc:
+            return {"status": 500, "ok": False, "code": "build_failed", "message": str(exc)}
+        except Exception as exc:
+            try:
+                if os.path.isfile(os.path.join(backup, "flow.json")):
+                    os.replace(os.path.join(backup, "flow.json"), flow_path)
+                if os.path.isfile(os.path.join(backup, "flow.html")):
+                    os.replace(os.path.join(backup, "flow.html"), os.path.join(dirpath, "flow.html"))
+            finally:
+                return {"status": 500, "ok": False, "code": "save_failed", "message": str(exc)}
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+            shutil.rmtree(backup, ignore_errors=True)
 
 
 def make_handler(dirpath):
@@ -36,22 +138,21 @@ def make_handler(dirpath):
                 return
             try:
                 n = int(self.headers.get("Content-Length", 0))
-                data = json.loads(self.rfile.read(n))
+                payload = json.loads(self.rfile.read(n))
             except Exception as e:
-                self._json(400, {"ok": False, "error": f"JSON inválido: {e}"})
+                self._json(400, {"ok": False, "code": "invalid_json", "message": f"JSON inválido: {e}"})
                 return
             try:
-                with open(os.path.join(dirpath, "flow.json"), "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-                subprocess.run([sys.executable, BUILDER, "--dir", dirpath],
-                               check=True, capture_output=True, text=True)
-            except subprocess.CalledProcessError as e:
-                self._json(500, {"ok": False, "error": (e.stderr or "build falhou")})
+                data = payload["flow"]
+                expected_hash = payload["baseHash"]
+            except (KeyError, TypeError):
+                self._json(400, {"ok": False, "code": "invalid_payload", "message": "use flow e baseHash"})
                 return
-            except Exception as e:
-                self._json(500, {"ok": False, "error": str(e)})
+            result = save_candidate(dirpath, data, expected_hash)
+            if result["status"] != 200:
+                self._json(result["status"], result)
                 return
-            self._json(200, {"ok": True})
+            self._json(200, result)
 
         def _json(self, code, obj):
             body = json.dumps(obj, ensure_ascii=False).encode()

@@ -5,6 +5,14 @@ const tema = QS.get('theme');
 if (tema === 'dark') document.documentElement.dataset.theme = 'dark';
 else if (tema === 'light') document.documentElement.removeAttribute('data-theme');
 
+async function hashFlowOnLoad() {
+  const response = await fetch('flow.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error('não foi possível ler o flow.json atual');
+  const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+const baseHashPromise = hashFlowOnLoad();
+
 function onRender() { renderPanel(); atualizarBotoes(); }
 function onCameraMove() { const p = document.querySelector('.inlED'); if (p) p.remove(); }
 
@@ -109,17 +117,50 @@ if (!EXPORT) {
   document.body.classList.add('export', 'paused');
 }
 
+/* O que acontece precisa CHEGAR a quem não vê a tela: alert some do histórico e o botão
+   "Salvar" muda só de cor. Toda mensagem passa por aqui e vai para a região aria-live. */
+function anunciar(texto) {
+  const alvo = document.getElementById('anuncio');
+  if (alvo) alvo.textContent = texto;
+}
+
 // ---- salvar
 async function salvar(auto) {
-  (F.nodes || []).forEach(n => {
+  const payload = structuredClone(F);
+  (payload.nodes || []).forEach(n => {
     if (auto) delete n.pos;
     else if (POS[n.id]) n.pos = [Math.round(POS[n.id][0]), Math.round(POS[n.id][1])];
   });
   try {
-    const r = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(F) });
-    if (r.ok) { dirty = false; location.reload(); }
-    else alert('Erro ao salvar: ' + await r.text());
+    const baseHash = await baseHashPromise;
+    const r = await fetch('/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow: payload, baseHash })
+    });
+    if (r.ok) { markSaved(); anunciar('Diagrama salvo no flow.json.'); location.reload(); }
+    else {
+      const erro = await r.json().catch(() => ({}));
+      if (erro.code === 'conflict') {
+        anunciar('Conflito: o flow.json mudou fora deste editor.');
+        const recarregar = confirm('O flow.json mudou fora deste editor. Recarregar e descartar esta edição local?');
+        if (recarregar) location.reload();
+        else {
+          const blob = new Blob([JSON.stringify(F, null, 2) + '\n'], { type: 'application/json' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob); link.download = 'flow-conflict.json'; link.click();
+          URL.revokeObjectURL(link.href);
+          alert('Edição local mantida e baixada como flow-conflict.json.');
+        }
+      } else {
+        const msg = 'Erro ao salvar: ' + (erro.message || 'operação recusada')
+          + (erro.path ? ' (em ' + erro.path + ')' : '');
+        anunciar(msg);
+        alert(msg);
+      }
+    }
   } catch (err) {
+    anunciar('Sem servidor de edição: o diagrama não foi salvo.');
     alert('Sem servidor de edição. Use serve_flow.py (não o http.server) para salvar.\n' + err);
   }
 }
@@ -129,6 +170,14 @@ function atualizarBotoes() {
   const u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
   if (u) u.disabled = !canUndo();
   if (r) r.disabled = !canRedo();
+  // Alteração não salva dita por extenso, não só por cor: o botão diz o que ainda falta.
+  const sv = document.getElementById('savePos');
+  if (sv) {
+    sv.textContent = dirty ? 'Salvar alterações' : 'Salvar';
+    sv.setAttribute('aria-label', dirty ? 'Salvar no flow.json. Há alterações não salvas.'
+                                        : 'Salvar no flow.json. Nada mudou desde o último salvamento.');
+    sv.classList.toggle('sujo', !!dirty);
+  }
 }
 function ligar(id, fn) { const el = document.getElementById(id); if (el) el.onclick = fn; }
 ligar('savePos', () => salvar(false));

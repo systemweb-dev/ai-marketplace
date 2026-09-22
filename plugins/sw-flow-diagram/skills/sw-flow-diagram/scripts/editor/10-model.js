@@ -6,7 +6,8 @@
 const GROUP_COLORS = ['#e8743b', '#2f6bf0', '#37a86b', '#8b5cf6', '#e0407f', '#0ea5b7', '#d9a406'];
 const HISTORY_MAX = 60;
 
-const past = [], future = [];
+const history = FlowState.createHistory(null, HISTORY_MAX);
+let modelRevision = 0, savedRevision = 0;
 let dirty = false;
 
 function snapshot() {
@@ -21,25 +22,27 @@ function restore(snap) {
 
 /** Registra o estado ANTES de uma mudança. Chame no início de toda mutação. */
 function beginChange() {
-  past.push(snapshot());
-  if (past.length > HISTORY_MAX) past.shift();
-  future.length = 0;
-  dirty = true;
+  FlowState.begin(history, snapshot());
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
 }
 function undo() {
-  if (!past.length) return false;
-  future.push(snapshot());
-  restore(past.pop());
+  if (!FlowState.undo(history)) return false;
+  restore(history.current);
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
   return true;
 }
 function redo() {
-  if (!future.length) return false;
-  past.push(snapshot());
-  restore(future.pop());
+  if (!FlowState.redo(history)) return false;
+  restore(history.current);
+  modelRevision = history.revision;
+  dirty = modelRevision !== savedRevision;
   return true;
 }
-const canUndo = () => past.length > 0;
-const canRedo = () => future.length > 0;
+const canUndo = () => history.past.length > 0;
+const canRedo = () => history.future.length > 0;
+function markSaved() { savedRevision = modelRevision; dirty = false; }
 
 // ---- consultas
 const nodeById = id => (F.nodes || []).find(n => n.id === id);
@@ -73,9 +76,7 @@ function addNode(pt, label, icon, group) {
   return id;
 }
 function removeNodes(ids) {
-  const set = new Set(ids);
-  F.nodes = (F.nodes || []).filter(n => !set.has(n.id));
-  F.edges = (F.edges || []).filter(e => !set.has(e.from) && !set.has(e.to));
+  removeNodesFrom(F, ids);            // tira os nós e as conexões que dependiam deles
   ids.forEach(id => delete POS[id]);
 }
 function addEdge(from, to) {

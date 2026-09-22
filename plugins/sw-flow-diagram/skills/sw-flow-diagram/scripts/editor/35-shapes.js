@@ -28,9 +28,13 @@ const SHAPES = [
 const SHAPE_BY_ID = Object.fromEntries(SHAPES.map(s => [s.id, s]));
 const isCentered = id => (SHAPE_BY_ID[id] || SHAPE_BY_ID.rounded).center;
 
+/* Detalhe em pixel (raio do canto, barra, dobra) encolhe junto com a caixa: a miniatura da
+   paleta usa uma caixa bem menor que a do nó, e raio fixo transformava "Processo" em pílula. */
+const kDet = (w, hh) => Math.min(1, (window.NW ? w / window.NW : 1), (window.NH ? hh / window.NH : 1));
+
 /** Devolve {tag, attrs} do contorno da forma, inscrito em w×h. */
 function shapeGeom(id, w, hh) {
-  const r = 13, m = Math.min(w, hh);
+  const k = kDet(w, hh), r = 13 * k, m = Math.min(w, hh);
   switch (id) {
     case 'rect':      return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: 2 } };
     case 'stadium':   return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: hh / 2 } };
@@ -54,7 +58,7 @@ function shapeGeom(id, w, hh) {
       const bw = w - dx;
       return { tag: 'path', attrs: { d: `M${dx},${dy} L${w},${dy} L${w},${hh * .82} Q${dx + bw * .75},${hh} ${dx + bw / 2},${hh * .9} T${dx},${hh * .82} Z` } };
     }
-    case 'subroutine':return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: 3 } };
+    case 'subroutine':return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: 3 * k } };
     case 'storage':   return { tag: 'path', attrs: { d: `M${hh * .22},0 L${w},0 Q${w - hh * .22},${hh / 2} ${w},${hh} L${hh * .22},${hh} Q0,${hh / 2} ${hh * .22},0 Z` } };
     case 'merge':     return { tag: 'path', attrs: { d: `M0,0 L${w},0 L${w / 2},${hh} Z` } };
     case 'extract':   return { tag: 'path', attrs: { d: `M${w / 2},0 L${w},${hh} L0,${hh} Z` } };
@@ -62,18 +66,19 @@ function shapeGeom(id, w, hh) {
       const k = hh / 2;
       return { tag: 'path', attrs: { d: `M${w * .24},${hh} A${k * .78},${k * .78} 0 0 1 ${w * .22},${hh * .42} A${k * .82},${k * .82} 0 0 1 ${w * .52},${hh * .16} A${k * .78},${k * .78} 0 0 1 ${w * .8},${hh * .44} A${k * .72},${k * .72} 0 0 1 ${w * .78},${hh} Z` } };
     }
-    case 'note':      return { tag: 'path', attrs: { d: `M0,0 L${w - 16},0 L${w},16 L${w},${hh} L0,${hh} Z` } };
+    case 'note':      return { tag: 'path', attrs: { d: `M0,0 L${w - 16 * k},0 L${w},${16 * k} L${w},${hh} L0,${hh} Z` } };
     default:          return { tag: 'rect', attrs: { x: 0, y: 0, width: w, height: hh, rx: r } };
   }
 }
 /** Enfeites que não cabem no contorno (as barras do subprocesso, a dobra da anotação). */
 function shapeExtras(id, w, hh) {
+  const k = kDet(w, hh);
   if (id === 'subroutine') return [
-    { tag: 'line', attrs: { x1: 11, y1: 0, x2: 11, y2: hh, class: 'nedge' } },
-    { tag: 'line', attrs: { x1: w - 11, y1: 0, x2: w - 11, y2: hh, class: 'nedge' } }];
+    { tag: 'line', attrs: { x1: 11 * k, y1: 0, x2: 11 * k, y2: hh, class: 'nedge' } },
+    { tag: 'line', attrs: { x1: w - 11 * k, y1: 0, x2: w - 11 * k, y2: hh, class: 'nedge' } }];
   if (id === 'note') return [
     // fill:none explícito — sem isso o triângulo da dobra herda preenchimento preto
-    { tag: 'path', attrs: { d: `M${w - 16},0 L${w - 16},16 L${w},16`, class: 'nedge', fill: 'none' } }];
+    { tag: 'path', attrs: { d: `M${w - 16 * k},0 L${w - 16 * k},${16 * k} L${w},${16 * k}`, class: 'nedge', fill: 'none' } }];
   if (id === 'cylinder') {
     const e = hh * .17;
     // aresta frontal da tampa: é ela que dá a leitura de cilindro em vez de barril
