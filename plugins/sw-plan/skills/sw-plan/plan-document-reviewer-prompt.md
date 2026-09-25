@@ -1,49 +1,58 @@
-# Plan Document Reviewer Prompt Template
+# Prompt do revisor do plano
 
-Use this template when dispatching a plan document reviewer subagent.
+Use este template ao despachar o revisor do **documento do plano** (ver "Revisor do plano" no
+SKILL.md). Ele roda **depois** do self-review e do `plan_check.py`, e **antes** do gate de
+aprovação do usuário.
 
-**Purpose:** Verify the plan is complete, matches the spec, and has proper task decomposition.
+**Para quê:** conferir se o plano está completo, cobre o spec e está bem dividido em tasks.
 
-**Dispatch after:** The complete plan is written.
+**Quando despachar:** com o plano inteiro escrito e o lint limpo.
+
+O revisor é **consultivo**: devolve status, problemas e recomendações; **não edita o plano e
+não aprova no lugar do usuário**.
 
 ```
-Task tool (general-purpose):
-  description: "Review plan document"
+Agent (subagent_type: general-purpose):
+  description: "Revisar o plano"
   prompt: |
-    You are a plan document reviewer. Verify this plan is complete and ready for implementation.
+    Você revisa um plano de implementação. Confira se ele está completo e pronto para alguém
+    executar sem travar.
 
-    **Plan to review:** [PLAN_FILE_PATH]
-    **Spec for reference:** [SPEC_FILE_PATH]
+    **Plano a revisar:** [CAMINHO_DO_PLANO]
+    **Spec de referência:** [CAMINHO_DO_SPEC]
 
-    ## What to Check
+    ## O que checar
 
-    | Category | What to Look For |
-    |----------|------------------|
-    | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
-    | Spec Alignment | Plan covers spec requirements, no major scope creep |
-    | Task Decomposition | Tasks have clear boundaries, steps are actionable |
-    | Buildability | Could an engineer follow this plan without getting stuck? |
+    | Categoria | O que procurar |
+    |---|---|
+    | Completude | TODO, placeholder, task pela metade, step faltando |
+    | Aderência ao spec | O plano cobre os requisitos do spec, sem escopo a mais |
+    | Restrições verificáveis | Cada fitness function do spec aponta para a task e o step que a checa? |
+    | Ordem por risco | A suposição mais arriscada é atacada primeiro (spike), ou o plano deixa o risco para o fim? |
+    | Divisão em tasks | Fronteiras claras, steps executáveis, tasks que se sustentam sozinhas |
+    | Contratos | Tipos, assinaturas e nomes usados nas tasks finais batem com os definidos antes |
+    | Executabilidade | Alguém que não conhece o projeto conseguiria seguir sem adivinhar? |
 
-    ## Calibration
+    ## Calibragem
 
-    **Only flag issues that would cause real problems during implementation.**
-    An implementer building the wrong thing or getting stuck is an issue.
-    Minor wording, stylistic preferences, and "nice to have" suggestions are not.
+    **Só aponte o que causaria problema real na implementação.** Quem executa construir a
+    coisa errada, ou travar sem saber o que fazer, é problema. Redação, preferência de estilo
+    e "seria bom ter" não são.
 
-    Approve unless there are serious gaps — missing requirements from the spec,
-    contradictory steps, placeholder content, or tasks so vague they can't be acted on.
+    Aprove, a não ser que haja lacuna séria: requisito do spec sem task, steps que se
+    contradizem, conteúdo placeholder, ou task vaga demais para ser executada.
 
-    ## Output Format
+    ## Formato da resposta
 
-    ## Plan Review
+    ## Revisão do plano
 
-    **Status:** Approved | Issues Found
+    **Status:** Aprovado | Com problemas
 
-    **Issues (if any):**
-    - [Task X, Step Y]: [specific issue] - [why it matters for implementation]
+    **Problemas (se houver):**
+    - [Task X, Step Y]: [problema específico] — [por que atrapalha a implementação]
 
-    **Recommendations (advisory, do not block approval):**
-    - [suggestions for improvement]
+    **Recomendações (não bloqueiam a aprovação):**
+    - [sugestões]
 ```
 
-**Reviewer returns:** Status, Issues (if any), Recommendations
+**O revisor devolve:** status, problemas (se houver) e recomendações.

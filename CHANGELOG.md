@@ -7,6 +7,49 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-plan` (v0.6.0): **`scripts/plan_check.py`**, o lint determinístico do plano. Acusa task sem
+  arquivos, step que mexe em código sem mostrar o código, placeholder (`TODO`, "adicionar
+  validação", "igual à Task N"), checkbox torto, dependência para task que não existe e
+  **arquivo de "Alterar" que não existe no projeto** — o typo de caminho que só apareceria no
+  meio da execução. 17 testes de biblioteca padrão.
+- `sw-plan` (v0.6.0): **ordem por risco (spikes-first)** — a primeira task passa a ser a que
+  pode derrubar o plano, não a mais fácil; **retomada de execução** a partir da primeira task
+  não marcada, com o log `## Ajustes durante a execução`; **menu de recuperação** quando um step
+  falha (ajustar o plano, refazer o batch ou parar), com parada obrigatória na terceira falha
+  seguida; **contratos acumulados** passados ao subagente, para a task seguinte encaixar na
+  anterior; e **estimativa** (tasks, batches e porte) no resumo de aprovação.
+- `sw-brainstorming` (v0.7.0): o spec ganhou a tabela de **Suposições** (`Suposição · Risco se
+  for falsa · Como validar`), que é o que a `sw-plan` usa para ordenar as tasks pelo risco, e a
+  seção **Rollout e reversibilidade** (feature flag, etapas, plano de volta, dados existentes),
+  proporcional ao risco.
+- `sw-brainstorming` (v0.7.0): **retomada com "onde paramos"** — ao continuar um dossiê, a skill
+  resume o que já foi decidido, o que ficou em aberto e o próximo passo, em vez de mandar o
+  usuário lembrar; e o **caminho oficial para mexer num spec já aprovado** (voltar o estado,
+  discutir só o que mudou, registrar em `## Revisões do spec`).
+- `sw-brainstorming` (v0.7.0): o **índice do dossiê mostra o andamento** (`plano 3/7`) lendo os
+  checkboxes do `plan.md` — uma task só conta como feita quando todos os steps dela estão
+  marcados.
+
+### Corrigido
+- `sw-plan` (v0.6.0): o template de task mandava **commitar dentro da task**, enquanto a regra
+  dos checkpoints diz "nunca commite sem o sim". No modo Subagent isso fazia o subagente
+  commitar sozinho. O step de commit saiu: commit é no checkpoint, com aprovação.
+- `sw-plan` (v0.6.0): o `plan-document-reviewer-prompt.md` existia e **nenhum passo o usava**.
+  Agora o revisor do plano é oferecido depois do self-review e antes do gate de aprovação.
+- `sw-plan` (v0.6.0): a skill nunca mencionava as **fitness functions** que o spec da
+  `sw-brainstorming` manda escrever. O cabeçalho do plano passa a ter a tabela
+  `Restrição · Como o plano checa`, e o self-review cobra a que ficou sem verificação.
+- `sw-plan` (v0.6.0): o cabeçalho obrigatório não tinha o **link do spec** que o próprio texto
+  exigia; **Cancelar** no gate não tinha efeito definido (agora: não executa nada, o plano fica
+  no dossiê e o estado não avança); o caminho do `dossie.py` era fixo em `~/.claude/skills/` e
+  quebrava com a skill instalada como plugin (agora é procurado também no cache de plugins).
+- `sw-plan` (v0.6.0): metade do arquivo estava em inglês herdado do original (inclusive "our
+  codebase and questionable taste") e a Execution Handoff em português sem acento. Tudo em
+  português, e o resíduo `superpowers:*` saiu.
+- `sw-brainstorming` (v0.7.0): a skill citava a "Task tool", nome que não existe mais nesta
+  versão do Claude Code — a ferramenta é a `Agent`.
+
 ### Corrigido
 - `sw-brainstorming` (v0.6.2): **`--raiz` depois do subcomando não funcionava.**
   `dossie.py novo --titulo X --raiz Y` morria em `unrecognized arguments` — justamente a ordem

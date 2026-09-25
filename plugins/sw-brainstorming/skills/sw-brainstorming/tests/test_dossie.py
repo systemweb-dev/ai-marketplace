@@ -150,6 +150,47 @@ class Cli(unittest.TestCase):
         self.assertIn("plano", final.split("<!-- DOSSIES:START -->")[1])
         self.assertEqual(final.count("<!-- DOSSIES:START -->"), 1)
 
+    def test_indice_mostra_o_progresso_das_tasks_do_plano(self):
+        """'tem plano' não diz nada. O índice existe para não mentir: se 3 de 7 tasks estão
+        feitas, é isso que ele mostra."""
+        pasta = self.novo()
+        (pasta / "plan.md").write_text(
+            "### Task 1: a\n- [x] **Step 1: x**\n- [x] **Step 2: y**\n"
+            "### Task 2: b\n- [x] **Step 1: x**\n- [ ] **Step 2: y**\n"
+            "### Task 3: c\n- [ ] **Step 1: x**\n", encoding="utf-8")
+
+        self.rodar("indice")
+
+        self.assertIn("plano 1/3", (self.raiz / "README.md").read_text(encoding="utf-8"))
+
+    def test_plano_todo_marcado_aparece_como_completo(self):
+        pasta = self.novo()
+        (pasta / "plan.md").write_text("### Task 1: a\n- [x] **Step 1: x**\n", encoding="utf-8")
+
+        self.rodar("indice")
+
+        self.assertIn("plano 1/1", (self.raiz / "README.md").read_text(encoding="utf-8"))
+
+    def test_plano_sem_task_ainda_conta_como_plano(self):
+        pasta = self.novo()
+        (pasta / "plan.md").write_text("rascunho de plano, sem tasks ainda\n", encoding="utf-8")
+
+        self.rodar("indice")
+
+        texto = (self.raiz / "README.md").read_text(encoding="utf-8")
+        self.assertIn("plano", texto)
+        self.assertNotIn("plano 0/0", texto)
+
+    def test_progresso_tambem_sai_no_json(self):
+        pasta = self.novo()
+        (pasta / "plan.md").write_text(
+            "### Task 1: a\n- [x] **Step 1: x**\n### Task 2: b\n- [ ] **Step 1: x**\n",
+            encoding="utf-8")
+
+        item = json.loads(self.rodar("listar", "--json").stdout)[0]
+
+        self.assertEqual(item["progresso"], [1, 2])
+
     def test_indice_aponta_para_o_spec_de_cada_dossie(self):
         pasta = self.novo()
 

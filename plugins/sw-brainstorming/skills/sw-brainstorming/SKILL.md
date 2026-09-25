@@ -55,11 +55,16 @@ descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu a�
 ## Checklist
 
 Crie um item de todo para cada ponto e cumpra na ordem (no caminho completo).
-("Item de todo" é lista de trabalho sua; não confundir com a Task tool, que despacha subagente.)
+("Item de todo" é lista de trabalho sua; não confundir com a ferramenta `Agent`, que despacha subagente.)
 
 0. **Ver o que já existe** — rode `python3 <skill-dir>/scripts/dossie.py listar`. Havendo
    dossiê **em rascunho ou em execução** que case com o pedido, ofereça via `AskUserQuestion`
    **continuar** aquele em vez de abrir outro. Ninguém quer dois specs do mesmo assunto.
+   **Se for continuar, diga antes onde parou** — leia o `spec.md` (e o `plan.md`, se houver) e
+   apresente em até 5 linhas: **o que já foi decidido**, **o que ficou em aberto** (seção
+   incompleta, pergunta sem resposta, suposição não validada) e **qual é o próximo passo**. A
+   listagem já mostra o andamento do plano (`plano 3/7`). Retomar sem esse resumo faz o usuário
+   reconstruir de memória o que o dossiê já sabe.
 1. **Explorar o contexto** — arquivos, docs, commits recentes.
 2. **Profundidade + perguntas** — logo após o contexto, pergunte via `AskUserQuestion`:
    **Direto** (segue direto pras clarificações) ou **Explorar a fundo** (roda o loop de lentes
@@ -178,7 +183,7 @@ re-pergunte a cada gate. Ofereça os quatro níveis:
 - **Em cada checkpoint** — revisor após **cada gate** (abordagem escolhida, cada seção do design,
   spec). Mais minucioso, porém mais lento e caro — **avise isso ao usuário** na própria opção.
 
-**Como despachar:** Task tool (`general-purpose`), com o template em
+**Como despachar:** ferramenta `Agent` (`subagent_type: general-purpose`), com o template em
 `spec-document-reviewer-prompt.md` (variante **"design/checkpoint"** ou **"spec"**). Sempre passe
 ao revisor o **material acumulado até ali** — no modo "cada checkpoint", inclua o design inteiro
 até a seção atual, nunca só o trecho isolado (review sem contexto não vale a pena).
@@ -315,7 +320,22 @@ que evitam o **over-engineering e o scope-drift** — o modo de falha nº1 de qu
 - **Restrições verificáveis (fitness functions)** — **só em specs substanciais**: 2-4 critérios
   **objetivos** que a `sw-plan` (ou um agente) possa **checar**, não só descritos — ex.: "o módulo
   A não importa B", "p95 < 200ms", "camada de domínio sem import de infra", "cobertura mínima X".
-  Transforma "o design foi respeitado?" em teste, não opinião.
+  Transforma "o design foi respeitado?" em teste, não opinião. A `sw-plan` leva cada uma para a
+  tabela do cabeçalho do plano, apontando a task que a verifica — então escreva em forma de
+  medida, não de desejo.
+- **Suposições** — em tabela, porque é o que a `sw-plan` usa para ordenar as tasks pelo risco:
+
+  | Suposição | Risco se for falsa | Como validar |
+  |---|---|---|
+  | A API do parceiro devolve o saldo em tempo real | o fluxo inteiro muda para assíncrono | chamar a API de homologação e medir |
+
+  Uma linha por hipótese que, se cair, muda o **design** — não liste certezas. A de maior risco
+  vira o primeiro spike do plano.
+- **Rollout e reversibilidade** — proporcional ao risco, e só quando a feature vai para produção:
+  entra atrás de **feature flag**? Vai em **etapas** (interno → 10% → todos)? Qual é o **plano de
+  volta** se der errado? Mexe em **dados existentes** (migração precisa de caminho de volta)?
+  Feature interna e pequena resolve em uma linha ("liga direto, dá para desligar no config"); o
+  que toca dinheiro ou dado de cliente merece as quatro respostas.
 
 **Escreva o spec como contexto pro agente executor, não prosa pra humano:** linguagem direta na
 **altitude certa**, princípios + poucos exemplos canônicos (**não** enumere todo edge case), e
@@ -347,6 +367,29 @@ opcional"). Para specs grandes, vale despachar mesmo que o nível seja "Sem revi
 **Gate de revisão do usuário:** peça via `AskUserQuestion` (**Aprovar / Pedir mudanças**) que
 o usuário revise o spec escrito antes de prosseguir. Se pedir mudanças, ajuste e repita o
 auto-review. Só siga com a aprovação.
+
+### Mexer num spec já aprovado
+
+Requisito muda no meio do build — e aí o spec aprovado vira mentira se ninguém tocar nele. O
+caminho é este, não abrir um dossiê novo:
+
+1. **Volte o estado**: `dossie.py estado <slug> rascunho`. Os estados não são de mão única; o
+   índice passa a dizer a verdade (em revisão, não "em execução").
+2. **Discuta só o que mudou**, na profundidade que a mudança pede — não refaça o spec inteiro.
+3. **Registre no próprio spec**, no fim, uma seção de revisões, para quem ler depois entender
+   por que o documento não bate com a primeira versão:
+
+   ```markdown
+   ## Revisões do spec
+
+   - **2026-09-25** — o parceiro não tem saldo em tempo real (suposição derrubada na task 3 do
+     plano): o fluxo de cobrança vira assíncrono. Afeta as tasks 4 a 7.
+   ```
+4. **Volte o estado** para `aprovado` e avise que o plano precisa ser revisto — a `sw-plan`
+   retoma a partir da primeira task não marcada e ajusta o que a mudança invalidou.
+
+Se a mudança é grande a ponto de virar outro trabalho, aí sim: dossiê novo, com um link para o
+antigo nos dois sentidos.
 
 **Implementação:** invoque a `sw-plan` (se disponível) pra criar o plano detalhado.
 É o próximo passo — não invoque outra skill.

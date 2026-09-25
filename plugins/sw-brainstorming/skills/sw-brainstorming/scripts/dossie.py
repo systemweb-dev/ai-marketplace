@@ -51,6 +51,36 @@ def ler_frontmatter(caminho: str) -> dict:
     return dados
 
 
+TASK = re.compile(r"^#{2,4}\s*Task\s+\d+\s*:", re.I)
+FEITO = re.compile(r"^\s*[-*]\s*\[x\]", re.I)
+PENDENTE = re.compile(r"^\s*[-*]\s*\[ \]")
+
+
+def progresso_do_plano(caminho: str):
+    """(tasks feitas, total). Uma task está feita quando TODOS os seus steps estão marcados —
+    'tem plano' não diz nada sobre andamento, e um índice que não diz a verdade é o que este
+    script existe para evitar. Plano sem task ainda devolve None: não invente 0/0."""
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            linhas = f.read().split("\n")
+    except OSError:
+        return None
+    tasks, atual = [], None
+    for linha in linhas:
+        if TASK.match(linha):
+            atual = {"feitos": 0, "pendentes": 0}
+            tasks.append(atual)
+        elif atual is not None:
+            if FEITO.match(linha):
+                atual["feitos"] += 1
+            elif PENDENTE.match(linha):
+                atual["pendentes"] += 1
+    if not tasks:
+        return None
+    feitas = sum(1 for t in tasks if t["feitos"] and not t["pendentes"])
+    return [feitas, len(tasks)]
+
+
 def dossies(raiz: str) -> list:
     if not os.path.isdir(raiz):
         return []
@@ -68,6 +98,7 @@ def dossies(raiz: str) -> list:
             "estado": fm.get("estado", "rascunho"),
             "criado": fm.get("criado", nome[:10]),
             "tem_plano": os.path.isfile(os.path.join(pasta, "plan.md")),
+            "progresso": progresso_do_plano(os.path.join(pasta, "plan.md")),
             "tem_briefing": any(os.path.isfile(os.path.join(pasta, f"briefing{e}"))
                                 for e in (".md", ".html", ".pdf")),
             # ignora ocultos: .gitkeep existe só pra pasta vazia sobreviver ao git,
@@ -93,6 +124,11 @@ estado: rascunho
 
 *(a skill sw-brainstorming preenche as seções a partir da conversa)*
 """
+
+
+def rotulo_do_plano(d: dict) -> str:
+    p = d.get("progresso")
+    return f"plano {p[0]}/{p[1]}" if p else "plano"
 
 
 def cmd_novo(args):
@@ -121,7 +157,7 @@ def cmd_listar(args):
     for d in itens:
         extras = []
         if d["tem_plano"]:
-            extras.append("plano")
+            extras.append(rotulo_do_plano(d))
         if d["tem_briefing"]:
             extras.append("briefing")
         if d["referencias"]:
@@ -155,7 +191,7 @@ def escrever_indice(raiz: str):
     for d in itens:
         tem = []
         if d["tem_plano"]:
-            tem.append("plano")
+            tem.append(rotulo_do_plano(d))
         if d["tem_briefing"]:
             tem.append("briefing")
         if d["referencias"]:
