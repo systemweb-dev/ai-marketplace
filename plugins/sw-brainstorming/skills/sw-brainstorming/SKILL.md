@@ -32,8 +32,10 @@ ação de implementação até apresentar um design e o usuário aprovar. Vale p
 O gate (aprovar antes de implementar) é **sempre** obrigatório — o que **escala** é a
 profundidade:
 
-- **Trivial e já especificado** (mudança pequena e óbvia): apresente um design de **1-2
-  frases** e peça aprovação via `AskUserQuestion` (**Aprovar / Ajustar**). Sem perguntas
+- **Trivial e já especificado** (mudança pequena e óbvia): **não é caso de disparar esta
+  skill** — vá direto ao trabalho. Se ela foi chamada mesmo assim (o usuário pediu, ou a
+  intenção parecia maior do que era), não transforme em cerimônia: apresente um design de
+  **1-2 frases** e peça aprovação via `AskUserQuestion` (**Aprovar / Ajustar**). Sem perguntas
   longas, sem arquivo de spec. Aprovou → segue.
 - **Substancial / novo / ambíguo**: rode o **fluxo completo** abaixo.
 - **Na dúvida, trate como substancial.** "Simples demais pra precisar de design" é
@@ -52,7 +54,8 @@ descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu a�
 
 ## Checklist
 
-Crie uma task para cada item e cumpra na ordem (no caminho completo):
+Crie um item de todo para cada ponto e cumpra na ordem (no caminho completo).
+("Item de todo" é lista de trabalho sua; não confundir com a Task tool, que despacha subagente.)
 
 0. **Ver o que já existe** — rode `python3 <skill-dir>/scripts/dossie.py listar`. Havendo
    dossiê **em rascunho ou em execução** que case com o pedido, ofereça via `AskUserQuestion`
@@ -73,14 +76,18 @@ Crie uma task para cada item e cumpra na ordem (no caminho completo):
    Se o nível incluir spec, **revisor subagent do spec**.
 8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
 9. **Oferecer Briefing** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver seção).
-10. **Transição** — marque o dossiê como aprovado
-    (`dossie.py estado <slug> aprovado`) e invoque a `sw-plan` (se disponível).
+10. **Transição** — marque o dossiê como aprovado (`dossie.py estado <slug> aprovado`) e
+    invoque a **`sw-plan`**. Se ela não estiver instalada, **diga isso ao usuário** e ofereça
+    via `AskUserQuestion`: instalar (`/plugin install sw-plan@ai-marketplace`) ou seguir sem
+    ela, escrevendo o plano inline a partir do spec. Não encerre em silêncio.
 
 ## Fluxo
 
 ```dot
 digraph brainstorming {
+    "Ver dossies existentes" [shape=box];
     "Explorar contexto" [shape=box];
+    "Continuar um existente?" [shape=diamond];
     "Trivial e especificado?" [shape=diamond];
     "Design curto + aprovar" [shape=box];
     "Profundidade?" [shape=diamond];
@@ -100,6 +107,9 @@ digraph brainstorming {
     "Gerar Briefing" [shape=box];
     "Invocar sw-plan" [shape=doublecircle];
 
+    "Ver dossies existentes" -> "Continuar um existente?";
+    "Continuar um existente?" -> "Escrever spec" [label="sim"];
+    "Continuar um existente?" -> "Explorar contexto" [label="nao"];
     "Explorar contexto" -> "Trivial e especificado?";
     "Trivial e especificado?" -> "Design curto + aprovar" [label="sim"];
     "Trivial e especificado?" -> "Profundidade?" [label="nao"];
@@ -270,11 +280,16 @@ sem UI (ex.: um job, uma API interna).
   mandou, export de um diagrama, trecho de log. Cite o arquivo no spec (`referencias/x.png`)
   em vez de descrever de memória; quem for executar precisa ver o mesmo que você viu.
   - **Fallback:** se o cwd não for um projeto/repo (sem `.git`, sem manifesto tipo `package.json`/
-    `composer.json`), use `--raiz ~/.claude/projects/<cwd-slug>/specs`.
+    `composer.json`), use `--raiz ~/.claude/projects/<cwd-slug>/specs` (vale antes ou depois
+    do subcomando).
   - A **preferência do usuário** sobre o local sempre sobrescreve o default.
   - **Estado do dossiê** (`rascunho` → `aprovado` → `em-execucao` → `concluido`): atualize com
     `dossie.py estado <slug> <estado>`; ele regenera o índice em `docs/specs/README.md`.
     Não edite a tabela do índice à mão.
+    **Quem marca o quê:** esta skill marca `aprovado` (passo 10, com o spec aprovado). Os dois
+    últimos são da **`sw-plan`**: `em-execucao` ao começar a executar e `concluido` ao terminar
+    as tasks. Se o trabalho morreu no caminho e ninguém vai executar, marque `concluido` você,
+    para o índice não anunciar um trabalho que não existe mais.
 - Se o **modo exploração** ("Explorar a fundo") rodou, inclua a seção **`## Exploração &
   decisões`** no spec (problema enquadrado, alternativas consideradas, direção escolhida e o
   porquê) — é o registro do raciocínio por trás do design.

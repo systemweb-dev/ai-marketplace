@@ -7,6 +7,35 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-brainstorming` (v0.6.2): **`--raiz` depois do subcomando não funcionava.**
+  `dossie.py novo --titulo X --raiz Y` morria em `unrecognized arguments` — justamente a ordem
+  que o próprio `SKILL.md` sugere no fallback. Agora vale nas duas posições, e o valor passado
+  antes do subcomando não é mais sobrescrito pelo padrão.
+- `sw-brainstorming` (v0.6.2): slug sem o prefixo de data dava erro seco; agora o script
+  **sugere o dossiê certo** (`você quis dizer: 2026-09-25-...?`). Espaços sobrando no fim das
+  linhas da listagem e do código também saíram.
+- `sw-brainstorming` (v0.6.2): o prompt do revisor misturava inglês e português na mesma frase,
+  a variante "spec" estava inteira em inglês (inclusive o formato da resposta) e apontava o
+  caminho **de fallback** (`~/.claude/projects/...`) como se fosse o padrão, que é `docs/specs/`.
+  O arquivo foi reescrito em português, com o caminho certo.
+
+### Alterado
+- `sw-brainstorming` (v0.6.2): o revisor do spec passa a cobrar o que o auto-review já cobrava e
+  ele ignorava: **não-objetivos, restrição de simplicidade, appetite e corte MVP, decisões com
+  alternativas descartadas e fitness functions que dê para checar**.
+- `sw-brainstorming` (v0.6.2): o diagrama do fluxo ganhou o passo 0 (ver dossiês existentes e
+  continuar um em vez de abrir outro), que só existia no checklist; o caminho trivial passa a
+  dizer que **não é caso de disparar a skill**, alinhando com o frontmatter; a transição para a
+  `sw-plan` ganhou saída quando ela não está instalada; e ficou escrito **quem marca cada
+  estado** do dossiê (esta skill marca `aprovado`; `em-execucao` e `concluido` são da `sw-plan`).
+
+### Adicionado
+- `sw-brainstorming` (v0.6.2): `tests/` com 14 testes de biblioteca padrão para o `dossie.py`
+  (slug com acento e pontuação, frontmatter, dossiê duplicado recusado, estado gravado e
+  validado, sugestão de slug, índice regenerado entre os marcadores sem apagar o resto do
+  README).
+
 ### Adicionado
 - `sw-flow-diagram` (v0.2.2): **quatro exemplos novos**, um de cada arranjo, em `examples/`:
   `aprovacao-de-despesa` (vertical, fluxograma clássico com decisão, espera, recusa e junção),

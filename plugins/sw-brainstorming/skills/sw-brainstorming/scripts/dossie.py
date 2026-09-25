@@ -73,7 +73,7 @@ def dossies(raiz: str) -> list:
             # ignora ocultos: .gitkeep existe só pra pasta vazia sobreviver ao git,
             # contá-lo faria o índice anunciar uma referência que não existe
             "referencias": sorted(f for f in os.listdir(os.path.join(pasta, "referencias"))
-                                  if not f.startswith(".")) 
+                                  if not f.startswith("."))
                            if os.path.isdir(os.path.join(pasta, "referencias")) else [],
         })
     return out
@@ -126,7 +126,7 @@ def cmd_listar(args):
             extras.append("briefing")
         if d["referencias"]:
             extras.append(f"{len(d['referencias'])} ref")
-        print(f"  {ROTULO.get(d['estado'], d['estado']):16} {d['slug']:44} {' · '.join(extras)}")
+        print(f"  {ROTULO.get(d['estado'], d['estado']):16} {d['slug']:44} {' · '.join(extras)}".rstrip())
 
 
 def cmd_estado(args):
@@ -134,7 +134,10 @@ def cmd_estado(args):
         sys.exit(f"ERRO: estado deve ser um de {ESTADOS}")
     spec = os.path.join(args.raiz, args.slug, "spec.md")
     if not os.path.isfile(spec):
-        sys.exit(f"ERRO: {spec} não encontrado")
+        # Esquecer o prefixo de data é o erro natural; o script sabe o slug certo, então diz.
+        parecidos = [d["slug"] for d in dossies(args.raiz) if args.slug in d["slug"]]
+        dica = f" — você quis dizer: {', '.join(parecidos)}?" if parecidos else ""
+        sys.exit(f"ERRO: dossiê '{args.slug}' não encontrado em {args.raiz}{dica}")
     with open(spec, encoding="utf-8") as f:
         txt = f.read()
     novo, n = re.subn(r"^estado:.*$", f"estado: {args.novo_estado}", txt, count=1, flags=re.M)
@@ -182,14 +185,23 @@ def cmd_indice(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--raiz", default=RAIZ_PADRAO, help=f"raiz dos dossiês (padrão: {RAIZ_PADRAO})")
+    # `--raiz` vale antes OU depois do subcomando: `novo --titulo X --raiz Y` é a ordem que
+    # sai naturalmente de quem digita, e morria em "unrecognized arguments".
+    # default=SUPPRESS: sem isso o subcomando reaplica o padrão POR CIMA do valor que veio
+    # antes dele, e `--raiz Y novo` passaria a gravar em docs/specs.
+    comum = argparse.ArgumentParser(add_help=False)
+    comum.add_argument("--raiz", default=argparse.SUPPRESS,
+                       help=f"raiz dos dossiês (padrão: {RAIZ_PADRAO})")
+    ap = argparse.ArgumentParser(description=__doc__, parents=[comum],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("novo"); p.add_argument("--titulo", required=True); p.set_defaults(fn=cmd_novo)
-    p = sub.add_parser("listar"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_listar)
-    p = sub.add_parser("estado"); p.add_argument("slug"); p.add_argument("novo_estado"); p.set_defaults(fn=cmd_estado)
-    p = sub.add_parser("indice"); p.set_defaults(fn=cmd_indice)
+    p = sub.add_parser("novo", parents=[comum]); p.add_argument("--titulo", required=True); p.set_defaults(fn=cmd_novo)
+    p = sub.add_parser("listar", parents=[comum]); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_listar)
+    p = sub.add_parser("estado", parents=[comum]); p.add_argument("slug"); p.add_argument("novo_estado"); p.set_defaults(fn=cmd_estado)
+    p = sub.add_parser("indice", parents=[comum]); p.set_defaults(fn=cmd_indice)
     args = ap.parse_args()
+    if not hasattr(args, "raiz"):
+        args.raiz = RAIZ_PADRAO
     args.fn(args)
 
 

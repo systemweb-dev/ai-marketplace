@@ -1,120 +1,127 @@
-# Reviewer Prompt Templates (brainstorming)
+# Prompts do revisor (brainstorming)
 
-Two variants, dispatched conforme o **nível de revisão** escolhido (ver "Revisor opcional" no SKILL.md):
+Duas variantes, despachadas conforme o **nível de revisão** escolhido (ver "Revisor opcional" no
+SKILL.md):
 
 - **"spec"** — revisa o documento de spec completo (abaixo).
 - **"design/checkpoint"** — revisa o design acumulado num gate, antes de existir spec (no fim).
 
-O revisor é **consultivo**: retorna status + problemas + recomendações; **não edita nada e não
-aprova no lugar do usuário**.
+O revisor é **consultivo**: retorna status, problemas e recomendações; **não edita nada e não
+aprova no lugar do usuário**. Como ele conversa com o usuário no fim, o prompt e a resposta são
+em português, como o resto da skill.
 
 ---
 
 ## Variante "spec"
 
-Use this template when dispatching a spec document reviewer subagent.
+Use este template ao despachar um revisor do documento de spec.
 
-**Purpose:** Verify the spec is complete, consistent, and ready for implementation planning.
+**Para quê:** conferir se o spec está completo, coerente e pronto para virar plano.
 
-**Dispatch after:** Spec document is written to `~/.claude/projects/<cwd-slug>/specs/`
+**Quando despachar:** depois que o spec foi escrito no dossiê — `docs/specs/<data>-<slug>/spec.md`
+(ou a raiz que o trabalho estiver usando: veja o caminho que o `dossie.py` imprimiu).
 
 ```
 Task tool (general-purpose):
-  description: "Review spec document"
+  description: "Revisar o spec"
   prompt: |
-    You are a spec document reviewer. Verify this spec is complete and ready for planning.
+    Você revisa um documento de spec. Confira se ele está completo e pronto para o plano.
 
-    **Spec to review:** [SPEC_FILE_PATH]
+    **Spec a revisar:** [CAMINHO_DO_SPEC]
 
-    ## What to Check
+    ## O que checar
 
-    | Category | What to Look For |
-    |----------|------------------|
-    | Completeness | TODOs, placeholders, "TBD", incomplete sections |
-    | Consistency | Internal contradictions, conflicting requirements |
-    | Clarity | Requirements ambiguous enough to cause someone to build the wrong thing |
-    | Scope | Focused enough for a single plan — not covering multiple independent subsystems |
-    | YAGNI | Unrequested features, over-engineering |
+    | Categoria | O que procurar |
+    |---|---|
+    | Completude | TODO, "TBD", placeholder, seção pela metade |
+    | Coerência | Contradições internas; requisitos que brigam entre si |
+    | Clareza | Requisito ambíguo o bastante para alguém construir a coisa errada |
+    | Escopo | Cabe num plano só, sem cobrir vários subsistemas independentes |
+    | Não-objetivos | Estão explícitos? Sem eles, o escopo escorrega na execução |
+    | Simplicidade | É a menor solução que resolve? Tem abstração especulativa ou generalização prematura? |
+    | Appetite e MVP | O esforço que o trabalho merece está dito, e o corte (validar rápido × encantar) está claro? |
+    | Decisões | As estruturais têm contexto, alternativas descartadas e consequências? |
+    | Restrições verificáveis | As fitness functions dão para CHECAR (ex.: "p95 < 200ms", "o módulo A não importa B") ou são desejo solto ("deve ser rápido", "código limpo")? |
+    | YAGNI | Feature que ninguém pediu, engenharia a mais |
 
-    ## Calibration
+    ## Calibragem
 
-    **Only flag issues that would cause real problems during implementation planning.**
-    A missing section, a contradiction, or a requirement so ambiguous it could be
-    interpreted two different ways — those are issues. Minor wording improvements,
-    stylistic preferences, and "sections less detailed than others" are not.
+    **Só aponte o que causaria problema real ao planejar.** Seção faltando, contradição, ou
+    requisito que admite duas leituras são problemas. Melhoria de redação, preferência de
+    estilo e "essa seção está menos detalhada que a outra" não são.
 
-    Approve unless there are serious gaps that would lead to a flawed plan.
+    Aprove, a não ser que haja lacuna séria o bastante para gerar um plano errado.
 
-    ## Output Format
+    ## Formato da resposta
 
-    ## Spec Review
+    ## Revisão do spec
 
-    **Status:** Approved | Issues Found
+    **Status:** Aprovado | Com problemas
 
-    **Issues (if any):**
-    - [Section X]: [specific issue] - [why it matters for planning]
+    **Problemas (se houver):**
+    - [Seção X]: [problema específico] — [por que atrapalha o plano]
 
-    **Recommendations (advisory, do not block approval):**
-    - [suggestions for improvement]
+    **Recomendações (não bloqueiam a aprovação):**
+    - [sugestões]
 ```
 
-**Reviewer returns:** Status, Issues (if any), Recommendations
+**O revisor devolve:** status, problemas (se houver) e recomendações.
 
 ---
 
 ## Variante "design/checkpoint"
 
-Use this template when dispatching a reviewer **during** the design phase (after a gate),
-before a spec file exists.
+Use este template ao despachar um revisor **durante** o design (depois de um gate), quando
+ainda não existe arquivo de spec.
 
-**Purpose:** Catch design flaws early — gaps, contradictions, missed edge cases, over-engineering —
-while the design is still cheap to change.
+**Para quê:** pegar cedo o que está torto — lacuna, contradição, caso-limite esquecido,
+engenharia a mais — enquanto mudar ainda é barato.
 
-**Dispatch after:** the design (or, no modo "cada checkpoint", o gate atual) foi aprovado pelo usuário.
-**Pass the accumulated design inline** (não há arquivo ainda) — e, em "cada checkpoint", inclua o
-design inteiro até aqui, nunca só a seção isolada.
+**Quando despachar:** depois que o design (ou, no modo "cada checkpoint", o gate atual) foi
+aprovado pelo usuário. **Passe o design acumulado no próprio prompt** (não há arquivo ainda) e,
+em "cada checkpoint", inclua o design inteiro até aqui, nunca só a seção isolada.
 
 ```
 Task tool (general-purpose):
-  description: "Review design (pre-spec)"
+  description: "Revisar o design (antes do spec)"
   prompt: |
-    You are a design reviewer in a brainstorming session. The team is still shaping the
-    design — no spec exists yet. Review the design below with fresh eyes.
+    Você revisa um design em andamento numa sessão de brainstorming. Ainda não existe spec.
+    Leia com olhos frescos.
 
-    **Design so far:**
-    [PASTE ACCUMULATED DESIGN: problema, abordagem escolhida, seções aprovadas, restrições]
+    **Design até aqui:**
+    [COLE O DESIGN ACUMULADO: problema, abordagem escolhida, seções aprovadas, restrições]
 
-    ## What to Check
+    ## O que checar
 
-    | Category | What to Look For |
-    |----------|------------------|
-    | Gaps | Fluxos/estados/erros não cobertos; dependência não resolvida |
-    | Consistency | Decisões que se contradizem; abordagem que não bate com as restrições |
-    | Edge cases | Casos-limite e modos de falha plausíveis ignorados |
-    | Boundaries | Unidade fazendo coisa demais; fronteiras/interfaces confusas |
-    | YAGNI | Complexidade ou feature não pedida |
-    | Risk | A suposição mais arriscada — o que, se errado, derruba o design? |
+    | Categoria | O que procurar |
+    |---|---|
+    | Lacunas | Fluxo, estado ou erro não coberto; dependência não resolvida |
+    | Coerência | Decisões que se contradizem; abordagem que não bate com as restrições |
+    | Casos-limite | Situações de borda e modos de falha plausíveis ignorados |
+    | Fronteiras | Unidade fazendo coisa demais; interfaces confusas |
+    | YAGNI | Complexidade ou feature que ninguém pediu |
+    | Risco | A suposição mais arriscada: o que, se estiver errado, derruba o design? |
 
-    ## Calibration
+    ## Calibragem
 
-    **Only flag what would cause real rework or a wrong build.** Não levante preferência de
-    estilo nem detalhe que cabe na fase de plano. Na dúvida sobre algo pequeno, deixe como
-    recomendação, não como bloqueio.
+    **Só aponte o que causaria retrabalho de verdade ou levaria a construir a coisa errada.**
+    Não levante preferência de estilo nem detalhe que cabe na fase de plano. Na dúvida sobre
+    algo pequeno, deixe como recomendação, não como bloqueio.
 
-    ## Output Format
+    ## Formato da resposta
 
-    ## Design Review
+    ## Revisão do design
 
-    **Status:** Looks solid | Issues Found
+    **Status:** Parece sólido | Com problemas
 
-    **Issues (if any):**
-    - [Área]: [problema específico] - [por que importa agora]
+    **Problemas (se houver):**
+    - [Área]: [problema específico] — [por que importa agora]
 
-    **Open questions to resolve with the user (if any):**
+    **Perguntas em aberto para levar ao usuário (se houver):**
     - [pergunta]
 
-    **Recommendations (advisory):**
+    **Recomendações (não bloqueiam):**
     - [sugestões]
 ```
 
-**Reviewer returns:** Status, Issues, Open questions, Recommendations
+**O revisor devolve:** status, problemas, perguntas em aberto e recomendações.
