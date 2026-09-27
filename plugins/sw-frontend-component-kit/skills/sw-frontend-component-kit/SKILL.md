@@ -93,7 +93,10 @@ inconsistente. Por isso esta fase vem antes da geração.
   - **Tom:** três palavras (ex.: sóbrio, preciso, caloroso), com opções prováveis + "Other".
   - **Cor da marca**, se existir (hex no "Other"). Sem marca, **proponha 2 ou 3 paletas
     derivadas da cena e do tom**, cada uma com o nome do que ela evoca. Nunca ofereça a lista
-    pronta de "azul, roxo, verde".
+    pronta de "azul, roxo, verde". Estéticas com perfis prontos — bento, vidro intencional,
+    neo-brutalism, dark-first, soft minimal, editorial — estão em
+    `sw-frontend-mockup-preview/references/esteticas-2025.md` (se instalada): use como base da
+    direção, adaptada à cena e ao tom, em vez de inventar os tokens do zero.
   - **Tema:** só claro, só escuro, ou ambos.
 
   **Fontes vêm do Google Fonts**, escolhidas para o tom: um par (títulos + texto) com contraste
@@ -164,6 +167,11 @@ Dependências entre combos: Formulários, Auth e Dashboard pressupõem peças do
 Essenciais (Button, Input). Se o usuário escolher um combo dependente sem os
 Essenciais, gere apenas as peças essenciais necessárias e avise.
 
+Ao gerar o combo **Dashboard & Métricas**, não gere só as peças isoladas: componha
+seguindo os padrões de `sw-frontend-mockup-preview/references/layouts-dashboard.md`
+(se instalada) — linha de KPI com hierarquia, grade de gráficos, tabela data-dense —
+e mostre a composição na demo, não só as peças soltas.
+
 ### Fase 4: Gerar os componentes
 
 Para cada componente:
@@ -182,8 +190,12 @@ Para cada componente:
   borda colorida grossa num lado só de card ou aviso, halo colorido sem deslocamento, "pill soup"
   (toda etiqueta virando a mesma pílula cinza), toggle iOS padrão sem adaptação, a mesma sombra
   e o mesmo raio em tudo, emoji no lugar de ícone. Easing sem quique; movimento curto, com saída
-  exponencial, e o guard de `prefers-reduced-motion`. Se a `sw-frontend-mockup-preview` estiver
-  instalada, o catálogo completo está em `references/piso-e-recusas.md` dela.
+  exponencial, e o guard de `prefers-reduced-motion`. **Texto sobre variante colorida**
+  (primária, perigo, sucesso) também sai de token — `--on-accent`, `--on-error` — nunca um hex
+  direto no componente: é onde o "zero hardcode" mais vaza, e é o que quebra quando a marca
+  muda de cor. Se a `sw-frontend-mockup-preview` estiver instalada, o catálogo completo está em
+  `references/piso-e-recusas.md` dela, e os valores de transição e estado (durações, curvas,
+  padrões) em `references/animacoes.md` dela — nada de "200ms ease" inventado.
 - **Dark mode**: se os tokens suportam, todo componente funciona nos dois
   temas sem código extra (essa é a vantagem de tokens semânticos).
 - **Zero dependências novas sem aprovação.** Se um componente pede uma lib

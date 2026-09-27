@@ -8,6 +8,32 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-frontend-mockup-preview` (v0.8.0): três referências novas, para o movimento e a estrutura
+  deixarem de ser chutados no dia. **`references/animacoes.md`** (escala de duração, curvas
+  prontas, padrões de micro-interação, movimento de dashboard, CSS × biblioteca e o que não
+  fazer), **`references/esteticas-2025.md`** (perfis de tokens de seis referentes — bento,
+  vidro intencional, neo-brutalism, dark-first, soft minimal e editorial — com o que evitar e
+  qual exceção declarar no detector) e **`references/layouts-dashboard.md`** (shells, linha de
+  KPI com hierarquia, grade de gráficos, tabela data-dense, filtros e densidade). As três estão
+  ligadas no fluxo e no checklist da skill.
+- `sw-frontend-component-kit` (v0.3.1): o bootstrap aponta para o catálogo de estéticas, e o
+  combo Dashboard passa a **compor** seguindo os padrões de painel, em vez de entregar as peças
+  soltas.
+
+### Corrigido
+- `sw-frontend-mockup-preview` (v0.8.0): a descrição ganhou os gatilhos **"refaz do zero",
+  "redesenha a tela" e "algo completamente diferente"** — o teste de disparo mostrou que essas
+  frases empatavam entre juízes, apesar de serem exatamente as que a skill usa no corpo para
+  definir o modo "nova direção".
+- `sw-frontend-component-kit` (v0.3.1): o piso anti-genérico passa a dizer que **texto sobre
+  variante colorida sai de token** (`--on-accent`, `--on-error`), nunca de hex direto — foi por
+  aí que o "zero hardcode" vazou num teste real (dois literais, no Button e no Badge).
+- `sw-frontend-mockup-preview` / `sw-frontend-component-kit`: a referência de dashboard prometia
+  que o detector acusa "KPIs todos iguais"; ele só acusa **exatamente três** colunas iguais, e
+  com 4 ou 5 fica calado. O texto agora diz isso. Itens de lista desencaixados nos dois
+  `SKILL.md` voltaram para a indentação certa.
+
+### Adicionado
 - `sw-plan` (v0.6.0): **`scripts/plan_check.py`**, o lint determinístico do plano. Acusa task sem
   arquivos, step que mexe em código sem mostrar o código, placeholder (`TODO`, "adicionar
   validação", "igual à Task N"), checkbox torto, dependência para task que não existe e

@@ -14,7 +14,8 @@ description: >-
   (hierarquia, layout, tipografia, cor, densidade), roda um detector de visual
   genérico de IA e dá knobs para ajustar ao vivo — use também para "deixa menos
   cara de IA", "tá genérico, dá personalidade", "define a direção de design",
-  "que vibe dar nisso", "deixa mais ousado/mais calmo". Dispare mesmo que o
+  "que vibe dar nisso", "deixa mais ousado/mais calmo", "refaz do zero",
+  "redesenha a tela", "algo completamente diferente". Dispare mesmo que o
   usuário não diga "mockup" explicitamente, sempre que a intenção for visualizar
   ou decidir um design antes de mexer no código de produção.
 ---
@@ -176,7 +177,11 @@ trava: toda variação tem que parecer a mesma marca, lado a lado.
   completamente diferente", "muda tudo") — ou quando o projeto não tem design system (passo 2),
   e aí não há identidade a preservar. Cada variação parte de um **referente concreto do
   mundo real** derivado do assunto ("um sistema de etiquetas de museu", nunca "limpo e
-  minimalista"), e nenhuma pode caber no produto vizinho.
+  minimalista"), e nenhuma pode caber no produto vizinho. O catálogo
+  `references/esteticas-2025.md` traz perfis de tokens prontos dos referentes mais comuns
+  (bento, vidro intencional, neo-brutalism, dark-first, soft minimal, editorial) — use-o
+  como base do referente, adaptado ao assunto, e declare a paleta e as fontes na própria
+  variação.
 
 Na dúvida, **mesma identidade**: errar para ela custa "três variações parecidas" (corrigível);
 errar para nova direção custa três variações fora da marca (perdidas).
@@ -277,6 +282,9 @@ padrão):**
 - **Use dados realistas e estados variados**, não um único caso feliz. Renderize
   vários itens de exemplo cobrindo casos-limite: nome longo, estado inativo/erro,
   número baixo, texto que quebra. É isso que revela problemas de layout cedo.
+- **Dashboard (modo operar):** se a tela é painel/admin/dados, compose a partir dos
+  padrões de `references/layouts-dashboard.md` (shell, linha de KPI com hierarquia,
+  grade de gráficos, tabela data-dense, densidade) — não invente a estrutura no dia.
 - **Imagens reais quando ajudam.** Se o componente mostra foto (produto, avatar, capa,
   banner), não deixe só um retângulo cinza — puxe de um serviço **público** de placeholder,
   que deixa o mockup muito mais fiel:
@@ -372,7 +380,9 @@ Toda animação no mockup deve vir embrulhada num guard de acessibilidade:
 ```
 
 Prefira movimento sutil e com propósito (entrada em cascata, transição de estado,
-indicador "ao vivo") a animação chamativa contínua.
+indicador "ao vivo") a animação chamativa contínua. O catálogo pronto (durações,
+curvas, padrões, movimento de KPI/gráfico/skeleton, CSS vs framer-motion) está em
+`references/animacoes.md` — quando houver movimento, não chute os valores.
 
 > **Animação de entrada × abas:** todas as variações moram no DOM e as abas alternam com
 > `is-active`. Uma animação de **entrada** roda no primeiro render e pode **não repetir** ao
@@ -528,7 +538,7 @@ variações **na dimensão dela**, cada uma mexendo numa faceta diferente:
 | **tipografia** | par de fontes diferente E razão de escala diferente em cada |
 | **cor** | família de matiz diferente em cada, variando croma e contraste |
 | **layout** | arranjo estrutural diferente, não ajuste de espaçamento |
-| **movimento** | vocabulário diferente: cascata, recorte, escala e foco, transformação |
+| **movimento** | vocabulário diferente: cascata, recorte, escala e foco, transformação (catálogo: `references/animacoes.md`) |
 | **adaptar** | contexto diferente: mobile primeiro, tablet, desktop |
 
 O pedido que traz intenção sem vocabulário ("com cara de banco", "mais premium") vale como
@@ -638,6 +648,10 @@ Estas são as regras mais fáceis de atropelar na execução. Confira:
       usuário tenha pedido nova direção)?
 - [ ] **Detector rodado** (passo 4b) e sem falha? Exceção declarada no HTML, não calada?
 - [ ] **Knobs** onde o usuário poderia dizer "um pouco mais..." (composição média ou grande)?
+- [ ] **Dashboard:** se o alvo é painel/tela de dados, usou os padrões de
+      `references/layouts-dashboard.md` (e não inventou a estrutura no dia)?
+- [ ] **Movimento:** se a tela tem animação, ela segue o catálogo
+      (`references/animacoes.md`) — durações, curvas, guard?
 - [ ] **Responsivo** com `@container` e conferido no **mobile** (toggle 📱), não só desktop?
 - [ ] **Porta e PID** lidos da saída do `serve.py` (não assumiu 8765)?
 - [ ] **Leu `.mockup/comentarios.json` e `.mockup/escolha.json`** antes de responder a cada
