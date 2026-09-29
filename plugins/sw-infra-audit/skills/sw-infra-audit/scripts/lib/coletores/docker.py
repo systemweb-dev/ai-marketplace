@@ -9,7 +9,7 @@ from lib.rules import (findings_for_workload, findings_operational,
 from lib.runner import run
 import inspect
 import json
-from lib import cert, discover, enrich, impact, metrics
+from lib import cert, discover, enrich, impact, metrics, stacks
 from lib.coletores.docker_report import na, new_report, split_image
 
 DEFAULT_TIMEOUT = 15
@@ -332,9 +332,15 @@ def coletar(alvo, contexto):
                 "severidade": SEVERIDADE_POR_V1.get(f.get("severity"), "info"),
                 "detalhe": f.get("evidence"), "alvo": alvo["nome"]}
                for f in bruto.get("findings", [])]
+    # `stacks` não vem do coletor bruto: é derivado aqui, agrupando os services pelo prefixo
+    # `<stack>_<service>` do Swarm. É o que permite o relatório mostrar cada aplicação junta,
+    # com as rotas do Traefik — a pergunta "como o traefik está roteando pro app X".
+    if isinstance(bruto.get("services"), list):
+        bruto["stacks"] = stacks.group(bruto)
+
     fatos = {chave: bruto.get(chave) for chave in
              ("nodes", "services", "networks", "secrets", "configs", "stacks", "tls", "scope",
-              "runtime", "impact_points")
+              "runtime", "impact_points", "disk")
              if bruto.get(chave) is not None}
 
     # cada serviço vira um componente: é o papel dele que decide quais perguntas ele recebe.
@@ -343,7 +349,10 @@ def coletar(alvo, contexto):
 
     declarados = {c["nome"]: c for c in alvo.get("componente", [])}
     componentes = []
-    for servico in bruto.get("services", []):
+    # alvo não-Swarm devolve `services` como aviso ({"status": "n/a"}): iterar nisso percorreria
+    # as CHAVES do dicionário e quebraria no `.get` do primeiro item.
+    servicos = bruto.get("services")
+    for servico in (servicos if isinstance(servicos, list) else []):
         nome = servico.get("name")
         if not nome:
             continue
@@ -364,7 +373,8 @@ def coletar(alvo, contexto):
     # Declaração que não casou com serviço nenhum é dita. No Swarm o serviço se chama
     # `<stack>_<serviço>`, e declarar `rabbitmq` para `infra_rabbitmq` fazia a declaração sumir
     # calada — a seção de pendências mandava declarar `admin_url` a quem já tinha declarado.
-    existentes = sorted(s.get("name") for s in bruto.get("services", []) if s.get("name"))
+    existentes = sorted(s.get("name") for s in (servicos if isinstance(servicos, list) else [])
+                        if s.get("name"))
     for nome in sorted(set(declarados) - set(existentes)):
         parecidos = [s for s in existentes if s.endswith(f"_{nome}") or nome in s]
         dica = (f" — talvez `{parecidos[0]}`; no Swarm o nome é `<stack>_<serviço>`"

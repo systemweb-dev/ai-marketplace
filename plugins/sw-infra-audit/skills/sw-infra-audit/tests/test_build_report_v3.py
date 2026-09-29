@@ -146,3 +146,83 @@ def test_formato_desconhecido_e_recusado(tmp_path):
     with pytest.raises(ValueError) as erro:
         build_report.build(relatorio, tmp_path, formato="docx")
     assert "docx" in str(erro.value)
+
+
+def _com_cluster():
+    """Relatório com os fatos que a coleta já traz e o v3 não desenhava."""
+    dados = relatorio()
+    dados["alvos"][0]["fatos"] = {
+        "nodes": [{"hostname": "no-1", "role": "manager", "leader": True, "state": "ready",
+                   "availability": "active", "engine": "25.0", "platform": "linux/x86_64",
+                   "capacity": {"nano_cpus": 4_000_000_000, "mem_bytes": 8_589_934_592},
+                   "tasks_running": 12, "tasks_failed": 0, "failed_examples": []},
+                  {"hostname": "no-2", "role": "worker", "leader": False, "state": "ready",
+                   "availability": "active", "engine": "24.0", "platform": "linux/x86_64",
+                   "capacity": {"nano_cpus": 2_000_000_000, "mem_bytes": 4_294_967_296},
+                   "tasks_running": 7, "tasks_failed": 1,
+                   "failed_examples": ['loja_api.3: "task: non-zero exit (137)"']}],
+        "disk": [{"tipo": "Images", "total": 42, "ativo": 12, "tamanho": "9GB",
+                  "recuperavel": "4GB"}],
+        "networks": [{"name": "traefik-public", "driver": "overlay", "scope": "swarm"}],
+        "secrets": [{"name": "senha_do_banco"}],
+        "tls": {"verify": True, "ca": "ca.pem",
+                "certs": [{"file": "cert.pem", "label": "cliente", "status": "expiring",
+                           "not_after": "2026-11-02T00:00:00Z", "days_left": 34}]},
+        "stacks": [{"stack": "loja", "services": [
+            {"name": "loja_web", "image": "nginx", "tag": "1.27", "kind": "ingress",
+             "has_healthcheck": True, "limits": {"nano_cpus": 1_000_000_000}},
+            {"name": "loja_api", "image": "app", "tag": "2.1", "kind": "app",
+             "has_healthcheck": False, "limits": {}}],
+            "findings_high": 1, "findings_med": 0, "has_ingress": True,
+            "kinds": ["ingress", "app"], "spofs": ["loja_api"], "note": "red",
+            "routes": ["loja.exemplo.test"]}],
+    }
+    return dados
+
+
+def test_relatorio_mostra_os_nos_do_cluster(tmp_path):
+    """A coleta traz os nós desde sempre; o v3 guardava e não desenhava."""
+    html = montar(tmp_path, _com_cluster())
+
+    assert "no-1" in html and "no-2" in html
+    assert "25.0" in html and "24.0" in html, "engine por nó permite ver o nó desatualizado"
+    assert "exit 137" in html, "a falha recente do nó é o que explica o alerta"
+    assert "SIGKILL" in html, "o código sozinho não diz nada; a pista é o que o leitor usa"
+
+
+def test_relatorio_mostra_disco_redes_e_secrets(tmp_path):
+    html = montar(tmp_path, _com_cluster())
+
+    assert "4GB" in html, "o recuperável é o número que leva à ação"
+    assert "traefik-public" in html
+    assert "senha_do_banco" in html, "o NOME do secret é inventário; o valor nunca é coletado"
+    assert "cert.pem" in html and "34 dias" in html, "certificado perto de vencer é achado com data"
+
+
+def test_tls_sem_certificado_nao_vira_tabela_so_com_cabecalho(tmp_path):
+    """O alvo pode ter TLS ligado e nenhum certificado legível — aí a tabela vazia só
+    ocupa espaço prometendo dado que não existe."""
+    dados = _com_cluster()
+    dados["alvos"][0]["fatos"]["tls"] = {"verify": True, "ca": "ca.pem", "certs": []}
+
+    html = montar(tmp_path, dados)
+
+    assert "Certificados TLS" not in html
+
+
+def test_relatorio_agrupa_por_aplicacao_com_as_rotas(tmp_path):
+    """'Como o traefik está roteando pro app X' é a pergunta que a descrição promete."""
+    html = montar(tmp_path, _com_cluster())
+
+    assert "loja" in html and "loja.exemplo.test" in html
+    # dentro do bloco da stack o serviço aparece com o nome curto: `loja_web` vira `web`
+    assert ">web<" in html and ">api<" in html
+    assert "sem limites" in html, "o sinal por serviço é o que justifica olhar a aplicação"
+    assert "1 crítico<" in html, "selo no singular: '1 críticos' entrega relatório gerado no braço"
+
+
+def test_alvo_sem_esses_fatos_nao_ganha_secao_vazia(tmp_path):
+    """Alvo HTTP não tem nó nem stack: a seção não pode aparecer prometendo vazio."""
+    html = montar(tmp_path)
+
+    assert "Nenhum nó" not in html and "nenhuma aplicação" not in html.lower()

@@ -323,6 +323,16 @@ imagem sem digest. Por alvo: 🔴 algo fora do ar · 🟡 rodando com risco conh
 · `sem dados` quando não foi coletado. **Não existe nota única da infraestrutura** — o topo mostra
 a contagem por estado. Número único vira meta, e meta vira teatro.
 
+## Depois de um restart do daemon: réplicas N/N não provam funcionamento
+
+Serviço que mantém **cluster interno próprio** (agente de painel, service discovery, gossip)
+pode ficar com estado partido depois que o daemon reinicia — aparecendo como `4/4` saudável
+enquanto o painel alterna entre "vê tudo" e "vê nada". As réplicas dizem que o container subiu,
+não que o processo voltou a conversar com os pares. Se o usuário reiniciou o daemon
+recentemente e relata algo assim, sugira `docker service update --force <serviço-agente>`
+(seguro para proxy sem estado; não toca em container de aplicação). Isso é conversa, não
+achado: a skill não tem como medir estado interno de um agente.
+
 ## Limites
 
 - **Banco de dados ainda não** — Postgres e MySQL são o próximo ciclo. Alvo desse tipo no
@@ -340,6 +350,10 @@ a contagem por estado. Número único vira meta, e meta vira teatro.
 - **Broker com estatísticas desligadas** não informa contadores: a pergunta vira `sem dados`
   com esse motivo, em vez de "nenhuma fila parada".
 - **SSH não** — auditar host por comando remoto é outra superfície, e fica para depois.
+- **Uso de CPU e memória por nó não existe sem stack de métricas** — a coleta reporta
+  **capacidade** (vCPU e GB do nó), não consumo. Sem `metricas_url` declarada, consumo sai
+  como `sem dados`, nunca estimado.
+- **Kubernetes não** — os alvos são Docker (context/Swarm) e endpoint HTTP.
 - **Não é monitoramento.** É fotografia sob demanda, não alerta contínuo.
 - **Porta em 0.0.0.0** significa publicada em todas as interfaces, **não** alcançável da internet:
   firewall e security group são invisíveis daqui.

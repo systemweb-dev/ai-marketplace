@@ -235,3 +235,39 @@ def test_componente_declarado_que_casa_nao_gera_aviso(monkeypatch):
                             {"timeout": 5, "orcamento": 10, "at": ""})
 
     assert not any("não corresponde" in n["motivo"] for n in bloco["nao_coletado"])
+
+
+def test_disco_e_stacks_chegam_aos_fatos(monkeypatch):
+    """O relatório mostra disco e agrupa por aplicação a partir dos fatos. Antes, `disk` era
+    coletado e descartado no filtro, e `stacks` nunca era preenchido — as duas seções do
+    relatório não tinham de onde sair."""
+    bruto = dict(BRUTO)
+    bruto["disk"] = [{"tipo": "Images", "total": 42, "ativo": 12, "tamanho": "9GB",
+                      "recuperavel": "4GB"}]
+    bruto["services"] = [
+        {"name": "loja_web", "image": "nginx", "tag": "1.27", "kind": "ingress",
+         "routing_labels": {"traefik.http.routers.web.rule": "Host(`loja.exemplo.test`)"}},
+        {"name": "loja_api", "image": "app", "tag": "2.1", "kind": "app", "routing_labels": {}},
+        {"name": "avulso", "image": "redis", "tag": "7", "kind": "cache", "routing_labels": {}},
+    ]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    fatos = coletor.coletar({"nome": "cluster", "tipo": "docker", "context": "ctx"},
+                            {"timeout": 5, "orcamento": 10, "at": "2026-09-19T10:00:00Z"})["fatos"]
+
+    assert fatos["disk"][0]["recuperavel"] == "4GB"
+    stacks = {g["stack"]: g for g in fatos["stacks"]}
+    assert set(stacks) == {"loja", "avulso"}
+    assert [s["name"] for s in stacks["loja"]["services"]] == ["loja_web", "loja_api"]
+    assert stacks["loja"]["routes"], "a rota do Traefik é o que responde 'como está roteando'"
+
+
+def test_sem_services_as_stacks_nao_quebram(monkeypatch):
+    bruto = dict(BRUTO)
+    bruto["services"] = {"status": "n/a", "reason": "não-swarm"}
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    fatos = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx"},
+                            {"timeout": 5, "orcamento": 10, "at": "x"})["fatos"]
+
+    assert fatos.get("stacks") in (None, [])

@@ -375,13 +375,13 @@ def _node_table(nodes):
 def _disk(disk):
     """Uso de disco do nó conectado (docker system df)."""
     if isinstance(disk, dict) and disk.get("status") == "n/a":
-        return ('<h2><span class="n">5b</span> Disco</h2>'
+        return ('<h4 class="hsub">Disco</h4>'
                 f'<p class="muted">não coletado — {_e(disk.get("reason"))}</p>')
     if not disk:
         return ""
     rows = [[_e(d.get("tipo")), _e(d.get("total")), _e(d.get("ativo")),
              _e(d.get("tamanho")), _e(d.get("recuperavel"))] for d in disk]
-    return ('<h2><span class="n">5b</span> Disco — nó conectado</h2>'
+    return ('<h4 class="hsub">Disco — nó conectado</h4>'
             + _table(["Tipo", "Total", "Ativos", "Tamanho", "Recuperável"], rows,
                      [None, "num", "num", "num", "num"]))
 
@@ -389,7 +389,7 @@ def _disk(disk):
 def _tls(tls):
     """Validade dos certificados TLS do context — sempre exibida quando há TLS."""
     if isinstance(tls, dict) and tls.get("status") == "n/a":
-        return ('<h2><span class="n">5c</span> Certificados TLS</h2>'
+        return ('<h4 class="hsub">Certificados TLS</h4>'
                 f'<p class="muted">{_e(tls.get("reason"))}</p>')
     if not tls:
         return ""
@@ -403,7 +403,9 @@ def _tls(tls):
         rows.append([f'<code>{_e(c["file"])}</code>', _e(c.get("label")), badge,
                      _e(c["not_after"][:10]),
                      _e(f'{dias} dias' if dias >= 0 else f'venceu há {abs(dias)} dias')])
-    return ('<h2><span class="n">5c</span> Certificados TLS do acesso ao cluster</h2>'
+    if not rows:
+        return ""                          # tabela só com cabeçalho não informa nada
+    return ('<h4 class="hsub">Certificados TLS do acesso ao cluster</h4>'
             + _table(["Arquivo", "Papel", "Situação", "Válido até", "Restante"], rows,
                      [None, None, None, None, "num"]))
 
@@ -497,7 +499,7 @@ def _stack_blocks(groups, comp_an):
     out = []
     for g in groups:
         rows = []
-        for s in sorted(g["services"], key=lambda x: x.get("name") or ""):
+        for s in sorted(g.get("services") or [], key=lambda x: x.get("name") or ""):
             img = f'{s.get("image")}:{s.get("tag")}' if s.get("tag") else f'{s.get("image")}'
             sinais = []
             if s.get("has_healthcheck") is False:
@@ -519,18 +521,21 @@ def _stack_blocks(groups, comp_an):
             ])
         tbl = _table(["Serviço", "Tipo", "Imagem", "Réplicas", "Runtime", "Observações"], rows,
                      [None, None, None, "num", None, None])
-        routes = " · ".join(g["routes"][:3]) + (f' +{len(g["routes"]) - 3}' if len(g["routes"]) > 3 else "")
+        rotas = g.get("routes") or []
+        routes = " · ".join(rotas[:3]) + (f" +{len(rotas) - 3}" if len(rotas) > 3 else "")
         badges = ""
-        if g["findings_high"]:
-            badges += f'<span class="badge high">{g["findings_high"]} críticos</span>'
-        if g["findings_med"]:
-            badges += f'<span class="badge med">{g["findings_med"]} médios</span>'
-        if g["spofs"]:
+        if g.get("findings_high"):
+            badges += (f'<span class="badge high">'
+                       f'{_plural(g["findings_high"], "crítico", "críticos")}</span>')
+        if g.get("findings_med"):
+            badges += (f'<span class="badge med">'
+                       f'{_plural(g["findings_med"], "médio", "médios")}</span>')
+        if g.get("spofs"):
             badges += f'<span class="badge low">{len(g["spofs"])} sem HA</span>'
         notes = [comp_an.get(s.get("name")) for s in g["services"] if comp_an.get(s.get("name"))]
         note_html = ('<div class="an">' + " ".join(_e(n) for n in notes) + "</div>") if notes else ""
         out.append(
-            f'<div class="card stack {g["note"]}"><div class="sh"><span class="dot"></span>'
+            f'<div class="card stack {g.get("note", "")}"><div class="sh"><span class="dot"></span>'
             f'<span class="nm">{_e(g["stack"])}</span>{badges}'
             + (f'<span class="routes">{_e(routes)}</span>' if routes else "")
             + f'</div>{tbl}{note_html}</div>')
@@ -852,6 +857,7 @@ def _historico_v3(h):
 
 # ---------------------------------------------------------------- insights e remediação (v3)
 SECOES_V3 = (("panorama", "Panorama"), ("topologia", "Topologia"),
+             ("cluster", "Cluster"), ("aplicacoes", "Por aplicação"),
              ("instrumentos", "Instrumentos"),
              ("insights", "Insights por sistema"),
              ("pendencias", "O que falta declarar"), ("achados", "Achados"),
@@ -874,6 +880,8 @@ def _quando(carimbo):
 DESCRICAO_SECAO = {
     "panorama": "o que existe, onde vive e em que estado",
     "topologia": "os componentes agrupados por papel, com os achados de cada um",
+    "cluster": "nós, disco, redes e secrets — o inventário da máquina",
+    "aplicacoes": "cada stack junta, com as rotas que a publicam",
     "instrumentos": "as medidas que têm tolerância declarada",
     "insights": "o que cada componente respondeu, com a fonte",
     "pendencias": "o silêncio que se resolve editando o alvos.toml",
@@ -909,6 +917,10 @@ def _sumario(ctx):
     contagens = {
         "panorama": (_plural(panorama["total"], "alvo", "alvos"), ""),
         "topologia": (_plural(componentes, "componente", "componentes"), ""),
+        "cluster": (_plural(sum(len((a.get("fatos") or {}).get("nodes") or [])
+                                for a in ctx["alvos"]), "nó", "nós"), ""),
+        "aplicacoes": (_plural(sum(len((a.get("fatos") or {}).get("stacks") or [])
+                                   for a in ctx["alvos"]), "aplicação", "aplicações"), ""),
         "instrumentos": (_plural(com_fonte, "leitura", "leituras"), ""),
         "achados": (_plural(panorama["achados"], "aberto", "abertos"),
                     "bad" if panorama["achados"] else "ok"),
@@ -1371,6 +1383,55 @@ def _selos(inventario):
     return "".join(selos)
 
 
+def _cluster_v3(alvos):
+    """Inventário do cluster: nós, disco, redes e secrets — os fatos que a coleta sempre trouxe
+    e que o v3 guardava sem desenhar. Reaproveita os desenhadores herdados do relatório antigo;
+    aqui eles ganham o cabeçalho do alvo, porque agora pode haver mais de um cluster."""
+    blocos = []
+    for alvo in alvos:
+        fatos = alvo.get("fatos") or {}
+        if not any(fatos.get(k) for k in ("nodes", "disk", "networks", "secrets", "configs", "tls")):
+            continue                       # alvo HTTP não tem nada disso: não ganha seção vazia
+        partes = [f'<h3 class="alvo-h">{_e(alvo.get("nome"))} <span class="muted">'
+                  f'{_e(alvo.get("onde"))}</span></h3>']
+        if fatos.get("nodes"):
+            partes.append(_node_table(fatos["nodes"]))
+        if fatos.get("disk"):
+            partes.append(_disk(fatos["disk"]))
+        if fatos.get("tls"):
+            partes.append(_tls(fatos["tls"]))
+        redes, segredos = fatos.get("networks") or [], fatos.get("secrets") or []
+        configs = fatos.get("configs") or []
+        if isinstance(redes, list) and redes:
+            linhas = [[_e(n.get("name")), _e(n.get("driver")), _e(n.get("scope"))] for n in redes]
+            partes.append('<h4 class="hsub">Redes</h4>' + _table(["Rede", "Driver", "Escopo"], linhas))
+        nomes = [s.get("name") for s in segredos if isinstance(s, dict)] + \
+                [c.get("name") for c in configs if isinstance(c, dict)]
+        if nomes:
+            # só NOMES: o valor do secret nunca é coletado, e isso é garantia da skill
+            partes.append('<h4 class="hsub">Secrets e configs</h4>'
+                          '<p class="muted">apenas os nomes — o conteúdo nunca é lido.</p><p>'
+                          + " · ".join(f"<code>{_e(n)}</code>" for n in sorted(filter(None, nomes)))
+                          + "</p>")
+        blocos.append("".join(partes))
+    return "".join(blocos) if blocos else ""
+
+
+def _aplicacoes_v3(alvos):
+    """Cada aplicação junta: os serviços da stack e por onde o ingress a publica. É o que
+    responde 'como o Traefik está roteando pro app X' sem ler 56 serviços soltos."""
+    blocos = []
+    for alvo in alvos:
+        grupos = (alvo.get("fatos") or {}).get("stacks") or []
+        if not isinstance(grupos, list) or not grupos:
+            continue
+        analises = {c.get("nome"): c.get("analise") for c in alvo.get("componentes", [])
+                    if c.get("analise")}
+        blocos.append(f'<h3 class="alvo-h">{_e(alvo.get("nome"))}</h3>'
+                      + _stack_blocks(grupos, analises))
+    return "".join(blocos) if blocos else ""
+
+
 def render_html_v3(r):
     ctx = montar_contexto(r)
     quantos = len(ctx["inventario"])
@@ -1386,6 +1447,8 @@ def render_html_v3(r):
         "%%SUMARIO%%": _sumario(ctx),
         "%%SELOS%%": _selos(ctx["inventario"]),
         "%%TOPOLOGIA%%": _topologia(ctx["alvos"]),
+        "%%CLUSTER%%": _cluster_v3(ctx["alvos"]),
+        "%%APLICACOES%%": _aplicacoes_v3(ctx["alvos"]),
         "%%INSTRUMENTOS%%": _instrumentos(ctx["alvos"]),
         "%%INSIGHTS%%": _insights_v3(ctx["alvos"]),
         "%%PENDENCIAS%%": _pendencias(ctx["alvos"]),

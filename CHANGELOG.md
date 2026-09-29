@@ -13,6 +13,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   teste): o commit seguinte saía vazio ou errado, sem aviso nenhum. O caminho padrão agora é
   `git apply --cached` com o patch escrito em arquivo. O `git reset` do passo 6, única ação
   destrutiva da skill, passou a ser anunciado no plano antes da aprovação.
+- `sw-infra-audit` (v0.10.0): auditar um alvo **não-Swarm** quebrava a coleta. O Docker devolve
+  `services` como aviso (`{"status": "n/a"}`) nesse caso, e dois laços iteravam nisso como se
+  fosse lista — percorrendo as *chaves* do dicionário e estourando no primeiro `.get`. Dois
+  testes cobrem o caminho.
 - `sw-infra-audit` (v0.9.1): o SKILL.md mandava rodar **`alvos.py --sugerir`**, script que não
   existe — o correto é `configurar.py alvos --sugerir --context <ctx>`. E o
   `references/finding-rules.md` afirmava que achado `high` pinta a saúde de vermelho, o
@@ -54,11 +58,20 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   `references/retention.md`), mais cinco tipos novos de ficha e os chips na barra lateral.
 - A `sw-cluster-audit`, substituída pela `sw-infra-audit` e já retirada do marketplace, **ainda
   vencia o disparo** de "analisa meu cluster" na máquina, porque a frase estava literal só na
-  descrição dela. A cópia local foi marcada como descontinuada e os gatilhos passaram para a
-  `sw-infra-audit`. Os arquivos continuam no disco até as seções de relatório que só ela tem
-  (nós, disco, redes, roteamento do Traefik) serem portadas.
+  descrição dela. Os gatilhos passaram para a `sw-infra-audit` e, portadas as seções de
+  relatório que só ela tinha (nós, disco, redes, secrets, certificados e o roteamento do
+  Traefik por aplicação), a cópia local foi **apagada** — o código segue recuperável no
+  commit `fca83bf`.
 
 ### Adicionado
+- `sw-infra-audit` (v0.10.0): o relatório ganhou **Cluster** e **Por aplicação**, as duas seções
+  que só existiam na skill substituída. A coleta já trazia nós, disco, redes, secrets e
+  certificados desde sempre — o v3 guardava e não desenhava. Agora a tabela comparativa dos nós
+  volta (engine, plataforma, capacidade, tasks), as falhas recentes aparecem **agrupadas por
+  código de saída** com a pista do que aquele código significa, e cada stack vira um bloco com
+  os seus serviços e as rotas do ingress — que é como se responde "como o Traefik está roteando
+  pro app X" sem ler serviço por serviço. Alvo que não tem esses fatos (um endpoint HTTP) não
+  ganha seção vazia, e TLS sem certificado legível não vira tabela só com cabeçalho.
 - `sw-frontend-mockup-preview` (v0.8.0): três referências novas, para o movimento e a estrutura
   deixarem de ser chutados no dia. **`references/animacoes.md`** (escala de duração, curvas
   prontas, padrões de micro-interação, movimento de dashboard, CSS × biblioteca e o que não
