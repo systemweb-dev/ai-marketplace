@@ -17,7 +17,9 @@ description: >-
   "que vibe dar nisso", "deixa mais ousado/mais calmo", "refaz do zero",
   "redesenha a tela", "algo completamente diferente". Dispare mesmo que o
   usuário não diga "mockup" explicitamente, sempre que a intenção for visualizar
-  ou decidir um design antes de mexer no código de produção.
+  ou decidir um design antes de mexer no código de produção. NÃO use para: gerar os
+  componentes de produção do projeto (isso é a sw-frontend-component-kit), nem para diagrama
+  de arquitetura ou de fluxo (sw-flow-diagram). Interação em português (PT-BR).
 ---
 
 # Mockup Preview

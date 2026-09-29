@@ -5,7 +5,9 @@ import re
 from lib.gitcmd import git, git_ok, validar_ref
 
 TETO_LINHAS = 400          # por arquivo, linhas do patch
-TETO_BYTES = 60_000        # conteúdo total — calibrado em referencias/calibracao-do-diff.md
+TETO_BYTES = 60_000        # conteúdo total — teto calibrado no spec do dossiê
+                           # (docs/specs/2026-09-10-sw-pr-message/referencias/calibracao-do-diff.md),
+                           # que não viaja com a skill: aqui fica só o número.
 
 _LOCKS = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock", "Gemfile.lock",
           "poetry.lock", "Cargo.lock", "go.sum"}

@@ -145,3 +145,45 @@ def test_item_nulo_dentro_de_achados_vira_problema():
     problemas = validar(FATOS, {"versao": 1, "achados": [None, achado()], "nao_e_problema": []})
 
     assert any("objeto" in p for p in problemas)
+
+
+def test_cobertura_aponta_arquivo_de_producao_que_existe(tmp_path):
+    """A dimensão `cobertura` é a única que fala de código SEM teste — o arquivo apontado é de
+    produção e nunca estaria no inventário, que só lista testes. Antes, esse achado era
+    impossível de registrar: o validador recusava todo caminho fora do inventário."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "pagamento.py").write_text("def cobrar():\n    ...\n", encoding="utf-8")
+    fatos = json.loads(json.dumps(FATOS))
+    fatos["escopo"]["raiz"] = str(tmp_path)
+
+    problemas = validar(fatos, {"versao": 1, "achados": [achado(
+        dimensao="cobertura", confianca="media", caminho="src/pagamento.py", linha=1,
+        regra="caminho_critico_sem_teste", sinal=None)], "nao_e_problema": []})
+
+    assert problemas == []
+
+
+def test_cobertura_nao_aceita_arquivo_inventado(tmp_path):
+    fatos = json.loads(json.dumps(FATOS))
+    fatos["escopo"]["raiz"] = str(tmp_path)
+
+    problemas = validar(fatos, {"versao": 1, "achados": [achado(
+        dimensao="cobertura", confianca="media", caminho="src/nao-existe.py", linha=1,
+        regra="caminho_critico_sem_teste", sinal=None)], "nao_e_problema": []})
+
+    assert any("não existe no projeto" in p for p in problemas)
+
+
+def test_outra_dimensao_continua_presa_ao_inventario(tmp_path):
+    """A porta aberta é só para cobertura: confiabilidade apontando arquivo de produção
+    continua sendo erro, porque o achado dela nasce de um sinal num arquivo de teste."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "pagamento.py").write_text("x = 1\n", encoding="utf-8")
+    fatos = json.loads(json.dumps(FATOS))
+    fatos["escopo"]["raiz"] = str(tmp_path)
+
+    problemas = validar(fatos, {"versao": 1, "achados": [achado(
+        dimensao="confiabilidade", confianca="media", caminho="src/pagamento.py",
+        linha=1, sinal=None)], "nao_e_problema": []})
+
+    assert any("não está no inventário" in p for p in problemas)

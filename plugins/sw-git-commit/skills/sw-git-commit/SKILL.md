@@ -1,6 +1,16 @@
 ---
 name: sw-git-commit
-description: Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple well-scoped Conventional Commits, each representing one logical concern. Use this skill whenever the user asks to commit, make commits, split commits, organize commits, "separar em commits", "faz os commits", "commita isso", "prepara pra commit", or mentions committing in any form — even if they don't explicitly ask for separation. Also trigger proactively when the user finishes implementing something substantial (multiple files, multiple concerns) and is clearly at a commit boundary. Never commits without showing the plan and getting explicit approval first.
+description: >-
+  Analyze uncommitted changes (staged, unstaged, untracked) and split them into multiple
+  well-scoped Conventional Commits, each representing one logical concern. Use this skill whenever the
+  user asks to commit, make commits, split commits, organize commits, "separar em commits", "faz
+  os commits", "commita isso", "prepara pra commit", or mentions committing in any form — even if
+  they don't explicitly ask for separation. Also trigger proactively when the user finishes
+  implementing something substantial (multiple files, multiple concerns) and is clearly at a
+  commit boundary. Never commits without showing the plan and getting explicit approval first. NÃO
+  use para: escrever a descrição do PR (sw-pr-message), nem para push, amend, rebase ou reverter
+  commit já feito. Dentro de uma execução da sw-plan, não dispare sozinha — o commit é oferecido
+  no checkpoint dela. Interação em português (PT-BR).
 ---
 
 # Git Commit
@@ -11,7 +21,7 @@ Take a working tree full of changes and turn it into a clean, reviewable sequenc
 
 A well-split history is the difference between a PR that can be reviewed in 10 minutes and one that can't be reviewed at all. Each commit should answer one question. Mixing a refactor, a feature, and its tests into one commit makes the diff unreadable and makes `git blame` / `git revert` nearly useless later.
 
-The goal of this skill is to do the splitting work *for* the user so they never have to fight `git add -p` again — including hunk-level staging on the user's behalf when a single file mixes concerns (see Rule E and Step 6).
+The goal of this skill is to do the splitting work *for* the user so they never have to fight `git add -p` again — including hunk-level staging on the user's behalf (via `git apply --cached`, the non-interactive path) when a single file mixes concerns (see Rule E and Step 6).
 
 ## Rule: every decision is an `AskUserQuestion`
 
@@ -151,11 +161,25 @@ Don't commit until the user picks **Approve**.
 
 ### Step 6 — Execute
 
-If anything is already staged when you start, the plan reorganizes it — say so, then run `git reset` once to clear the index so each commit contains exactly what you stage (this respects the user's pre-staged intent by reflecting it in the plan, not by silently overriding it). Then, for each commit in order:
+If anything is already staged when you start, the plan reorganizes it. **Say so in the plan of
+Step 5** (a line naming the files that are staged) so the user approves knowing that the index
+will be cleared — `git reset` is the only destructive step of this skill and it does not get to
+skip the rule of Step 0. With the plan approved, run `git reset` once to clear the index, so each
+commit contains exactly what you stage. Then, for each commit in order:
 
 1. **Stage exactly this commit's changes:**
    - Whole files: `git add <files for this commit>` — only the files for this commit.
-   - Mixed-concern file (Rule E): stage only the relevant hunks with `git add -p <file>` (or `git apply --cached` with a hunk patch); leave the other hunks for their own commit.
+   - Mixed-concern file (Rule E): stage only the relevant hunks by **writing the patch and applying it to the index**:
+
+     ```bash
+     git diff -- <file> > /tmp/hunks.patch     # edit the patch down to this commit's hunks
+     git apply --cached /tmp/hunks.patch       # stages exactly those hunks
+     ```
+
+     **Do not use `git add -p` here.** It is interactive: with no TTY it prints the hunk,
+     **exits 0 and stages nothing** — the commit that follows comes out empty or wrong, and
+     the exit code gives no warning. `git apply --cached` is the path that works unattended.
+     Leave the other hunks for their own commit.
 2. `git commit -m "<subject>"` — or with a body via heredoc if one is warranted.
 3. **Verify before moving on:** confirm the commit captured the intended files (`git show --stat HEAD`) and check `git status`. If a pre-commit hook *reformatted* files (working tree is dirty again after a successful commit), review the change — if it belongs to the commit you just made, `git add` it and `git commit --amend --no-edit`; if it affects later commits, fold it into those.
 

@@ -194,8 +194,9 @@ Para cada componente:
   (primária, perigo, sucesso) também sai de token — `--on-accent`, `--on-error` — nunca um hex
   direto no componente: é onde o "zero hardcode" mais vaza, e é o que quebra quando a marca
   muda de cor. Se a `sw-frontend-mockup-preview` estiver instalada, o catálogo completo está em
-  `references/piso-e-recusas.md` dela, e os valores de transição e estado (durações, curvas,
-  padrões) em `references/animacoes.md` dela — nada de "200ms ease" inventado.
+  `sw-frontend-mockup-preview/references/piso-e-recusas.md`, e os valores de transição e estado
+  (durações, curvas, padrões) em `sw-frontend-mockup-preview/references/animacoes.md` — o
+  caminho é o da OUTRA skill, não o desta. Nada de "200ms ease" inventado.
 - **Dark mode**: se os tokens suportam, todo componente funciona nos dois
   temas sem código extra (essa é a vantagem de tokens semânticos).
 - **Zero dependências novas sem aprovação.** Se um componente pede uma lib

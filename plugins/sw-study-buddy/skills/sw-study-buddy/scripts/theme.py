@@ -113,9 +113,12 @@ BLOCKS = r"""
 
   .callout{margin:30px 0;padding:17px 20px;border:1px solid var(--line);border-left:3px solid var(--done);border-radius:0 14px 14px 0;
     background:color-mix(in oklab,var(--done),var(--surface) 90%);}
-  .callout .label{font:700 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--done);display:block;margin-bottom:7px;}
+  .callout .label,.callout__label{font:700 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--done);display:block;margin-bottom:7px;}
   .callout p{margin:0;}
-  .callout.warning{border-left-color:#c9821f;background:color-mix(in oklab,#c9821f,var(--surface) 90%);} .callout.warning .label{color:#b0701a;}
+  .callout.warning{border-left-color:#c9821f;background:color-mix(in oklab,#c9821f,var(--surface) 90%);} .callout.warning .label,.callout.warning .callout__label{color:#b0701a;}
+  /* dica: mesma anatomia, outro tom — o bloco `.tip` é documentado em references/blocos.md */
+  .callout.tip{border-left-color:var(--accent);background:color-mix(in oklab,var(--accent),var(--surface) 92%);}
+  .callout.tip .label,.callout.tip .callout__label{color:var(--accent);}
 
   .exercise{margin:36px 0;padding:28px 30px;background:var(--surface);border:1px solid var(--line);border-radius:20px;
     box-shadow:0 36px 70px -44px rgba(var(--shadow),.4);}
@@ -135,7 +138,40 @@ BLOCKS = r"""
   details.hint>summary::-webkit-details-marker{display:none;}
   details.hint>summary::before{content:"▸";transition:transform .2s;color:var(--accent);} details.hint[open]>summary::before{transform:rotate(90deg);}
   details.hint .body{padding:2px 18px 16px;} details.hint .body p{margin:10px 0;}
-"""
+
+  .flashcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin:26px 0;}
+  details.flashcard{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;transition:.15s;}
+  details.flashcard>summary{cursor:pointer;list-style:none;padding:16px 44px 16px 18px;font-family:var(--display);font-weight:600;font-size:16px;line-height:1.4;color:var(--ink);}
+  details.flashcard>summary::-webkit-details-marker{display:none;}
+  details.flashcard>summary::after{content:"?";float:right;margin-left:12px;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
+    font:700 12px/1 var(--mono);color:var(--accent-dk);background:var(--accent-wash);transition:.15s;}
+  details.flashcard[open]{border-color:color-mix(in oklab,var(--accent),transparent 55%);box-shadow:0 14px 34px -24px rgba(var(--shadow),.5);}
+  details.flashcard[open]>summary::after{content:"✓";color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));}
+  details.flashcard .body{padding:2px 18px 16px;border-top:1px dashed var(--line);margin:0 18px 0;}
+  details.flashcard .body p{margin:10px 0;}
+
+  .exam-score{display:flex;align-items:center;gap:18px;margin:26px 0;padding:22px 26px;border-radius:18px;
+    background:linear-gradient(135deg,color-mix(in oklab,var(--accent),var(--surface) 88%),var(--surface));
+    border:1px solid color-mix(in oklab,var(--accent),transparent 80%);box-shadow:0 22px 50px -34px rgba(var(--shadow),.4);}
+  .exam-score b{font-family:var(--display);font-weight:800;font-size:44px;letter-spacing:-.03em;color:var(--accent-dk);line-height:1;}
+  .exam-score span{font:600 12px/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  ul.exam-list{list-style:none;margin:20px 0;padding:0;}
+  ul.exam-list li{position:relative;padding:12px 14px 12px 46px;border:1px solid var(--line);border-radius:12px;margin:8px 0;background:var(--surface);}
+  ul.exam-list li::before{position:absolute;left:13px;top:12px;width:20px;height:20px;border-radius:7px;display:grid;place-items:center;font:700 12px/1 var(--mono);}
+  ul.exam-list li.ok::before{content:"✓";color:var(--done);background:color-mix(in oklab,var(--done),var(--surface) 82%);}
+  ul.exam-list li.miss{border-color:color-mix(in oklab,#c9821f,transparent 55%);}
+  ul.exam-list li.miss::before{content:"✕";color:#b0701a;background:color-mix(in oklab,#c9821f,var(--surface) 84%);}
+  ul.exam-list li small{display:block;font:500 12px/1.5 var(--mono);color:var(--muted);margin-top:4px;}
+
+  .glosslist{list-style:none;margin:24px 0;padding:0;}
+  .glosslist li{padding:15px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:10px 0;}
+  .glosslist .termo{font-family:var(--display);font-weight:700;font-size:17px;color:var(--accent-dk);}
+  .glosslist .topico{font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-left:10px;}
+  .glosslist p{margin:6px 0 0;color:var(--ink-soft);}
+
+  .map{margin:26px 0;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--surface);overflow-x:auto;}
+  .map svg{display:block;width:100%;height:auto;min-width:560px;}
+ """
 
 # JS comum: highlight, troca de tema, helper de copiar-pro-chat, live-reload.
 JS = (

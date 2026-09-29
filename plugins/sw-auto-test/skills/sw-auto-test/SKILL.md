@@ -12,7 +12,10 @@ description: >
   asks which type and adapts framework, analysis and generated code to it and to the stack.
   Dispara também em português: "cria os testes", "escreve os testes de", "cobre com testes",
   "gera teste unitário", "meus testes estão bons?", "diagnostica os testes", "a suíte presta?",
-  "revisa a bateria de testes", "que teste está faltando".
+  "revisa a bateria de testes", "que teste está faltando", "esse teste falha às vezes",
+  "teste flaky", "a suíte está lenta", "tem teste pulado aí?". NÃO use para testar uma SKILL
+  (sw-skill-test), julgar o código de produção (sw-code-review) nem caçar código não usado
+  (sw-dead-code-scan): aqui o alvo é sempre o TESTE.
 ---
 
 # Auto Test Generator
@@ -28,7 +31,7 @@ ausente, exit 2) precisa da atenção do usuário antes de qualquer outra coisa.
 
 ## How It Works
 
-The process follows four phases: **Detect → Ask Test Type → Analyze → Generate**. Never skip detection — understanding the project comes before writing a single test. And never skip the test-type question — unit, integration, and e2e tests differ in framework, structure, and what gets mocked, so guessing wrong wastes the whole generation.
+The process follows four phases: **Detect → Ask Test Type → Analyze → Generate**. Never skip detection — understanding the project comes before writing a single test. The test type is never *guessed*: unit, integration and e2e differ in framework, structure and what gets mocked, so either the user states it, it is asked (Phase 2), or you state the assumption out loud.
 
 ### Phase 1: Detect the Project
 
@@ -108,12 +111,8 @@ fronteira; e2e não mocka nada dentro do app. Detalhes: [`references/generation.
 3. **Prove o vermelho** em até 3 testes — o passo a passo está em
    [`references/generation.md`](references/generation.md), que também traz baseline, determinismo
    e a regra de nunca forçar verde. **Leia antes de gerar.**
-4. Show a summary:
-   - Test type(s) generated (unit / integration / e2e)
-   - Files created (with paths)
-   - Number of tests per file
-   - What each test covers (brief description)
-   - How to run them (the exact command, per suite)
+4. Show a summary: test type(s) generated, files created (with paths), number of tests per
+   file, what each test covers, and how to run them (the exact command, per suite).
    - Infrastructure prerequisites, if any (e.g., `docker compose up -d mariadb` before the integration suite, app running before e2e)
 
 ## Modo diagnóstico — avaliar os testes que já existem

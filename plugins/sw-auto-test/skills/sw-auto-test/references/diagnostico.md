@@ -4,6 +4,7 @@ Ids estáveis: é por eles que um achado do agente se liga a um fato do script.
 
 | Id | O que é | Dimensão | Confiança |
 |---|---|---|---|
+| `runner_ausente` | o runner do projeto não está instalado; a suíte não foi executada nesta rodada | ambiente | alta |
 | `marcado_para_pular` | `skip`, `xfail`, `only`, `@Ignore`, `markTestSkipped` | confiabilidade | alta |
 | `sem_assercao_aparente` | nenhuma asserção reconhecível no corpo | confiabilidade | média |
 | `nao_descoberto` | arquivo de teste que o runner não coleta | confiabilidade | alta |

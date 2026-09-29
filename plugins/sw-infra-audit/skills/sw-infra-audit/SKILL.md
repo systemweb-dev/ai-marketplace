@@ -7,7 +7,8 @@ description: >-
   quiser um raio-x da infra ou de parte dela — "audita minha infra", "como está o cluster",
   "o que pode cair primeiro", "relatório da infraestrutura", "esse certificado vence quando?",
   "a API está no ar?", "o que eu tenho rodando e onde", "saúde do swarm", "como o traefik está
-  roteando". Dispare mesmo sem a palavra "auditar" — basta a intenção de entender o ESTADO
+  roteando", "analisa meu cluster", "auditar o docker context X", "relatório do cluster",
+  "o cluster está ok?", "como está a fila/o banco". Dispare mesmo sem a palavra "auditar" — basta a intenção de entender o ESTADO
   ATUAL da infraestrutura. É SÓ LEITURA: nunca altera, reinicia, escala nem cria nada; nunca
   expõe valor de secret, senha ou string de conexão; só fala com alvo que você declarou e
   confirmou na rodada. NÃO use para deploy, para mexer em serviço/stack, nem para código de
@@ -226,7 +227,7 @@ python3 <skill-dir>/scripts/pendencias.py --dir docs/infra/<AAAA-MM-DD_HHMM>
 Ele lista o que está calado e por quê. Então, **via `AskUserQuestion`**:
 
 - **Componente sem `metricas_url`** e existe Prometheus no alvo → ofereça rodar
-  `alvos.py --sugerir` e declarar o endereço **antes** de seguir. Uma linha no `alvos.toml`
+  `configurar.py alvos --sugerir --context <ctx>` e declarar o endereço **antes** de seguir. Uma linha no `alvos.toml`
   costuma ser a diferença entre um relatório com medidas e um relatório com rótulos.
 - **Componente de fila sem `admin_url`** → pergunte o endereço da API de administração e o
   **nome** da variável de ambiente que guarda a senha. Nunca peça a senha em si, nem a escreva

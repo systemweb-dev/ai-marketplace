@@ -5,12 +5,18 @@ Gera/atualiza uma FICHA (modos Explicar e Praticar) com a identidade visual comp
 (novas secoes <h3>) e a pagina e' regenerada — com um INDICE lateral que aparece quando ha
 2+ secoes (scroll-spy). Build idempotente: rode de novo apos editar o fragmento.
 
+Kinds:
+  explicar   -> <dir>/explicacoes/<slug>.html   (secoes <h3> viram indice lateral)
+  praticar   -> <dir>/praticas/<slug>.html
+  flashcards -> <dir>/revisoes/<slug>.html       (cards: <details class="flashcard"><summary>pergunta</summary>...)
+  resumo     -> <dir>/resumos/<slug>.html        (resumo de sessao)
+  exame      -> <dir>/exames/<slug>.html         (placar .exam-score + lista .exam-list ok/miss)
+  mapa       -> <dir>/mapas/<slug>.html          (SVG inline com tokens do tema)
+  glossario  -> <dir>/glossario/glossario.html   (LE de <dir>/glossario.json; sem --content)
+
 Uso:
   python3 build_ficha.py --kind explicar --title "O que e closure?" \
       --content <fragmento.html> --dir <dir-do-tema-ou-scratch> [--tema "JavaScript"] [--accent "#2f6bf0"]
-
-Estruture a explicacao em secoes com <h3>Titulo da secao</h3> — viram o indice lateral.
-Saida: <dir>/explicacoes/<slug>.html  (ou praticas/<slug>.html).
 """
 import argparse
 import html
@@ -110,8 +116,11 @@ PAGE = (
 )
 
 DEFAULT_ACCENT = "#2f6bf0"
-KIND_LABEL = {"explicar": "Explicação", "praticar": "Prática"}
-SUBDIR = {"explicar": "explicacoes", "praticar": "praticas"}
+KIND_LABEL = {"explicar": "Explicação", "praticar": "Prática", "flashcards": "Flashcards",
+              "resumo": "Resumo da sessão", "glossario": "Glossário", "exame": "Prova",
+              "mapa": "Mapa do módulo"}
+SUBDIR = {"explicar": "explicacoes", "praticar": "praticas", "flashcards": "revisoes",
+          "resumo": "resumos", "glossario": "glossario", "exame": "exames", "mapa": "mapas"}
 
 
 def _slug(s):
@@ -137,19 +146,51 @@ def _sections(content):
 
 def _cta(kind, title):
     t = title.replace("'", "")
-    if kind == "explicar":
-        items = [("Praticar isto", f"Me dá uns exercícios sobre: {t}"),
-                 ("Virar uma trilha", f"Quero aprender do zero o tema por trás de: {t} — monta uma trilha"),
-                 ("Aprofundar", f"Aprofunda mais: {t}")]
-    else:
-        items = [("Corrigir minha resposta", "Corrige minha resposta do desafio (vou colar abaixo)."),
-                 ("Outro desafio", f"Me dá outro desafio sobre: {t}"),
-                 ("Mudar a dificuldade", "Deixa o próximo desafio mais difícil (ou mais fácil).")]
+    ctas = {
+        "explicar": [("Praticar isto", f"Me dá uns exercícios sobre: {t}"),
+                     ("Virar uma trilha", f"Quero aprender do zero o tema por trás de: {t} — monta uma trilha"),
+                     ("Aprofundar", f"Aprofunda mais: {t}")],
+        "praticar": [("Corrigir minha resposta", "Corrige minha resposta do desafio (vou colar abaixo)."),
+                     ("Outro desafio", f"Me dá outro desafio sobre: {t}"),
+                     ("Mudar a dificuldade", "Deixa o próximo desafio mais difícil (ou mais fácil).")],
+        "flashcards": [("Me faz um quiz com estes flashcards", f"Me faz um quiz com os conceitos destes flashcards: {t}"),
+                       ("Criar mais flashcards", f"Cria mais flashcards sobre: {t}"),
+                       ("Revisar os fracos", "Quero revisar os pontos fracos (prática só dos fracos).")],
+        "resumo": [("Praticar os pontos fracos", "Me dá prática só dos pontos fracos do resumo."),
+                   ("Continuar a trilha", "Continua a trilha de onde parou."),
+                   ("Revisar o tema (quiz)", f"Me faz um quiz de revisão sobre: {t}")],
+        "glossario": [("Quiz do glossário", f"Testa-me com estes termos do glossário: {t}"),
+                      ("Anotar um termo", "Quero anotar um termo no glossário (vou passar o termo e a definição)."),
+                      ("Revisar o tema", f"Revisa o tema com um quiz: {t}")],
+        "exame": [("Revisar as erradas", f"Reexplica os itens que errei na prova: {t}"),
+                  ("Praticar os fracos", "Me dá prática só dos pontos fracos desta prova."),
+                  ("Provar de novo", f"Reaplica a prova: {t}")],
+        "mapa": [("Explicar o mapa", "Explica como as peças deste mapa se conectam, uma a uma."),
+                 ("Quiz do módulo", "Me faz um quiz cobrindo todos os nós deste mapa."),
+                 ("Aprofundar um nó", "Aprofunda um dos conceitos deste mapa (vou dizer qual).")],
+    }
+    items = ctas.get(kind, ctas["explicar"])
     return "".join(
         f'<button onclick="sbcopy(this,{json.dumps(prompt, ensure_ascii=False)})">'
         f'{html.escape(label)}<small>copiar pro chat</small></button>'
         for label, prompt in items
     )
+
+
+def _glossario(d):
+    path = os.path.join(d, "glossario.json")
+    if not os.path.isfile(path):
+        sys.exit(f"glossario.json nao encontrado em {d}")
+    with open(path, encoding="utf-8") as f:
+        terms = json.load(f)
+    items = []
+    for t in terms:
+        top = f'<span class="topico">tópico {t["topico"]}</span>' if t.get("topico") else ""
+        items.append(
+            f'<li><span class="termo">{html.escape(str(t.get("termo", "")))}</span>{top}'
+            f'<p>{t.get("def", "")}</p></li>'
+        )
+    return f'<ul class="glosslist">{"".join(items)}</ul>'
 
 
 def build(kind, title, content, d, tema, accent):
@@ -185,7 +226,8 @@ def build(kind, title, content, d, tema, accent):
     }.items():
         page = page.replace(k, v)
 
-    out = os.path.join(sub, _slug(title) + ".html")
+    fname = "glossario.html" if kind == "glossario" else _slug(title) + ".html"
+    out = os.path.join(sub, fname)
     with open(out, "w", encoding="utf-8") as f:
         f.write(page)
     print(out)
@@ -193,16 +235,21 @@ def build(kind, title, content, d, tema, accent):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kind", required=True, choices=["explicar", "praticar"])
+    ap.add_argument("--kind", required=True,
+                    choices=["explicar", "praticar", "flashcards", "resumo", "glossario", "exame", "mapa"])
     ap.add_argument("--title", required=True, help="a pergunta (explicar) ou o foco (praticar)")
-    ap.add_argument("--content", required=True, help="caminho do fragmento HTML (cresce a cada pedido)")
+    ap.add_argument("--content", default="", help="caminho do fragmento HTML (necessario p/ todos os kinds, exceto glossario)")
     ap.add_argument("--dir", required=True, help="dir do tema (com estudo.html) ou scratch")
     ap.add_argument("--tema", default="", help="nome do tema, p/ link de volta e contexto")
     ap.add_argument("--accent", default=DEFAULT_ACCENT)
     args = ap.parse_args()
-    cpath = os.path.expanduser(args.content)
-    if not os.path.isfile(cpath):
-        sys.exit(f"fragmento nao encontrado: {cpath}")
-    with open(cpath, encoding="utf-8") as f:
-        content = f.read()
-    build(args.kind, args.title, content, os.path.expanduser(args.dir), args.tema, args.accent)
+    d = os.path.expanduser(args.dir)
+    if args.kind == "glossario":
+        content = _glossario(d)
+    else:
+        cpath = os.path.expanduser(args.content)
+        if not os.path.isfile(cpath):
+            sys.exit(f"fragmento nao encontrado: {cpath}")
+        with open(cpath, encoding="utf-8") as f:
+            content = f.read()
+    build(args.kind, args.title, content, d, args.tema, args.accent)

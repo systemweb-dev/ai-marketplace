@@ -70,7 +70,8 @@ REGRAS: Markdown puro, compacto, scanavel.
 |:--------:|:----:|:------:|:---:|
 | **{critical}** | **{high}** | **{medium}** | **{low}** |
 
-> **Comandos:** `s` aplicar | `n` pular | `arquivo` aplicar no arquivo | `todos` aplicar tudo | `parar` encerrar
+> A escolha vem pelo menu do `AskUserQuestion` (Aplicar · Pular · Aplicar no arquivo ·
+> Aplicar todos · Parar). Nao peca a resposta por texto.
 ```
 
 Se houver falsos positivos suprimidos:
@@ -248,7 +249,7 @@ Usar APENAS quando nao existe correcao possivel.
 
 {explicacao}
 
-**[{atual}/{total}]** Proximo? (s/parar)
+**[{atual}/{total}]** — a continuacao vem pelo menu (Proximo · Parar), nao por texto.
 ```
 
 ## Template de Mini-Resumo de Arquivo
@@ -327,15 +328,18 @@ Usar APENAS quando nao existe correcao possivel.
 | rules_loaded | **{n}** regras do projeto carregadas de {arquivos}. |
 | rules_none | Nenhuma regra do projeto encontrada. Usando apenas patterns generics. |
 
-## Respostas do Usuario
+## Opcoes do menu (AskUserQuestion)
 
-| Acao | Aceita |
+Sao estas as opcoes oferecidas a cada achado. **Nao** interprete resposta digitada: quem
+responde e o menu.
+
+| Acao | Rotulo da opcao |
 |---|---|
-| Aplicar | sim, s, yes, y |
-| Ignorar | nao, n, no, pular |
-| Aplicar todos deste arquivo | arquivo, file, este |
-| Aplicar todos | todos, all, tudo |
-| Parar | parar, stop, sair, quit |
+| Aplicar | Aplicar |
+| Ignorar | Pular |
+| Aplicar todos deste arquivo | Aplicar no arquivo |
+| Aplicar todos | Aplicar todos |
+| Parar | Parar a revisao |
 
 ## Exemplos de achados (referencia)
 
@@ -379,7 +383,7 @@ Middleware valida apenas formato dos campos, sem verificar o role do chamador. Q
 4. Controller grava `$admin->level = "ADMINISTRATOR"` e salva
 5. Escalacao completa em uma requisicao
 
-**[1/5]** Aplicar? (s/n/arquivo/todos/parar)
+**[1/5]** — pergunte pelo menu: Aplicar · Pular · Aplicar no arquivo · Aplicar todos · Parar
 ```
 
 ### Exemplo 2: Coercao de boolean em query string (HIGH)
@@ -416,7 +420,7 @@ O cast `(bool)` em string nao-vazia sempre retorna `true` em PHP, exceto para `"
 | `"1"` | `true` ✅ | `true` |
 | `null` | `false` ✅ | `false` |
 
-**[3/5]** Aplicar? (s/n/arquivo/todos/parar)
+**[3/5]** — pergunte pelo menu: Aplicar · Pular · Aplicar no arquivo · Aplicar todos · Parar
 ```
 
 ### Exemplo 3: Typo cross-file (HIGH)
@@ -451,5 +455,5 @@ Metodo `DB::roolback()` nao existe na classe DB — a chamada lanca `Error: Call
 - `app/LogicApp/Services/CreatorService.php:49`
 - `app/LogicApp/Services/CreatorUpdateService.php:63` (novo nesta PR)
 
-**[2/5]** Aplicar? (s/n/arquivo/todos/parar)
+**[2/5]** — pergunte pelo menu: Aplicar · Pular · Aplicar no arquivo · Aplicar todos · Parar
 ```

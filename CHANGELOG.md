@@ -7,6 +7,57 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-git-commit` (v0.1.1): a skill mandava usar **`git add -p`** para preparar hunks. Sem
+  terminal esse comando **sai com código 0 e não põe nada em stage** (reproduzido num repo de
+  teste): o commit seguinte saía vazio ou errado, sem aviso nenhum. O caminho padrão agora é
+  `git apply --cached` com o patch escrito em arquivo. O `git reset` do passo 6, única ação
+  destrutiva da skill, passou a ser anunciado no plano antes da aprovação.
+- `sw-infra-audit` (v0.9.1): o SKILL.md mandava rodar **`alvos.py --sugerir`**, script que não
+  existe — o correto é `configurar.py alvos --sugerir --context <ctx>`. E o
+  `references/finding-rules.md` afirmava que achado `high` pinta a saúde de vermelho, o
+  **oposto** da regra da skill ("saúde é operação, não higiene"). Os dois corrigidos; a mesma
+  referência agora diz que cobre só a família `SEC_*` e que o registro real são as 21 regras de
+  `lib/regras.py`. A doc da allowlist voltou a bater com o código, incluindo `(system, df)` e
+  `(node, ps)`, que faltavam.
+- `sw-code-review` (v0.1.3): o `references/checklist.md` ainda ensinava o fluxo antigo de
+  resposta por texto (`s/n/arquivo/todos/parar`) em três exemplos e numa tabela, enquanto o
+  SKILL.md chama isso de proibido — e exemplo é o que o modelo copia. Todos passaram a apontar
+  para o menu do `AskUserQuestion`.
+- `sw-auto-test` (v0.1.1): o sinal `runner_ausente` era emitido pelo `diagnose.py` e **não
+  existia** no catálogo que a skill manda consultar. Entrou no catálogo, e um teste novo casa
+  todo sinal emitido com o seu verbete. O achado "caminho crítico sem teste" era **impossível
+  de registrar**: o validador recusava qualquer caminho fora do inventário, que só lista
+  arquivos de teste. A dimensão `cobertura` passou a aceitar arquivo de produção, desde que ele
+  exista no projeto. Também saiu a contradição entre "nunca pule a pergunta do tipo de teste" e
+  "pule a pergunta quando…".
+- `sw-study-buddy` (v0.2.0): o bloco de callout documentava a classe `callout__label`, que não
+  existia no tema — o rótulo saía sem estilo. E a variante `.tip`, anunciada na referência,
+  não tinha CSS. As duas corrigidas.
+- `sw-pr-message` (v0.1.1): comentário no `lib/coleta.py` apontava para
+  `referencias/calibracao-do-diff.md`, arquivo que não viaja com a skill.
+- `sw-frontend-component-kit` (v0.3.2): os catálogos citados no piso anti-genérico são da
+  `sw-frontend-mockup-preview`, e o caminho estava escrito como se fossem da própria skill.
+
+### Alterado
+- **Fronteira de disparo nas 14 skills.** Seis descrições não diziam quando **não** disparar, o
+  que é o que o roteador lê. Entraram fronteiras explícitas em `sw-auto-test` (não é
+  sw-skill-test nem sw-code-review), `sw-code-review` (não é dead-code-scan, auto-test nem
+  pr-message), `sw-git-commit` (não é pr-message, nem push/amend/rebase; dentro da sw-plan
+  espera o checkpoint), `sw-frontend-mockup-preview` (não é component-kit nem flow-diagram) e
+  `sw-study-buddy` (não é leitura do código deste projeto nem diagrama). Gatilhos que faltavam
+  também entraram: flakiness e lentidão na auto-test, "acha bugs nisso" e "security review" na
+  code-review.
+- `sw-study-buddy` (v0.2.0): publicado o subsistema de **retenção** que estava pronto e parado
+  na máquina — repetição espaçada com intervalos 1/2/4/8/16/30, pontos fracos, prova por módulo,
+  flashcards, glossário, mapa mental, streak e XP (`scripts/review.py`,
+  `references/retention.md`), mais cinco tipos novos de ficha e os chips na barra lateral.
+- A `sw-cluster-audit`, substituída pela `sw-infra-audit` e já retirada do marketplace, **ainda
+  vencia o disparo** de "analisa meu cluster" na máquina, porque a frase estava literal só na
+  descrição dela. A cópia local foi marcada como descontinuada e os gatilhos passaram para a
+  `sw-infra-audit`. Os arquivos continuam no disco até as seções de relatório que só ela tem
+  (nós, disco, redes, roteamento do Traefik) serem portadas.
+
 ### Adicionado
 - `sw-frontend-mockup-preview` (v0.8.0): três referências novas, para o movimento e a estrutura
   deixarem de ser chutados no dia. **`references/animacoes.md`** (escala de duração, curvas

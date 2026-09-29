@@ -2,6 +2,7 @@
 """Valida o `achados.json` contra o `fatos.json` e escreve o `test-health-report.md`."""
 import argparse
 import json
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -66,12 +67,18 @@ def validar(fatos: dict, achados: dict) -> list:
             problemas.append(f"{onde}: confianca {confianca!r} não é alta/media/baixa")
         if not isinstance(caminho, str):
             problemas.append(f"{onde}: caminho precisa ser texto")
+        elif caminho not in conhecidos and dimensao == "cobertura":
+            # cobertura é a única dimensão que fala de arquivo de PRODUÇÃO: o achado é
+            # "este código não tem teste", e ele nunca estaria no inventário, que só lista
+            # arquivos de teste. Em troca, o arquivo precisa existir de verdade.
+            if not os.path.isfile(os.path.join(raiz_do_escopo(fatos), caminho)):
+                problemas.append(f"{onde}: caminho {caminho!r} não existe no projeto")
         elif caminho not in conhecidos:
             problemas.append(f"{onde}: caminho {caminho!r} não está no inventário dos fatos")
         # bool é int em Python: `linha=True` passaria por inteiro positivo
         if not isinstance(linha, int) or isinstance(linha, bool) or linha <= 0:
             problemas.append(f"{onde}: linha precisa ser inteiro positivo")
-        elif isinstance(caminho, str) and caminho in conhecidos:
+        elif isinstance(caminho, str) and (caminho in conhecidos or dimensao == "cobertura"):
             total = _linhas_do_arquivo(raiz_do_escopo(fatos), caminho)
             if total is not None and linha > total:
                 problemas.append(f"{onde}: linha {linha} não existe em {caminho} ({total} linhas)")

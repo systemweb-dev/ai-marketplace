@@ -1,7 +1,7 @@
 {
   "name": "sw-code-review",
-  "description": "Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de catch, leitura de regras do projeto, modo PR (vs branch base) e reasoning enriquecido com truth tables e step-by-step proofs. Inclui analise de impacto, contrato, orfaos, cross-repo, supressao de falsos positivos. INVOCAR SOMENTE sob pedido explicito do usuario — via `/sw-code-review` ou frases como \"rodar/executar/fazer code review\", \"code review\", \"revisa as mudancas\", \"revisa meu diff\", \"revisa meu codigo\", \"review disso\". NAO auto-disparar a cada mudanca de codigo. Funciona em qualquer linguagem e framework. Output sempre em portugues.",
-  "version": "0.1.2",
+  "description": "Code review profundo com deteccao de autorizacao/RBAC ausente, information disclosure em erros, typos cross-file, coercao de tipos em boundaries, disciplina de catch, leitura de regras do projeto, modo PR (vs branch base) e reasoning enriquecido com truth tables e step-by-step proofs. Inclui analise de impacto, contrato, orfaos, cross-repo, supressao de falsos positivos. INVOCAR SOMENTE sob pedido explicito do usuario — via `/sw-code-review` ou frases como \"rodar/executar/fazer code review\", \"code review\", \"revisa as mudancas\", \"revisa meu diff\", \"revisa meu codigo\", \"review disso\". NAO auto-disparar a cada mudanca de codigo. Dispara tambem com \"acha bugs nisso\", \"tem algum problema de seguranca aqui?\", \"antes de eu subir isso\", \"olha esse PR\", \"review this diff\", \"security review\". NAO use para: varrer codigo morto no projeto inteiro (sw-dead-code-scan), julgar a qualidade da suite de testes (sw-auto-test), nem escrever a descricao do PR (sw-pr-message). Funciona em qualquer linguagem e framework. Output sempre em portugues.",
+  "version": "0.1.3",
   "author": {
     "name": "systemweb-dev"
   }

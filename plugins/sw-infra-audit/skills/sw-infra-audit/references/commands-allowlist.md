@@ -1,13 +1,13 @@
 # Allowlist de comandos (read-only)
 
-Fonte da verdade no código: `scripts/lib/allowlist.py` (o `runner` só executa o que passa aqui).
+Fonte da verdade no código: `scripts/lib/coletores/docker_allowlist.py` (o `runner` só executa o que passa aqui).
 Match sobre os **dois primeiros tokens** após `docker` — par `(noun, verb)`.
 
 ## Permitidos `(noun, verb)`
 `(context, ls)` · `(context, inspect)` · `(info, -)` · `(version, -)` · `(node, ls)` ·
-`(node, inspect)` · `(service, ls)` · `(service, ps)` · `(service, inspect)` · `(ps, -)` ·
+`(node, inspect)` · `(node, ps)` · `(service, ls)` · `(service, ps)` · `(service, inspect)` · `(ps, -)` ·
 `(container, inspect)` · `(network, ls)` · `(network, inspect)` · `(secret, ls)` ·
-`(config, ls)` · `(image, ls)`
+`(config, ls)` · `(image, ls)` · `(system, df)`
 
 ## Proibidos explicitamente (mesmo parecendo "leitura")
 `logs`, `cp`, `export`, `save`, `events`, `stats` (streaming/só 1 nó), `exec`,

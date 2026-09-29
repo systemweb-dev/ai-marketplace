@@ -19,6 +19,12 @@ meta.json:
         {"title":"Setup + primeiro programa","status":"current"} ]} ] }
 Topicos numerados globalmente (1..N) na ordem; fragmento = topicos/<seq>.html.
 status: "done" | "current" | "pending".
+
+Campos de retencao (opcionais, escritos SÓ por review.py — nunca à mão):
+  "reviews":[{concept,topic,due,interval,strength}], "fracos":[{concept,topic,fails,last}],
+  "exams":[{module,date,score,total,missed[]}], "streak":{count,best,last}, "xp":N
+  -> viram chips na sidebar (xp, streak, "revisões" vencidas).
+glossario.json (opcional): [{termo,def,topico}] -> ficha em glossario/glossario.html + chip com link.
 """
 import argparse
 import html
@@ -26,6 +32,7 @@ import json
 import os
 import re
 import sys
+from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import theme  # noqa: E402
@@ -53,6 +60,9 @@ LAYOUT = r"""
   .chip{font:600 10px/1.4 var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:99px;
     color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);white-space:nowrap;}
   .chip b{color:var(--accent-dk);}
+  a.chip{text-decoration:none;}
+  .chip--warn{color:#b0701a;background:color-mix(in oklab,#c9821f,var(--surface) 88%);border-color:color-mix(in oklab,#c9821f,transparent 55%);}
+  .chip--warn b{color:#b0701a;}
   .prog{display:flex;align-items:center;gap:9px;}
   .prog .track{flex:1;height:6px;border-radius:99px;background:var(--line);overflow:hidden;}
   .prog .track i{display:block;height:100%;width:var(--pct);border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));}
@@ -229,7 +239,7 @@ def _reading_time(frag):
     return max(1, round(len(re.sub(r"<[^>]+>", " ", frag).split()) / 180))
 
 
-def _chips(meta):
+def _chips(meta, ret):
     chips = []
     lvl = str(meta.get("level", "")).strip()
     if lvl:
@@ -240,6 +250,14 @@ def _chips(meta):
     depth = str(meta.get("depth", "")).strip()
     if depth:
         chips.append(f'<span class="chip">{html.escape(depth)}</span>')
+    if ret.get("xp"):
+        chips.append(f'<span class="chip">xp <b>{ret["xp"]}</b></span>')
+    if ret.get("streak", {}).get("count"):
+        chips.append(f'<span class="chip">streak <b>{ret["streak"]["count"]}d</b></span>')
+    if ret.get("due"):
+        chips.append(f'<span class="chip chip--warn">revisões <b>{ret["due"]}</b></span>')
+    if ret.get("gloss"):
+        chips.append(f'<a class="chip" href="glossario/glossario.html">glossário <b>{ret["gloss"]}</b></a>')
     return "".join(chips)
 
 
@@ -289,7 +307,18 @@ def build(d):
 
     title_esc = html.escape(meta.get("title", "Estudo"))
     accent = meta.get("accent", DEFAULT_ACCENT)
-    chips = _chips(meta)
+    today = date.today().isoformat()
+    gloss_n = 0
+    gpath = os.path.join(d, "glossario.json")
+    if os.path.isfile(gpath):
+        with open(gpath, encoding="utf-8") as f:
+            gloss_n = len(json.load(f))
+    chips = _chips(meta, {
+        "xp": meta.get("xp", 0),
+        "streak": meta.get("streak", {}),
+        "due": sum(1 for r in meta.get("reviews", []) if str(r.get("due", "")) <= today),
+        "gloss": gloss_n,
+    })
     known = str(meta.get("known", "")).strip()
     base = {"%%TITLE%%": title_esc, "%%ACCENT%%": accent, "%%CHIPS%%": chips,
             "%%PCT%%": f"{pct}", "%%DONE%%": str(done), "%%TOTAL%%": str(total)}

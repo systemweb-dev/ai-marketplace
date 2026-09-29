@@ -5,14 +5,20 @@ description: >
   frameworks, bibliotecas, documentações, paradigmas (funcional, OO, reativo),
   design patterns, arquitetura, ferramentas. Acompanha do nível iniciante ao avançado
   com três modos: Aprender (trilha do zero), Explicar (tira-dúvida pontual) e Praticar
-  (exercícios, quiz e mini-projetos). Use SEMPRE que o usuário quiser aprender, entender
-  ou praticar algo técnico — frases como "quero aprender X", "me ensina Y", "estudar Z",
-  "me explica esse conceito", "não entendi como funciona W", "me dá uns exercícios de",
-  "como funciona", "qual a diferença entre", "quero praticar", "estou estudando para".
-  Dispare mesmo que o usuário não diga "estudar" explicitamente, sempre que a intenção
-  for aprender/entender/fixar um tópico de tecnologia em vez de só resolver uma tarefa
+  (exercícios, quiz e mini-projetos). Com acompanhamento, mantém retenção de verdade:
+  repetição espaçada (revisões 1/2/4/8 dias), pontos fracos, prova por módulo com nota,
+  flashcards, glossário, streak/XP e resumo de sessão. Use SEMPRE que o usuário quiser
+  aprender, entender ou praticar algo técnico — frases como "quero aprender X", "me
+  ensina Y", "estudar Z", "me explica esse conceito", "não entendi como funciona W",
+  "me dá uns exercícios de", "como funciona", "qual a diferença entre", "quero praticar",
+  "estou estudando para", "me teste sobre X", "me faz um quiz de X", "revisa o que eu
+  estudei (de X)", "flashcards de X", "faz uma prova de X", "faz um mapa mental de X". Dispare
+  mesmo que o usuário não diga "estudar" explicitamente, sempre que a intenção for
+  aprender/entender/fixar um tópico de tecnologia em vez de só resolver uma tarefa
   pontual de código. Ao iniciar uma sessão, oferece (via AskUserQuestion) buscar
-  novidades/mudanças recentes do tema na internet. Interação sempre em português (PT-BR).
+  novidades/mudanças recentes do tema na internet. NÃO use para: entender o código DESTE
+  projeto ("como funciona esse middleware aqui?" é leitura de código, não estudo), nem para
+  diagrama de arquitetura (sw-flow-diagram). Interação sempre em português (PT-BR).
 ---
 
 # Study Buddy — apoio aos estudos de tecnologia
@@ -94,7 +100,16 @@ Se sim, use o diretório `~/.claude/study-buddy/<tema>/` (slug do tema em minús
 
 Se a pessoa não quiser, siga sem criar arquivos — a sessão funciona normalmente, só não persiste.
 
-**6. Oferecer uma busca por novidades do tema.** Depois de ter o tema, **toda vez dispare o
+**6. Revisão primeiro (só com acompanhamento ativo).** Antes de qualquer conteúdo novo,
+rode `python3 ~/.claude/skills/sw-study-buddy/scripts/review.py --dir ~/.claude/study-buddy/<tema> --action due`.
+Se houver revisões vencidas, **dispare o `AskUserQuestion`** ("Tem **N** revisões pendentes de
+conceitos antigos — quer revisar antes? (1–2 min)") com **"Sim, revisar agora"** / **"Pular por
+hoje"**. A revisão é um quiz rápido de **3–5 perguntas** (múltipla escolha via `AskUserQuestion`,
+uma de cada vez, misturando os conceitos vencidos): a cada acerto `review.py --action ok
+--concept "<x>"`, a cada erro `review.py --action fail --concept "<x>"` (o erro alimenta os
+pontos fracos). Sem nada vencido, siga em silêncio. Regras completas em `references/retention.md`.
+
+**7. Oferecer uma busca por novidades do tema.** Depois de ter o tema, **toda vez dispare o
 `AskUserQuestion`** ("Quer que eu busque novidades/mudanças recentes sobre **<tema>** antes de
 começar?") com **"Sim, buscar novidades"** / **"Não, pode seguir"**. (Pode juntar essa pergunta
 na mesma chamada do nível/profundidade pra não perguntar duas vezes.) Isso operacionaliza o
@@ -124,7 +139,43 @@ Para quando a pessoa quer dominar um tema de forma estruturada, partindo da base
 2. **Pesquise se precisar.** Para temas que você não domina com confiança ou que mudam rápido, consulte as docs oficiais antes de montar a trilha, para o currículo refletir a versão atual.
 3. **Monte a trilha.** Organize em **módulos (fases)** do básico ao avançado, cada um com seus **tópicos** (os itens de estudo). Use a profundidade como guia de granularidade (enxuto = menos tópicos amplos; detalhado = mais tópicos finos). Iniciante começa no primeiro tópico; avançado pula o que já domina. Apresente a trilha como índice e **dispare o `AskUserQuestion`** ("A trilha tá boa assim?") com opções **"Pode começar"** / **"Quero ajustar"** antes de mergulhar — a pessoa pode cortar ou reordenar (no "Other" ou no "Quero ajustar" ela diz o quê).
 4. **Ensine tópico a tópico.** Em cada tópico: explique o conceito (curto), mostre exemplo de código, e feche com uma checagem rápida ou um micro-exercício. **Pare e confirme antes do próximo tópico** — nunca despeje a trilha inteira de uma vez.
-5. **Atualize o progresso.** Ao concluir um tópico, marque seu `status` como `done` no `meta.json` e regenere a página; anote em `progresso.md` o que foi visto e os pontos fracos.
+5. **Atualize o progresso e a retenção.** Ao concluir um tópico, marque seu `status` como `done` no `meta.json` e regenere a página; anote em `progresso.md` o que foi visto e os pontos fracos; e registre a retenção (com acompanhamento ativo): `review.py --action add --topic <N> --concept "<conceito central do tópico>"` (agenda a revisão de 1 dia) + `review.py --action activity --xp 10` (streak + XP). Termos novos do tópico (1–3) vão pro `glossario.json` e você regenera a ficha de glossário.
+
+### Calibração de módulo
+
+No início de cada módulo **2+** (ou de qualquer módulo, se o nível for avançado), **dispare o
+`AskUserQuestion`** com **2 perguntas de múltipla escolha** sobre a base que o módulo pressupõe:
+2 acertos → ofereça **"Andar rápido neste módulo?"** (condensar/pular o que já domina); 2 erros →
+desacelere (reforce o fundamento, mais exemplos, antes de seguir). Anote o resultado em
+`progresso.md`. Detalhamento em `references/retention.md`.
+
+### Travamento — detectar e voltar
+
+Se a pessoa erra o **mesmo conceito** 2–3 vezes seguidas (quiz, exercício, prova), **não
+continue martelando** — a base anterior não fixou. **Dispare o `AskUserQuestion`** ("**<X>**
+parece travado — como seguir?") com **"Voltar ao conceito anterior e re-verificar"** /
+**"Mudar o ângulo (exemplo novo, analogia, rodar o código)"** / **"Só uma dica e eu tento de
+novo"**.
+
+### Prova do módulo (fecha cada módulo)
+
+Ao fechar um módulo: **5–8 perguntas** — 4–6 de múltipla escolha via `AskUserQuestion` + 1 aberta
+no chat, misturando os conceitos do módulo, com ao menos **1 falso amigo** (pegadinha de quem
+migra da linguagem-base, se houver). Some a nota: `review.py --action exam --module <N>
+--score <S> --total <T> --missed "<conceito>" …` (cada erro vira ponto fraco) e gere a **ficha da
+prova**: `build_ficha.py --kind exame` (placar `.exam-score` + lista ok/erradas `.exam-list`,
+"porquê" do erro em `<small>` — blocos em `references/blocos.md`). Placar < 70% → ofereça revisar
+os errados antes do próximo módulo.
+
+### Fechando o módulo: mapa + flashcards
+
+Depois da prova, **dispare o `AskUserQuestion`** ("Módulo <N> fechado! O que mais?") com
+**"Mapa visual do módulo"** / **"Flashcards do módulo"** / **"Ir pro próximo módulo"** (pode
+escolher mais de um). O **mapa** é um SVG de 5–12 nós (conceitos) com arestas de dependência,
+usando os tokens do tema (`var(--accent)`, `var(--line)`) — fragmento em `<dir>/mapas/<mod>.src.html`
++ `build_ficha.py --kind mapa`. Os **flashcards** (5–10 cards: "o que acontece se", diferenças,
+falsos amigos) vão pro `revisoes/` via `build_ficha.py --kind flashcards` — material pra estudar
+sozinho entre sessões.
 
 > A apresentação da aula no modo Aprender usa a **apostila viva** (página HTML com live-reload) descrita na seção abaixo — leitura na página, tutoria no chat.
 
@@ -151,6 +202,7 @@ A página é leitura; o chat é onde a pessoa **age**. A qualquer momento de um 
 
 - **Responda no contexto do tópico atual e do nível dela** — conecte com o que ela acabou de ler, não despeje um info-dump genérico.
 - **Demonstre rodando, quando ajudar.** Você tem terminal: se a dúvida é "isso funciona?", "qual a saída?", "dá pra fazer em tempo real?", rode de verdade (ex.: `go run`, ou via Docker se a linguagem não estiver instalada na máquina) e mostre o resultado. Ver a coisa executando ensina mais que descrever.
+- **Ancore no projeto real.** Se o tema é da stack do usuário (linguagem/framework em uso no repo atual), **dispare o `AskUserQuestion`** oferecendo exemplos do projeto dele em vez de sintéticos — leia o código real, aponte onde o conceito aparece (caminhos de arquivo) e monte os exercícios sobre aquele código. Exemplo de coisa que a pessoa usa todo dia gruda mais que um hello world.
 - **Ofereça fixar na apostila — via `AskUserQuestion`.** Se a dúvida rendeu uma boa clarificação, use a ferramenta `AskUserQuestion` para perguntar se a pessoa quer adicionar aquilo ao material de estudo. Opções típicas:
   - **"Sim, fixa no tópico"** → adicione um `callout` no `topicos/NN.html` do tópico atual e rode `build_study_page.py`; a página recarrega sozinha.
   - **"Sim, num bloco à parte"** → ex.: uma seção "Dúvidas que surgiram" no fim do tópico, se ela preferir não interromper o fluxo principal.
@@ -186,13 +238,13 @@ Para uma dúvida específica. **A explicação é um documento vivo na ficha —
 
 ## Modo Praticar — exercícios, quiz e mini-projetos
 
-Para fixar o que já foi visto. Se o formato não estiver claro pelo pedido, **dispare o `AskUserQuestion`** ("Como você quer praticar?") com as opções **Exercício de código** / **Quiz** / **Mini-projeto**:
+Para fixar o que já foi visto. Se o formato não estiver claro pelo pedido, **dispare o `AskUserQuestion`** ("Como você quer praticar?") com as opções **Exercício de código** / **Quiz** / **Mini-projeto** — e, se `fracos` não estiver vazio no `meta.json`, a opção extra **Só os fracos** (a prática é montada a partir dos conceitos em `fracos`; a cada acerto num fraco, `review.py --action done --concept "<x>"` o tira da lista):
 
 - **Exercício de código** — proponha um problema do tamanho do nível, **espere a solução da pessoa** (resposta aberta, no chat — não é AskUserQuestion), e então revise: corretude primeiro, depois estilo e idiomático da linguagem. Se estiver errado, explique o porquê e deixe ela tentar de novo antes de entregar a resposta. Se estiver certo mas dá para melhorar, mostre a versão idiomática e explique o ganho.
 - **Quiz** — perguntas conceituais, **uma de cada vez**, com feedback após cada resposta. Quando for **múltipla escolha**, dispare via `AskUserQuestion` (as alternativas viram opções clicáveis); quando for **aberta** ("explique o que acontece se..."), a pessoa responde no chat. Não dispare dez perguntas juntas.
 - **Mini-projeto** — um projeto pequeno que junta vários conceitos do tema. Defina o escopo, guie por etapas, e deixe a pessoa codar cada parte — você dá pistas e revisa, não entrega pronto. É o "aprender fazendo".
 
-Em todos: ajuste a dificuldade conforme a pessoa acerta ou erra, e registre os pontos fracos em `progresso.md` se o acompanhamento estiver ativo (eles viram alvo de prática futura).
+Em todos: ajuste a dificuldade conforme a pessoa acerta ou erra, e registre os pontos fracos em `progresso.md` se o acompanhamento estiver ativo (eles viram alvo de prática futura). Ao fechar a sessão, `review.py --action activity --xp 5` (mantém o streak).
 
 **Gere a ficha de prática.** Escreva os desafios como um fragmento HTML (cards `exercise`/`quiz`, e dicas em spoiler com `<details class="hint"><summary>Dica</summary><div class="body">…</div></details>`) e rode `python3 ~/.claude/skills/sw-study-buddy/scripts/build_ficha.py --kind praticar --title "<foco>" --content <fragmento> --dir <dir> [--tema "<tema>"] [--accent "<cor>"]`. Gera uma página standalone em `<dir>/praticas/<slug>.html`, com rodapé de CTAs (*Corrigir minha resposta / Outro desafio / Mudar a dificuldade*) que copiam pro chat. A resolução acontece no chat; a ficha é o enunciado + as dicas.
 
@@ -207,7 +259,7 @@ Em todos: ajuste a dificuldade conforme a pessoa acerta ou erra, e registre os p
 
 Quando o acompanhamento está ativo, o diretório `~/.claude/study-buddy/<tema>/` guarda tudo: o `meta.json` (a trilha — módulos, tópicos e status), os `topicos/NN.html` (conteúdo) e o `progresso.md` (diário). Mantê-los simples e legíveis é de propósito: a pessoa vai querer abrir, editar e versionar no git.
 
-A **trilha vive no `meta.json`** (não há `trilha.md` separado): cada módulo é uma fase com seus tópicos, e o `status` de cada tópico (`done`/`current`/`pending`) é o estado de progresso. Ao concluir um tópico, atualize o `status` e regenere a página.
+A **trilha vive no `meta.json`** (não há `trilha.md` separado): cada módulo é uma fase com seus tópicos, e o `status` de cada tópico (`done`/`current`/`pending`) é o estado de progresso. Ao concluir um tópico, atualize o `status` e regenere a página. O `meta.json` também carrega os campos de retenção — `reviews`, `fracos`, `exams`, `streak`, `xp` — que **só o `review.py` escreve** (valem como chips na sidebar); e o `<dir>/glossario.json` (termos do tema, vira a ficha de glossário).
 
 **`progresso.md`** — o diário de bordo, do mais recente para o mais antigo:
 
@@ -221,6 +273,30 @@ A **trilha vive no `meta.json`** (não há `trilha.md` separado): cada módulo �
 ```
 
 No início de uma sessão com acompanhamento ativo, leia os dois, retome do "próximo passo" e priorize revisar os pontos fracos antes de avançar.
+
+---
+
+## Retenção — revisar é onde o aprendizado vira memória
+
+Com acompanhamento ativo, nada que foi aprendido some:
+
+- **Repetição espaçada** — cada tópico concluído agenda revisões (1 → 2 → 4 → 8 → 16 → 30 dias,
+  duplicando a cada acerto; erro volta a 1). No início da sessão, o vencido vira quiz
+  ("revisão primeiro").
+- **Pontos fracos** — erros alimentam `fracos`; o Praticar oferece "Só os fracos"; saem no
+  primeiro acerto de verdade.
+- **Prova por módulo** — nota + errados → fracos + ficha `--kind exame`.
+- **Flashcards** — ficha `--kind flashcards` (pergunta no flip) pra estudar sozinho entre sessões.
+- **Glossário** — `glossario.json` acumula termos; ficha `--kind glossario` com link na sidebar.
+- **Mapa do módulo** — SVG dos conceitos e conexões (`--kind mapa`), a revisão visual do módulo.
+- **Streak + XP** — atividade em dia mantém a corrente; XP por tópico (10), revisão (5), prova
+  (10), prática (5). Tudo aparece como chips na sidebar.
+- **Resumo de sessão** — ao fechar uma sessão com acompanhamento (2+ tópicos ou prática),
+  gere a ficha `build_ficha.py --kind resumo`: o que fixou hoje, os pontos fracos e o próximo
+  passo. Metaprendizagem em 30 segundos.
+
+**Nunca edite `reviews`/`fracos`/`exams`/`streak`/`xp` à mão no `meta.json`** — tudo passa por
+`review.py`. Regras e comandos completos em `references/retention.md`.
 
 ---
 
@@ -255,6 +331,15 @@ Usuário: "me dá uns exercícios de list comprehension em Python"
 Usuário (no meio de uma trilha de SQL): "acho que entendi JOINs, me testa"
 → Troca para Praticar sem recomeçar. Quiz/exercício sobre JOINs no nível atual.
 → Registra o resultado em progresso.md e volta pra trilha depois.
+```
+
+**Exemplo 5 — Retomar com revisões espaçadas:**
+```
+Usuário (1 semana depois): "volta pro Rust, continua de onde parou"
+→ Leio meta.json + progresso.md; retomo do tópico current.
+→ review.py --action due → 3 conceitos vencidos → "Tem 3 revisões pendentes — quer revisar antes?"
+→ Quiz de 3 MCQs (AskUserQuestion, uma de cada vez): 2 ok, 1 fail (→ fracos, reagenda 1 dia).
+→ Sigo o tópico atual; no fim da sessão, ficha --kind resumo com o que fixou e o fraco pro próximo dia.
 ```
 
 ## Limites

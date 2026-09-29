@@ -50,3 +50,31 @@ def test_reference_nao_aponta_para_si_mesma_nem_usa_prefixo_errado():
         texto = arquivo.read_text(encoding="utf-8")
         assert f"references/{arquivo.name}" not in texto, \
             f"{arquivo.name}: link para si mesma (ou caminho com prefixo references/ dentro de references/)"
+
+
+def test_todo_sinal_emitido_tem_verbete_no_catalogo():
+    """O agente recebe o id do sinal e vai procurar o significado em diagnostico.md. Sinal que
+    o script emite e o catálogo não explica deixa o agente sem chão — foi o que aconteceu com
+    `runner_ausente`, que existia no diagnose.py e em lugar nenhum da referência."""
+    scripts = SKILL.parent / "scripts"
+    emitidos = set()
+    for arquivo in (scripts / "diagnose.py", scripts / "lib" / "sinais.py"):
+        if arquivo.exists():
+            emitidos |= set(re.findall(r'"regra":\s*"([a-z_]+)"', arquivo.read_text(encoding="utf-8")))
+            emitidos |= set(re.findall(r"regra=[\"']([a-z_]+)[\"']", arquivo.read_text(encoding="utf-8")))
+
+    catalogo = (REFERENCES / "diagnostico.md").read_text(encoding="utf-8")
+    documentados = set(re.findall(r"^\|\s*`([a-z_]+)`", catalogo, re.M))
+
+    assert emitidos, "nenhum sinal encontrado nos scripts — o teste perdeu o alvo"
+    assert emitidos <= documentados, f"sinal sem verbete em diagnostico.md: {sorted(emitidos - documentados)}"
+
+
+def test_scripts_citados_no_skill_md_existem():
+    """O irmão do teste de references/: um `scripts/x.py` citado e inexistente só aparece no
+    meio da execução, quando o agente tenta rodar."""
+    texto = SKILL.read_text(encoding="utf-8")
+    citados = set(re.findall(r"`(?:python3 )?scripts/([\w/-]+\.py)", texto))
+
+    faltando = [nome for nome in citados if not (SKILL.parent / "scripts" / nome).exists()]
+    assert faltando == []

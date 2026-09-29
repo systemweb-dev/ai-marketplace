@@ -114,3 +114,67 @@ Perguntas conceituais. Opções com `<ol class="options">` ganham marcadores A, 
 
 > Lembre: a página é material de leitura. A correção de exercícios/quiz e o vai-e-volta
 > socrático acontecem **no chat**, não na página (HTML não escuta a resposta).
+
+---
+
+## Blocos dos modos de retenção (fichas `--kind` novos)
+
+### Flashcard (ficha `--kind flashcards`, em `revisoes/`)
+Pergunta no `<summary>`, resposta no flip — a pessoa tenta antes de revelar (esforço
+produtivo). Vários cards viram uma grade automaticamente:
+```html
+<div class="flashcards">
+  <details class="flashcard">
+    <summary>O que acontece se eu omitir a <code>func main()</code> em um binário Go?</summary>
+    <div class="body"><p>Erro de compilação: falta o ponto de entrada.</p></div>
+  </details>
+  <details class="flashcard">
+    <summary>Por que a interface em Go é implícita (sem <code>implements</code>)?</summary>
+    <div class="body"><p>Qualquer tipo que tem os métodos satisfaz — o acoplamento é no
+      consumidor, não no produtor.</p></div>
+  </details>
+</div>
+```
+Cards bons: "o que acontece se…", diferença entre dois conceitos, falsos amigos. 5–10 por módulo.
+
+### Placar + lista de prova (ficha `--kind exame`, em `exames/`)
+Placar em destaque + cada item marcado ok/errado (o "porquê" do erro no `<small>`):
+```html
+<div class="exam-score"><b>4/5</b><span>prova do módulo 1 · fundamentos</span></div>
+<ul class="exam-list">
+  <li class="ok">Pacotes e importação — acertou</li>
+  <li class="miss">Ordem de drop em escopo<small>confundiu LIFO com ordem de declaração</small></li>
+  <li class="ok">Slices: fundo vs. capacidade</li>
+  <li class="ok">Estruturas e métodos</li>
+  <li class="ok">Interfaces implícitas</li>
+</ul>
+```
+Errados também entram em `fracos` via `review.py --action exam --missed …`.
+
+### Glossário (ficha `--kind glossario`, em `glossario/`)
+Não tem fragmento: o script lê `<dir>/glossario.json` e gera a página (nome fixo
+`glossario.html`, link na sidebar da apostila):
+```json
+[
+  {"termo": "goroutine", "def": "Thread leve gerenciada pelo runtime Go; começa com ~2KB e escala.", "topico": 4},
+  {"termo": "channel", "def": "Tubo tipado pra comunicação entre goroutines (CSP).", "topico": 5}
+]
+```
+`termo` + `def` são obrigatórios; `topico` (número) é opcional e vira etiqueta.
+
+### Mapa do módulo (ficha `--kind mapa`, em `mapas/`)
+SVG **inline** com 5–12 nós (os conceitos do módulo) e arestas de dependência
+("X precisa de Y"). Use os **tokens do tema** nos fills/strokes — assim o mapa segue
+light/dark automaticamente:
+```html
+<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+  <line x1="120" y1="80" x2="360" y2="80" stroke="var(--line)" stroke-width="2"/>
+  <rect x="40" y="50" width="160" height="60" rx="12" fill="var(--tint)" stroke="var(--accent)"/>
+  <text x="120" y="85" text-anchor="middle" fill="var(--ink)" font-family="Hanken Grotesk" font-size="15" font-weight="600">Pacotes</text>
+  <rect x="360" y="50" width="180" height="60" rx="12" fill="var(--accent-wash)" stroke="var(--accent)"/>
+  <text x="450" y="85" text-anchor="middle" fill="var(--accent-dk)" font-family="Hanken Grotesk" font-size="15" font-weight="700">Goroutines</text>
+</svg>
+```
+Regras: nós do centro pra fora (base → avançado), arestas finas `var(--line)`, nó
+destacado com `var(--accent-wash)` + borda `var(--accent)`, `viewBox` larga (≥720 de
+largura) — o `min-width` do SVG já vem do CSS (`.map`).
