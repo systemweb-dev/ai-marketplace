@@ -35,7 +35,7 @@ PROM_QUERIES = [
 
 
 def _clean_key(v):
-    """'ai2contract-api@docker' -> 'ai2contract-api' ; mantém o resto como veio."""
+    """'loja-api@docker' -> 'loja-api' ; mantém o resto como veio."""
     return (v or "").split("@")[0]
 
 

@@ -37,7 +37,7 @@ def test_assemble_report_monta_sem_vazar_e_valido():
     assert "hashedsecret-should-not-leak" not in dumped     # basicauth do traefik redigido
     svc = r["services"][0]
     assert svc["kind"] == "app"                             # 'web' não casa nenhum kind conhecido
-    assert svc["routing_labels"]["traefik.http.routers.web.rule"] == "Host(`app.systemweb`)"
+    assert svc["routing_labels"]["traefik.http.routers.web.rule"] == "Host(`app.exemplo.test`)"
     assert r["health"]["verdict"] in {"green", "yellow", "red"}
     assert "seguranca" in r["dimensions"]                  # métricas computadas no assemble
     assert isinstance(r["top_offenders"], list)
@@ -49,6 +49,26 @@ def test_assemble_report_monta_sem_vazar_e_valido():
 ])
 def test_detect_kind(image, kind):
     assert collect.detect_kind(image) == kind
+
+
+@pytest.mark.parametrize("referencia,kind", [
+    # o produto vive só na TAG: bundle que empacota várias ferramentas na mesma imagem
+    ("portainer/template-swarm-monitoring:prometheus-v2.44.0", "observabilidade"),
+    ("portainer/template-swarm-monitoring:grafana-9.5.2", "observabilidade"),
+    # a tag é o SABOR da aplicação, não o produto: `postgresql-latest` é o build que FALA com
+    # Postgres. Classificar como banco punha a aplicação em metrics.STATEFUL e ela saía no
+    # relatório como ponto único de falha com estado — dado errado, não só rótulo errado.
+    ("ghcr.io/umami-software/umami:postgresql-latest", "app"),
+    ("meuapp/api:mysql-8", "app"),
+    # aqui só a IGUALDADE salva: a trava de "tipo com estado" não pega `proxy`, e por
+    # substring o sidecar citado na tag faria a aplicação virar porta de entrada — que é
+    # `CRITICAL_PATH` em `lib/metrics.py`, ou seja, outro risco inventado.
+    ("meuapp/api:v1-nginx-sidecar", "app"),
+    # o caminho continua ganhando da tag
+    ("postgres:15-alpine", "banco"), ("rabbitmq:3.13-management", "fila"),
+])
+def test_detect_kind_so_aceita_a_tag_quando_ela_nomeia_o_produto(referencia, kind):
+    assert collect.detect_kind(referencia) == kind
 
 
 def test_degrada_com_run_none_sem_crashar():

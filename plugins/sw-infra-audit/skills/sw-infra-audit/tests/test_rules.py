@@ -56,7 +56,7 @@ def test_servico_parado_e_med_nao_critico():
     assert f["rule_id"] == "OPS_SERVICE_STOPPED" and f["severity"] == "med"
 
 
-@pytest.mark.parametrize("name", ["ai2contract-api_flyway", "chatwoot_chatwoot-migrate",
+@pytest.mark.parametrize("name", ["loja-api_flyway", "blog_blog-migrate",
                                   "helper_system_system-prune", "app_backup"])
 def test_job_de_execucao_unica_em_zero_e_esperado(name):
     r = {"nodes": [], "services": [{"name": name, "replicas": "0/1"}]}
@@ -186,7 +186,7 @@ def test_complete_em_modo_job_e_esperado():
 def test_migration_em_imagem_propria_e_job_mas_banco_real_nao_e():
     """O que separa 'app rodando migration' de 'banco parado' é o TIPO, não o nome."""
     from lib.rules import is_job_service
-    migration = {"name": "challenge-api_database", "image": "registry.io/challenge-database",
+    migration = {"name": "loja-api_database", "image": "registry.io/loja-database",
                  "kind": "app", "completed_job": True, "mode": "replicated"}
     banco = {"name": "umami_database", "image": "postgres", "kind": "banco",
              "completed_job": True, "mode": "replicated"}

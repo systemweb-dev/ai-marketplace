@@ -43,7 +43,7 @@ def test_dimensoes_kpis_e_historico():
 def test_agrupamento_por_stack_e_runtime():
     out = build_report.render_html(_report())
     assert "Por aplicação" in out
-    assert "challenge-api" in out and "traefik" in out             # stacks como blocos
+    assert "loja-api" in out and "traefik" in out             # stacks como blocos
     assert "128,4 mil req/24h" in out                              # métrica de runtime do Traefik
     assert "12.4% CPU" in out                                      # métrica de runtime do app
 
@@ -161,7 +161,7 @@ def test_diverge_marca_so_quem_foge_da_maioria():
 
 def test_exit_code_extrai_servico_e_codigo():
     from build_report import _exit_code
-    assert _exit_code('chatwoot_db.1: "task: non-zero exit (137)"') == ("chatwoot_db", "137")
+    assert _exit_code('blog_db.1: "task: non-zero exit (137)"') == ("blog_db", "137")
     assert _exit_code("sem codigo aqui")[1] is None      # tolera formato inesperado
 
 

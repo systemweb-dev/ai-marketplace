@@ -7,20 +7,20 @@ from lib import stacks, discover, enrich
 def _report():
     return {
         "services": [
-            {"name": "challenge-api_api", "kind": "app", "replicas": "2/2", "routing_labels":
-                {"traefik.http.routers.ch.rule": "Host(`api.challenge.com`)"}},
-            {"name": "challenge-api_database", "kind": "banco", "replicas": "1/1", "routing_labels": {}},
+            {"name": "loja-api_api", "kind": "app", "replicas": "2/2", "routing_labels":
+                {"traefik.http.routers.ch.rule": "Host(`api.exemplo.test`)"}},
+            {"name": "loja-api_database", "kind": "banco", "replicas": "1/1", "routing_labels": {}},
             {"name": "traefik_traefik", "kind": "ingress/proxy", "replicas": "1/1", "routing_labels": {}},
         ],
         "findings": [
             {"rule_id": "SEC_PRIVILEGED", "severity": "high", "object": "traefik_traefik"},
-            {"rule_id": "SEC_USER_ROOT", "severity": "med", "object": "challenge-api_api.1.xyz"},
+            {"rule_id": "SEC_USER_ROOT", "severity": "med", "object": "loja-api_api.1.xyz"},
         ],
     }
 
 
 @pytest.mark.parametrize("name,stack,short", [
-    ("challenge-api_database", "challenge-api", "database"),
+    ("loja-api_database", "loja-api", "database"),
     ("traefik_traefik", "traefik", "traefik"),
     ("avulso", "avulso", "avulso"),
 ])
@@ -30,12 +30,12 @@ def test_stack_of_e_short_name(name, stack, short):
 
 def test_group_agrupa_servicos_findings_e_spofs():
     gs = {g["stack"]: g for g in stacks.group(_report())}
-    assert set(gs) == {"challenge-api", "traefik"}
-    ch = gs["challenge-api"]
+    assert set(gs) == {"loja-api", "traefik"}
+    ch = gs["loja-api"]
     assert len(ch["services"]) == 2
     assert ch["findings_med"] == 1                                  # finding com sufixo de task conta
-    assert ch["spofs"] == ["challenge-api_database"]                # banco 1/1
-    assert ch["routes"] == ["Host(`api.challenge.com`)"]
+    assert ch["spofs"] == ["loja-api_database"]                # banco 1/1
+    assert ch["routes"] == ["Host(`api.exemplo.test`)"]
     assert gs["traefik"]["findings_high"] == 1 and gs["traefik"]["note"] == "red"
 
 
@@ -102,15 +102,15 @@ def test_propose_vazio_sem_fonte():
 
 # ---------------------------------------------------------------- enrich
 def test_attach_casa_series_com_services():
-    rep = {"services": [{"name": "challenge-api_api"}, {"name": "traefik_traefik"}]}
-    runtime = {"requests_24h": {"challenge-api_api": 100, "fantasma": 7}}
+    rep = {"services": [{"name": "loja-api_api"}, {"name": "traefik_traefik"}]}
+    runtime = {"requests_24h": {"loja-api_api": 100, "fantasma": 7}}
     enrich.attach(rep, runtime)
     assert rep["services"][0]["runtime"]["requests_24h"] == 100
     assert rep["runtime_cluster"]["requests_24h"] == {"fantasma": 7}   # sem match vira cluster
 
 
 def test_attach_casa_por_sufixo():
-    rep = {"services": [{"name": "challenge-api_api"}]}
+    rep = {"services": [{"name": "loja-api_api"}]}
     enrich.attach(rep, {"requests_24h": {"api": 42}})                  # router 'api' → stack_api
     assert rep["services"][0]["runtime"]["requests_24h"] == 42
 
@@ -121,8 +121,8 @@ SAMPLE = """# HELP rabbitmq_queue_messages_ready mensagens prontas
 rabbitmq_queue_messages_ready{queue="emails",vhost="/"} 42
 rabbitmq_queue_messages_ready{queue="jobs",vhost="/"} 8
 rabbitmq_queue_consumers{queue="emails"} 3
-traefik_service_requests_total{code="200",service="challenge-api@docker"} 1000
-traefik_service_requests_total{code="500",service="challenge-api@docker"} 7
+traefik_service_requests_total{code="200",service="loja-api@docker"} 1000
+traefik_service_requests_total{code="500",service="loja-api@docker"} 7
 metrica_ignorada{x="1"} 99
 linha_invalida sem valor numerico
 """
@@ -142,7 +142,7 @@ def test_collect_from_exporter_soma_series(monkeypatch):
     out = enrich.collect_from_exporter("http://h:15692", ["h"])
     assert out["queue_ready"] == {"emails": 42, "jobs": 8}
     assert out["queue_consumers"] == {"emails": 3}
-    assert out["requests_total"]["challenge-api"] == 1007      # soma 200 + 500, '@docker' removido
+    assert out["requests_total"]["loja-api"] == 1007      # soma 200 + 500, '@docker' removido
 
 
 def test_collect_from_exporter_vazio_quando_nao_responde(monkeypatch):

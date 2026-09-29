@@ -26,10 +26,35 @@ _KINDS = [
 ]
 
 
-def detect_kind(image):
-    img = (image or "").lower()
+# Tipos que GUARDAM ESTADO. Nenhum deles pode ser deduzido da tag — ver `detect_kind`.
+_COM_ESTADO = {"fila", "fila/broker", "banco", "cache", "cache/fila", "busca", "object-storage"}
+
+
+def detect_kind(referencia):
+    """Tipo do serviço a partir da referência da imagem (`repo:tag@digest`).
+
+    O CAMINHO da imagem é a identidade do produto, e nele o casamento por substring vale.
+    A TAG é o último recurso, com duas restrições:
+
+    1. precisa NOMEAR o produto no primeiro segmento (`prometheus-v2.44.0`), não apenas
+       contê-lo — é o caso real do bundle `portainer/template-swarm-monitoring`, em que o
+       caminho não diz nada e a ferramenta só aparece na tag;
+    2. nunca decide um tipo COM ESTADO. Na tag, um datastore quase sempre é o *sabor* da
+       aplicação: `umami:postgresql-latest` é o umami que fala com Postgres, e classificá-lo
+       como banco o punha em `metrics.STATEFUL` — ele saía no relatório como ponto único de
+       falha com estado. Errar aqui não produz um rótulo feio, produz um risco inventado.
+
+    Bundle que esconde um serviço com estado continua tendo saída: declarar `papel` no
+    `[[alvo.componente]]` do `alvos.toml`.
+    """
+    partes = split_image(referencia)
+    caminho = (partes["image"] or "").lower()
     for key, kind in _KINDS:
-        if key in img:
+        if key in caminho:
+            return kind
+    primeiro = (partes["tag"] or "").lower().split("-")[0]
+    for key, kind in _KINDS:
+        if key == primeiro and kind not in _COM_ESTADO:
             return kind
     return "app"
 

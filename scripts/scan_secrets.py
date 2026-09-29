@@ -73,6 +73,46 @@ GENERIC_SECRET = re.compile(
 )
 
 
+DENYLIST = ".scan-denylist"
+
+# Nome curto ou genérico demais para virar regra: casaria com meio repositório.
+_GENERICOS = {"default", "prod", "dev", "test", "local", "staging", "homolog",
+              "production", "development", "cluster", "docker", "swarm", "main"}
+
+
+def _contexts_docker() -> list[str]:
+    """Nomes dos contexts do docker desta máquina — o nome do cluster costuma ser o do ambiente."""
+    try:
+        saida = subprocess.run(["docker", "context", "ls", "--format", "{{.Name}}"],
+                               capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [l.strip() for l in saida.splitlines() if l.strip()]
+
+
+def _termos_proibidos() -> list[str]:
+    """Vocabulário que é real NESTA organização e não pode chegar ao repositório público.
+
+    Existe porque o gate procurava credencial, IP e caminho do home — e **nome próprio de
+    projeto não é nenhum dos três**. Foi assim que codinomes internos de projeto e um host
+    interno chegaram ao plugin publicado, em docstring e em fixture de teste, sem ninguém
+    ser avisado.
+
+    Duas fontes, as duas FORA do git: os contexts do docker (automático) e um
+    `.scan-denylist` opcional, um termo por linha, para codinome de projeto — que nenhuma
+    heurística adivinha. A lista mora fora do versionamento de propósito: publicar a lista
+    de nomes proibidos é publicar exatamente o que ela protege.
+    """
+    termos = list(_contexts_docker())
+    try:
+        with open(DENYLIST, encoding="utf-8") as f:
+            termos += [l.strip() for l in f if l.strip() and not l.startswith("#")]
+    except OSError:
+        pass
+    return [t for t in dict.fromkeys(termos)
+            if len(t) >= 5 and t.lower() not in _GENERICOS]
+
+
 def runtime_rules() -> list[tuple[str, re.Pattern]]:
     """Regras que dependem do ambiente (não ficam escritas no arquivo)."""
     extra = []
@@ -87,6 +127,9 @@ def runtime_rules() -> list[tuple[str, re.Pattern]]:
             extra.append(("seu e-mail do git", re.compile(re.escape(email))))
     except OSError:
         pass
+    for termo in _termos_proibidos():
+        extra.append((f"nome real desta infra ({termo})",
+                      re.compile(r"\b" + re.escape(termo) + r"\b", re.I)))
     return extra
 
 

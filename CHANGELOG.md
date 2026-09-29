@@ -13,6 +13,24 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   teste): o commit seguinte saía vazio ou errado, sem aviso nenhum. O caminho padrão agora é
   `git apply --cached` com o patch escrito em arquivo. O `git reset` do passo 6, única ação
   destrutiva da skill, passou a ser anunciado no plano antes da aprovação.
+- **Nomes reais de projeto tinham vazado para o plugin publicado.** `git grep` em `origin/master`
+  achava codinomes internos de projeto e dois hosts internos em 8 arquivos da `sw-infra-audit` —
+  duas docstrings de código de produção (`lib/enrich.py`, `lib/stacks.py`), duas fixtures de teste
+  e quatro arquivos de teste. Todos trocados por nomes fictícios (`loja-api`, `exemplo.test`).
+  O **gate de segurança não pegava**, e esse era o buraco de verdade: ele procurava credencial,
+  IP público e caminho do home, e nome próprio de projeto não é nenhum dos três. Agora o
+  `scan_secrets.py` também recusa os nomes dos **contexts do docker** da máquina e os termos de um
+  `.scan-denylist` opcional — as duas fontes fora do git, porque publicar a lista de nomes
+  proibidos é publicar o que ela protege. A regra foi verificada contra o conteúdo real do commit
+  anterior, que ela acusa.
+- `sw-infra-audit` (v0.10.2): `detect_kind` deduzia o tipo do serviço por substring na referência
+  inteira da imagem, tag incluída. Isso **salvava** um caso real (bundle em que a ferramenta só
+  aparece na tag, `…/template-swarm-monitoring:prometheus-v2.44.0`) e **errava** outro: uma
+  aplicação com tag `postgresql-latest` virava `banco`, entrava em `metrics.STATEFUL` e saía no
+  relatório como ponto único de falha **com estado** — risco inventado, não rótulo feio. A tag
+  agora só decide quando nomeia o produto no primeiro segmento e **nunca** decide um tipo com
+  estado; bundle que esconda um serviço com estado continua com a saída de sempre, declarar
+  `papel` no `[[alvo.componente]]`.
 - `sw-infra-audit` (v0.10.1): três defeitos que só apareceram ao rodar a skill contra um cluster
   de verdade. **(1)** `configurar.py alvos --sugerir` estourava `KeyError: 'por_que'` — o impressor
   lia uma chave que o `discover.propose` nunca produziu, então o comando morria em qualquer cluster

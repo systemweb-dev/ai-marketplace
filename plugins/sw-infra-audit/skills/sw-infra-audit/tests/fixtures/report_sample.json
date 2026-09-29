@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "generated_at": "2026-08-18T14:32:00Z",
-  "cluster": {"context": "systemweb-prod", "engine_version": "25.0", "swarm": true},
+  "cluster": {"context": "cluster-prod", "engine_version": "25.0", "swarm": true},
   "scope": {"connected_node": "mgr-1", "container_checks_cover": "only_connected_node"},
   "health": {"verdict": "red", "counts": {"nodes": 3, "services": 3, "findings": 2}},
   "metrics_source": ["http://10.0.0.1:9090"],
@@ -16,7 +16,7 @@
   ],
   "dimensions": {
     "seguranca": {"high": 1, "med": 1, "note": "red"},
-    "disponibilidade": {"ha_pct": 40, "spof_stateful": ["challenge-api_database"], "note": "red"},
+    "disponibilidade": {"ha_pct": 40, "spof_stateful": ["loja-api_database"], "note": "red"},
     "higiene": {"pinned_pct": 30, "nonroot_pct": 20, "note": "red"}
   },
   "top_offenders": [{"object": "traefik_traefik", "findings": 2}],
@@ -30,11 +30,11 @@
      "ports": [{"port": "443/tcp", "host_ip": "0.0.0.0", "host_port": "443"}],
      "env_keys": [], "kind": "ingress/proxy", "routing_labels": {},
      "runtime": {"requests_24h": 128400, "errors_5xx_24h": 320, "p95_ms": 210.4}},
-    {"name": "challenge-api_api", "image": "challenge/api", "tag": "1.4", "digest": "sha256:a",
+    {"name": "loja-api_api", "image": "loja/api", "tag": "1.4", "digest": "sha256:a",
      "replicas": "2/2", "ports": [], "env_keys": ["DB_PASSWORD"], "kind": "app",
-     "routing_labels": {"traefik.http.routers.challenge.rule": "Host(`api.challenge.com`)"},
+     "routing_labels": {"traefik.http.routers.loja.rule": "Host(`api.exemplo.test`)"},
      "runtime": {"cpu_pct": 12.4, "mem_bytes": 268435456}},
-    {"name": "challenge-api_database", "image": "postgres", "tag": "16", "digest": "sha256:b",
+    {"name": "loja-api_database", "image": "postgres", "tag": "16", "digest": "sha256:b",
      "replicas": "1/1", "ports": [], "env_keys": [], "kind": "banco", "routing_labels": {}}
   ],
   "networks": [{"name": "ingress", "driver": "overlay", "scope": "swarm"}],

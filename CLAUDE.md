@@ -17,6 +17,12 @@ Como o repositório é **público**, **NUNCA** deixe ir para o git:
 make check          # escaneia o conteúdo staged
 ```
 
+O gate cobre credencial, IP público, caminho do home — e **nome real de projeto ou de
+cluster**, que não é nenhum dos anteriores e já vazou para um plugin publicado. Essa última
+regra sai de duas fontes fora do git: os contexts do docker da máquina e o arquivo opcional
+`.scan-denylist` (um termo por linha), onde ficam os codinomes internos. **Em máquina nova,
+crie o seu `.scan-denylist`** — sem ele o gate ainda pega o resto, mas não os codinomes.
+
 O gate também roda **automaticamente** via git hooks (`pre-commit` e `pre-push`)
 depois de `make hooks`. Se ele apontar algo, **pare e reveja** — só prossiga com
 `--no-verify` se tiver certeza de que é falso positivo.

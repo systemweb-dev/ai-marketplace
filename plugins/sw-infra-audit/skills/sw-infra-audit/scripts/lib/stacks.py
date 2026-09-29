@@ -1,18 +1,18 @@
 """Agrupamento por stack — no Swarm os services nascem como `<stack>_<service>`.
 
-Serve pra o relatório mostrar cada aplicação junta (ex.: todo o `challenge-api` num bloco),
+Serve pra o relatório mostrar cada aplicação junta (ex.: todo o `loja-api` num bloco),
 em vez de 56 services soltos numa lista.
 """
 
 def stack_of(service_name):
-    """'challenge-api_database' -> 'challenge-api'. Sem '_' → o próprio nome (avulso)."""
+    """'loja-api_database' -> 'loja-api'. Sem '_' → o próprio nome (avulso)."""
     if not service_name:
         return "(sem nome)"
     return service_name.split("_", 1)[0] if "_" in service_name else service_name
 
 
 def short_name(service_name):
-    """'challenge-api_database' -> 'database' (nome curto dentro do stack)."""
+    """'loja-api_database' -> 'database' (nome curto dentro do stack)."""
     if not service_name or "_" not in service_name:
         return service_name
     return service_name.split("_", 1)[1]
