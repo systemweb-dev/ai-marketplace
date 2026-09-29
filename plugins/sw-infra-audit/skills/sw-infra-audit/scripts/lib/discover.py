@@ -64,12 +64,17 @@ def propose(report, host):
         for pattern, hint, default_port, path, prio, provides in CANDIDATES:
             if not re.search(pattern, haystack):
                 continue
-            port = default_port if default_port in ports else (ports[0] if ports else default_port)
+            # A porta é SEMPRE a do catálogo. Cair na primeira porta publicada parecia
+            # esperto e propunha endereço que não serve métrica: o traefik publica 80/443
+            # (a métrica é a 8080) e o rabbitmq publica a 15672, que é a UI de administração
+            # (a métrica é a 15692 do plugin). Melhor propor a porta certa e avisar que ela
+            # não está publicada do que propor com confiança uma porta que devolve HTML.
             found.append({
                 "service": s.get("name"), "kind_hint": hint,
-                "url": f"http://{host}:{port}{path}" if host else None,
+                "url": f"http://{host}:{default_port}{path}" if host else None,
                 "priority": prio, "provides": provides,
-                "published": bool(ports),
+                # `published` é sobre a porta DA MÉTRICA, não sobre o serviço publicar algo
+                "published": default_port in ports,
             })
             break
     # publicados primeiro, depois prioridade

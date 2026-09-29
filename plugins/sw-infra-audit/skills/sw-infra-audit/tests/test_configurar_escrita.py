@@ -1,4 +1,6 @@
 # tests/test_configurar_escrita.py
+import re
+
 import configurar
 
 
@@ -55,6 +57,47 @@ def test_aceitar_recusa_motivo_vazio(tmp_path, capsys):
     assert "motivo" in capsys.readouterr().err
     assert "[[aceite]]" not in projeto.read_text(encoding="utf-8")
 
+def _candidatos_reais(endpoint):
+    """Candidatos com a forma que o PRODUTOR de verdade devolve.
+
+    Os testes daqui fabricavam o dicionário à mão, com uma chave `por_que` que o
+    `discover.propose` nunca produziu — e assim validavam a própria invenção enquanto o
+    comando real estourava `KeyError` em qualquer cluster que tivesse um Prometheus. Passar
+    pelo `propose` é o que faz o teste quebrar se o impressor e o produtor se separarem de novo.
+    """
+    from lib import discover
+    fatos = {"services": [{"name": "monitoring_prometheus",
+                           "image": "portainer/template-swarm-monitoring",
+                           "tag": "prometheus-v2.44.0", "ports": [9090]}]}
+    return discover.propose(fatos, discover.host_from_context_endpoint(endpoint))
+
+
+def test_sugerir_imprime_os_campos_que_o_descobridor_realmente_devolve(capsys, monkeypatch):
+    """O impressor lia uma chave inexistente: `alvos --sugerir` morria de KeyError assim que
+    havia um candidato — exatamente no passo em que o SKILL.md manda oferecer o comando."""
+    monkeypatch.setattr(configurar, "candidatos_de_metricas",
+                        lambda context: _candidatos_reais("tcp://198.51.100.10:2376"))
+
+    codigo = configurar.main(["alvos", "--sugerir", "--context", "prod"])
+    saida = capsys.readouterr().out
+
+    assert codigo == 0
+    assert "http://198.51.100.10:9090" in saida, "a URL é o que se cola no alvos.toml"
+    assert "monitoring_prometheus" in saida, "sem o serviço, não dá para saber de onde veio"
+    assert "publicada" in saida, "porta publicada é o que diz se dá para alcançar de fora"
+
+
+def test_sugerir_nao_promete_chave_que_o_descobridor_nao_entrega(monkeypatch):
+    """Trava de contrato: o impressor só pode ler campo que o `propose` realmente devolve."""
+    import inspect
+    from lib import discover
+
+    entregues = set(_candidatos_reais("tcp://198.51.100.10:2376")[0])
+    lidas = set(re.findall(r"""candidato\[["']([a-z_]+)["']\]""", inspect.getsource(configurar.sugerir)))
+
+    assert lidas, "o teste precisa achar as leituras do impressor"
+    assert lidas <= entregues, f"o impressor lê campo que o discover.propose não devolve: {lidas - entregues}"
+
 
 def test_sugerir_propoe_metricas_url_sem_alcancar_host(tmp_path, monkeypatch):
     """A descoberta só PROPÕE: quem alcança host é o coletor, e só depois de declarado."""
@@ -63,8 +106,7 @@ def test_sugerir_propoe_metricas_url_sem_alcancar_host(tmp_path, monkeypatch):
     monkeypatch.setattr(socket_mod, "create_connection",
                         lambda *a, **k: tentativas.append(a))
     monkeypatch.setattr(configurar, "candidatos_de_metricas",
-                        lambda context: [{"url": "http://198.51.100.10:9090/metrics",
-                                          "por_que": "prometheus publicado na porta 9090"}])
+                        lambda context: _candidatos_reais("http://198.51.100.10:2376"))
 
     codigo = configurar.main(["alvos", "--sugerir", "--context", "prod"])
 
@@ -109,12 +151,12 @@ def test_sugerir_roda_todo_comando_no_context_pedido(monkeypatch):
 def test_sugerir_sem_host_no_context_nao_quebra_a_impressao(capsys, monkeypatch):
     """Endpoint sem host (socket local) faz a URL vir vazia — imprimir isso não pode estourar."""
     monkeypatch.setattr(configurar, "candidatos_de_metricas",
-                        lambda context: [{"url": None, "por_que": "prometheus sem porta publicada"}])
+                        lambda context: _candidatos_reais(None))
 
     codigo = configurar.main(["alvos", "--sugerir", "--context", "local"])
 
     assert codigo == 0
-    assert "prometheus sem porta publicada" in capsys.readouterr().out
+    assert "sem host no endpoint" in capsys.readouterr().out
 
 
 def test_aceitar_nunca_grava_data_que_nao_existe(tmp_path):

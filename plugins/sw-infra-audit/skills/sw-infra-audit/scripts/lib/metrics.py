@@ -5,7 +5,7 @@ dimensões separadas — importantes, mas não derrubam a saúde de um cluster q
 """
 from collections import Counter
 
-from lib.rules import is_job_service
+from lib.rules import imagem_fixada, is_job_service
 
 STATEFUL = {"banco", "fila", "cache/fila", "cache", "busca"}
 CRITICAL_PATH = {"ingress/proxy", "proxy", "api-gateway"}
@@ -66,7 +66,8 @@ def compute(report):
     sec_med = sum(1 for f in sec_real if f.get("severity") == "med")
 
     root_objs = {f["object"] for f in findings if f.get("rule_id") == "SEC_USER_ROOT"}
-    pinned = sum(1 for s in services if s.get("digest"))
+    # mesmo critério da regra SEC_IMAGE_UNPINNED — ver `rules.imagem_fixada`
+    pinned = sum(1 for s in services if imagem_fixada(s))
     non_root = sum(1 for s in services if s.get("name") not in root_objs)
     with_limits = sum(1 for s in services
                       if (s.get("limits") or {}).get("nano_cpus") or (s.get("limits") or {}).get("mem_bytes"))

@@ -13,6 +13,22 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   teste): o commit seguinte saía vazio ou errado, sem aviso nenhum. O caminho padrão agora é
   `git apply --cached` com o patch escrito em arquivo. O `git reset` do passo 6, única ação
   destrutiva da skill, passou a ser anunciado no plano antes da aprovação.
+- `sw-infra-audit` (v0.10.1): três defeitos que só apareceram ao rodar a skill contra um cluster
+  de verdade. **(1)** `configurar.py alvos --sugerir` estourava `KeyError: 'por_que'` — o impressor
+  lia uma chave que o `discover.propose` nunca produziu, então o comando morria em qualquer cluster
+  que tivesse um Prometheus. Ele é justamente o que o SKILL.md manda oferecer quando um componente
+  está calado. Os três testes que o cobriam **fabricavam o candidato à mão**, com a chave inventada,
+  e assim validavam a própria invenção; agora passam pelo `propose` real e uma trava de contrato
+  quebra se impressor e produtor se separarem de novo. **(2)** A dimensão de higiene e a regra
+  `SEC_IMAGE_UNPINNED` tinham definições **diferentes** de "imagem fixada": a regra recusa
+  `tag == latest`, a dimensão só olhava o digest. Como o Swarm resolve `app:latest` para
+  `app:latest@sha256:…` no deploy, o mesmo serviço contava dos dois lados — um relatório real saiu
+  com "96% das imagens fixadas" ao lado de 31 achados de imagem não fixada, sobre os mesmos
+  serviços. As duas passaram a usar `rules.imagem_fixada`. **(3)** `discover.propose` caía na
+  primeira porta publicada quando a porta do catálogo não estava: propunha
+  `http://host:80/metrics` para o Traefik (entrypoint HTTP, a métrica é a 8080) e `:15672` para o
+  RabbitMQ (UI de administração, a métrica é a 15692 do plugin). Agora a porta é sempre a do
+  catálogo, e `published` diz se **essa** porta está publicada.
 - `sw-infra-audit` (v0.10.0): auditar um alvo **não-Swarm** quebrava a coleta. O Docker devolve
   `services` como aviso (`{"status": "n/a"}`) nesse caso, e dois laços iteravam nisso como se
   fosse lista — percorrendo as *chaves* do dicionário e estourando no primeiro `.get`. Dois

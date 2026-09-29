@@ -30,6 +30,20 @@ _SOCKET_EXPECTED = ("cadvisor", "promtail", "node-exporter", "node_exporter", "p
                     "dockerd-exporter", "swarm-cronjob", "shepherd", "diun")
 
 
+def imagem_fixada(wl):
+    """A imagem está presa a um conteúdo imutável?
+
+    Digest sozinho NÃO basta. O Swarm resolve `app:latest` para `app:latest@sha256:...` no
+    deploy, então o service spec quase sempre carrega um digest — mas a fonte da verdade
+    continua sendo `latest`, e o próximo `service update` puxa outro conteúdo com o mesmo nome.
+
+    Mora aqui, e é importado pela `lib.metrics`, porque as duas já tiveram definições diferentes
+    do mesmo conceito: o relatório anunciava "96% das imagens fixadas" ao lado de 31 achados de
+    imagem não fixada, sobre os MESMOS serviços.
+    """
+    return bool(wl.get("digest")) and wl.get("tag") != "latest"
+
+
 def _f(rid, sev, obj, evidence, fix, scope, expected=False):
     return {"rule_id": rid, "severity": sev, "object": obj, "evidence": evidence,
             "fix": fix, "scope": scope, "expected": expected}
@@ -82,7 +96,7 @@ def findings_for_workload(wl, scope):
                       "porta publicada em 0.0.0.0 (todas as interfaces do host)",
                       "publicar só na interface interna necessária, ou proteger via firewall", scope))
 
-    if wl.get("tag") == "latest" or not wl.get("digest"):
+    if not imagem_fixada(wl):
         out.append(_f("SEC_IMAGE_UNPINNED", "med", name,
                       f'imagem {wl.get("image")}:{wl.get("tag")} sem digest fixo',
                       "fixar tag imutável + digest (image@sha256:...)", scope))

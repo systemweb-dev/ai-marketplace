@@ -92,6 +92,30 @@ def test_dimensoes_calculam_percentuais():
     assert d["higiene"]["pinned_pct"] == 50 and d["higiene"]["nonroot_pct"] == 50
 
 
+def test_pinned_pct_usa_o_mesmo_criterio_do_achado_de_imagem():
+    """A dimensão e a regra tinham definições diferentes de "imagem fixada": a regra recusava
+    `tag == latest`, a dimensão só olhava o digest. No Swarm o service spec sempre carrega um
+    digest (`app:latest@sha256:...` resolvido no deploy), então o MESMO serviço contava como
+    fixado na higiene e como não-fixado no achado — 96% fixadas ao lado de 31 achados de imagem
+    sem digest, na mesma página."""
+    servicos = [
+        {"name": "presa", "kind": "app", "replicas": "1/1", "tag": "1.2.3", "digest": "sha256:a"},
+        {"name": "latest_com_digest", "kind": "app", "replicas": "1/1",
+         "tag": "latest", "digest": "sha256:b"},
+        {"name": "sem_digest", "kind": "app", "replicas": "1/1", "tag": "2.0", "digest": None},
+    ]
+    achados = [f for s in servicos for f in rules.findings_for_workload(s, "cluster-wide")
+               if f["rule_id"] == "SEC_IMAGE_UNPINNED"]
+
+    d = metrics.compute({"nodes": [], "services": servicos, "findings": achados})["dimensions"]
+
+    assert d["higiene"]["pinned_pct"] == 33, "só `presa` está de fato presa a um conteúdo"
+    nao_fixados = len(servicos) - round(d["higiene"]["pinned_pct"] * len(servicos) / 100)
+    assert len(achados) == nao_fixados, (
+        f"{len(achados)} achado(s) de imagem não fixada contra {nao_fixados} pela dimensão — "
+        "o relatório se contradiz na mesma página")
+
+
 def test_top_offenders_normaliza_task_id():
     fs = [{"rule_id": "X", "severity": "med", "object": "svc.1.abc"},
           {"rule_id": "Y", "severity": "med", "object": "svc"}]

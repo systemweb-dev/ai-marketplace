@@ -74,6 +74,28 @@ def test_propose_detecta_identificador_na_tag_ou_no_nome():
     assert props[0]["url"].endswith(":9090/api/v1/query?query=up")
 
 
+def test_propose_nao_inventa_porta_quando_a_da_metrica_nao_esta_publicada():
+    """Casos reais do cluster: o traefik publica 80 e 443 (a métrica é a 8080) e o rabbitmq
+    publica 15672, que é a UI de administração (a métrica é a 15692). Cair na primeira porta
+    publicada fazia a skill PROPOR com confiança um endereço que devolve HTML, não métrica."""
+    rep = {"services": [
+        {"name": "traefik_traefik", "image": "traefik", "ports": [
+            {"port": "80/tcp", "host_ip": "0.0.0.0", "host_port": "80"},
+            {"port": "443/tcp", "host_ip": "0.0.0.0", "host_port": "443"}]},
+        {"name": "rabbitmq_rabbitmq", "image": "rabbitmq", "ports": [
+            {"port": "15672/tcp", "host_ip": "0.0.0.0", "host_port": "15672"}]},
+    ]}
+
+    por_servico = {c["service"]: c for c in discover.propose(rep, "198.51.100.9")}
+
+    assert por_servico["traefik_traefik"]["url"] == "http://198.51.100.9:8080/metrics"
+    assert por_servico["rabbitmq_rabbitmq"]["url"] == "http://198.51.100.9:15692/metrics"
+    for c in por_servico.values():
+        assert c["published"] is False, (
+            "`published` precisa dizer se a porta DA MÉTRICA está publicada; dizer True porque "
+            "o serviço publica alguma outra porta promete alcance que não existe")
+
+
 def test_propose_vazio_sem_fonte():
     assert discover.propose({"services": [{"name": "app", "image": "myapp", "ports": []}]}, "h") == []
 

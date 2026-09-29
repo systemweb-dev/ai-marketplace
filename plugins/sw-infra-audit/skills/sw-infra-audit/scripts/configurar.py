@@ -188,7 +188,11 @@ def sugerir(args) -> int:
     for candidato in achados:
         # sem host no endpoint (socket local) a URL não existe — dizer isso é melhor que estourar
         url = candidato["url"] or "(sem host no endpoint deste context)"
-        print(f"  {url:<48} {candidato['por_que']}")
+        # os campos são os que o `discover.propose` devolve; inventar um aqui foi o que fez o
+        # comando morrer de KeyError em todo cluster que tinha um Prometheus.
+        alcance = "porta publicada" if candidato["published"] else "porta interna (não publicada)"
+        print(f"  {url:<48} {candidato['service']} · {alcance}")
+        print(f"  {'':<48} {candidato['provides']}")
     return EXIT_OK
 
 
