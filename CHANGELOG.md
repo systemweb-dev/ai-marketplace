@@ -7,7 +7,36 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-infra-audit` (v0.11.0): **o relatório passou a ser organizado por AÇÃO, não por
+  gravidade.** Quem recebia "107 médios" tinha de traduzir aquilo sozinho em "o que eu faço
+  hoje"; agora a pergunta já vem respondida em três faixas — **Agir agora** (crítico e alto),
+  **Programar** (médio) e **Registrar e seguir** (baixo e informativo) —, e a faixa é o título
+  da seção. A capa abre com uma **nota de estabilidade** derivada das dimensões por regra, e
+  não escrita pelo agente: título reinventado a cada rodada torna duas auditorias
+  incomparáveis. A triagem e a nota vivem em `lib/triagem.py` e `lib/nota.py`, como lógica
+  pura — ordenar e contar achado não precisa de HTML para ser verificado —, com 25 testes e
+  prova por mutação em cada trava.
+- `sw-infra-audit`: o relatório virou **A4 paisagem** (1070px de conteúdo, 44% mais largura
+  que o retrato) com as três fontes embutidas em **base64** (96 KB), porque o PDF é gerado por
+  um Chromium sem rede e `@font-face` apontando para fora sairia com a fonte do sistema. As
+  três são variáveis e OFL 1.1; as licenças viajam junto em
+  `assets/report-template/fontes/`. Faltando um arquivo, o relatório sai com fonte de sistema
+  em vez de não sair.
+- `sw-infra-audit`: **a higiene passou a ser a média das quatro práticas que ela mede**
+  (fixadas, não-root, com limite, com healthcheck) em vez de só `nonroot_pct`. Uma dimensão de
+  quatro medidas que exibe uma delas como nota não descreve a dimensão.
+
 ### Corrigido
+- `sw-infra-audit`: **o índice prometia seção que não existia.** Faixa sem achado nenhum
+  continuava listada com link, e no PDF o clique não levava a lugar nenhum. Agora só vira link
+  a faixa que foi desenhada — e há uma trava que confere, no HTML gerado, que todo `href`
+  interno tem destino e que nenhuma âncora se repete. A trava pegou o defeito na primeira
+  execução.
+- `sw-infra-audit`: **tabela dentro de cartão voltou a ter a primeira letra comida.** A regra
+  genérica `table{}` dá raio e `overflow:hidden` a toda tabela, e o canto arredondado cortava o
+  "N" de "NOME". É o mesmo defeito que já tinha teste; o CSS novo tinha nascido sem a regra que
+  o anula.
 - `sw-git-commit` (v0.1.1): a skill mandava usar **`git add -p`** para preparar hunks. Sem
   terminal esse comando **sai com código 0 e não põe nada em stage** (reproduzido num repo de
   teste): o commit seguinte saía vazio ou errado, sem aviso nenhum. O caminho padrão agora é
