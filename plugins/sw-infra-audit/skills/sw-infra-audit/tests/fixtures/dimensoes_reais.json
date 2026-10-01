@@ -1,0 +1,37 @@
+{
+ "operacao": {
+  "services_up": 57,
+  "services_total": 57,
+  "stopped": 0,
+  "failing": 0,
+  "nodes_down": 0,
+  "down": [],
+  "partial": [],
+  "note": "green"
+ },
+ "disponibilidade": {
+  "ha_pct": 42,
+  "spof_stateful": [
+   "exemplo_banco",
+   "exemplo_fila",
+   "exemplo_cache"
+  ],
+  "spof_critical": [
+   "exemplo_proxy"
+  ],
+  "note": "yellow"
+ },
+ "seguranca": {
+  "high": 0,
+  "med": 107,
+  "expected": 12,
+  "note": "yellow"
+ },
+ "higiene": {
+  "pinned_pct": 61,
+  "nonroot_pct": 0,
+  "limits_pct": 42,
+  "healthcheck_pct": 21,
+  "note": "yellow"
+ }
+}

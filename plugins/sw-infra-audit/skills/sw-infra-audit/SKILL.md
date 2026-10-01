@@ -2,7 +2,7 @@
 name: sw-infra-audit
 description: >-
   Audita a infraestrutura de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional)
-  com inventário, achados por gravidade e riscos aceitos. Trabalha por ALVOS: cluster Docker
+  com inventário, achados triados POR AÇÃO e riscos aceitos. Trabalha por ALVOS: cluster Docker
   (context/Swarm) e endpoint HTTP (saúde + validade do certificado). Use SEMPRE que o usuário
   quiser um raio-x da infra ou de parte dela — "audita minha infra", "como está o cluster",
   "o que pode cair primeiro", "relatório da infraestrutura", "esse certificado vence quando?",
@@ -259,14 +259,31 @@ aparecer no resumo**: relatório com buraco explícito é honesto; relatório qu
 python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM> --formato html
 ```
 
-Gera `relatorio.html`. O sumário no topo é **clicável também no PDF** — o Chromium converte as
-âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar.
+Gera `relatorio.html` — arquivo único, A4 **paisagem**, com as fontes embutidas em base64
+(o PDF é gerado sem rede). O índice do topo é **clicável também no PDF** — o Chromium converte
+as âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar.
+
+**O relatório é organizado por AÇÃO, não por gravidade.** Três faixas, nesta ordem:
+
+| Faixa | O que cai nela | O que ela promete |
+|---|---|---|
+| **Agir agora** | crítico e alto | o prejuízo cresce enquanto você lê |
+| **Programar** | médio | tem conserto conhecido e cabe numa janela |
+| **Registrar e seguir** | baixo e informativo | o retrato, para comparar na próxima rodada |
+
+Achado marcado como **esperada** não entra em faixa nenhuma — ele descreve o normal —, mas
+continua contado, para o gráfico de cascata do topo não mentir. A ordem dentro da faixa é
+severidade, depois regra e objeto: mesma entrada, mesma ordem, sempre.
+
+A capa abre com uma **nota de estabilidade** derivada das dimensões por regra, não escrita pelo
+agente: título reinventado a cada rodada torna duas auditorias incomparáveis. A interpretação do
+agente continua logo abaixo, no `resumo`.
 
 ### 6. Informar
 
 Caminho do relatório · quantos alvos em cada estado (**não invente uma nota única da infra**) ·
-achados por gravidade · o que ficou `sem dados` e por quê · riscos aceitos, com os vencidos em
-destaque · e o que mudou desde a auditoria anterior.
+quantos achados em cada faixa de ação · o que ficou `sem dados` e por quê · riscos aceitos, com
+os vencidos em destaque · e o que mudou desde a auditoria anterior.
 
 ### 7. Ofereça o PDF — no fim, não antes
 

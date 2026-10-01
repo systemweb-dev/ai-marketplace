@@ -35,12 +35,15 @@ def _relatorio():
                      "motivo": "o exporter deste componente não expõe histograma"}]}]}]}
 
 
-def test_sumario_lista_as_secoes_sem_numero_de_pagina():
-    """Número de página exigiria segunda passada dependente de ferramenta externa — saída
-    diferente por máquina, e lá se vai o determinismo."""
+def test_o_indice_anuncia_as_faixas_sem_numero_de_pagina():
+    """O sumario deste relatorio e o indice por ACAO: ele anuncia as tres faixas antes
+    de elas comecarem, para quem recebe decidir onde gastar a atencao.
+
+    Numero de pagina exigiria segunda passada dependente de ferramenta externa — saida
+    diferente por maquina, e la se vai o determinismo."""
     html = build_report.render_html_v3(_relatorio())
-    assert "Sumário" in html
-    assert "Insights por sistema" in html and "Achados" in html
+    assert "Como este relatorio esta organizado" in html or "organizado" in html
+    assert "Agir agora" in html and "Programar" in html and "Registrar e seguir" in html
     assert "pág." not in html
 
 

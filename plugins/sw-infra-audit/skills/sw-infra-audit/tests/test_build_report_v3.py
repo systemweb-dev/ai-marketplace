@@ -51,7 +51,8 @@ def test_o_que_existe_vem_antes_do_que_esta_errado(tmp_path):
     html = montar(tmp_path)
 
     assert "context: ctx" in html and "exemplo.invalido" in html
-    assert html.index("context: ctx") < html.index('id="achados"'), \
+    # o diagnostico comeca na primeira faixa de acao; antes dela so vem o inventario
+    assert html.index("context: ctx") < html.index('id="faixa-1"'), \
         "o mapa do que existe vem antes do diagnóstico"
 
 
@@ -109,7 +110,7 @@ def test_texto_do_agente_nao_injeta_secao_no_relatorio(tmp_path):
 
     html = montar(tmp_path, dados)
 
-    assert html.count('id="alvos"') == 1, "a seção existe uma vez só"
+    assert html.count('id="faixa-3"') == 1, "a seção existe uma vez só"
     assert "%%ALVOS%%" in html, "o marcador aparece como texto, não como seção"
 
 

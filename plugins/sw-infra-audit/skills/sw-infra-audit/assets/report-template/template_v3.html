@@ -2,437 +2,608 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>%%TITLE%%</title>
+<!-- Fontes OFL 1.1 embutidas em base64 pelo build_report.py: o PDF e gerado sem rede.
+     Creditos e licenca em assets/report-template/fontes/LICENCAS.md -->
+%%FONTES%%
 <style>
-  /* ============================================================
-     PRINT-FIRST: o PDF sai igual à tela. `print-color-adjust:exact` impede o
-     Chrome de apagar os fundos. Nada recolhível: no papel não dá para clicar —
-     mas o sumário É clicável no PDF, porque o Chromium converte as âncoras em
-     link com destino de página.
-     ============================================================ */
-  @page { size: A4; margin: 11mm 8mm 12mm; }
-  *,*::before,*::after{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  body{margin:0 auto;max-width:1060px;padding:34px 30px 50px;background:var(--paper);
-       color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.55;
-       -webkit-font-smoothing:antialiased}
-  h1,h2,h3,p,ul,ol,dl,dd{margin:0}
-  ul{list-style:none;padding:0}
-  a{color:inherit;text-decoration:none}
-  .muted{color:var(--soft)}
-  .num{font-variant-numeric:tabular-nums}
+.idx a{color:inherit;text-decoration:none}
+/* =======================================================================
+   TEMA. O relatorio e um documento: imprime em A4 e costuma virar PDF, entao o
+   claro e o padrao e e o unico que a impressao conhece. O escuro existe so para
+   quem le na tela com o sistema em escuro — por isso vive dentro de @media
+   screen, e nao vaza para o papel.
+   ======================================================================= */
+:root{--papel:#f7f7f7;--campo:#ffffff;--tinta:#17171a;--tinta2:#3f4046;--fraco:#66676e;
+ --fio:#e3e3e5;--linha:#eeeeef;--acc:#2a5f86;--crit:#b02a37;--ok:#12683f;--warn:#8a5806;
+ --campo2:color-mix(in srgb, var(--campo) 92%, var(--tinta));
+ --accs:color-mix(in srgb, var(--acc) 12%, var(--campo));
+ --crits:color-mix(in srgb, var(--crit) 12%, var(--campo));
+ --oks:color-mix(in srgb, var(--ok) 12%, var(--campo))}
+@media screen and (prefers-color-scheme: dark){
+  :root{--papel:#111113;--campo:#1a1a1d;--tinta:#f3f3f4;--tinta2:#c2c3c7;--fraco:#8f9096;
+   --fio:#2c2c31;--linha:#242428;--acc:#7fb6e0;--crit:#ff7d88;--ok:#56d99a;--warn:#f5c451;
+   --accs:color-mix(in srgb, var(--acc) 20%, var(--campo));
+   --crits:color-mix(in srgb, var(--crit) 20%, var(--campo));
+   --oks:color-mix(in srgb, var(--ok) 20%, var(--campo))}
+}
+/* a cor E informacao aqui (gravidade, estado): sem isto o navegador branqueia o
+   fundo ao imprimir e a faixa vermelha some */
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html{background:var(--papel)}
+/* COMANDO. `docker service update --health-cmd ...` passa de 200 caracteres: sem a
+   quebra ele sangra para fora da pagina e, no PDF, simplesmente some no corte. */
+pre{margin:14px 0 0;padding:13px 15px;background:#16171d;color:#e8e9ee;border-radius:3px;
+ font:400 12.4px/1.62 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
+code{font-family:var(--mono);font-size:.93em;overflow-wrap:anywhere}
+/* tabela e cartao nao se partem no meio quando ha pagina suficiente adiante */
+table,.no,.rec,.item,.app,.dim{break-inside:avoid}
+h2,h3,h4,.sub2{break-after:avoid}
 
-:root{--paper:#f6f8fa;--card:#fff;--ink:#0d1117;--ink2:#3d4655;--soft:#737e8c;
-  --line:#e6eaf0;--line2:#f0f3f7;
-  --acc:#14548c;--acc-soft:#e8f0f8;
-  --verde:#15734d;--ambar:#a9700d;--vermelho:#ab3126;--neutro:#c3c9d2;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
-  --mono:"DejaVu Sans Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --r:14px;--sh:0 1px 2px rgba(13,17,23,.04),0 14px 34px -22px rgba(13,17,23,.30);
-  background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.55;
-  padding:34px 30px 50px}
-.num{font-variant-numeric:tabular-nums}
-
-/* ---- abertura ---- */
-.capa{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;
-  padding-bottom:22px;margin-bottom:22px;border-bottom:1px solid var(--line)}
-.eye{display:inline-flex;align-items:center;gap:8px;font:700 10px/1 var(--mono);
-  letter-spacing:.18em;text-transform:uppercase;color:var(--acc)}
-.eye::before{content:"";width:18px;height:2px;background:var(--acc)}
-h1{font-size:34px;font-weight:800;letter-spacing:-.038em;line-height:1.08;
-  margin:14px 0 12px;max-width:21ch}
-.lede{font-size:14.5px;line-height:1.66;color:var(--ink2);max-width:60ch}
-.lede b{color:var(--ink);font-weight:650}
-.selos{display:flex;flex-direction:column;gap:7px;text-align:right;white-space:nowrap}
-.selo{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end;
-  font-size:12px;color:var(--ink2)}
-.selo b{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
-.selo i{width:7px;height:7px;border-radius:99px;background:var(--c,var(--neutro))}
-
-/* ---- sumário ---- */
-h2{display:flex;align-items:baseline;gap:12px;font-size:12px;font-weight:800;
-  letter-spacing:.14em;text-transform:uppercase;color:var(--soft);margin:32px 0 14px}
-h2 em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--acc)}
-h2::after{content:"";flex:1;height:1px;background:var(--line)}
-.sumario{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  box-shadow:var(--sh);padding:6px 22px}
-.sum-l{grid-template-columns:30px 1fr auto;padding:11px 0;border-top:1px solid var(--line2)}
-.sum-l:first-child{border-top:0}
-.sum-n{font-family:var(--mono);font-size:11px;color:var(--acc);opacity:1}
-.sum-l b{font-size:14px;letter-spacing:-.012em}
-.sum-d{font-size:12px;color:var(--soft);opacity:1}
-.sum-q{font-size:11.5px;font-weight:700;color:var(--c,var(--soft));font-family:var(--sans)}
-.ok{--c:var(--verde)} .at{--c:var(--ambar)}
-.bad{--c:var(--vermelho)} .na{--c:var(--soft)}
-
-/* ---- mostrador em anel: arco fino, agulha discreta ---- */
-.anel{position:relative;width:var(--d,88px);height:calc(var(--d,88px)/2 + 6px);overflow:hidden;margin:0 auto}
-.anel .arco{position:absolute;left:0;top:0;width:var(--d,88px);height:var(--d,88px);
-  border-radius:50%;
-  background:conic-gradient(from 270deg,
-    var(--verde) 0 25%, var(--ambar) 25% 38%, var(--vermelho) 38% 50%, transparent 50%)}
-.anel .furo{position:absolute;left:12%;top:12%;width:76%;height:76%;border-radius:50%;
-  background:var(--card)}
-.anel.apagado .arco{background:conic-gradient(from 270deg,var(--neutro) 0 50%,transparent 50%);
-  opacity:.45}
-.anel .agulha{position:absolute;left:50%;bottom:6px;width:2px;height:calc(var(--d,88px)/2 - 7px);
-  background:var(--ink);transform-origin:bottom center;transform:rotate(var(--ang,0deg));border-radius:2px}
-.anel .eixo{position:absolute;left:50%;bottom:2px;width:9px;height:9px;margin-left:-4.5px;
-  border-radius:50%;background:var(--ink)}
-.anel.apagado .agulha{display:none}
-
-/* ---- topologia ---- */
-.mapa{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  box-shadow:var(--sh);padding:30px 26px 24px}
-.camada{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;position:relative}
-.camada + .camada{margin-top:46px}
-.camada + .camada::before{content:"";position:absolute;left:50%;top:-30px;width:1.5px;
-  height:14px;background:var(--line);transform:translateX(-50%)}
-/* a barra de ramificação só existe quando há mais de um filho — numa camada de um nó só
-   ela ficaria flutuando, prometendo uma bifurcação que não acontece */
-.camada.ramifica::after{content:"";position:absolute;left:14%;right:14%;top:-16px;
-  height:1.5px;background:var(--line)}
-.camada.ramifica .no::before{content:"";position:absolute;left:50%;top:-16px;width:1.5px;
-  height:16px;background:var(--line);transform:translateX(-50%)}
-.no{position:relative;background:var(--card);border:1px solid var(--line);
-  border-top:3px solid var(--c,var(--neutro));border-radius:11px;padding:14px 16px 15px;
-  min-width:182px;text-align:center;box-shadow:var(--sh)}
-.no.na{border-style:dashed;border-top-style:solid;--c:var(--neutro)}
-.no b{display:block;font-size:14px;letter-spacing:-.015em}
-.no .sub{display:block;font-family:var(--mono);font-size:10px;color:var(--soft);margin-top:3px}
-.no .qt{position:absolute;top:-10px;right:-10px;min-width:22px;height:22px;
-  background:var(--c);color:#fff;font:800 11px/22px var(--sans);border-radius:99px;
-  box-shadow:0 2px 6px rgba(13,17,23,.25)}
-.no .leitura{font-family:var(--mono);font-size:10.5px;color:var(--ink2);margin-top:6px}
-.no .leitura.vazio{color:var(--soft)}
-.legenda{display:flex;gap:18px;flex-wrap:wrap;margin-top:26px;padding-top:16px;
-  border-top:1px solid var(--line2);font-size:11.5px;color:var(--soft)}
-.legenda span{display:inline-flex;align-items:center;gap:7px}
-.legenda i{width:11px;height:3px;border-radius:2px;background:var(--c)}
-
-/* ---- instrumentos ---- */
-.medidores{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.med{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  box-shadow:var(--sh);padding:20px 16px 16px;text-align:center}
-.med .v{font-size:25px;font-weight:800;letter-spacing:-.035em;line-height:1;margin-top:12px}
-.med .v.vazio{color:var(--soft)}
-.med .k{font-size:12px;font-weight:650;color:var(--ink2);margin-top:7px}
-.med .faixa{font-size:11px;color:var(--soft);margin-top:3px}
-.med .f{font-family:var(--mono);font-size:9.5px;color:var(--soft);margin-top:12px;
-  padding-top:10px;border-top:1px solid var(--line2)}
-
-/* ---- ocorrências ---- */
-.ocorr{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  box-shadow:var(--sh);padding:18px 20px;margin-bottom:11px;position:relative;overflow:hidden}
-.ocorr::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c)}
-.crit{--c:var(--vermelho)} .alto{--c:var(--ambar)}
-.medio{--c:var(--acc)} .baixo{--c:var(--neutro)}
-.ocorr .cab{display:flex;gap:11px;align-items:center;flex-wrap:wrap}
-.ocorr b{font-size:15.5px;font-weight:750;letter-spacing:-.02em}
-.ocorr .sev{font:800 9.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
-  color:var(--c);background:color-mix(in srgb,var(--c) 10%,#fff);border-radius:99px;padding:5px 10px}
-.ocorr .no-tag{font-family:var(--mono);font-size:10.5px;color:var(--ink2);
-  background:var(--line2);border-radius:99px;padding:5px 10px}
-.ocorr .id{font-family:var(--mono);font-size:10.5px;color:var(--soft);margin-top:6px}
-.ocorr p{font-size:13px;color:var(--ink2);margin-top:9px;max-width:76ch}
-.proc{margin-top:14px;background:#fbfcfd;border:1px solid var(--line2);border-radius:11px;
-  padding:15px 17px}
-.proc-h{display:flex;align-items:center;gap:8px;font:800 9.5px/1 var(--sans);
-  letter-spacing:.13em;text-transform:uppercase;color:var(--acc);margin-bottom:10px}
-.proc-h::before{content:"";width:12px;height:2px;background:var(--acc)}
-.proc ol{margin:0;padding-left:18px;font-size:12.6px;color:var(--ink2);display:grid;gap:6px}
-.proc ol li::marker{color:var(--acc)}
-.proc pre{margin:11px 0 0;background:var(--ink);color:#e9eef4;border-radius:9px;
-  padding:12px 14px;font-family:var(--mono);font-size:11.5px;line-height:1.6;
-  white-space:pre-wrap;word-break:break-word}
-.proc .conf{margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);
-  font-size:12.4px;color:var(--ink2)}
-.proc .conf b{color:var(--verde)}
-
-  /* ---------------- o que o mockup não previa ---------------- */
-  .nota-legenda{margin-top:10px;font-size:11.5px;line-height:1.6;color:var(--soft);max-width:78ch}
-  .nota-legenda b{color:var(--ink2);font-weight:650}
-  .sum-t{display:grid}
-  .sum-l{display:grid;align-items:baseline;text-decoration:none}
-  .sum-d{grid-column:2}
-  .sum-l.bad .sum-q{--c:var(--vermelho)} .sum-l.ok .sum-q{--c:var(--verde)}
-  .comp{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-        box-shadow:var(--sh);padding:17px 19px;margin-bottom:10px}
-  .comp .an{font-size:12.8px;color:var(--ink2);margin-bottom:10px}
-  .sys{display:flex;align-items:center;gap:11px;margin-bottom:11px}
-  .sys .tag{font:700 9.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;
-            color:var(--acc);background:var(--acc-soft);border-radius:99px;padding:5px 10px}
-  .sys h3{font-size:15.5px;font-weight:750;letter-spacing:-.02em}
-  .sys .dono{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--soft)}
-  .insight{padding:10px 0;border-top:1px solid var(--line2)}
-  .insight:first-of-type{border-top:0}
-  .ih{display:flex;align-items:baseline;gap:10px;justify-content:space-between}
-  .ih b{font-size:12.8px}
-  .ih .src{font-family:var(--mono);font-size:10px;color:var(--soft)}
-  .insight .v{font-size:22px;font-weight:800;letter-spacing:-.03em;display:inline-block;margin-top:5px}
-  .insight .un{font-size:11px;color:var(--soft);font-weight:400}
-  .pend{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-        box-shadow:var(--sh);padding:14px 17px;margin-bottom:9px}
-  .pend-h{display:flex;align-items:baseline;gap:10px}
-  .pend-h code.papel{font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:700}
-  .pend-m code{font-family:var(--mono);font-size:11.2px;background:var(--line2);
-               border-radius:4px;padding:1px 5px}
-  .pend-m{font-size:12.6px;color:var(--ink2);margin-top:7px}
-  .pend-c{font-family:var(--mono);font-size:10.8px;color:var(--soft);margin-top:6px;
-          overflow-wrap:anywhere;line-height:1.75}
-  .nota{font-size:12.6px;color:var(--ink2);max-width:80ch;margin-bottom:14px}
-  .semdados{padding:10px 0;border-top:1px solid var(--line2);font-size:12.3px;color:var(--soft)}
-  .semdados b{color:var(--ink2)}
-  .rank{display:grid;gap:8px;margin-top:8px}
-  /* Lista de vários campos (filas, consumidores, ritmo): tabela densa em mono, no espírito da
-     referência que o dono mostrou — muitos dados por linha, nada de cartão por item. */
-  /* As tabelas dentro de cartão NÃO herdam o visual de tabela-cartão da regra genérica
-     `table{}` (borda, sombra, raio e overflow:hidden). Com raio e overflow, o canto
-     arredondado cortava a primeira letra da primeira coluna — que tem padding esquerdo zero. */
-  .campos,.ocs{border:0;border-radius:0;overflow:visible;box-shadow:none;background:transparent}
-  .campos{width:100%;border-collapse:collapse;margin-top:10px;table-layout:auto}
-  .campos th{font:800 9px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;
-             color:var(--soft);text-align:left;padding:0 12px 7px 0;border-bottom:1px solid var(--line)}
-  .campos td{font-family:var(--mono);font-size:11.2px;color:var(--ink2);
-             padding:5px 12px 5px 0;border-bottom:1px solid var(--line2);overflow-wrap:anywhere}
-  .campos td:first-child{color:var(--ink)}
-  .campos tr:last-child td{border-bottom:none}
-  .corte{font-size:11.6px;color:var(--soft);margin-top:8px}
-  .corte code{font-family:var(--mono);font-size:11px}
-  .rk{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
-  .rk .lb{font-family:var(--mono);font-size:11.5px}
-  .rk .vl{font-family:var(--mono);font-size:12px;font-weight:700}
-  .rk .bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--line2);overflow:hidden}
-  .rk .bar i{display:block;height:100%;border-radius:99px;background:var(--acc)}
-  /* Grupo de achados: uma regra, N ocorrências. O cartão é do GRUPO; a ocorrência é linha.
-     Foi o que tirou o relatório de 121 páginas — a repetição saiu, o dado ficou. */
-  .grp{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-       box-shadow:var(--sh);padding:17px 19px;margin-bottom:11px;position:relative;overflow:hidden}
-  .grp::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--neutro))}
-  .grp.critical{--c:var(--vermelho)} .grp.high{--c:var(--ambar)}
-  .grp.medium{--c:var(--acc)} .grp.low,.grp.info{--c:var(--neutro)}
-  .grp-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .grp-h b{font-size:15px;font-weight:750;letter-spacing:-.02em}
-  .grp .sev{font:800 9.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
-  .grp-n{font:700 11px/1 var(--sans);color:var(--ink2);background:var(--line2);
-         border-radius:99px;padding:4px 9px}
-  .grp-r{font-family:var(--mono);font-size:10px;color:var(--soft);margin-left:auto}
-  .grp-d{font-size:12.8px;color:var(--ink2);margin-top:8px;max-width:78ch}
-  .grp-d p{margin:0} .grp-d p + p{margin-top:7px}
-  .grp-d code{font-family:var(--mono);font-size:11.4px;background:var(--line2);
-              border-radius:4px;padding:1px 5px}
-  .fix code{font-family:var(--mono);font-size:11.6px;background:var(--line2);
-            border-radius:4px;padding:1px 5px}
-  .fix p + p{margin-top:8px}
-  .grp-c{font-family:var(--mono);font-size:11px;color:var(--soft);margin-top:5px}
-  /* A tabela de ocorrências: densa de propósito. 75 linhas cabem onde cabiam 3 cartões. */
-  .ocs{width:100%;border-collapse:collapse;margin-top:12px;table-layout:fixed}
-  .ocs tr{border-top:1px solid var(--line2)}
-  .ocs tr:first-child{border-top:1px solid var(--line)}
-  .ocs td{padding:4px 10px 4px 0;font-size:11.4px;color:var(--ink2);vertical-align:baseline;
-          overflow-wrap:anywhere}
-  .ocs .oc-o{font-family:var(--mono);font-size:11px;color:var(--ink);width:40%}
-  .ocs .oc-a{font-family:var(--mono);font-size:10.5px;color:var(--soft);width:20%}
-  .ocs .oc-d{font-size:11.4px}
-  .ocs .oc-v{width:110px;text-align:right}
-  /* Em tela larga a lista vira duas colunas: a mesma densidade da referência, sem apertar o tipo. */
-  @media screen and (min-width:1000px){
-    .ocs{column-count:2;column-gap:34px;display:block}
-    .ocs tr{display:flex;gap:10px;break-inside:avoid}
-    .ocs td{flex:1 1 auto}
-    .ocs .oc-o{flex:0 0 55%}
-  }
-  .chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:650;
-        border-radius:99px;padding:5px 11px;background:var(--line2);color:var(--ink2)}
-  .chip.bad{background:#fdecea;color:var(--vermelho)}
-  .chip.at{background:#fdf4e3;color:var(--ambar)}
-  .chip.ok{background:#e8f4ee;color:var(--verde)}
-  .chip .dot{width:7px;height:7px;border-radius:99px;background:currentColor}
-  .fix .val,.fix .nao{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);
-                      font-size:12.4px;color:var(--ink2)}
-  .fix .val b{color:var(--verde)} .fix .nao b{color:var(--ambar)}
-  .fix{margin-top:14px;background:#fbfcfd;border:1px solid var(--line2);border-radius:11px;padding:15px 17px}
-  .fix-h{display:flex;align-items:center;gap:8px;font:800 9.5px/1 var(--sans);letter-spacing:.13em;
-         text-transform:uppercase;color:var(--acc);margin-bottom:10px}
-  .fix-h::before{content:"";width:12px;height:2px;background:var(--acc)}
-  .fix p,.fix ol,.fix ul{font-size:12.6px;color:var(--ink2)}
-  .fix ol,.fix ul{margin:0;padding-left:18px;display:grid;gap:6px}
-  /* o `ul` perdia o marcador para o reset global; sem ele a lista parecia texto solto */
-  .fix ul{list-style:disc} .fix ol{list-style:decimal}
-  .fix pre{margin:11px 0 0;background:var(--ink);color:#e9eef4;border-radius:9px;padding:12px 14px;
-           font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-  .imp{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);
-       padding:14px 17px;margin-bottom:9px;display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
-  .imp b{font-size:13.5px} .imp p{width:100%;font-size:12.6px;color:var(--ink2)}
-  .imp .dono{font-family:var(--mono);font-size:10.5px;color:var(--soft)}
-  .duo{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .duo>div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-           box-shadow:var(--sh);padding:16px 19px}
-  .duo h3{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-          color:var(--soft);margin-bottom:11px}
-  .duo li{font-size:12.7px;color:var(--ink2);padding:7px 0;border-top:1px solid var(--line2)}
-  .duo li:first-child{border-top:0}
-  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
-        border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
-  th{text-align:left;font:800 9px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
-     color:var(--soft);padding:12px 15px;border-bottom:1px solid var(--line)}
-  td{padding:12px 15px;border-bottom:1px solid var(--line2);font-size:12.6px;color:var(--ink2)}
-  tr:last-child td{border-bottom:0}
-  td.m{font-family:var(--mono);font-size:11.5px}
-  .r-tag{font:700 10px/1 var(--sans);padding:5px 9px;border-radius:6px;white-space:nowrap}
-
-  /* ---------------- cluster e aplicações ----------------
-     As duas seções vieram do relatório de cluster, que tinha folha de estilo própria.
-     Aqui elas falam a língua do v3: cartão claro, rótulo em mono maiúsculo, acento em
-     faixa lateral — e nenhuma cor nova fora dos tokens. */
-  .alvo-h{display:flex;align-items:baseline;gap:9px;font-size:15.5px;font-weight:750;
-          letter-spacing:-.02em;margin:18px 0 10px}
-  .alvo-h:first-child{margin-top:0}
-  .alvo-h .muted{font-family:var(--mono);font-size:11px;font-weight:400}
-  h4.hsub{font:800 9.5px/1 var(--sans);letter-spacing:.13em;text-transform:uppercase;
-          color:var(--soft);margin:20px 0 9px}
-  /* Falhas por código de saída: cada linha é UM evento, não N ocorrências soltas. */
-  .nfail{margin-top:12px}
-  .nfh{font:800 9.5px/1 var(--sans);letter-spacing:.13em;text-transform:uppercase;
-       color:var(--soft);margin-bottom:8px}
-  .nfrow{background:var(--card);border:1px solid var(--line);border-radius:11px;
-         padding:11px 14px;margin-bottom:7px;break-inside:avoid;page-break-inside:avoid}
-  .nfhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .nfcode{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--vermelho)}
-  .nfhint{font-size:12.4px;color:var(--ink2)}
-  .nfmulti{font-size:11px;color:var(--soft);margin-left:auto}
-  .nfsvcs{font-family:var(--mono);font-size:11px;color:var(--soft);margin-top:5px;
-          overflow-wrap:anywhere}
-  /* Bloco de aplicação: cabeçalho com nome, selos e as rotas do ingress; tabela dentro. */
-  .card.stack{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-              box-shadow:var(--sh);padding:16px 19px;margin-bottom:11px;
-              position:relative;overflow:hidden}
-  .card.stack::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
-                      background:var(--c,var(--neutro))}
-  .card.stack.red{--c:var(--vermelho)} .card.stack.yellow{--c:var(--ambar)}
-  .card.stack.green{--c:var(--verde)}
-  .card.stack .sh{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:4px}
-  .card.stack .sh .dot{width:7px;height:7px;border-radius:99px;
-                       background:var(--c,var(--acc));align-self:center}
-  .card.stack .nm{font-size:15px;font-weight:750;letter-spacing:-.02em}
-  .card.stack .routes{font-family:var(--mono);font-size:10.5px;color:var(--soft);
-                      margin-left:auto;overflow-wrap:anywhere}
-  .card.stack .an{font-size:12.6px;color:var(--ink2);margin-top:10px}
-  /* As tabelas dentro do cartão não repetem a moldura do cartão (mesma razão de `.campos`). */
-  .card.stack table{border:0;border-radius:0;overflow:visible;box-shadow:none;
-                    background:transparent;margin-top:10px}
-  .card.stack th{padding:0 12px 7px 0;border-bottom:1px solid var(--line)}
-  .card.stack td{padding:6px 12px 6px 0;font-size:11.6px;overflow-wrap:anywhere}
-  .card.stack td code{font-family:var(--mono);font-size:11px}
-  /* Selo de contagem/estado. Herdado dos dois blocos acima — um só desenho para todos. */
-  .badge{display:inline-flex;align-items:center;font:700 10px/1 var(--sans);
-         border-radius:99px;padding:5px 9px;background:var(--line2);color:var(--ink2);
-         white-space:nowrap}
-  .badge.high{background:#fdecea;color:var(--vermelho)}
-  .badge.med{background:#fdf4e3;color:var(--ambar)}
-  .badge.ok{background:#e8f4ee;color:var(--verde)}
-  .badge.low,.badge.kind{background:var(--line2);color:var(--soft)}
-  .badge.kind{font-family:var(--mono);font-weight:400;font-size:10px}
-
-  /* ---------------- quebras de página ---------------- */
-  .mapa,.med,.comp,.imp,.duo>div,.insight,.camada,.card.stack{break-inside:avoid;page-break-inside:avoid}
-  /* O sumário é alto demais para caber no resto da página da capa: indivisível, ele pulava
-     inteiro para a folha seguinte e deixava meia página em branco logo na abertura.
-     Ele pode quebrar; cada LINHA é que não pode. */
-  .sumario{break-inside:auto} .sum-l{break-inside:avoid;page-break-inside:avoid}
-  /* Um grupo de 75 ocorrências NÃO cabe numa página: forçar avoid empurraria o bloco
-     inteiro para a próxima e deixaria meia folha em branco. O cabeçalho é que não
-     pode se separar da primeira linha. */
-  .grp{break-inside:auto} .grp-h,.grp-d{break-after:avoid;page-break-after:avoid}
-  /* Na tela as ocorrências já iam em duas colunas; no papel iam em UMA, e 75 linhas gastavam
-     duas folhas com metade da largura vazia. A4 comporta três. */
-  .ocs{column-count:3;column-gap:16px;display:block}
-  /* Objeto em cima, detalhe embaixo: lado a lado, numa coluna de ~60 mm, `orfa-001@staging`
-     quebrava no meio do nome e o detalhe ocupava três linhas. */
-  .ocs tr{display:block;padding:3px 0}
-  .ocs td{display:block;font-size:9.4px;padding:0;width:auto}
-  /* `width:auto` aqui: a regra de tela `.ocs .oc-o{width:40%}` é mais específica que
-     `.ocs td` e espremia o objeto em 40% da coluna — `orfa-001@staging` quebrava no hífen */
-  .ocs .oc-o{font-size:9.6px;overflow-wrap:anywhere;width:auto}
-  .ocs .oc-d{font-size:8.6px;color:var(--soft)}
-  .ocs tr{break-inside:avoid;page-break-inside:avoid}
-  .campos tr{break-inside:avoid;page-break-inside:avoid}
-  .campos thead{display:table-header-group}
-  h2,.sc-h{break-after:avoid;page-break-after:avoid}
-  .fix{break-inside:auto} .fix pre{break-inside:avoid}
-  table{break-inside:auto} thead{display:table-header-group} tr{break-inside:avoid}
-  @media print{
-    body{max-width:none;padding:0;background:#fff;font-size:11.4px}
-    .capa,.sumario,.mapa,.med,.comp,.ach,.imp,.duo>div,table{box-shadow:none}
-    h2{margin:20px 0 11px}
-    .camada + .camada{margin-top:34px}
-  }
-</style>
+body{padding:0;background:var(--papel)}
+:root{--r:4px;--r2:3px;--disp:"Bricolage Grotesque", system-ui, sans-serif;--sans:"Figtree", system-ui, sans-serif;--mono:"JetBrains Mono", ui-monospace, monospace;
+ /* escala de espaco. Os valores estruturais saem daqui; micro-espaco de icone fica solto. */
+ --s1:8px;--s2:12px;--s3:16px;--s4:24px;--s5:32px;--s6:40px;--s7:56px;--s8:72px;
+ color:var(--tinta);font-family:var(--sans);font-size:16.5px;line-height:1.68;letter-spacing:-.003em}
+::selection{background:var(--tinta);color:#fff}
+p,h1,h2,h3,h4{margin:0}
+ul,ol{margin:0;padding:0;list-style:none}
+.n{font-variant-numeric:tabular-nums;font-family:var(--mono);letter-spacing:-.02em}
+.ic{width:1em;height:1em;flex:none;fill:none;stroke:currentColor;stroke-width:1.75;
+ stroke-linecap:round;stroke-linejoin:round}
+.capa{padding:var(--s7) 44px var(--s6);background:var(--campo);border-bottom:1px solid var(--fio)}
+.marca{display:flex;align-items:center;gap:10px;font:600 12px/1 var(--sans);
+ letter-spacing:.04em;text-transform:uppercase;color:var(--acc);margin-bottom:22px}
+.marca .ic{width:17px;height:17px}
+.capa h1{font:700 38px/1.12 var(--disp);letter-spacing:-.018em;max-width:18ch;
+ margin-bottom:var(--s4)}
+.capa .tese{margin-top:0;font-size:16.5px;line-height:1.66;color:var(--tinta2);max-width:60ch}
+.capa .tese b{color:var(--tinta);font-weight:600}
+.capa-l{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s6);align-items:start}
+.alvo-card{border:1px solid var(--fio);border-radius:var(--r2);padding:var(--s4);
+ min-width:268px;background:var(--campo2)}
+.alvo-card .nome{display:flex;align-items:center;gap:9px;font:600 17px/1.2 var(--sans)}
+.alvo-card .nome .ic{width:19px;height:19px;color:var(--acc)}
+.alvo-card .ctx{font:400 12.5px/1.4 var(--mono);color:var(--fraco);margin:6px 0 16px}
+.alvo-card .l{display:flex;justify-content:space-between;gap:var(--s2);padding:5px 0;
+ font-size:13.6px;color:var(--fraco)}
+/* O cartao responde "esta tudo ok com o servidor?" em tres blocos, porque a resposta nao e
+   uma so: a infraestrutura pode estar inteira com um fluxo de aplicacao parado. Juntar os
+   dois num selo unico foi o que fazia o relatorio dizer "Degradado" ao lado de 57/57 no ar. */
+.chk{padding:var(--s2) 0;border-top:1px solid var(--fio)}
+.chk:first-of-type{border-top:0;padding-top:var(--s1)}
+.ch2{display:flex;align-items:center;gap:var(--s1);margin-bottom:var(--s1)}
+.ch2 .ic{width:16px;height:16px}
+.ch2 b{font:600 13.5px/1 var(--sans)}
+.ch2 em{margin-left:auto;font-style:normal;font:600 11.5px/1 var(--sans);
+ padding:4px 9px;border-radius:99px}
+.chk.ok .ch2 .ic,.chk.ok .ch2 b{color:var(--ok)}
+.chk.ok .ch2 em{background:var(--oks);color:var(--ok)}
+.chk.mal .ch2 .ic,.chk.mal .ch2 b{color:var(--crit)}
+.chk.mal .ch2 em{background:var(--crits);color:var(--crit)}
+.chk.neutro .ch2 .ic,.chk.neutro .ch2 b{color:var(--fraco)}
+.chk.neutro .l{color:var(--fraco)}
+.chk.neutro .l b{color:var(--tinta2);font-weight:400}
+.alvo-card .l b{font:500 14px/1 var(--mono);color:var(--tinta)}
+.alvo-card .l b.mal{color:var(--crit)}
+.estado{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:99px;
+ font:600 12px/1 var(--sans);background:var(--crits);color:var(--crit)}
+.estado i{width:7px;height:7px;border-radius:99px;background:currentColor}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--s4) var(--s2);
+ margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--fio);align-items:start}
+.kpis .v{font:700 34px/1 var(--disp);letter-spacing:-.02em}
+.kpis .v.mal{color:var(--crit)}
+.kpis .v.bom{color:var(--ok)}
+.kpis .lb{font-size:12.6px;line-height:1.4;color:var(--fraco);margin-top:var(--s1)}
+.fora{padding:14px 44px;background:var(--campo2);border-bottom:1px solid var(--fio);
+ display:flex;align-items:center;gap:10px;font-size:13px;color:var(--fraco)}
+.fora .ic{width:16px;height:16px}
+.idx{padding:var(--s5) 44px var(--s6);border-bottom:1px solid var(--fio)}
+.idx-h{font:600 12px/1 var(--sans);letter-spacing:.06em;text-transform:uppercase;
+ color:var(--fraco);margin-bottom:var(--s4)}
+.idx ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:2px 26px}
+.idx li{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:center;
+ padding:11px 0;border-bottom:1px solid var(--linha)}
+.idx li .ic{width:17px;height:17px;color:var(--fraco)}
+.idx li .t{font-size:14.5px;font-weight:500}
+.idx li .v{font:500 13px/1 var(--mono);color:var(--fraco)}
+.idx li.q .ic,.idx li.q .v{color:var(--crit)}
+section.sec{padding:var(--s6) 44px 0}
+.sh{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s4)}
+.sh .box{display:grid;place-items:center;width:34px;height:34px;border-radius:var(--r2);
+ background:var(--accs);color:var(--acc)}
+.sh .box .ic{width:18px;height:18px}
+.sh h2{font:600 20px/1.2 var(--sans);letter-spacing:-.018em}
+.sh .desc{font-size:13.5px;color:var(--fraco);margin-left:auto;text-align:right}
+.sh.alerta .box{background:var(--crits);color:var(--crit)}
+.cartao{background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);padding:var(--s4)}
+.duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);align-items:start}
+.achado{background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);
+ margin-bottom:16px;overflow:hidden}
+.achado .cab{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:var(--s3);
+ align-items:center;padding:var(--s4) var(--s4) 0}
+.achado .sel{display:grid;place-items:center;width:38px;height:38px;border-radius:var(--r2);
+ background:var(--crits);color:var(--crit)}
+.achado.med .sel{background:var(--linha);color:var(--tinta2)}
+.achado .sel .ic{width:19px;height:19px}
+.achado h3{font:600 19px/1.3 var(--sans);letter-spacing:-.018em}
+.achado .regra{font:400 12px/1 var(--mono);color:var(--fraco);margin-top:5px}
+.achado .qt{font:700 30px/1 var(--disp);color:var(--crit);letter-spacing:-.02em}
+.achado.med .qt{color:var(--tinta2)}
+.achado .qt em{display:block;font:400 11.5px/1 var(--sans);font-style:normal;
+ color:var(--fraco);margin-top:6px;text-align:right}
+.achado .pq{padding:var(--s3) var(--s4) var(--s4);font-size:15px;line-height:1.66;color:var(--tinta2);max-width:72ch}
+.achado .pq b{color:var(--tinta);font-weight:600}
+.achado .dados{padding:0 var(--s4) var(--s4)}
+.fix{background:var(--accs);border-top:1px solid var(--fio);padding:var(--s4)}
+.fix .fh{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s4)}
+.fix .fh .ic{width:19px;height:19px;color:var(--acc)}
+.fix .fh b{font:600 14px/1 var(--sans);color:var(--acc)}
+.fix .fh span{margin-left:auto;font-size:12.5px;color:var(--fraco)}
+.fix ol{counter-reset:s;display:grid;gap:var(--s2)}
+.fix ol li{counter-increment:s;display:grid;grid-template-columns:24px 1fr;gap:12px;
+ font-size:14.5px;color:var(--tinta2)}
+.fix ol li>span{grid-column:2}
+.fix ol li::before{content:counter(s);display:grid;place-items:center;width:22px;height:22px;
+ border-radius:99px;background:#fff;color:var(--acc);font:600 12px/1 var(--mono)}
+.custo{display:inline-block;margin-left:8px;padding:3px 8px;border-radius:99px;
+ font:600 11px/1.3 var(--sans);background:#fff;color:var(--fraco)}
+.custo.risco{background:var(--crits);color:var(--crit)}
+.fix pre{margin:16px 0 0;background:#16171d;color:#e8e9ee;border-radius:var(--r2);
+ font:400 13px/1.7 var(--mono);padding:16px 18px;white-space:pre-wrap;word-break:break-word}
+.fix pre .c{color:#8f95a3}
+.fix .sub{margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--fio)}
+.fix .sub b{display:flex;align-items:center;gap:8px;font:600 12.5px/1 var(--sans);
+ color:var(--tinta);margin-bottom:8px}
+.fix .sub b .ic{width:15px;height:15px}
+.fix .sub.nao b{color:var(--warn)}
+.fix .sub p{font-size:14px;color:var(--tinta2)}
+.fix code,.fixmin code,.nota code{font:400 13px/1.5 var(--mono);
+ background:#fff;padding:2px 6px;border-radius:5px;color:var(--tinta)}
+.apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(324px,1fr));gap:var(--s3)}
+.app{background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);padding:20px 22px}
+.app.crit{border-color:var(--crit);background:var(--campo)}
+.app .ah{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.app .ah .box{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r2);
+ background:var(--linha);color:var(--tinta2)}
+.app.crit .ah .box{background:var(--crits);color:var(--crit)}
+.app .ah .box .ic{width:17px;height:17px}
+.app .ah h4{font:600 16.5px/1.25 var(--sans);letter-spacing:-.015em}
+.app .ah .qt{margin-left:auto;font:500 13px/1 var(--mono);color:var(--fraco);white-space:nowrap}
+.app .svcs{display:grid;gap:7px;margin-top:15px;padding-top:14px;border-top:1px solid var(--linha)}
+.app .svcs .s{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:baseline}
+.app .svcs .s .nm{font:400 12.5px/1.4 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+.app .svcs .s .tag{font:600 11.5px/1.3 var(--sans);color:var(--fraco);white-space:nowrap}
+.app .svcs .s .tag.mal{color:var(--crit)}
+.app .sinal{margin-top:14px;padding:11px 13px;border-radius:var(--r2);background:var(--crits);
+ display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--crit)}
+.app .sinal .ic{width:16px;height:16px;margin-top:3px}
+.pn{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);align-items:start}
+.pn .col{background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);overflow:hidden}
+.pn .col>h3{display:flex;align-items:center;gap:10px;padding:16px 22px;
+ border-bottom:1px solid var(--fio);font:600 15px/1 var(--sans)}
+.pn .col>h3 .ic{width:18px;height:18px}
+.pn .col>h3 .c{margin-left:auto;font:500 15px/1 var(--mono)}
+.pn .pos>h3{color:var(--ok);background:var(--oks)}
+.pn .neg>h3{color:var(--crit);background:var(--crits)}
+.item{padding:var(--s3) var(--s4);border-bottom:1px solid var(--linha)}
+.item:last-child{border-bottom:0}
+.item .l1{display:flex;align-items:baseline;justify-content:space-between;gap:16px}
+.item .tt{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.item .ev{font:500 16px/1 var(--mono);white-space:nowrap}
+.pos .ev{color:var(--ok)}
+.neg .ev{color:var(--crit)}
+.item .sub{font-size:13.8px;color:var(--fraco);margin-top:7px}
+.item .fixmin{margin-top:13px;padding:13px 15px;border-radius:var(--r2);background:var(--accs)}
+.item .fixmin b{display:flex;align-items:center;gap:8px;font:600 12.5px/1 var(--sans);
+ color:var(--acc);margin-bottom:7px}
+.item .fixmin b .ic{width:15px;height:15px}
+.item .fixmin p{font-size:13.8px;color:var(--tinta2)}
+.nos{display:grid;grid-template-columns:repeat(auto-fit,minmax(214px,1fr));gap:var(--s3)}
+.no{background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);padding:var(--s4)}
+.no .nh{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.no .nh .ic{width:17px;height:17px;color:var(--fraco)}
+.no .nh b{font:400 13px/1.3 var(--mono)}
+.no .nh em{font-style:normal;margin-left:auto;font:600 11px/1.3 var(--sans);
+ padding:3px 9px;border-radius:99px;background:var(--accs);color:var(--acc)}
+.no .l{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 0;font-size:13.5px;color:var(--fraco);min-width:0}
+.no .l b{font:500 13.5px/1 var(--mono);color:var(--tinta);white-space:nowrap}
+.no .l b.mal{color:var(--crit)}
+.cen{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:var(--s3);align-items:baseline;
+ padding:var(--s3) 0;border-bottom:1px solid var(--linha)}
+.cen:last-child{border-bottom:0}
+.cen .ic{width:17px;height:17px;color:var(--crit);align-self:center}
+.cen .se{font-size:14px;color:var(--fraco)}
+.cen .en{font-size:14.8px;color:var(--tinta);margin-top:3px}
+.cen .pk{font:700 22px/1 var(--disp);color:var(--crit);white-space:nowrap}
+.rec{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:var(--s3);align-items:start;
+ background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);padding:var(--s4);margin-bottom:var(--s2)}
+.rec .o{display:grid;place-items:center;width:38px;height:38px;border-radius:99px;
+ background:var(--accs);color:var(--acc);font:600 15px/1 var(--mono)}
+.rec.top .o{background:var(--crits);color:var(--crit)}
+.rec h4{font:600 16.5px/1.3 var(--sans);letter-spacing:-.015em}
+.rec p{font-size:14.5px;color:var(--tinta2);margin-top:7px;max-width:70ch}
+.rec .tags{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.tag{padding:5px 11px;border-radius:99px;font:600 12px/1.3 var(--sans);
+ background:var(--linha);color:var(--tinta2)}
+.tag.alto{background:var(--crits);color:var(--crit)}
+.tag.baixo{background:var(--oks);color:var(--ok)}
+.rec .quando{font:600 12.5px/1.5 var(--sans);color:var(--fraco);text-align:right;white-space:nowrap}
+.nota{display:flex;gap:var(--s2);align-items:flex-start;margin-top:var(--s4);padding:var(--s3) var(--s4);
+ border-radius:var(--r2);background:var(--campo2);border:1px solid var(--fio)}
+.nota .ic{width:18px;height:18px;color:var(--fraco);margin-top:2px}
+.nota>div>b{display:block;font:600 14px/1 var(--sans);color:var(--tinta);margin-bottom:8px}
+.nota p b{display:inline;font:inherit;font-weight:600;color:var(--tinta);margin:0}
+.nota p{font-size:14px;color:var(--tinta2)}
+table{width:100%;border-collapse:collapse;background:var(--campo);border:1px solid var(--fio);
+ border-radius:var(--r2);overflow:hidden}
+/* Tabela DENTRO de cartao nao e tabela-cartao. O canto arredondado da regra acima
+   comia a primeira letra da primeira coluna ("NOME" saia com o N cortado) — so
+   aparece renderizando o PDF em alta resolucao, e e por isso que tem teste. */
+.campos,.ocs{overflow:visible;border-radius:0;border:0;background:transparent}
+th{text-align:left;font:600 12px/1 var(--sans);letter-spacing:.04em;color:var(--fraco);
+ padding:14px 18px;border-bottom:1px solid var(--fio);background:var(--campo2)}
+td{padding:14px 18px;border-bottom:1px solid var(--linha);font-size:14.2px;color:var(--tinta2)}
+tr:last-child td{border-bottom:0}
+td.m{font:400 13px/1.45 var(--mono);color:var(--tinta);overflow-wrap:anywhere}
+td.r,th.r{text-align:right}
+@media screen and (max-width:860px){
+  .duas,.pn,.capa-l{grid-template-columns:1fr}
+}
+@media screen and (max-width:520px){
+  .capa,.idx,section.sec,.fora{padding-left:20px;padding-right:20px}
+  .capa h1{font-size:30px}
+}
+.g{display:grid;gap:7px}
+.g .b{display:grid;grid-template-columns:148px minmax(0,1fr) 92px;gap:14px;align-items:center}
+.g .b .nm{font:600 12.5px/1.3 var(--sans);color:var(--c);text-align:right;
+ letter-spacing:.02em;text-transform:uppercase}
+.g .b .tr{height:26px;background:var(--linha);border-radius:2px;position:relative}
+.g .b .tr i{position:absolute;top:0;bottom:0;left:0;background:var(--c);border-radius:2px}
+.g .b .vl{font:500 16px/1 var(--mono);color:var(--c)}
+.g .b .vl em{display:block;font:400 11px/1 var(--sans);font-style:normal;
+ color:var(--fraco);margin-top:5px}
+.g .b.k0{--c:#aeb2ba}
+.g .b.k3{--c:var(--fraco)}
+.g .b.k2{--c:var(--acc)}
+.g .b.k1{--c:var(--crit)}
+@media screen and (max-width:860px){
+  .g .b{grid-template-columns:1fr;gap:4px}
+  .g .b .nm{text-align:left}
+}
+.fix ol.rb{display:grid;gap:0;counter-reset:s}
+.fix ol.rb>li{counter-increment:s;display:block;padding:20px 0;
+ border-top:1px solid var(--fio)}
+.fix ol.rb>li:first-child{border-top:0;padding-top:4px}
+.fix ol.rb>li::before{display:none}
+.ph{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+.ph::before{content:"Passo " counter(s);display:inline-grid;place-items:center;
+ padding:5px 11px;border-radius:99px;background:#fff;color:var(--acc);
+ font:600 11.5px/1 var(--mono);white-space:nowrap}
+.ph b{font:600 15.5px/1.3 var(--sans);letter-spacing:-.012em;color:var(--tinta)}
+.ph .custo{margin-left:auto}
+.pf{font-size:14.3px;color:var(--tinta2);max-width:74ch}
+.fix ol.rb pre{margin-top:11px}
+.pv{margin-top:12px}
+.fix pre.saida{background:#fff;color:var(--tinta2);border:1px solid var(--fio);
+ font-size:12.3px;line-height:1.6;padding:12px 14px}
+.pm{margin-top:11px;font-size:14px;color:var(--tinta2);max-width:76ch}
+.pm b{color:var(--tinta)}
+.dec{margin:18px 0;padding:18px 20px;border-radius:var(--r2);background:#fff;
+ border:1px solid var(--fio)}
+.dh{display:flex;align-items:center;gap:9px;font:600 13px/1 var(--sans);
+ color:var(--acc);margin-bottom:13px}
+.dh .ic{width:17px;height:17px}
+.dl{display:grid;gap:4px;padding:11px 0;border-top:1px solid var(--linha)}
+.dl:first-of-type{border-top:0;padding-top:0}
+.dl b{font:600 14px/1.35 var(--sans)}
+.dl span{font-size:13.8px;color:var(--tinta2)}
+.antes{margin-bottom:18px;padding:14px 16px;border-radius:var(--r2);background:#fff;
+ border:1px solid var(--fio);font-size:13.8px;color:var(--tinta2)}
+.antes b{display:block;font:600 12.5px/1 var(--sans);color:var(--tinta);margin-bottom:7px}
+.nota-g{margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--fio)}
+.nota-h{display:flex;align-items:baseline;gap:var(--s2);margin-bottom:var(--s4)}
+.nota-h b{font:600 13px/1 var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--fraco)}
+.nota-h span{font-size:13px;color:var(--fraco)}
+.nota-h .unica{margin-left:auto;display:none;align-items:baseline;gap:9px}
+.nota-h .unica b{font:700 30px/1 var(--disp);color:var(--crit);letter-spacing:-.02em;
+ text-transform:none}
+.nota-h .unica em{font-style:normal;font-size:12.5px;color:var(--fraco)}
+.dgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4) var(--s5)}
+.dim .dt{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.dim .dt b{font:600 14.5px/1.3 var(--sans)}
+.dim .dt .p{font:500 15px/1 var(--mono)}
+.dim.bom .dt .p{color:var(--ok)}
+.dim.mal .dt .p{color:var(--crit)}
+.dim.meio .dt .p{color:var(--warn)}
+.dim .tr{margin-top:9px;height:7px;border-radius:99px;background:var(--linha);overflow:hidden}
+.dim .tr i{display:block;height:100%;border-radius:99px;background:#9aa2b1}
+.dim.bom .tr i{background:var(--ok)}
+.dim.mal .tr i{background:var(--crit)}
+.dim.meio .tr i{background:var(--warn)}
+.dim .ver{font-size:13px;color:var(--tinta2);margin-top:9px}
+.dim .ev{font:400 11.5px/1.5 var(--mono);color:var(--fraco);margin-top:5px}
+.wrap{max-width:none}
+.capa{padding:40px 40px 30px}
+section.sec{padding:0 40px}
+.faixa{margin-top:30px;border-left:4px solid var(--c);padding-left:22px}
+.faixa.f1{--c:var(--crit)}
+.faixa.f2{--c:var(--acc)}
+.faixa.f3{--c:var(--fraco)}
+.fxh{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.fxh h2{font:700 15px/1 var(--disp);letter-spacing:.07em;text-transform:uppercase;color:var(--c)}
+.fxh .q{font:500 12.5px/1 var(--mono);color:var(--fraco)}
+.fxh .quando{margin-left:auto;font-size:12.5px;color:var(--fraco)}
+.sh{display:none}
+.sub2{font:600 12.5px/1 var(--sans);letter-spacing:.05em;text-transform:uppercase;
+ color:var(--fraco);margin:22px 0 12px}
+.pn,.duas{grid-template-columns:1fr;gap:14px}
+.apps{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+.nos{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.achado,.cartao,.app,.col,.rec{border-radius:4px}
+/* --- cascata da abertura: o resumo da triagem, antes de qualquer faixa --- */
+.casc{display:grid;gap:var(--s1);margin:var(--s6) 0 0;padding:var(--s5);background:var(--campo);
+ border:1px solid var(--fio);border-radius:4px}
+.casc .b{display:grid;grid-template-columns:172px minmax(0,1fr) 104px;gap:16px;align-items:center}
+.casc .b .nm{font:600 12.5px/1.3 var(--sans);letter-spacing:.04em;text-transform:uppercase;
+ color:var(--c);text-align:right}
+.casc .b .tr{height:26px;background:var(--linha);border-radius:3px;overflow:hidden}
+.casc .b .tr i{display:block;height:100%;background:var(--c);border-radius:3px}
+.casc .b .vl{font:500 17px/1 var(--mono);color:var(--c)}
+.casc .b .vl em{display:block;font:400 11px/1 var(--sans);font-style:normal;
+ color:var(--fraco);margin-top:6px}
+.casc .k0{--c:var(--fraco)}
+.casc .k3{--c:var(--tinta2)}
+.casc .k2{--c:var(--acc)}
+.casc .k1{--c:var(--crit)}
+/* --- indice por faixa, nao por tema --- */
+.idx ol.porfaixa{grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:var(--s2)}
+.porfaixa li{grid-template-columns:4px 1fr auto;gap:var(--s3);align-items:start;
+ border-bottom:0;background:var(--campo);border:1px solid var(--fio);border-radius:4px;padding:var(--s4)}
+.porfaixa li>i{align-self:stretch;background:var(--c);border-radius:3px}
+.porfaixa li .t{font:700 14.5px/1.2 var(--disp);color:var(--c);letter-spacing:.02em}
+.porfaixa li .d{grid-column:2;font-size:12.8px;color:var(--fraco);margin-top:5px}
+.porfaixa li .v{font:500 12.5px/1 var(--mono);color:var(--fraco)}
+.porfaixa .f1{--c:var(--crit)}
+.porfaixa .f2{--c:var(--acc)}
+.porfaixa .f3{--c:var(--fraco)}
+/* --- cabecalho da faixa com o peso dela no total --- */
+.fxh{flex-wrap:wrap}
+.fxh .peso{flex-basis:100%;height:3px;background:var(--linha);border-radius:2px;margin-top:11px}
+.fxh .peso i{display:block;height:100%;background:var(--c);border-radius:2px}
+/* --- rotulo da secao dentro da faixa (o .sh some aqui) --- */
+.sub2{display:flex;align-items:center;gap:10px;font:600 12.5px/1 var(--sans);
+ letter-spacing:.05em;text-transform:uppercase;color:var(--fraco);margin:26px 0 13px}
+.sub2::after{content:"";flex:1;height:1px;background:var(--fio)}
+.faixa>.sub2:first-child{margin-top:0}
+/* =======================================================================
+   TAMANHO DE PDF. Padrao: A4 PAISAGEM, 1070px de conteudo — 44% mais largura
+   que o retrato, que e o que um relatorio de tabela e ranking pede. A altura
+   util cai de 1036 para 718px por pagina, entao o documento ganha paginas: o
+   troco e esse, e vale porque ninguem le tabela de 6 colunas em 741px.
+   ======================================================================= */
+@page{size:A4 landscape;margin:10mm 7mm}
+.wrap{max-width:1070px;margin:0 auto;background:var(--campo);
+ box-shadow:0 1px 3px rgba(0,0,0,.07),0 12px 34px -20px rgba(0,0,0,.28)}
+.capa,section.sec,.faixa,.idx,.fora{padding-left:var(--s6);padding-right:var(--s6)}
+.faixa{border-left-width:3px;margin-left:0;padding-left:var(--s5)}
+/* em paisagem o lado a lado volta a caber, e e o ponto de usar paisagem */
+.pn,.duas{grid-template-columns:repeat(2,minmax(0,1fr))}
+.sisgrid,.apps{grid-template-columns:repeat(auto-fit,minmax(460px,1fr))}
+.nos{grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+.idx ol.porfaixa{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* em retrato tudo empilha de novo */
+/* =======================================================================
+   SEPARACAO ENTRE TOPICOS. Antes o rotulo era um fio fino e o olho nao via a
+   troca de assunto. Agora cada quebra tem faixa propria, respiro e numeral.
+   ======================================================================= */
+.sub2{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:baseline;
+ counter-increment:topico;margin:var(--s8) calc(var(--s5)*-1) var(--s5);
+ padding:var(--s4) var(--s5) var(--s3);
+ background:var(--campo2);border-top:2px solid var(--tinta);border-bottom:1px solid var(--fio);
+ font:600 16.5px/1.3 var(--sans);letter-spacing:-.012em;text-transform:none;color:var(--tinta)}
+.sub2::after{display:none}
+.sub2::before{content:counter(topico,decimal-leading-zero);font:500 12px/1.5 var(--mono);
+ color:var(--acc)}
+.faixa{counter-reset:topico}
+.faixa>.sub2:first-child{margin-top:0}
+section.sec .sh{margin-bottom:var(--s4);padding-bottom:var(--s3);border-bottom:1px solid var(--fio)}
+/* a faixa fica visivelmente separada da anterior */
+.faixa{margin-top:var(--s8);padding-top:var(--s6);padding-bottom:var(--s7);
+ border-top:1px solid var(--fio)}
+.faixa:first-of-type{margin-top:var(--s6)}
+.fxh{padding-bottom:var(--s3);border-bottom:1px solid var(--fio);margin-bottom:var(--s5)}
+/* a camada tambem: era so um fio */
+.camada{margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--fio)}
+.camada:first-of-type{margin-top:0;padding-top:0;border-top:0}
+/* =======================================================================
+   IMPRESSAO. Sem isso o PDF corta cartao no meio e separa titulo do corpo.
+   ======================================================================= */
+@media print{
+  .wrap{max-width:none;box-shadow:none}
+  .capa,section.sec,.faixa,.idx,.fora{padding-left:0;padding-right:0}
+  .faixa{padding-left:14px}
+  .sub2{margin-left:0;margin-right:0;padding-left:14px;padding-right:14px}
+  .sub2,.fxh,.sh,.grh,.pt{break-after:avoid;page-break-after:avoid}
+  .faixa{break-before:page;page-break-before:always}
+  .faixa:first-of-type{break-before:auto;page-break-before:auto}
+  .achado,.fix{break-inside:auto}
+  .fix ol.rb>li{break-inside:avoid;page-break-inside:avoid}
+}
+/* --- aviso de projeto: estes paineis nao sao medida desta rodada --- */
+.pt{font:600 15px/1.3 var(--sans);letter-spacing:-.01em;margin-bottom:var(--s4)}
+.pt span{display:block;font:400 12.6px/1.4 var(--sans);color:var(--fraco);margin-top:4px}
+.un{margin-top:12px;font:400 12px/1 var(--mono);color:var(--fraco)}
+.rk{display:grid;grid-template-columns:20px minmax(0,auto) minmax(90px,1fr) 66px;gap:14px;
+ align-items:center;padding:8px 0;border-top:1px solid var(--linha)}
+.rks .rk:first-child{border-top:0}
+.rk .o{font:500 11.5px/1 var(--mono);color:var(--fraco)}
+.rk .nm{font:400 12.6px/1.35 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+.rk .tr{height:7px;background:var(--linha);border-radius:99px;overflow:hidden}
+.rk .tr i{display:block;height:100%;background:var(--tinta2);border-radius:99px}
+.rk .vl{font:500 13px/1 var(--mono);text-align:right}
+.rk.topo .tr i{background:var(--warn)}
+/* --- natureza do trafego --- */
+.cl{display:grid;grid-template-columns:11px auto auto;gap:9px;align-items:baseline}
+.cl .d{width:11px;height:11px;border-radius:2px;align-self:center}
+.cl .d.ok{background:var(--ok)}
+.cl .d.neutro{background:#9aa2b1}
+.cl .d.warn{background:var(--warn)}
+.cl .d.crit{background:var(--crit)}
+.cl .nm{font-size:13.4px;font-weight:600}
+.cl .pc{font:500 13px/1 var(--mono);color:var(--fraco)}
+.cl .ex{grid-column:2/-1;font-size:12.4px;color:var(--fraco);margin-top:2px}
+table.tvar{margin-top:4px}
+table.tvar th{padding:10px 14px}
+table.tvar td{padding:10px 14px;font-size:13.4px}
+/* --- servico nao mapeado --- */
+.nm2{margin-top:12px;padding:12px 14px;border-radius:4px;background:var(--campo2);
+ border:1px solid var(--linha)}
+.nh2{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.nh2 .ic{width:16px;height:16px;color:var(--warn)}
+.nh2 b{font:600 13px/1 var(--sans);color:var(--warn)}
+.nh2 span{font-size:12.4px;color:var(--fraco)}
+.nm3{font-size:13.2px;color:var(--tinta2)}
+.kv{display:flex;justify-content:space-between;gap:16px;padding:7px 0;
+ border-top:1px solid var(--linha);font-size:13.2px;color:var(--fraco)}
+.kv:first-of-type{border-top:0}
+.kv b{font:500 13px/1 var(--mono);color:var(--tinta)}
+.kv b.mal{color:var(--crit)}
+.prop{margin-top:14px;padding:15px 16px;border-radius:4px;background:var(--accs)}
+.ph2{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ph2 .ic{width:17px;height:17px;color:var(--acc)}
+.ph2 b{font:600 13.5px/1 var(--sans);color:var(--acc)}
+.pm2{font-size:13.4px;color:var(--tinta2)}
+.prop pre{margin-top:11px;background:#17181c;color:#e9e9ea;border-radius:4px;
+ font:400 12.5px/1.7 var(--mono);padding:13px 15px;white-space:pre-wrap}
+.prop pre .c{color:#94979d}
+.pc2{margin-top:10px;font-size:12.6px;color:var(--fraco)}
+/* --- o cluster sobe para o topo, antes das faixas --- */
+.topo-cluster{margin-top:var(--s6)}
+/* --- sistemas por camada: recebe, processa, enfileira, guarda, observa --- */
+.camada{margin-top:28px}
+.camada:first-of-type{margin-top:0}
+.ch{display:flex;align-items:center;gap:var(--s2);padding-bottom:var(--s2);margin-bottom:var(--s4);
+ border-bottom:1px solid var(--fio)}
+.ch .ic{width:18px;height:18px;color:var(--acc)}
+.ch h3{font:700 15px/1 var(--disp);letter-spacing:.03em;text-transform:uppercase}
+.ch .p{font:400 12px/1 var(--mono);color:var(--fraco)}
+.ch .p code{font:inherit;background:var(--linha);padding:3px 7px;border-radius:3px}
+.ch .q{margin-left:auto;font:500 12.5px/1 var(--mono);color:var(--fraco)}
+.sisgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:var(--s3)}
+.sis{background:var(--campo);border:1px solid var(--fio);border-radius:4px;padding:var(--s4)}
+.sis.crit{border-color:var(--crit)}
+.sh2{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+.sh2 .box{display:grid;place-items:center;width:34px;height:34px;border-radius:4px;
+ background:var(--linha);color:var(--tinta2)}
+.sis.crit .sh2 .box{background:var(--crits);color:var(--crit)}
+.sh2 .box .ic{width:18px;height:18px}
+.sh2 h4{font:600 16px/1.2 var(--sans);letter-spacing:-.015em}
+.sh2 .img{font:400 11.8px/1.4 var(--mono);color:var(--fraco);margin-top:3px;overflow-wrap:anywhere}
+.sh2 .qt{margin-left:auto;font:500 12.5px/1 var(--mono);color:var(--fraco);white-space:nowrap}
+.sis .sinal{display:flex;gap:9px;align-items:flex-start;margin-top:12px;padding:11px 13px;
+ border-radius:4px;background:var(--crits);color:var(--crit);font-size:13.5px}
+.sis .sinal .ic{width:16px;height:16px;margin-top:3px}
+/* --- o grafico dentro do sistema --- */
+.gr{margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--linha)}
+.grh{font:600 12px/1.4 var(--sans);letter-spacing:.03em;color:var(--tinta);margin-bottom:12px}
+.grh span{font-weight:400;color:var(--fraco)}
+.grn{margin-top:12px;font-size:13px;color:var(--tinta2)}
+.rep{display:grid;grid-template-columns:minmax(0,1fr) 88px 58px 78px;gap:12px;
+ align-items:center;padding:7px 0;border-top:1px solid var(--linha)}
+.rep:first-of-type{border-top:0}
+.rep .nm{font:400 12.5px/1.35 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+.rep .tr{height:7px;background:var(--linha);border-radius:99px;overflow:hidden}
+.rep .tr i{display:block;height:100%;background:var(--ok)}
+.rep.mal .tr i{background:var(--crit)}
+.rep .vl{font:500 13px/1 var(--mono);text-align:right}
+.rep .fa{font:500 11.5px/1 var(--mono);color:var(--crit);text-align:right}
+.gr.prio .pr{grid-template-columns:22px minmax(0,1fr) 118px 78px 62px}
+.al{display:grid;grid-template-columns:minmax(0,1fr) 128px 52px;gap:12px;align-items:center;
+ padding:7px 0}
+.al .lb{font-size:13px;color:var(--tinta2)}
+.al .tr{height:8px;background:var(--linha);border-radius:99px;overflow:hidden}
+.al .tr i{display:block;height:100%}
+.al .tr i.ok{background:var(--ok)}
+.al .tr i.mal{background:var(--crit)}
+.al .vl{font:500 13px/1 var(--mono);text-align:right}
+/* --- o LUGAR do grafico que nao pode ser desenhado: buraco explicito --- */
+.vazio{margin-top:16px;padding:15px 16px;border-top:1px solid var(--linha);
+ background:repeating-linear-gradient(135deg,transparent 0 7px,var(--linha) 7px 8px);
+ border-radius:0 0 3px 3px}
+.vh{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+.vh .ic{width:16px;height:16px;color:var(--fraco)}
+.vh b{font:600 12.5px/1 var(--sans);color:var(--tinta2)}
+.vh span{font:400 12px/1.4 var(--mono);color:var(--fraco)}
+.vm{font-size:13.2px;color:var(--tinta2);background:var(--campo);padding:9px 11px;border-radius:3px}
+@media screen and (max-width:760px){
+  .sisgrid{grid-template-columns:1fr}
+  .rep{grid-template-columns:1fr auto;gap:6px}
+  .rep .tr,.rep .fa{display:none}
+}
+/* --- lista de prioridade das filas --- */
+.g.prio{display:grid;gap:0}
+.prh,.pr{display:grid;grid-template-columns:26px minmax(0,1fr) 148px 92px 86px;
+ gap:14px;align-items:center}
+.prh{padding-bottom:9px;border-bottom:1px solid var(--fio);font:600 11.5px/1 var(--sans);
+ letter-spacing:.04em;color:var(--fraco)}
+.prh .d{text-align:right}
+.pr{padding:11px 0;border-bottom:1px solid var(--linha)}
+.pr:last-of-type{border-bottom:0}
+.pr .o{font:500 12px/1 var(--mono);color:var(--fraco)}
+.pr .nm{font:400 13px/1.4 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+.pr .tr{height:8px;background:var(--linha);border-radius:99px;overflow:hidden}
+.pr .tr i{display:block;height:100%;background:var(--tinta2);border-radius:99px}
+.pr .vl,.pr .ac{font:500 14px/1 var(--mono);text-align:right}
+.pr .ac{color:var(--fraco);font-size:12.5px}
+.pr.topo .nm,.pr.topo .vl{color:var(--crit)}
+.pr.topo .vl{font-size:19px}
+.pr.topo .tr i{background:var(--crit)}
+.prn{margin-top:14px;font-size:13.5px;color:var(--tinta2)}
+@media screen and (max-width:860px){
+  .casc .b{grid-template-columns:1fr;gap:5px}
+  .casc .b .nm{text-align:left}
+  .prh{display:none}
+  .pr{grid-template-columns:26px 1fr auto;gap:8px}
+  .pr .tr,.pr .ac{display:none}
+}</style>
 </head>
 <body>
 
+<!-- Icones: Lucide (ISC) — https://lucide.dev -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><symbol id="ic-cluster" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol><symbol id="ic-aplicacoes" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol><symbol id="ic-fila" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol><symbol id="ic-achado" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol><symbol id="ic-falhar" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol><symbol id="ic-corrigir" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol><symbol id="ic-bom" viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="ic-ruim" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></symbol><symbol id="ic-cert" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="ic-rede" viewBox="0 0 24 24"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></symbol><symbol id="ic-secret" viewBox="0 0 24 24"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5"/></symbol><symbol id="ic-cobertura" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol><symbol id="ic-aceito" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></symbol><symbol id="ic-historico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol><symbol id="ic-panorama" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol><symbol id="ic-banco" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></symbol><symbol id="ic-rota" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol><symbol id="ic-metrica" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol><symbol id="ic-no" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol><symbol id="ic-disco" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></symbol></g></defs></svg>
+
+<div class="wrap">
+
 <header class="capa">
-  <div>
-    <p class="eye">Auditoria de infraestrutura · somente leitura</p>
-    <h1>%%TITLE%%</h1>
-    <p class="lede">%%RESUMO%%</p>
-  </div>
-  <div class="selos">
-    <span class="selo"><b>%%GENERATED_AT%%</b></span>
-    %%SELOS%%
+  <p class="marca"><svg class="ic"><use href="#ic-cluster"/></svg>Auditoria de infraestrutura · somente leitura</p>
+  <div class="capa-l">
+    <div>
+      <h1>%%NOTA_TITULO%%</h1>
+      <p class="tese">%%NOTA_TEXTO%%</p>
+    </div>
+    %%CARTAO_ESTADO%%
   </div>
 </header>
 
-<h2><em>00</em>Sumário</h2>
-%%SUMARIO%%
-
-<h2 id="panorama"><em>01</em>Panorama</h2>
-%%INVENTARIO%%
-
-<h2 id="topologia"><em>02</em>Topologia</h2>
-%%TOPOLOGIA%%
-
-<h2 id="cluster"><em>03</em>Cluster</h2>
+<div class="topo-cluster">
 %%CLUSTER%%
-
-<h2 id="aplicacoes"><em>04</em>Por aplicação</h2>
-%%APLICACOES%%
-
-<h2 id="instrumentos"><em>05</em>Instrumentos</h2>
-%%INSTRUMENTOS%%
-
-<h2 id="insights"><em>06</em>Insights por sistema</h2>
-%%INSIGHTS%%
-
-<h2 id="pendencias"><em>07</em>O que falta declarar</h2>
-<p class="nota">Cada linha abaixo é um silêncio com causa: o componente está no inventário, mas
-a auditoria não teve como perguntar nada a ele. Resolver é editar o <code>alvos.toml</code> —
-nenhum destes itens é um problema da infraestrutura.</p>
-%%PENDENCIAS%%
-
-<h2 id="achados"><em>08</em>Achados</h2>
-%%ACHADOS%%
-
-<h2 id="impacto"><em>09</em>Se isto falhar</h2>
-%%IMPACTO%%
-
-<h2 id="aceites"><em>10</em>Riscos aceitos</h2>
-%%ACEITES%%
-
-<h2 id="recomendacoes"><em>11</em>Recomendações</h2>
-%%RECOMENDACOES%%
-
-<h2 id="leitura"><em>12</em>Pontos fortes e de atenção</h2>
-<div class="duo">
-  <div><h3>Sustenta bem</h3>%%FORTES%%</div>
-  <div><h3>Merece atenção</h3>%%FRACOS%%</div>
 </div>
 
-<h2 id="alvos"><em>13</em>Por alvo</h2>
-%%ALVOS%%
+%%FORA%%
 
-<h2 id="historico"><em>14</em>Desde a auditoria anterior</h2>
-%%HISTORICO%%
+<div class="idx">
+  <p class="idx-h">Como este relatorio esta organizado</p>
+  %%INDICE%%
+</div>
 
+%%AGIR%%
+
+%%PROGRAMAR%%
+
+%%REGISTRAR%%
+
+</div>
 </body>
 </html>
