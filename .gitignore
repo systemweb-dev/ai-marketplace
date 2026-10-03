@@ -29,7 +29,8 @@ Thumbs.db
 .playwright-mcp/
 
 # Relatórios da sw-cluster-audit (infra — NUNCA commitar num repo público)
-docs/infra/
 
 # lista de nomes proibidos do gate de segurança (nunca versionada)
 .scan-denylist
+docs/infra/*
+!docs/infra/config.toml
