@@ -6,11 +6,15 @@ saber é quebrar e olhar.
 """
 import pathlib
 import subprocess
+import sys
 
 import pytest
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
-PY = RAIZ / ".venv/bin/python"
+# O interpretador que está rodando ESTE teste — não um `.venv` fixo. O `.venv` é ambiente
+# local de quem desenvolve e nunca vai para o repositório: fixá-lo aqui fazia a suíte da
+# skill PUBLICADA falhar com FileNotFoundError em qualquer máquina que a clonasse.
+PY = sys.executable
 
 MUTACOES = [
     ("teto vira piso",
@@ -47,7 +51,7 @@ def test_quebrar_a_trava_derruba_a_suite(nome, arquivo, de, para):
     assert de in original, f"o marcador da mutação {nome!r} não existe mais em {arquivo}"
     try:
         alvo.write_text(original.replace(de, para, 1), encoding="utf-8")
-        r = subprocess.run([str(PY), "-m", "pytest", "tests/test_cobertura.py", "-q"],
+        r = subprocess.run([PY, "-m", "pytest", "tests/test_cobertura.py", "-q"],
                            cwd=RAIZ, capture_output=True, text=True)
         assert r.returncode != 0, f"a mutação {nome!r} SOBREVIVEU — a trava não tem teste"
     finally:
