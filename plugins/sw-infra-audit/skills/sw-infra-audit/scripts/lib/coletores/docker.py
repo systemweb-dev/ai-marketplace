@@ -3,6 +3,7 @@
 O que mudou é a moldura: ele recebe um alvo, devolve o bloco daquele alvo, e a URL de métricas
 vem do alvo (nunca de descoberta). O schema interno continua o v1, em `docker_report.py`.
 """
+import re
 from lib.redact import redact_container, redact_service, scrub_info, scrub_text
 from lib.rules import (findings_for_workload, findings_operational,
                        findings_from_errors, findings_from_cert)
@@ -419,6 +420,16 @@ def coletar(alvo, contexto):
             "nao_coletado": nao_coletado}
 
 
+# `loja_api.1.vsf7k2m9xq3b` -> `loja_api`. O sufixo do Swarm é `.<réplica>.<id da task>`;
+# o id é hexadecimal longo, e é ele que distingue a task do serviço homônimo.
+_SUFIXO_DE_TASK = re.compile(r"\.\d+\.[a-z0-9]{10,}$")
+
+
+def _servico_do_objeto(objeto):
+    """O serviço dono do objeto. Container volta ao serviço; o resto passa intacto."""
+    return _SUFIXO_DE_TASK.sub("", str(objeto)) if objeto else objeto
+
+
 def _para_achados_do_relatorio(brutos, alvo=None):
     """Do achado do detector (`lib/rules.py`) para o do relatório.
 
@@ -431,15 +442,23 @@ def _para_achados_do_relatorio(brutos, alvo=None):
     Só repassa `esperada` quando é verdadeira: chave `False` em todo achado é ruído no
     `report.json` e no diff entre rodadas.
     """
-    achados = []
+    achados, vistos = [], {}
     for f in brutos:
-        achado = {"regra": f.get("rule_id"), "objeto": f.get("object"),
+        objeto = _servico_do_objeto(f.get("object"))
+        chave = (f.get("rule_id"), objeto)
+        if chave in vistos:
+            # mesma regra, mesmo serviço: é o mesmo problema visto de outro nível (ou em
+            # outra réplica). A remediação é idêntica — conserta-se o SERVIÇO —, então
+            # contar de novo só infla o número que a pessoa lê primeiro.
+            continue
+        achado = {"regra": f.get("rule_id"), "objeto": objeto,
                   "severidade": SEVERIDADE_POR_V1.get(f.get("severity"), "info"),
                   "detalhe": f.get("evidence")}
         if alvo is not None:
             achado["alvo"] = alvo
         if f.get("expected"):
             achado["esperada"] = True
+        vistos[chave] = achado
         achados.append(achado)
     return achados
 

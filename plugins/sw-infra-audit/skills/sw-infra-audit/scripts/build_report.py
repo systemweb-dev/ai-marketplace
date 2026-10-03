@@ -1074,14 +1074,29 @@ def _instrumentos(alvos):
     """Mostrador só onde a pergunta declara faixa. O resto vira cartão de insight, sem agulha."""
     from lib.perguntas import PERGUNTAS
 
-    medidores = []
+    # Uma medida por (pergunta, valor, fonte). Quando o adaptador não consegue restringir a
+    # consulta a um componente, ele carimba a fonte com "(exporter inteiro)" — e aí o MESMO
+    # número chega por vários componentes. Desenhado uma vez por componente, o relatório
+    # afirma que cada um deles serviu aquele tráfego; nenhum serviu sozinho.
+    por_medida, cobertos = {}, {}
     for alvo in alvos:
         for componente in alvo.get("componentes", []):
             for resposta in componente.get("respostas", []):
                 pergunta = PERGUNTAS.get(resposta.get("pergunta"), {})
                 if resposta.get("sem_dados") or not pergunta.get("faixa"):
                     continue
-                medidores.append(_medidor(resposta, pergunta))
+                chave = (resposta.get("pergunta"), json.dumps(resposta.get("valor"),
+                                                              sort_keys=True, default=str),
+                         resposta.get("fonte"))
+                por_medida.setdefault(chave, (resposta, pergunta))
+                cobertos.setdefault(chave, []).append(componente.get("nome"))
+
+    medidores = []
+    for chave, (resposta, pergunta) in por_medida.items():
+        nomes = cobertos[chave]
+        quem = (f'<p class="corte">mede {_e(" · ".join(nomes))} em conjunto</p>'
+                if len(nomes) > 1 else "")
+        medidores.append(_medidor(resposta, pergunta) + quem)
     if not medidores:
         return ('<p class="muted">nenhuma medida com tolerância declarada respondeu nesta '
                 'rodada.</p>')
@@ -1348,7 +1363,13 @@ def _divergencias(alvo):
     seg = (alvo.get("dimensoes") or {}).get("seguranca") or {}
     if not seg:
         return ""
-    achados = alvo.get("achados") or []
+    # A dimensão `seguranca` é calculada em `metrics.py` filtrando `rule_id` que começa com
+    # `SEC_`: ela é sobre POSTURA DE SEGURANÇA, não sobre todos os achados. Comparar contra a
+    # lista inteira acusava divergência onde não havia — numa rodada real, "107 declarados ·
+    # 114 na lista", porque os 7 extras eram `OPS_TASK_FAILING`, que a dimensão nunca contou.
+    # Alarme falso é pior que alarme nenhum: ensina a ignorar a caixa.
+    achados = [x for x in (alvo.get("achados") or [])
+               if str(x.get("regra") or "").startswith("SEC_")]
     real = {"high": 0, "medium": 0, "esperados": 0}
     for a in achados:
         if a.get("esperada"):
@@ -2004,7 +2025,7 @@ def render_html_v3(r):
         + _sec("aplicacoes", "Topologia — sistemas por camada",
                "recebe · processa · enfileira · guarda · observa",
                _camadas((principal or {}).get("componentes")))
-        + _sec("cobertura", "Cobertura das práticas",
+        + _sec("cobertura", "Práticas e higiene",
                _plural(len(reg), "achado sem prazo", "achados sem prazo"),
                "".join(_achado_bloco(regra, itens, completo=False)
                        for regra, itens in _agrupar_por_regra(reg)))
