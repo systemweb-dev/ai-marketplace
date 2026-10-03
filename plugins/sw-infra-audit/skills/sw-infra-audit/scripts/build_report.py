@@ -1240,7 +1240,11 @@ def _cartao_estado(alvo):
     prontos = sum(1 for n in nos if str(n.get("state", "")).lower() == "ready")
     fora = op.get("nodes_down", 0)
 
-    infra_ok = not fora and not op.get("failing") and not op.get("stopped")
+    # "operando" tem de concordar com a saúde do alvo. Olhando só a operação, a capa dizia
+    # "Infraestrutura · operando" com o alvo em 🟡 — e quem lê acredita no verde da capa, não
+    # no chip discreto ao lado.
+    infra_ok = (not fora and not op.get("failing") and not op.get("stopped")
+                and alvo.get("saude") == "🟢")
     blocos = [
         f'<div class="chk {"ok" if infra_ok else "mal"}">'
         f'<p class="ch2">{_ic("bom" if infra_ok else "achado")}<b>Infraestrutura</b>'
@@ -1271,7 +1275,8 @@ def _cartao_estado(alvo):
     higiene = [a for a in (alvo.get("achados") or []) if a.get("severidade") in ("low", "info")]
     blocos.append(
         f'<div class="chk nao"><p class="ch2">{_ic("historico")}<b>Não afeta o serviço agora</b></p>'
-        + _linha("Achados de higiene", f'{len(higiene)} de {len(alvo.get("achados") or [])}')
+        + _linha("Achados de severidade baixa",
+                 f'{len(higiene)} de {len(alvo.get("achados") or [])}')
         + _linha("Práticas com cobertura", f'{(dims.get("higiene") or {}).get("pinned_pct", 0)}% fixadas')
         + "</div>")
 
@@ -1906,8 +1911,11 @@ def _pendencias_novo(alvos):
                 f'<b>Silêncio não é saúde</b>: enquanto elas não responderem, a auditoria não '
                 f'pode assinar que está tudo convergido.</p>{linhas_mudas}</div>')
 
+        # `analise` é prosa que o agente escreveu POR CIMA do fato — não é medida. Incluí-la
+        # aqui fazia a lacuna encolher conforme o agente falava mais: 54 componentes sem
+        # pergunta viravam "44" só porque alguém comentou dez deles.
         calados = sorted(c.get("nome") or "—" for c in (a.get("componentes") or [])
-                         if not (c.get("respostas") or c.get("analise") or c.get("achados")))
+                         if not (c.get("respostas") or c.get("achados")))
         if calados:
             etiquetas = "".join(f'<span class="tag">{_e(n)}</span>' for n in calados)
             linhas.append(

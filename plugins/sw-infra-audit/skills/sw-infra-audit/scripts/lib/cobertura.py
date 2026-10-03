@@ -7,6 +7,7 @@ melhorado, porque a pergunta que produz o achado não foi respondida e não havi
 Funções puras: recebem o registro do alvo e devolvem dado. Quem escreve `saude` é o
 `collect.main`, ao lado do `agravar_saude` que já existe.
 """
+import json
 
 
 def _respondeu(resposta, pergunta):
@@ -35,6 +36,10 @@ def medir(alvo):
 
     perguntadas = respondidas = 0
     mudos = []
+    # Uma medida é (pergunta, valor, fonte). Quando o adaptador não restringe a consulta ao
+    # componente, o MESMO número chega por vários — e contar cada chegada inflava a
+    # cobertura: 6 de 9 onde o honesto eram 3 de 6.
+    medidas_vistas = set()
     for componente in alvo.get("componentes") or []:
         catalogo = {p["id"]: p for p in do_papel(componente.get("papel"))}
         if not catalogo:
@@ -44,7 +49,14 @@ def medir(alvo):
         for id_pergunta, pergunta in catalogo.items():
             resposta = por_id.get(id_pergunta)
             if resposta is not None and _respondeu(resposta, pergunta):
-                respondidas += 1
+                medida = (id_pergunta,
+                          json.dumps(resposta.get("valor"), sort_keys=True, default=str),
+                          resposta.get("fonte"))
+                if medida in medidas_vistas:
+                    perguntadas -= 1          # não era outra pergunta: era a mesma medida
+                else:
+                    medidas_vistas.add(medida)
+                    respondidas += 1
                 continue
             mudos.append({
                 "componente": componente.get("nome"),

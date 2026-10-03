@@ -69,3 +69,43 @@ def test_servicos_diferentes_nao_se_fundem():
               bruto("SEC_USER_ROOT", "loja_web", "cluster-wide")]
 
     assert len(_para_achados_do_relatorio(brutos)) == 2
+
+
+# ---------------------------------------- serviço em modo GLOBAL (sem slot numérico)
+def test_task_de_servico_global_tambem_e_deduplicada():
+    """Serviço replicado nomeia a task `<serviço>.<slot>.<id>`; serviço GLOBAL nomeia
+    `<serviço>.<nodeID>.<taskID>`, sem slot numérico. A primeira versão do regex exigia
+    dígitos e deixava passar justamente os agentes de infraestrutura — portainer, cadvisor,
+    node-exporter, promtail —, que rodam em modo global por natureza."""
+    brutos = [bruto("SEC_DOCKER_SOCK_EXPECTED", "portainer_agent", "cluster-wide", expected=True),
+              bruto("SEC_DOCKER_SOCK_EXPECTED",
+                    "portainer_agent.k3j9x2mq8p1w.n7h4b2v9c6x3", "no-1", expected=True)]
+
+    achados = _para_achados_do_relatorio(brutos)
+
+    assert len(achados) == 1
+    assert achados[0]["objeto"] == "portainer_agent"
+
+
+def test_nome_de_servico_com_ponto_nao_e_cortado_por_engano():
+    """`app.v2` é um nome de serviço legítimo, não uma task."""
+    brutos = [bruto("SEC_USER_ROOT", "app.v2", "cluster-wide")]
+
+    assert _para_achados_do_relatorio(brutos)[0]["objeto"] == "app.v2"
+
+
+# ------------------------------------- métricas e lista veem a MESMA população
+def test_metricas_e_lista_contam_o_mesmo():
+    """`metrics.compute` roda sobre `findings` e a lista do relatório sai da conversão.
+    Se a deduplicação acontecer só na conversão, os dois divergem — e a caixa de divergência
+    do relatório passa a acusar uma contradição que a própria skill criou."""
+    from lib.coletores.docker import deduplicar_findings
+
+    brutos = [bruto("SEC_USER_ROOT", "loja_api", "cluster-wide"),
+              bruto("SEC_USER_ROOT", "loja_api.1.vsf7k2m9xq3b", "no-1"),
+              bruto("SEC_USER_ROOT", "outro_svc", "cluster-wide")]
+
+    limpos = deduplicar_findings(brutos)
+
+    assert len(limpos) == 2, "a deduplicação acontece ANTES, numa população só"
+    assert len(_para_achados_do_relatorio(limpos)) == 2, "e a conversão não muda mais nada"

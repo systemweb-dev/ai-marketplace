@@ -282,6 +282,9 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
         tls = None
     r["tls"] = tls if tls else na("context não usa TLS (ssh:// ou socket local)")
     r["findings"].extend(findings_from_cert(tls, context))
+    # uma população só, antes de qualquer contagem: métricas e lista do relatório têm de
+    # enxergar exatamente os mesmos achados
+    r["findings"] = deduplicar_findings(r["findings"])
     m = metrics.compute(r)                 # métricas determinísticas por dimensão + top ofensores
     r["dimensions"] = m["dimensions"]
     r["top_offenders"] = m["top_offenders"]
@@ -291,6 +294,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
     if errs:
         r["collection_errors"] = errs[:10]
         r["findings"].extend(findings_from_errors(errs, context))
+        r["findings"] = deduplicar_findings(r["findings"])
         m = metrics.compute(r)
         r["dimensions"], r["top_offenders"] = m["dimensions"], m["top_offenders"]
         r["health"]["verdict"] = metrics.verdict(m["dimensions"])
@@ -420,14 +424,36 @@ def coletar(alvo, contexto):
             "nao_coletado": nao_coletado}
 
 
-# `loja_api.1.vsf7k2m9xq3b` -> `loja_api`. O sufixo do Swarm é `.<réplica>.<id da task>`;
-# o id é hexadecimal longo, e é ele que distingue a task do serviço homônimo.
-_SUFIXO_DE_TASK = re.compile(r"\.\d+\.[a-z0-9]{10,}$")
+# O sufixo de task do Swarm tem DUAS formas, e a segunda custou caro:
+#   replicado: `loja_api.1.vsf7k2m9xq3b`              -> `.<slot>.<id da task>`
+#   global   : `portainer_agent.k3j9x2mq8p1w.n7h4b2…` -> `.<id do nó>.<id da task>`
+# Exigir dígitos no meio deixava passar justamente os agentes de infraestrutura — portainer,
+# cadvisor, node-exporter, promtail —, que rodam em modo global por natureza.
+_SUFIXO_DE_TASK = re.compile(r"\.(?:\d+|[a-z0-9]{10,})\.[a-z0-9]{10,}$")
 
 
 def _servico_do_objeto(objeto):
-    """O serviço dono do objeto. Container volta ao serviço; o resto passa intacto."""
+    """O serviço dono do objeto. Task volta ao serviço; o resto passa intacto."""
     return _SUFIXO_DE_TASK.sub("", str(objeto)) if objeto else objeto
+
+
+def deduplicar_findings(brutos):
+    """Uma ocorrência por (regra, serviço), ANTES de qualquer contagem.
+
+    O coletor varre serviços e containers; um container herda a configuração do serviço, e o
+    mesmo problema nascia duas vezes. Deduplicar só na conversão para o relatório fazia
+    `metrics.compute` (que roda sobre `findings`) e a lista do relatório verem populações
+    diferentes — e a caixa de divergência passava a acusar uma contradição que a própria
+    skill tinha criado. Uma população só, desde o começo.
+    """
+    limpos, vistos = [], set()
+    for f in brutos:
+        chave = (f.get("rule_id"), _servico_do_objeto(f.get("object")))
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        limpos.append({**f, "object": _servico_do_objeto(f.get("object"))})
+    return limpos
 
 
 def _para_achados_do_relatorio(brutos, alvo=None):

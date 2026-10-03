@@ -278,3 +278,27 @@ def test_o_relatorio_diz_por_que_a_cobertura_caiu():
     assert "pilha_fila" in html, "qual componente"
     assert "fila.filas" in html, "qual pergunta"
     assert "senha não está definida" in html, "qual motivo"
+
+
+# ------------------- a mesma medida, contada uma vez (exporter inteiro)
+def test_medida_do_exporter_inteiro_conta_uma_vez_na_cobertura():
+    """Dois componentes recebendo o MESMO valor da MESMA fonte não são duas medidas.
+    Contando duas, a cobertura dizia 6 de 9 quando o honesto era 3 de 6."""
+    r = lambda n: {"pergunta": n, "valor": 652.63, "fonte": "promql:traefik (exporter inteiro)"}
+    c = [{"nome": "nginx", "papel": "entrada",
+          "respostas": [r("entrada.latencia"), r("entrada.volume_na_janela")]},
+         {"nome": "traefik", "papel": "entrada",
+          "respostas": [r("entrada.latencia"), r("entrada.volume_na_janela")]}]
+
+    m = medir(alvo(c))
+
+    assert m["respondidas"] == 2, "duas perguntas distintas, não quatro"
+
+
+def test_medidas_distintas_continuam_contando_cada_uma():
+    c = [{"nome": "a", "papel": "entrada",
+          "respostas": [{"pergunta": "entrada.latencia", "valor": 10, "fonte": "promql:a"}]},
+         {"nome": "b", "papel": "entrada",
+          "respostas": [{"pergunta": "entrada.latencia", "valor": 99, "fonte": "promql:b"}]}]
+
+    assert medir(alvo(c))["respondidas"] == 2
