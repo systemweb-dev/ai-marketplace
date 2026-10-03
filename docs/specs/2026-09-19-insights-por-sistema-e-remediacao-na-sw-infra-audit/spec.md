@@ -2,7 +2,7 @@
 titulo: Insights por sistema e remediacao na sw-infra-audit
 slug: 2026-09-19-insights-por-sistema-e-remediacao-na-sw-infra-audit
 criado: 2026-09-19
-estado: em-execucao
+estado: concluido
 ---
 
 # Insights por sistema e remediação na sw-infra-audit
@@ -406,14 +406,175 @@ MVP no plano 1 (o eixo). O que encanta — insight por sistema com dado real —
    duas execuções produzem `report.json` e `relatorio.html` idênticos — inclusive com empate de
    valor nas listas.
 
-## Ordem de execução: quatro planos
+## Cobertura da medição (revisão de 2026-10-03)
+
+> O nome é "cobertura **da medição**" para não colidir com a seção "Cobertura das práticas" que
+> o relatório já tem, e que significa outra coisa.
+
+### O problema que isto resolve
+
+Entre 29/09 e 03/10 o cluster passou de 🔴 para 🟢 **sem nada ter melhorado na infraestrutura**.
+Os 7 achados `fila_sem_consumidor` desapareceram porque a variável com a senha do broker não
+estava no ambiente: a pergunta que os produz não foi respondida, nenhum achado nasceu, e não
+havia o que `agravar_saude` agravasse.
+
+A skill registrou a cegueira com honestidade — as 9 perguntas viraram `sem_dados` com motivo
+exato. O buraco é que **o veredito não consulta essa informação**.
+
+A skill prega "não consegui ver ≠ está ruim". O inverso — **"não consegui ver ≠ está bom"** —
+está desprotegido.
+
+### A medida
+
+`cobertura = respondidas / perguntadas`, onde *perguntadas* conta apenas as perguntas que a
+skill sabe fazer para aquele papel (`perguntas.do_papel`).
+
+Papel sem pergunta registrada fica **fora do denominador** (hoje: 49 `app`, 2 `banco`,
+2 `observabilidade`, 1 `cache`). Contá-los deixaria a cobertura permanentemente péssima e
+portanto inútil — ninguém olha um número que não se move quando se conserta o que dá para
+consertar. Esse limite já é reportado em "O que falta declarar".
+
+**Conta como NÃO respondida:** `sem_dados`, `erro_interno`, e — este é o buraco que a revisão
+achou — **pergunta com `limiar` cujo valor veio lista vazia**. Hoje `_sem_numero` e
+`_sem_contadores` (`collect.py:157` e `:182`, ambos com `or not valor`) devolvem a resposta
+intacta: a fonte responde `[]`, a cobertura marca 100%, nenhum achado nasce e o 🟢 se mantém.
+É a mesma cegueira por outra porta. Lista vazia em pergunta com limiar vira
+`sem_dados: "a fonte não devolveu nenhum item"`.
+
+Três estados, porque zero e indefinido não são a mesma coisa:
+
+| Situação | Cobertura |
+|---|---|
+| perguntou e não foi respondido | `0%` |
+| perguntou e foi respondido | `100%` |
+| **não havia o que perguntar** | `sem dados` — nunca `0%` |
+
+**Cobertura NÃO é uma dimensão pontuada.** Ela mora em campo próprio (`alvo["cobertura"]`), não
+em `dimensoes`. Entrar como 5ª dimensão quebra o código: `nota.py:93` elegeria `cobertura` como
+`pior` sempre que ela fosse baixa, e `nota.py:110` faria `ROTULO["cobertura"]` → **KeyError**
+(verificado). Desenhar a 5ª barra na capa é decisão separada, e exige entradas novas em
+`ORDEM`/`ROTULO`/`VEREDITO`.
+
+### Efeito no veredito
+
+Cobertura baixa **não pode** pintar o cluster de vermelho — seria o espelho do problema atual.
+A regra sai do modelo de dados: cada pergunta canônica declara, ou não, um `limiar`.
+
+| Pergunta sem resposta | Tem `limiar`? | Consequência |
+|---|---|---|
+| `fila.filas` (→ `fila_sem_consumidor`, `high`) | sim | **um achado podia ter nascido e não nasceu** → a saúde não pode ser 🟢 |
+| `entrada.latencia`, `entrada.volume_na_janela` | não | perdeu-se contexto, não achado → derruba a cobertura, não trava o 🟢 |
+
+**Onde isso roda.** Função pura nova, chamada em `collect.main` **ao lado de `agravar_saude`**
+(`collect.py:446`) — é lá que `alvo["saude"]` é escrito. A capa apenas **narra** o resultado:
+`nota_de_estabilidade` roda em `build_report` e só recebe `dimensoes`, então não pode mudar a
+saúde. O design anterior punha a correção nos dois lugares, que é impossível.
+
+**Quatro guardas, todas verificadas contra o código:**
+
+1. **Teto, nunca piso.** Só impede o 🟢; nunca produz 🔴. Mesma disciplina de `agravar_saude`
+   ("só agrava: nunca desce").
+2. **Só severidade que trava.** `_PIOR_ESTADO` (`collect.py:35`) ignora `low`. Um limiar `low`
+   sem resposta não pode travar um 🟢 que o próprio achado não travaria. Trava só quando a
+   severidade declarada no limiar mapeia para 🟡 ou 🔴.
+3. **Aceite vigente dispensa a trava.** Se a regra daquele limiar já tem aceite válido
+   (`aceites.py:22`, casando alvo/componente/regra/objeto), o achado não contaria de qualquer
+   forma — travar o 🟢 por ele seria cobrar duas vezes. Aceite **vencido** não dispensa.
+4. **Estado fora de `{🟢,🟡,🔴}` não é tocado.** `sem dados` continua `sem dados`; não é um
+   estado bom a ser piorado, é ausência de leitura — mesma guarda de `collect.py:56`.
+
+**Orçamento também é cegueira.** `prazo.esgotado()` (`collect.py:208`) produz `sem_dados`, e em
+cluster grande isso faz o 🟢 depender de tempo de parede. Aceitamos a consequência: esgotar o
+orçamento numa pergunta com limiar trava o 🟢 igual. A alternativa — ignorar — reabre o buraco.
+
+**O 🟡 tem de se explicar.** Um 🟡 sem nenhum achado que o justifique inverte o problema que
+`agravar_saude` documenta. A cobertura imprime, na capa e em "O que falta declarar", **qual
+componente**, **qual pergunta** e **qual motivo** — reusando o motivo que o `sem_dados` já
+carrega.
+
+### Travas, com a mutação que mata cada uma
+
+| Trava | Mutação |
+|---|---|
+| limiar sem resposta impede 🟢 | ignorar o limiar → a rodada sem fonte volta a sair 🟢 |
+| cobertura nunca gera 🔴 | deixar descer → alvo sem fonte vira "fora do ar" |
+| `0%` ≠ `sem dados` | denominador zero virar 0% → alvo sem nada a medir vira "cobertura péssima" |
+| lista vazia não é resposta | manter o `or not valor` → 100% de cobertura sem medir nada |
+| `low` não trava | tirar a checagem de severidade → 🟡 que o achado não produziria |
+| aceite vigente dispensa | ignorar o aceite → cobra duas vezes pelo risco já aceito |
+
+### Restrição verificável (nº 6)
+
+**Fixture sintética**, derivada das duas rodadas reais mas com nomes neutros — os `report.json`
+de `docs/infra/` são **gitignored e carregam nomes reais de cluster e stack**; usá-los como
+fixture da skill publicada contraria o CLAUDE.md e o commit `a7652b6`, além de tornar o teste
+irreprodutível em outra máquina. Os arquivos reais ficam só como evidência neste dossiê.
+
+Escrita sem ambiguidade: `teto_por_cobertura(alvo)` devolve **🔴** para a fixture "limiares
+respondidos, 7 achados altos" e **🟡** para a fixture "mesmo alvo, `fila.filas` sem resposta" —
+e mutar a checagem de limiar faz a segunda voltar a **🟢**.
+
+### Casos decididos (para dois implementadores não fazerem coisas diferentes)
+
+- `erro_interno` conta como **não respondida**.
+- Componente que sumiu do inventário entre rodadas **não** zera o denominador: o histórico já
+  compara, e zerar devolveria o 🟢 pela mesma cegueira.
+- A trava é por **alvo**, não por componente: um limiar sem resposta em qualquer componente do
+  alvo já impede o 🟢 daquele alvo.
+
+## Acesso por container (`exec_cli`): decisão ADIADA
+
+Desenhado e **não aprovado** em 2026-10-03. Fica registrado para não ser redescoberto do zero.
+
+**A ideia:** alcançar fila/banco/cache por `docker exec` através do context, sem credencial de
+rede — resolvendo o caso em que a fila fica muda por falta da variável de ambiente.
+
+**Por que foi adiado**, depois da revisão independente:
+
+1. **A validação proposta era circular.** O catálogo declarava o binário *e* o verbo, e a
+   validação era "binário igual ao declarado". Quem escreve o TOML escolhe `binario = "sh"`,
+   `verbo = ["-c", …]` e ganha execução arbitrária como root em container de produção. Uma
+   allowlist positiva de binários teria de viver **em Python**, com o TOML escolhendo apenas
+   entre entradas que o código já conhece.
+2. **O ganho real é menor do que parecia.** `banco`, `cache`, `app` e `observabilidade` têm
+   **zero** perguntas canônicas (`perguntas.do_papel` devolve `[]`). O adaptador destravaria
+   só a `fila` — um componente, não quatro.
+3. **Não resolve o problema que o motivou.** Mesmo com o `exec` funcionando, qualquer falha
+   dele devolve o cluster ao 🟢 por cegueira. É a cobertura que resolve isso, e ela não precisa
+   de `exec` nenhum.
+4. **Em Swarm, responde por sorte do escalonador.** O `exec` só alcança container no nó do
+   context: num cluster de 5 nós, acerta em ~1 de 5 rodadas. Isso contraria a restrição de
+   determinismo deste mesmo spec.
+
+**Reavaliar depois que a cobertura estiver em produção.** Com o 🟢 por cegueira resolvido, a
+pergunta passa a ser só "vale a superfície de segurança nova para destravar uma fila?" — e aí
+`admin_url` + `senha_env`, que já existe, pode bastar.
+
+A revisão completa (30 achados, incluindo flags que a lista negativa não pega, falta de contrato
+de saída e ausência de redação na saída do CLI) está em `referencias/revisao-exec-cli.md`.
+
+## Revisões do spec
+
+- **2026-10-03** — acrescentada a dimensão de **cobertura** (medida, efeito no veredito e
+  travas), motivada por uma rodada real em que o cluster virou 🟢 por cegueira. O **plano 3**
+  vira a **cobertura da medição** e o banco desce para plano 4 (tráfego vai para 5) — a
+  cobertura não depende de adaptador novo e conserta uma mentira que já está em produção. O
+  acesso por container (`exec_cli`), desenhado no mesmo dia, foi **adiado**; os quatro motivos
+  estão na seção própria e a revisão completa em `referencias/revisao-exec-cli.md`.
+  A segunda revisão independente achou 12 problemas nesta própria seção — entre eles que a
+  fixture proposta vazaria nomes reais de cluster para a skill publicada, que cobertura como 5ª
+  dimensão quebra `nota.py` com KeyError, e que lista vazia conta como resposta. Todos
+  corrigidos antes deste texto.
+
+## Ordem de execução: cinco planos
 
 | Plano | Entrega | Por que nesta ordem |
 |---|---|---|
 | **1 — eixo** | `lib/papel.py` · `lib/regras.py` (registro explícito) · registro de perguntas · **schema do `alvos.toml` e do `config.toml`** · schema v3 (com as três mudanças da promoção) · adaptador `promql` com catálogo de família · papel `entrada` **nas perguntas que qualquer exporter responde** · `impact.py` de volta ao relatório · sumário · catálogo de remediação para as regras que já existem | É o esqueleto: sem ele nenhum adaptador tem onde encaixar, e sem o schema de configuração nenhum adaptador tem como ser declarado. Entrega valor sozinho: volume, status, latência e **remediação em todo achado** |
 | **2 — aplicações que falam HTTP** | `admin_http` + linguagem de extração + derivações + papel `fila` (e `busca`, se houver alvo) | O pedido central — "no rabbitmq pegar as filas" — e o que valida a linguagem de arquivo. **`cache` não entra aqui**: Redis e memcached não têm API HTTP de administração; o papel `cache` é atendido por `promql` quando existir exporter, e um adaptador que fale o protocolo deles fica fora de escopo |
-| **3 — banco** | Perfis no runner com base positiva de ambiente · `sql` · catálogo por motor · papel `banco` | Absorve o plano 2 do dossiê anterior (coletor de banco), que nunca foi executado |
-| **4 — tráfego e segurança** | `logql` · `caminhos_sondados` · seção de segurança do tráfego · as perguntas de `entrada` que dependem de rota, para as famílias que as expõem | Depende do papel `entrada` (plano 1) e é o de maior risco de privacidade |
+| **3 — cobertura da medição** | Função pura de teto do 🟢 chamada em `collect.main` · campo `alvo["cobertura"]` · lista vazia em pergunta com limiar vira `sem_dados` · o motivo na capa e em "O que falta declarar" | **Entrou em 2026-10-03.** Vem antes do banco porque conserta uma mentira que já está em produção: o relatório assinou 🟢 num cluster com 7 filas paradas, por cegueira. Não depende de adaptador novo |
+| **4 — banco** | Perfis no runner com base positiva de ambiente · `sql` · catálogo por motor · papel `banco` | Absorve o plano 2 do dossiê anterior (coletor de banco), que nunca foi executado |
+| **5 — tráfego e segurança** | `logql` · `caminhos_sondados` · seção de segurança do tráfego · as perguntas de `entrada` que dependem de rota, para as famílias que as expõem | Depende do papel `entrada` (plano 1) e é o de maior risco de privacidade |
 
 ### O que o segundo revisor pediu para cortar, e o que eu mantive
 

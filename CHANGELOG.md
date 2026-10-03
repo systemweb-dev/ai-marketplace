@@ -7,6 +7,16 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-infra-audit`: **o relatório assinava 🟢 num cluster que ele não conseguiu medir.** Numa
+  rodada real o mesmo cluster passou de 🔴 para 🟢 sem nada ter melhorado: a variável com a
+  senha do broker não estava no ambiente, a pergunta que produz `fila_sem_consumidor` não foi
+  respondida, nenhum achado nasceu e não havia o que agravar. A skill prega "não consegui ver
+  ≠ está ruim"; o inverso, **"não consegui ver ≠ está bom"**, estava desprotegido. Agora
+  pergunta com `limiar` sem resposta impede o 🟢 (teto, nunca piso — cegueira não produz 🔴) e o
+  relatório diz qual componente, qual pergunta e qual motivo. Lista vazia numa pergunta com
+  limiar deixou de contar como resposta: era a mesma cegueira por outra porta.
+
 ### Adicionado
 - `sw-infra-audit` (v0.11.0): **o relatório passou a ser organizado por AÇÃO, não por
   gravidade.** Quem recebia "107 médios" tinha de traduzir aquilo sozinho em "o que eu faço
