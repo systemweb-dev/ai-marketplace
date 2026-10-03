@@ -118,15 +118,39 @@ def _com_componentes():
 
 def test_topologia_agrupa_por_papel_e_diz_que_e_papel():
     """O mapa mostra CAMADAS POR PAPEL, não dependência medida. Deixar isso implícito faria
-    o relatório afirmar uma topologia que a skill nunca observou."""
+    o relatório afirmar uma topologia que a skill nunca observou.
+
+    A ordem é cobrada pelo RÓTULO da camada, e não pelo nome de um componente: componente
+    que não respondeu nada deixou de ganhar cartão, então usar o nome dele como âncora
+    amarrava este teste a uma decisão que não é a que ele quer provar.
+    """
     html = build_report.render_html_v3(_com_componentes())
 
     assert "Topologia" in html
-    assert html.index("traefik") < html.index("api") < html.index("postgres_principal"), \
+    assert html.index("Recebe o tráfego") < html.index("Processa") < html.index("Guarda"), \
         "entrada vem antes de app, que vem antes de banco"
     assert "papel" in html.lower()
     assert "não é dependência medida" in html.lower(), \
         "a legenda precisa dizer que o agrupamento não é dependência observada"
+
+
+def test_componente_calado_e_contado_e_nao_vira_cartao():
+    """54 de 57 componentes não responderam nada numa rodada real. Um cartão para cada,
+    todos repetindo a mesma frase, deu NOVE páginas A4 de ruído. A informação não some:
+    ela é contada uma vez e apontada para "O que falta declarar"."""
+    html = build_report.render_html_v3(_com_componentes())
+
+    import re
+    # ele nao ganha CARTAO...
+    camadas = html[html.index("Topologia"):html.index('id="o-que-falta-declarar"')]
+    assert "postgres_principal" not in camadas, "componente sem nada a dizer não ganha cartão"
+    assert "traefik" in camadas and "api" in camadas, "quem respondeu ou tem achado continua"
+
+    # ...mas e NOMEADO em "O que falta declarar". Sem isso, o ponteiro da camada seria
+    # uma promessa vazia e o relatorio ficaria mudo justamente sobre o proprio silencio.
+    pend = html[html.index('id="o-que-falta-declarar"'):]
+    assert "postgres_principal" in pend, "o calado é nomeado, não sumido"
+    assert "alvos.toml" in pend, "e o relatório diz o que fazer para ele falar"
 
 
 def test_no_da_topologia_mostra_quantos_achados_tem():

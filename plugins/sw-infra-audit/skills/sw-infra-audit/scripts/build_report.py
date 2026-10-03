@@ -1337,6 +1337,42 @@ def _evidencia(chave, d):
               f'{d.get("limits_pct", 0)}% com limite · {d.get("healthcheck_pct", 0)}% com healthcheck')
 
 
+def _divergencias(alvo):
+    """A dimensao traz contadores que o coletor calculou; a lista de achados traz as
+    ocorrencias. Quando os dois discordam, o relatorio imprime os DOIS numeros em telas
+    diferentes e quem le nao sabe em qual acreditar.
+
+    "Numero sem fonte nao existe" e a regra da skill. Dois numeros que se contradizem sao
+    pior que um numero sozinho: calar a contradicao e escolher uma das versoes sem dizer.
+    """
+    seg = (alvo.get("dimensoes") or {}).get("seguranca") or {}
+    if not seg:
+        return ""
+    achados = alvo.get("achados") or []
+    real = {"high": 0, "medium": 0, "esperados": 0}
+    for a in achados:
+        if a.get("esperada"):
+            real["esperados"] += 1
+        elif a.get("severidade") in real:
+            real[a["severidade"]] += 1
+
+    linhas = []
+    for chave, rotulo, visto in (("high", "achados altos", real["high"]),
+                                 ("med", "achados médios", real["medium"]),
+                                 ("expected", "esperados", real["esperados"])):
+        declarado = seg.get(chave)
+        if declarado is not None and declarado != visto:
+            linhas.append(f'<div class="l"><span>{_e(rotulo)}</span>'
+                          f'<b class="n mal">{declarado} declarados · {visto} na lista</b></div>')
+    if not linhas:
+        return ""
+    return (f'<div class="semdados"><b>Os contadores da dimensão não batem com a lista de '
+            f'achados desta rodada.</b> Os dois números saem do mesmo <code>report.json</code>; '
+            f'enquanto divergirem, prefira a lista, que é a que traz objeto e detalhe.</div>'
+            + "".join(linhas))
+
+
+
 _DEGRAU_CLASSE = {"total": "k0", "acionaveis": "k3", "registrar": "k3",
                   "programar": "k2", "agir": "k1"}
 
@@ -1474,22 +1510,59 @@ def _camada_bloco(titulo, papel, icone, itens):
     e medidor so onde ha faixa declarada. Reimplementar isso aqui seria reabrir todas
     essas decisoes de novo, e errar pelo menos uma.
     """
-    cartoes = []
+    cartoes, calados = [], 0
     for c in sorted(itens, key=lambda x: str(x.get("nome") or "")):
         achados = c.get("achados") or []
         respostas = "".join(_resposta(r) for r in (c.get("respostas") or []))
-        analise = f'<p class="an">{_rich(c["analise"])}</p>' if c.get("analise") else ""
+        # `_rich` ja devolve <p>; embrulhar em <p> gera paragrafo dentro de paragrafo,
+        # que o navegador fecha sozinho e desmonta o bloco
+        analise = f'<div class="an">{_rich(c["analise"])}</div>' if c.get("analise") else ""
+
+        # Componente sem resposta, sem analise e sem achado NAO ganha cartao. Ele ganhava,
+        # e o cartao repetia "sem medida nesta rodada" — numa auditoria de 57 componentes
+        # isso imprimiu a mesma frase 54 vezes, NOVE paginas A4 de ruido. A informacao nao
+        # some: ela e contada, uma vez, no rodape da camada e em "O que falta declarar".
+        if not respostas and not analise and not achados:
+            calados += 1
+            continue
         if not respostas:
-            respostas = ('<p class="nao">sem medida nesta rodada — nenhuma fonte declarada '
-                         'para este papel</p>')
+            respostas = '<p class="semdados">sem medida nesta rodada — nenhuma fonte declarada</p>'
         marca = (f'<span class="qt">{_plural(len(achados), "achado", "achados")}</span>'
                  if achados else "")
         cartoes.append(f'<div class="sis{" crit" if achados else ""}">'
                        f'<p class="nm2">{_e(c.get("nome"))}{marca}</p>'
                        f'{analise}{respostas}</div>')
+
+    rodape = (f'<p class="corte">Outros {calados} nesta camada não receberam pergunta nesta '
+              f'rodada — o motivo de cada um está em '
+              f'<a href="#o-que-falta-declarar">O que falta declarar</a>.</p>') if calados else ""
+    if not cartoes:
+        return (f'<div class="camada"><p class="sub2">{_ic(icone)}{_e(titulo)} '
+                f'<em>0 de {len(itens)}</em></p>{rodape}</div>')
+    # o cabecalho conta o que a grade DESENHA; o resto vai no rodape, dito por extenso.
+    # Dizer "3 sistemas" e mostrar 1 cartao e o leitor procurando dois que nao existem.
+    quantos = (f'{len(cartoes)} de {len(itens)}' if calados
+               else _plural(len(cartoes), "sistema", "sistemas"))
     return (f'<div class="camada"><p class="sub2">{_ic(icone)}{_e(titulo)} '
-            f'<em>{_plural(len(itens), "sistema", "sistemas")}</em></p>'
-            f'<div class="sisgrid">{"".join(cartoes)}</div></div>')
+            f'<em>{quantos}</em></p>'
+            f'<div class="sisgrid">{"".join(cartoes)}</div>{rodape}</div>')
+
+
+def _imagem_curta(servico):
+    """`registry.exemplo/app:9c93fa87537fc5ae58ac515a4147f9ac36ce7daa` -> `…/app:9c93fa87…`
+
+    O digest completo tem 40 caracteres, e e o MESMO para todos os servicos de uma
+    stack construida junto: impresso por extenso, ele quebrava em tres linhas e
+    empurrava o sinal do servico para fora da vista. Oito caracteres bastam para
+    conferir se duas replicas rodam a mesma imagem, que e a pergunta real aqui.
+    """
+    imagem = str(servico.get("image") or "—")
+    if imagem.count("/") >= 2:                       # registry.exemplo/grupo/app -> …/app
+        imagem = "…/" + imagem.rsplit("/", 1)[-1]
+    etiqueta = str(servico.get("tag") or "")
+    if len(etiqueta) >= 32 and all(c in "0123456789abcdef" for c in etiqueta.lower()):
+        etiqueta = etiqueta[:8] + "…"                # digest: os 8 primeiros identificam
+    return f"{imagem}:{etiqueta}" if etiqueta else imagem
 
 
 def _rede_e_segredos(fatos):
@@ -1545,11 +1618,11 @@ def _aplicacoes_stack(fatos, comp_an=None):
                 sinais.append("sem limites")
             if sv.get("tasks_failed"):
                 sinais.append(_plural(sv["tasks_failed"], "task falhou", "tasks falharam"))
-            img = f'{sv.get("image")}:{sv.get("tag")}' if sv.get("tag") else str(sv.get("image"))
             servicos.append(
-                f'<div class="l"><span><b>{_e(stacks.short_name(sv.get("name")))}</b> '
-                f'<code>{_e(img)}</code></span>'
-                f'<em class="{"mal" if sinais else "ok"}">{_e(" · ".join(sinais) or "ok")}</em></div>')
+                f'<div class="svc"><div class="svch">'
+                f'<b>{_e(stacks.short_name(sv.get("name")))}</b>'
+                f'<em class="{"mal" if sinais else "ok"}">{_e(" · ".join(sinais) or "ok")}</em>'
+                f'</div><code>{_e(_imagem_curta(sv))}</code></div>')
 
         selos = ""
         if g.get("findings_high"):
@@ -1671,11 +1744,16 @@ def _bloco_remediacao(cr, completo=True):
 
 
 def _achado_bloco(regra, itens, completo):
+    from lib.triagem import ORDEM_SEVERIDADE
     """Um achado. `completo` traz o runbook inteiro; sem ele fica o cabecalho e as
     ocorrencias — e o que separa 'Agir agora' de 'Programar' na pagina."""
     cr = next((a.get("como_resolver") for a in itens if a.get("como_resolver")), None)
     titulo = (cr or {}).get("titulo") or regra
-    classe = "" if completo else " med"
+    # a classe carrega a gravidade; `low` pintado como `medium` dizia uma urgencia
+    # que o achado nao tem
+    pior = min((a.get("severidade") for a in itens),
+               key=lambda sv: ORDEM_SEVERIDADE.index(sv) if sv in ORDEM_SEVERIDADE else 9)
+    classe = "" if completo else f" {'med' if pior == 'medium' else 'baixo'}"
     cabeca = (f'<div class="cab"><span class="sel">{_ic(_icone_de(regra))}</span>'
               f'<div><h3>{_e(titulo)}</h3><p class="regra">{_e(regra)}</p></div>'
               f'<p class="qt n">{len(itens)}'
@@ -1760,21 +1838,67 @@ def _fora(alvos):
 def _aceites_novo(aceites):
     if not aceites:
         return ""
-    itens = "".join(
-        f'<div class="item"><div class="dt"><b>{_e(x.get("regra"))}</b>'
-        f'<span class="p">revisar em {_e(x.get("revisar_em") or "—")}</span></div>'
-        f'<p>{_e(x.get("motivo") or "sem motivo registrado")}</p></div>' for x in aceites)
-    return itens
+    linhas = []
+    for x in aceites:
+        # "Vencido volta a contar, com a observacao de que a justificativa expirou"
+        # (SKILL.md). Sem a marca, um aceite de 2025 passa por decisao vigente.
+        vencido = bool(x.get("vencido"))
+        selo = ('<span class="tag mal">aceite vencido</span>' if vencido
+                else f'<span class="p">revisar em {_e(x.get("revisar_em") or "—")}</span>')
+        quando = (f'<p class="corte">A justificativa expirou em '
+                  f'{_e(x.get("revisar_em") or "—")} — este achado voltou a contar.</p>'
+                  if vencido else "")
+        linhas.append(f'<div class="item{" crit" if vencido else ""}">'
+                      f'<div class="dt"><b>{_e(x.get("regra"))}</b>{selo}</div>'
+                      f'<p>{_e(x.get("motivo") or "sem motivo registrado")}</p>{quando}</div>')
+    return "".join(linhas)
 
 
 def _pendencias_novo(alvos):
     """O que esta calado e por que. Resolver e editar o alvos.toml — nenhum destes
-    itens e um problema da infraestrutura."""
+    itens e um problema da infraestrutura.
+
+    Os componentes que nao receberam pergunta entram AQUI, nomeados. A camada deixou de
+    desenhar um cartao para cada um (54 cartoes identicos eram nove paginas de ruido) e
+    aponta para esta secao; se ela nao os listasse, o ponteiro seria uma promessa vazia e
+    o relatorio ficaria mudo justamente sobre o proprio silencio.
+    """
     linhas = []
     for a in alvos:
         for n in (a.get("nao_coletado") or []):
             linhas.append(f'<div class="item"><div class="dt"><b>{_e(n.get("o_que") or n.get("what"))}</b>'
                           f'</div><p>{_e(n.get("motivo") or n.get("reason"))}</p></div>')
+        # as perguntas que a skill SABE fazer e que ficaram sem resposta. Um 🟡 sem nada
+        # que o explique inverte o problema que `agravar_saude` documenta: quem lê precisa
+        # ver qual componente, qual pergunta e qual motivo.
+        cobertura = a.get("cobertura") or {}
+        if cobertura.get("mudos"):
+            linhas_mudas = "".join(
+                f'<div class="l"><span>{_e(m["componente"])} · '
+                f'<code>{_e(m["pergunta"])}</code></span>'
+                f'<em>{_e(m["motivo"])}</em></div>' for m in cobertura["mudos"])
+            linhas.append(
+                f'<div class="item crit"><div class="dt">'
+                f'<b>{_plural(len(cobertura["mudos"]), "pergunta sem resposta", "perguntas sem resposta")}</b>'
+                f'<span class="p">cobertura {_e(cobertura.get("pct"))}%</span></div>'
+                f'<p>Estas perguntas a skill sabe fazer e não foram respondidas. '
+                f'<b>Silêncio não é saúde</b>: enquanto elas não responderem, a auditoria não '
+                f'pode assinar que está tudo convergido.</p>{linhas_mudas}</div>')
+
+        calados = sorted(c.get("nome") or "—" for c in (a.get("componentes") or [])
+                         if not (c.get("respostas") or c.get("analise") or c.get("achados")))
+        if calados:
+            etiquetas = "".join(f'<span class="tag">{_e(n)}</span>' for n in calados)
+            linhas.append(
+                f'<div class="item"><div class="dt">'
+                f'<b>{_plural(len(calados), "componente sem pergunta", "componentes sem pergunta")}</b>'
+                f'<span class="p">{_e(a.get("nome"))}</span></div>'
+                f'<p>Nenhuma fonte declarada para o papel deles, ou o papel ainda não tem '
+                f'pergunta nesta versão. <b>Silêncio não é saúde</b>: não quer dizer que estes '
+                f'componentes estejam bem, quer dizer que nada foi observado neles. Declare '
+                f'<code>metricas_url</code> ou <code>admin_url</code> no <code>alvos.toml</code> '
+                f'para o relatório medi-los.</p>'
+                f'<div class="tags">{etiquetas}</div></div>')
     return "".join(linhas)
 
 
@@ -1832,7 +1956,8 @@ def render_html_v3(r):
     cluster = (
         _sec("cluster", "Cluster", _e(f'{len((principal or {}).get("fatos", {}).get("nodes") or [])} nós · '
                                       f'{t["total"]} achados nesta rodada'),
-             _kpis_novo(principal, t) + _dimensoes_novo(principal) + _cascata(cascata(t)))
+             _kpis_novo(principal, t) + _dimensoes_novo(principal)
+             + _divergencias(principal or {}) + _cascata(cascata(t)))
         + _sec("metrica", "Instrumentos", "mostrador só onde a pergunta declara faixa",
                _instrumentos(alvos))
         + _sec("falhar", "Se isto falhar", "consequência a partir do que existe hoje",
@@ -1893,7 +2018,7 @@ def render_html_v3(r):
                     _plural(len(reg), "achado", "achados"),
                     "o retrato, para comparar na próxima rodada", corpo_reg)
 
-    resumo = (f'<p>{_rich(ctx["resumo"])}</p>' if ctx["resumo"]
+    resumo = (_rich(ctx["resumo"]) if ctx["resumo"]
               else f'<p>{_e(nota["porque"].capitalize())}.</p>')
 
     repl = {

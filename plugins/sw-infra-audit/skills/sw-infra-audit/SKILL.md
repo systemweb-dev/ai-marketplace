@@ -340,6 +340,14 @@ imagem sem digest. Por alvo: 🔴 algo fora do ar · 🟡 rodando com risco conh
 · `sem dados` quando não foi coletado. **Não existe nota única da infraestrutura** — o topo mostra
 a contagem por estado. Número único vira meta, e meta vira teatro.
 
+**Cobertura da medição: o verde exige ter medido.** Se uma pergunta que produz achado (a que
+declara `limiar`) fica sem resposta, um achado podia ter nascido e não nasceu — então o alvo
+**não pode** ser 🟢, e sai 🟡 com o motivo por extenso em "O que falta declarar". É teto, nunca
+piso: cegueira nunca produz 🔴, porque vermelho significa *algo está fora do ar* e não ter visto
+não é prova disso. Limiar de severidade baixa não trava, e regra com aceite vigente também não
+— ela já não contaria. Numa rodada real o mesmo cluster passou de 🔴 para 🟢 sem nada ter
+melhorado, só porque a senha do broker não estava no ambiente; é esse o defeito que isto fecha.
+
 ## Depois de um restart do daemon: réplicas N/N não provam funcionamento
 
 Serviço que mantém **cluster interno próprio** (agente de painel, service discovery, gossip)

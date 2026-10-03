@@ -1,0 +1,23 @@
+{
+  "nome": "cluster-exemplo",
+  "tipo": "docker",
+  "onde": "context: exemplo",
+  "saude": "🔴",
+  "dimensoes": {},
+  "achados": [
+    {"regra": "fila_sem_consumidor", "severidade": "high", "objeto": "pedidos@/",
+     "detalhe": "prontas: 940 · acumuladas: 940", "alvo": "cluster-exemplo",
+     "componente": "pilha_fila"}
+  ],
+  "componentes": [
+    {"nome": "pilha_fila", "papel": "fila", "achados": [], "analise": "",
+     "respostas": [
+       {"pergunta": "fila.filas", "fonte": "admin_http:exemplo",
+        "valor": [{"nome": "pedidos", "vhost": "/", "prontas": 940, "consumidores": 0}]},
+       {"pergunta": "fila.consumidores_por_fila", "fonte": "admin_http:exemplo",
+        "valor": [{"nome": "pedidos", "consumidores": 0}]},
+       {"pergunta": "fila.taxa_entrada_saida", "fonte": "admin_http:exemplo",
+        "valor": [{"nome": "pedidos", "entrada": 1.0, "saida": 0.0}]}
+     ]}
+  ]
+}

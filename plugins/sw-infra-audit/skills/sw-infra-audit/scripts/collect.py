@@ -66,6 +66,19 @@ def agravar_saude(registro):
     return registro
 
 
+def aplicar_cobertura(alvos, aceites_vigentes):
+    """Mede a cobertura de cada alvo e aplica o teto de saúde que ela impõe.
+
+    Roda DEPOIS do `agravar_saude` e depois dos aceites, pelo mesmo motivo que ele: um achado
+    aceito não deve deixar o alvo vermelho, e uma regra já aceita não deve travar o verde.
+    """
+    from lib.cobertura import medir, teto_por_cobertura
+
+    for alvo in alvos:
+        alvo["cobertura"] = medir(alvo)
+        teto_por_cobertura(alvo, aceites_vigentes=aceites_vigentes)
+
+
 def achados_da_resposta(resposta, limiar, componente):
     """Resposta que cruza o limiar declarado vira achado — a ponte entre insight e achado.
 
@@ -179,8 +192,14 @@ def _sem_contadores(resposta, limiar):
     from lib.limiar import campos
 
     valor = resposta.get("valor")
-    if not limiar or resposta.get("sem_dados") or not isinstance(valor, list) or not valor:
+    if not limiar or resposta.get("sem_dados") or not isinstance(valor, list):
         return resposta
+    if not valor:
+        # A fonte respondeu "nenhum item". Com limiar, isso NÃO é uma medida de zero
+        # ocorrências: é a ausência da medida. Deixar passar marcaria 100% de cobertura
+        # sem nada ter sido medido, e o achado que o limiar produziria nunca nasceria.
+        return {**resposta, "sem_dados": True,
+                "motivo": "a fonte não devolveu nenhum item"}
     necessarios = campos(limiar.get("quando")) - {"valor"}
     if not necessarios:
         return resposta
@@ -444,6 +463,12 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
     # a saúde só depois do aceite: achado aceito não pode deixar o alvo vermelho
     for registro in relatorio["alvos"]:
         agravar_saude(registro)
+    # a cobertura vem depois: o teto do verde não pode ser aplicado antes de os aceites
+    # terem tirado de cena as regras que o dono já decidiu aceitar
+    aplicar_cobertura(relatorio["alvos"],
+                      aceites_vigentes={x.get("regra")
+                                        for x in (relatorio.get("aceites") or [])
+                                        if not x.get("vencido")})
     # a remediação vem do catálogo versionado, depois do aceite: achado aceito não precisa de
     # passo a passo, e achado que sobrou precisa — inclusive o de aceite vencido
     from lib import remediacao

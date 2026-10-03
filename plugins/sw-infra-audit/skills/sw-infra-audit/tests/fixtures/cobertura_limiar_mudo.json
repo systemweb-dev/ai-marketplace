@@ -1,0 +1,19 @@
+{
+  "nome": "cluster-exemplo",
+  "tipo": "docker",
+  "onde": "context: exemplo",
+  "saude": "🟢",
+  "dimensoes": {},
+  "achados": [],
+  "componentes": [
+    {"nome": "pilha_fila", "papel": "fila", "achados": [], "analise": "",
+     "respostas": [
+       {"pergunta": "fila.filas", "sem_dados": true,
+        "motivo": "a variável de ambiente com a senha não está definida"},
+       {"pergunta": "fila.consumidores_por_fila", "sem_dados": true,
+        "motivo": "a variável de ambiente com a senha não está definida"},
+       {"pergunta": "fila.taxa_entrada_saida", "sem_dados": true,
+        "motivo": "orçamento do alvo esgotado"}
+     ]}
+  ]
+}
