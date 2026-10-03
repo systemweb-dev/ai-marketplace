@@ -4,6 +4,7 @@ Genérico por design: uma TABELA de queries declara o que buscar; o que não exi
 vira ausência silenciosa (a seção fica n/a). Nada aqui é obrigatório — sem endpoint confirmado,
 o relatório continua saindo só com os fatos do Docker.
 """
+import math
 import json
 import re
 from urllib.parse import quote
@@ -40,9 +41,21 @@ def _clean_key(v):
 
 
 def _fmt(kind, raw):
+    """Converte o valor bruto do Prometheus, ou devolve None.
+
+    NaN e infinito viram None. O Prometheus responde NaN quando o histograma não tem
+    amostra — um serviço com zero requisições na janela basta —, e `collect` grava o
+    relatório com `allow_nan=False`: um único NaN aborta a gravação INTEIRA, depois de
+    minutos de coleta, com uma mensagem que não diz qual campo foi.
+
+    `lib/extracao.py` e `lib/adaptadores/promql.py` já filtravam; este era o terceiro
+    lugar que converte float e o único que tinha ficado para trás.
+    """
     try:
         f = float(raw)
     except (TypeError, ValueError):
+        return None
+    if math.isnan(f) or math.isinf(f):
         return None
     if kind == "int":
         return int(round(f))

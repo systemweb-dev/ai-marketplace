@@ -353,10 +353,7 @@ def coletar(alvo, contexto):
             nao_coletado.append(report_mod.na(
                 f"métricas: {base} não respondeu como Prometheus nem como exporter"))
 
-    achados = [{"regra": f.get("rule_id"), "objeto": f.get("object"),
-                "severidade": SEVERIDADE_POR_V1.get(f.get("severity"), "info"),
-                "detalhe": f.get("evidence"), "alvo": alvo["nome"]}
-               for f in bruto.get("findings", [])]
+    achados = _para_achados_do_relatorio(bruto.get("findings", []), alvo["nome"])
     # `stacks` não vem do coletor bruto: é derivado aqui, agrupando os services pelo prefixo
     # `<stack>_<service>` do Swarm. É o que permite o relatório mostrar cada aplicação junta,
     # com as rotas do Traefik — a pergunta "como o traefik está roteando pro app X".
@@ -421,6 +418,30 @@ def coletar(alvo, contexto):
             "fatos": fatos, "achados": achados, "componentes": componentes,
             "nao_coletado": nao_coletado}
 
+
+def _para_achados_do_relatorio(brutos, alvo=None):
+    """Do achado do detector (`lib/rules.py`) para o do relatório.
+
+    A marca `expected` ATRAVESSA, virando `esperada`. Ela se perdia aqui: o detector marcava
+    o que descreve o normal — o proxy que monta o `docker.sock` porque é assim que ele
+    funciona, o job de migração concluído — e a conversão descartava a chave. Numa rodada
+    real, 19 achados de 212 deveriam estar marcados e zero estava, então a cascata imprimia
+    "nenhum esperado" duas linhas abaixo da dimensão dizendo "12 esperados".
+
+    Só repassa `esperada` quando é verdadeira: chave `False` em todo achado é ruído no
+    `report.json` e no diff entre rodadas.
+    """
+    achados = []
+    for f in brutos:
+        achado = {"regra": f.get("rule_id"), "objeto": f.get("object"),
+                  "severidade": SEVERIDADE_POR_V1.get(f.get("severity"), "info"),
+                  "detalhe": f.get("evidence")}
+        if alvo is not None:
+            achado["alvo"] = alvo
+        if f.get("expected"):
+            achado["esperada"] = True
+        achados.append(achado)
+    return achados
 
 def _first_json(out):
     return json.loads(out) if out else None
