@@ -10,7 +10,8 @@ from lib.rules import (findings_for_workload, findings_operational,
 from lib.runner import run
 import inspect
 import json
-from lib import cert, discover, enrich, impact, metrics, stacks
+from lib import cert, discover, impact, metrics, stacks
+from lib.adaptadores import promql
 from lib.coletores.docker_report import na, new_report, split_image
 
 DEFAULT_TIMEOUT = 15
@@ -344,19 +345,20 @@ def coletar(alvo, contexto):
             "métricas: o alvo não declara `metricas_url` — rode `configurar.py alvos --sugerir` "
             "para ver candidatos e colar um no alvos.toml"))
     else:
-        permitido = [http_get.destino(url)]
-        base = url.split("/api/")[0].split("/metrics")[0].rstrip("/")
-        runtime = None
-        if enrich.probe(base, permitido, contexto["timeout"]):
-            runtime = enrich.collect_runtime(base, permitido, contexto["timeout"])
-        elif enrich.probe_exporter(base, permitido, contexto["timeout"]):
-            runtime = enrich.collect_from_exporter(base, permitido, contexto["timeout"])
-        if runtime is not None:
-            bruto["runtime"] = runtime
-            enrich.attach(bruto, runtime)      # liga requests/erros a cada serviço
-        else:
+        # Sonda de ALVO, e só isso: quem mede é o adaptador, componente por componente, com a
+        # consulta vinda do arquivo de família. Até aqui havia uma segunda coleta aqui
+        # (`lib/enrich.py`), com uma tabela de consultas escrita no código, falando com o
+        # MESMO Prometheus para obter os MESMOS números — e o único consumidor dela era o
+        # renderizador anterior, que `build()` não chama mais. Dois caminhos, um deles cego.
+        #
+        # A sonda fica porque é a diferença entre "o endereço está errado" (uma nota no alvo) e
+        # 57 componentes repetindo "a fonte não respondeu" sem ninguém somar um mais um.
+        base = promql.base_de(url)
+        if not promql.alcancavel(base, {"timeout": contexto["timeout"],
+                                        "at": contexto.get("at")}):
             nao_coletado.append(report_mod.na(
-                f"métricas: {base} não respondeu como Prometheus nem como exporter"))
+                f"métricas: {base} não respondeu a uma consulta trivial — confira o endereço "
+                f"e se é a API de um Prometheus (`/api/v1/query`)"))
 
     achados = _para_achados_do_relatorio(bruto.get("findings", []), alvo["nome"])
     # `stacks` não vem do coletor bruto: é derivado aqui, agrupando os services pelo prefixo
@@ -367,7 +369,7 @@ def coletar(alvo, contexto):
 
     fatos = {chave: bruto.get(chave) for chave in
              ("nodes", "services", "networks", "secrets", "configs", "stacks", "tls", "scope",
-              "runtime", "impact_points", "disk")
+              "impact_points", "disk")
              if bruto.get(chave) is not None}
 
     # cada serviço vira um componente: é o papel dele que decide quais perguntas ele recebe.

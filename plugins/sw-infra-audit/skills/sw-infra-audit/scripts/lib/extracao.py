@@ -113,7 +113,12 @@ def _valores(documento, caminhos):
 
 
 def _inteiro_se_der(numero):
-    """Conta de inteiros é inteira: somar contagens de mensagens dava `80.000,00` no relatório."""
+    """Conta de inteiros é inteira: somar contagens de mensagens dava `80.000,00` no relatório.
+
+    # nan-ok: o argumento vem de `_numeros`, que já devolveu None para NaN e infinito — este
+    # `float()` só reconverte o resultado de um `round` para testar se é inteiro. Filtrar de
+    # novo aqui esconderia o dia em que o filtro de cima for removido.
+    """
     arredondado = round(numero, 4)
     return int(arredondado) if float(arredondado).is_integer() else arredondado
 

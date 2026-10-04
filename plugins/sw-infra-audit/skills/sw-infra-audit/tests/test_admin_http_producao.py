@@ -249,8 +249,9 @@ def test_quando_nenhum_adaptador_conhece_a_pergunta_a_marca_nao_vai_ao_relatorio
 
 def test_promql_se_marca_quando_nenhuma_familia_conhece_a_pergunta():
     from lib.adaptadores import promql
+    from test_adaptador_promql import pergunta_sem_familia
 
-    resposta = promql.perguntar("fila.filas", {"nome": "broker"}, _contexto())
+    resposta = promql.perguntar(pergunta_sem_familia(), {"nome": "x"}, _contexto())
 
     assert resposta.get("nao_se_aplica") is True
 

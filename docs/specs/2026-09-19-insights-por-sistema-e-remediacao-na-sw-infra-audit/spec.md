@@ -583,3 +583,55 @@ de saída e ausência de redação na saída do CLI) está em `referencias/revis
   mesma consulta de `top_rotas` e é justamente o recorte que o dono mostrou como referência.
 - **Mantido `indices_sem_uso`:** é uma consulta única no catálogo do motor, sem custo adicional
   de infraestrutura, e é um dos poucos achados de banco com correção óbvia e segura.
+
+## Ciclo 0.14.0 — o caminho único de métrica
+
+O que estava em pé ao fim do 0.13.0: **dois** caminhos falando com o mesmo Prometheus. O
+catálogo de famílias (`references/metricas/*.toml`), lido pelo adaptador `promql`, e uma tabela
+de consultas escrita no código (`lib/enrich.py`), chamada pelo coletor docker. Os dois pediam
+os mesmos números ao mesmo endereço.
+
+O segundo sobreviveu porque o **único consumidor dele era o renderizador anterior** — e
+`build()` recusa schema < 3 desde que o relatório virou v3. Ninguém via a saída, então ninguém
+notava. É o modo de falha mais barato de produzir e o mais caro de achar: código que roda, custa
+requisição na infraestrutura do dono e alimenta nada.
+
+Três coisas tiveram de existir antes de ele poder sair:
+
+1. **Família filtrada por papel.** A família só concorre se responde pergunta do papel do
+   componente. Sem isso, um `banco` apontando para o mesmo Prometheus do proxy era identificado
+   como o proxy — a série existe lá, afinal — e recebia o número do exporter inteiro.
+2. **Valor da etiqueta descoberto, não suposto.** O seletor valia `{etiqueta}="{nome do
+   serviço}"`, verdade para o exporter de container e quase nunca para `job`. Dois componentes
+   recebiam o MESMO número, cada um carimbado como seu. Agora os valores são consultados
+   (`count by (etiqueta) (serie)`) e casados por igualdade ou composição (`<stack>_<serviço>`),
+   nunca por substring: `db` dentro de `mariadb` atribuiria a medida do banco errado. Sem
+   casamento: um valor só → exporter inteiro, com a fonte dizendo; vários → `sem dados`, porque
+   o número sem filtro é a soma.
+3. **Lista com vários campos por item.** Uma consulta PromQL devolve um número por série, e o
+   limiar de `fila.filas` compara dois campos (`consumidores == 0 e prontas > 0`). Sem isso, o
+   papel `fila` só tinha a API de administração, que exige credencial. Agora cada campo é uma
+   consulta e elas se juntam pela etiqueta de `chave`.
+
+A trava que vale mais que as três: o carregador **recusa a família que responda pergunta com
+limiar sem medir os campos que o limiar compara**. Sem ela, uma família incompleta passaria, os
+itens sairiam sem o campo, `_comparar` devolveria False para `None` por desenho, e o achado que
+a pergunta existe para produzir nunca nasceria — com a suíte toda verde. É a forma de defeito
+que mais se repetiu neste dossiê.
+
+### O que ficou de fora, e por quê
+
+- **Exporter cru (`/metrics` em texto) sem servidor Prometheus.** O `enrich` lia isso, com
+  quatro séries hardcoded. As perguntas canônicas são consultas com janela
+  (`increase(...[24h])`), e um raspão instantâneo não tem onde avaliá-las. Para voltar a ser
+  suportado, cada pergunta precisaria declarar uma série instantânea equivalente — e aí o
+  relatório teria de dizer que aquele número é instantâneo, não da janela. Não foi feito porque
+  a capacidade alimentava só o renderizador morto: na prática ninguém a perdeu.
+- **`fila.taxa_entrada_saida` pelo exporter.** Os contadores existem; os nomes exatos não foram
+  conferidos contra um broker com per-object ligado. Série errada não vira `sem dados` — vira
+  família que não identifica, em silêncio.
+- **O exporter de terceiro do broker AMQP** publica `..._messages_unacknowledged` em vez de
+  `..._messages_unacked`. É outra família, um arquivo próprio. Não foi escrito pelo mesmo
+  motivo: publicar nome de série por palpite é pior que não publicar.
+- **O renderizador v2 (`render_html`) é código morto**, mantido vivo por 15 testes próprios.
+  `build()` não o chama. Retirá-lo é limpeza de outro ciclo, não deste.

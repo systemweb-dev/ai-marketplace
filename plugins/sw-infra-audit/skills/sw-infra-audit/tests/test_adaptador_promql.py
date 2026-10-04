@@ -60,7 +60,16 @@ def prometheus():
     servidor.shutdown()
 
 
-def _identifica_traefik(falso, seletor='job="proxy"'):
+def _identifica_traefik(falso, seletor='job="proxy"', valores=("proxy",)):
+    """Ensina o Prometheus falso a ser identificado como Traefik.
+
+    São DUAS consultas desde que o adaptador parou de supor o valor da etiqueta: primeiro ele
+    pergunta quais valores a etiqueta tem (`count by (job) (serie)`), depois confirma o
+    componente com o valor que casou. Supor o valor fazia dois componentes diferentes
+    receberem o mesmo número, carimbado como se fosse de cada um.
+    """
+    falso.REGRAS.append(('count by (job) (traefik_service_requests_total)',
+                         _vetor([({"job": v}, 1) for v in valores])))
     falso.REGRAS.append((f'count(traefik_service_requests_total{{{seletor}}})', _vetor([({}, 1)])))
 
 
@@ -79,29 +88,50 @@ def test_responde_a_pergunta_da_familia_identificada(prometheus):
     assert resposta["fonte"] == "promql:traefik"
 
 
-def test_identificacao_e_escopada_pelo_componente(prometheus):
-    """`count(serie)` sem escopo pergunta 'este Prometheus tem ALGUMA série de Traefik?' —
-    e aí todo componente apontando para o mesmo Prometheus viraria Traefik, banco inclusive."""
+def test_familia_de_outro_papel_nunca_identifica_o_componente(prometheus):
+    """O banco aponta para o MESMO Prometheus do proxy — a série de Traefik existe lá.
+
+    Sem o filtro por papel, a família era candidata para qualquer componente e o banco
+    recebia o número do proxy. Hoje a família só concorre se responde pergunta do papel
+    daquele componente, e por isso nenhuma consulta de Traefik sequer sai.
+    """
     base, falso = prometheus
-    _identifica_traefik(falso, seletor='job="proxy"')
+    _identifica_traefik(falso)
     falso.REGRAS.append((VOLUME_TRAEFIK, _vetor([({}, 7)])))
 
-    resposta = promql.perguntar("entrada.volume_na_janela", _componente(base, "banco"),
-                                dict(CONTEXTO))
+    componente = dict(_componente(base, "banco"), papel="banco")
+    resposta = promql.perguntar("entrada.volume_na_janela", componente, dict(CONTEXTO))
 
     assert resposta["sem_dados"] is True, "o banco não pode ser identificado como o proxy"
-    assert any('count(traefik_service_requests_total{job="banco"})' in q
-               for q in falso.RECEBIDAS), falso.RECEBIDAS
+    assert not any("traefik" in q for q in falso.RECEBIDAS), falso.RECEBIDAS
 
 
-def test_sem_escopo_o_numero_e_do_exporter_inteiro_e_a_fonte_diz(prometheus):
-    """Série existe, mas não com a etiqueta do componente: num cluster com um proxy só, o
-    número sem filtro é a resposta certa — mentir que ele é do componente é que não pode."""
+def test_nome_que_nao_casa_com_nenhum_valor_da_etiqueta_nao_recebe_a_medida(prometheus):
+    """A etiqueta tem dois valores e nenhum é deste componente.
+
+    O número sem filtro aqui é a SOMA dos dois — entregá-lo como se fosse de um é a mentira
+    que fazia dois componentes exibirem a mesma medida. Melhor não medir.
+    """
     base, falso = prometheus
-    falso.REGRAS.append(("count(traefik_service_requests_total)", _vetor([({}, 1)])))
+    _identifica_traefik(falso, valores=("proxy", "borda"))
     falso.REGRAS.append((VOLUME_TRAEFIK, _vetor([({}, 500)])))
 
-    resposta = promql.perguntar("entrada.volume_na_janela", _componente(base), dict(CONTEXTO))
+    resposta = promql.perguntar("entrada.volume_na_janela", _componente(base, "cdn"),
+                                dict(CONTEXTO))
+
+    assert resposta["sem_dados"] is True
+    assert "soma de todos" in resposta["motivo"]
+
+
+def test_etiqueta_com_um_valor_so_responde_pelo_exporter_inteiro_e_a_fonte_diz(prometheus):
+    """Um proxy só no cluster, e a etiqueta não vale o nome do serviço: o número sem filtro
+    é a resposta certa — mentir que ele é do componente é que não pode."""
+    base, falso = prometheus
+    _identifica_traefik(falso, valores=("borda",))
+    falso.REGRAS.append((VOLUME_TRAEFIK, _vetor([({}, 500)])))
+
+    resposta = promql.perguntar("entrada.volume_na_janela",
+                                _componente(base, "pilha_entrada"), dict(CONTEXTO))
 
     assert resposta["valor"] == 500
     assert "exporter inteiro" in resposta["fonte"]
@@ -232,13 +262,14 @@ def test_pergunta_que_a_familia_nao_expoe_diz_isso(prometheus):
 
 
 def test_pergunta_que_nenhuma_familia_responde_nao_manda_declarar_metricas_url():
-    """Enquanto só existe o `promql`, toda pergunta de `fila` recebia o motivo "o componente não
-    declara `metricas_url`" — e o dono ia declarar algo que não faz a fila responder, porque
-    nenhuma família de exporter do catálogo sabe falar de fila. O motivo tem que ser o
-    verdadeiro: ninguém aqui responde isto."""
+    """Pergunta sem família recebia o motivo "o componente não declara `metricas_url`" — e o
+    dono ia declarar algo que não faz a pergunta responder. O motivo tem que ser o verdadeiro:
+    ninguém aqui responde isto."""
     from lib.adaptadores import promql
+    from lib.perguntas import PERGUNTAS
 
-    resposta = promql.perguntar("fila.filas", {"nome": "broker", "papel": "fila"},
+    id_ = pergunta_sem_familia()
+    resposta = promql.perguntar(id_, {"nome": "x", "papel": PERGUNTAS[id_]["papel"]},
                                 {"timeout": 5})
 
     assert resposta["sem_dados"] is True
@@ -254,3 +285,22 @@ def test_pergunta_que_alguma_familia_responde_continua_pedindo_metricas_url():
                                 {"timeout": 5})
 
     assert "metricas_url" in resposta["motivo"]
+
+
+def pergunta_sem_familia():
+    """Uma pergunta canônica que NENHUMA família do catálogo responde.
+
+    Derivada do catálogo real, não digitada: o teste anterior fixava `fila.filas`, e no dia em
+    que uma família passou a responder aquilo o teste caiu sem que a garantia tivesse mudado.
+    O que se protege é o MOTIVO — "ninguém responde isto" nunca pode virar "declare
+    `metricas_url`", que manda o dono configurar algo que não faz a pergunta responder.
+    """
+    from lib import catalogo
+    from lib.perguntas import PERGUNTAS
+
+    respondidas = {p["id"] for familia in catalogo.familias()
+                   for p in familia.get("pergunta", [])}
+    sobrando = sorted(set(PERGUNTAS) - respondidas)
+    assert sobrando, ("toda pergunta canônica tem família promql — o motivo "
+                      "`nao_se_aplica` ficou inalcançável e esta trava não protege mais nada")
+    return sobrando[0]

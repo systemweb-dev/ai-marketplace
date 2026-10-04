@@ -1,0 +1,70 @@
+# Família de exporter: o plugin `rabbitmq_prometheus`, que vem com o próprio broker.
+#
+# É ela que faz o papel `fila` ter resposta para quem tem o broker no Prometheus e NÃO tem a
+# credencial da API de administração. Até aqui o único caminho era `admin_http`, que exige
+# usuário e senha; o resto ficava `sem dados`, e por isso uma tabela de consultas escrita no
+# código (`lib/enrich.py`) sobrevivia em paralelo ao catálogo.
+#
+# ATENÇÃO, e é o motivo mais comum de esta família não responder: por padrão o plugin AGREGA as
+# métricas e a etiqueta `queue` não existe — `prometheus.return_per_object_metrics` é `false`,
+# ou o scrape precisa apontar para `/metrics/per-object`. Quando é esse o caso, a resposta sai
+# como `sem dados` dizendo exatamente isso, e não como "a fonte não respondeu". Ligar por
+# objeto tem custo: em nó com 80 mil filas, a medição oficial fala de 1,9 milhão de séries.
+#
+# O exporter de terceiro (`rabbitmq_exporter`) publica `..._messages_unacknowledged` em vez de
+# `..._messages_unacked`. É OUTRA família — um arquivo próprio, identificado pela série que
+# existe — e não um `if` aqui dentro. Não foi escrito porque não houve um para conferir contra,
+# e publicar nome de série por palpite deixa a família não identificável em silêncio.
+familia = "rabbitmq-prometheus"
+prioridade = 20
+
+[identificacao]
+metrica_presente = "rabbitmq_queue_messages_ready"
+
+[seletor]
+# `job` é o alvo de scrape do broker. A etiqueta de JUNÇÃO dos itens é outra (`queue`, abaixo):
+# uma identifica o componente, a outra identifica a fila dentro dele.
+etiqueta = "job"
+
+# --- o que existe, e o que está parado
+#
+# Três consultas, uma por campo, juntas pela etiqueta `queue`. Uma consulta PromQL devolve um
+# número por série, e o limiar de `fila.filas` compara DOIS campos (`consumidores == 0 e
+# prontas > 0`): com um campo só, o achado `fila_sem_consumidor` nunca nasceria.
+#
+# `nao_confirmadas` entra porque é ela que distingue a fila sem consumidor da fila TRAVADA —
+# consumidor conectado que recebe e nunca confirma. A primeira vira achado; a segunda encabeça
+# a lista, e o relatório mostra a coluna para quem souber ler.
+[[pergunta]]
+id = "fila.filas"
+chave = "queue"
+ordenar_por = "prontas"
+desempate = "nome"
+valor = "inteiro"
+
+  [[pergunta.campo]]
+  nome = "prontas"
+  query = 'sum by (queue) (rabbitmq_queue_messages_ready{%SELETOR%})'
+
+  [[pergunta.campo]]
+  nome = "nao_confirmadas"
+  query = 'sum by (queue) (rabbitmq_queue_messages_unacked{%SELETOR%})'
+
+  [[pergunta.campo]]
+  nome = "consumidores"
+  query = 'sum by (queue) (rabbitmq_queue_consumers{%SELETOR%})'
+
+# --- quem consome
+[[pergunta]]
+id = "fila.consumidores_por_fila"
+chave = "queue"
+query = 'sum by (queue) (rabbitmq_queue_consumers{%SELETOR%})'
+desempate = "chave"
+valor = "inteiro"
+
+# `fila.taxa_entrada_saida` NÃO entra: ela é mensagens por segundo de entrada E de saída, e o
+# plugin publica os dois como contadores acumulados (`..._messages_published_total`,
+# `..._messages_delivered_total`). `rate()` de cada um resolveria — mas a pergunta é uma lista
+# de DUAS taxas por fila, e é o que a junção por campo já faz. Ficou fora porque não houve um
+# broker com per-object ligado para conferir os nomes exatos dessas duas séries contra a
+# realidade, e série errada não é "sem dados": é família que não identifica, em silêncio.

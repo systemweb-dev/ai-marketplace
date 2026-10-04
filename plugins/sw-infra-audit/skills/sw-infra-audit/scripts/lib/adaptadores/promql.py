@@ -69,9 +69,60 @@ def alcancavel(base, contexto):
     return _consultar(base, "vector(1)", contexto["timeout"], contexto.get("at")) is not None
 
 
-def _seletor(familia, componente):
-    """`job="proxy"` — a etiqueta declarada pela família, com o nome do componente."""
-    return f'{familia["seletor"]["etiqueta"]}="{componente["nome"]}"'
+def casar_valor_da_etiqueta(componente, valores):
+    """Qual dos valores que a etiqueta TEM corresponde a este componente — ou None.
+
+    Supor que o valor é o nome do serviço só acerta quando os dois coincidem: verdade para o
+    cAdvisor, cujo rótulo É o nome do serviço no Swarm, e quase nunca verdade para `job`, que
+    vale o que o scrape config do Prometheus disser. Errando, a consulta caía para o exporter
+    inteiro e dois componentes diferentes recebiam o MESMO número.
+
+    A comparação é deliberadamente estreita. Casa por igualdade, e depois só quando um lado é
+    o outro com um prefixo separado por `_`, `-` ou `.` — que é como o Swarm nomeia
+    (`<stack>_<serviço>`). NÃO casa por substring solta: `db` dentro de `mariadb` atribuiria a
+    medida do banco errado, e errar em silêncio é pior que não medir.
+
+    Empate entre dois candidatos igualmente plausíveis devolve None: escolher um seria
+    atribuir a medida a quem pode não ser o dono dela.
+    """
+    if not componente or not valores:
+        return None
+    if componente in valores:
+        return componente
+
+    def nucleo(nome):
+        """O último segmento depois de um separador de composição."""
+        for sep in ("_", "-", "."):
+            if sep in nome:
+                nome = nome.rsplit(sep, 1)[-1]
+        return nome
+
+    alvo = nucleo(componente)
+    candidatos = [v for v in valores if v == alvo or nucleo(v) == alvo or nucleo(v) == componente]
+    if len(candidatos) == 1:
+        return candidatos[0]
+    return None                       # nenhum, ou ambíguo: não atribuir é mais honesto
+
+
+def _valores_da_etiqueta(base, familia, contexto):
+    """Os valores que a etiqueta da família realmente tem nesta fonte."""
+    serie = familia["identificacao"]["metrica_presente"]
+    etiqueta = familia["seletor"]["etiqueta"]
+    bruto = _consultar(base, f"count by ({etiqueta}) ({serie})", contexto["timeout"],
+                       contexto.get("at"))
+    if not bruto:
+        return []
+    return [str(((r.get("metric") or {}).get(etiqueta) or "")) for r in bruto if r]
+
+
+def _seletor(familia, componente, valores=None):
+    """`job="proxy"` — a etiqueta declarada pela família, com o valor que casa com o
+    componente. Sem casamento, devolve vazio: a resposta vira a do exporter inteiro e a
+    fonte DIZ isso, em vez de mentir que o número é daquele componente."""
+    etiqueta = familia["seletor"]["etiqueta"]
+    nome = componente.get("nome") or ""
+    valor = casar_valor_da_etiqueta(nome, valores) if valores is not None else nome
+    return f'{etiqueta}="{valor}"' if valor else ""
 
 
 def familia_do_componente(componente, contexto):
@@ -96,16 +147,35 @@ def familia_do_componente(componente, contexto):
         return cache[chave]
 
     achada = (None, None)
+    papel = componente.get("papel")
     for familia in catalogo.familias():
+        # A família só é candidata se responde alguma pergunta DO PAPEL deste componente.
+        # Sem este filtro, um `banco` apontando para o mesmo Prometheus seria identificado
+        # como Traefik — a série existe naquele Prometheus, afinal — e receberia o número do
+        # exporter inteiro como se fosse dele. O prefixo do id da pergunta (`entrada.`,
+        # `app.`) é o que liga família a papel, sem nenhum nome de produto no código.
+        if not any(str(q["id"]).split(".")[0] == papel for q in familia.get("pergunta", [])):
+            continue
         serie = familia["identificacao"]["metrica_presente"]
-        seletor = _seletor(familia, componente)
-        if _consultar(base, f"count({serie}{{{seletor}}})", contexto["timeout"],
-                      contexto.get("at")):
+        # Descobrir os valores que a etiqueta TEM, em vez de supor que ela vale o nome do
+        # serviço no Swarm. Esta consulta é o que separa "a medida é deste componente" de
+        # "a medida é do exporter inteiro" — e a suposição antiga fazia dois componentes
+        # diferentes receberem o MESMO número, com a fonte dizendo que era de cada um.
+        valores = _valores_da_etiqueta(base, familia, contexto)
+        if not valores:
+            continue
+        seletor = _seletor(familia, componente, valores)
+        if seletor and _consultar(base, f"count({serie}{{{seletor}}})",
+                                  contexto["timeout"], contexto.get("at")):
             achada = (familia, seletor)
             break
-        if _consultar(base, f"count({serie})", contexto["timeout"], contexto.get("at")):
-            achada = (familia, "")
-            break
+        # A família é esta, mas nenhum valor casou com o componente. Com UM valor só, o
+        # exporter cobre um componente e o número sem filtro é dele — a fonte carimba
+        # "exporter inteiro" para quem lê saber de onde veio. Com vários, o número sem
+        # filtro é a SOMA de todos, e entregá-lo como se fosse de um era exatamente a
+        # mentira que fazia dois componentes exibirem a mesma medida.
+        achada = (familia, "" if len(set(valores)) == 1 else None)
+        break
     cache[chave] = achada
     return achada
 
@@ -129,6 +199,64 @@ def _sem_dados(pergunta, motivo):
     return {"pergunta": pergunta, "sem_dados": True, "motivo": motivo}
 
 
+def _interpolar(query, seletor, contexto):
+    return (str(query).replace("%SELETOR%", seletor)
+            .replace("%JANELA%", str(contexto.get("janela", "24h"))))
+
+
+def _lista_de_campos(pergunta, declarada, base, seletor, contexto, fonte):
+    """Uma consulta por campo, juntas pela etiqueta de `chave`.
+
+    Uma consulta PromQL devolve um número por série, e por isso uma família só conseguia
+    responder `{chave, valor}`. `fila.filas` precisa de três campos, e o limiar que produz
+    `fila_sem_consumidor` compara dois deles — o papel `fila` ficava fora do alcance de quem
+    tem o exporter no Prometheus e não a credencial da API de administração.
+
+    Campo que a consulta não devolveu para aquele item fica `None`, nunca 0: preencher com
+    zero produziria `fila_sem_consumidor` em cima de uma medida que ninguém fez, e `None` é o
+    que o limiar sabe recusar.
+    """
+    etiqueta = declarada["chave"]
+    tipo = declarada.get("valor", "inteiro")
+    nomes = [campo["nome"] for campo in declarada["campo"]]
+    itens = {}
+    respondeu = series = False
+    for campo in declarada["campo"]:
+        resultado = _consultar(base, _interpolar(campo["query"], seletor, contexto),
+                               contexto["timeout"], contexto.get("at"))
+        if resultado is None:
+            continue
+        respondeu = True
+        series = series or bool(resultado)
+        for linha in resultado:
+            chave = str((linha.get("metric") or {}).get(etiqueta, ""))
+            if not chave:
+                continue
+            itens.setdefault(chave, {})[campo["nome"]] = _converter(linha["value"][1], tipo)
+
+    if not respondeu:
+        return _sem_dados(pergunta, "a fonte de métrica não respondeu")
+    if not itens:
+        # Lista vazia diria "não há fila"; `sem dados` diz "não consegui ver". A primeira sai
+        # no relatório como componente saudável, que é a mentira mais cara que ele comete.
+        if series:
+            # Série existe, mas sem a etiqueta de junção. É o caso do exporter configurado
+            # para AGREGAR — e o motivo genérico ("nada respondeu") mandaria o dono caçar
+            # problema de rede quando o conserto é uma chave de configuração do exporter.
+            return _sem_dados(pergunta, f"as consultas responderam, mas nenhuma série traz a "
+                                        f"etiqueta `{etiqueta}` — o exporter está publicando "
+                                        f"a métrica agregada, sem separar por objeto")
+        return _sem_dados(pergunta, "nenhuma das consultas desta família devolveu série")
+
+    montados = [dict({"nome": chave}, **{nome: medidos.get(nome) for nome in nomes})
+                for chave, medidos in itens.items()]
+    ordem, desempate = declarada["ordenar_por"], declarada["desempate"]
+    # do maior para o menor pelo campo DECLARADO; empate pelo campo de identidade, nunca pela
+    # ordem da resposta — que é o que faria o topo mudar entre rodadas sem nada ter mudado.
+    montados.sort(key=lambda item: (-(item.get(ordem) or 0), str(item.get(desempate) or "")))
+    return {"pergunta": pergunta, "fonte": fonte, "valor": montados}
+
+
 def perguntar(pergunta, componente, contexto):
     """Responde a pergunta, ou devolve `sem_dados` com o motivo real."""
     base = componente.get("metricas_url")
@@ -146,6 +274,11 @@ def perguntar(pergunta, componente, contexto):
 
     base = base_de(base)
     familia, seletor = familia_do_componente(componente, contexto)
+    if familia is not None and seletor is None:
+        etiqueta = familia["seletor"]["etiqueta"]
+        return _sem_dados(pergunta, f"o exporter {familia['familia']} cobre vários componentes "
+                                    f"e nenhum valor de `{etiqueta}` casa com este — o número "
+                                    f"sem filtro seria a soma de todos")
     if familia is None:
         if not alcancavel(base, contexto):
             return _sem_dados(pergunta, "a fonte de métrica não respondeu")
@@ -157,14 +290,15 @@ def perguntar(pergunta, componente, contexto):
         return _sem_dados(pergunta,
                           f"o exporter {familia['familia']} não expõe o dado desta pergunta")
 
-    query = (declarada["query"]
-             .replace("%SELETOR%", seletor)
-             .replace("%JANELA%", str(contexto.get("janela", "24h"))))
+    fonte = f"{ID}:{familia['familia']}" + ("" if seletor else " (exporter inteiro)")
+    if declarada.get("campo"):
+        return _lista_de_campos(pergunta, declarada, base, seletor, contexto, fonte)
+
+    query = (_interpolar(declarada["query"], seletor, contexto))
     resultado = _consultar(base, query, contexto["timeout"], contexto.get("at"))
     if resultado is None:
         return _sem_dados(pergunta, "a fonte de métrica não respondeu")
 
-    fonte = f"{ID}:{familia['familia']}" + ("" if seletor else " (exporter inteiro)")
     tipo = declarada.get("valor", "inteiro")
     chave = declarada.get("chave")
     if chave:

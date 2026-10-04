@@ -112,7 +112,7 @@ responde o que souber e carimba a **fonte**.
 
 | Adaptador | Fala com | Estado |
 |---|---|---|
-| `promql` | Prometheus ou exporter declarado em `metricas_url` | funciona |
+| `promql` | o Prometheus declarado em `metricas_url` (a API `/api/v1/query`) | funciona |
 | `admin_http` | API de administração do componente — hoje, filas de broker AMQP | funciona |
 | `sql` | Postgres/MySQL por cliente de linha de comando | próximo ciclo |
 | `logql` | agregador de log, só consulta agregada | próximo ciclo |
@@ -122,12 +122,36 @@ identificação pela **série que existe** (não pelo nome da imagem, que mente 
 genérica), etiqueta de seletor e uma consulta por pergunta. Acrescentar um produto é escrever
 um arquivo; nenhum `if produto ==` no código.
 
+Duas coisas valem saber sobre como o `promql` liga série a componente, porque é onde ele erra
+quando erra. Primeiro, a família só concorre se **responde pergunta do papel** daquele
+componente — sem isso, um banco apontando para o mesmo Prometheus do proxy era identificado
+como o proxy, já que a série existe naquele Prometheus. Segundo, o valor da etiqueta é
+**descoberto**, não suposto: ele vale o que o scrape config disser, e supor que vale o nome do
+serviço fazia dois componentes receberem o MESMO número, cada um carimbado como se fosse dele.
+Quando nenhum valor casa e o exporter cobre **um** componente, a resposta sai do exporter
+inteiro e a fonte diz `(exporter inteiro)`; cobrindo vários, vira `sem dados` — o número sem
+filtro seria a soma de todos.
+
+Uma pergunta em forma de **lista** pode ter itens de vários campos, com **uma consulta por
+campo**, juntas pela etiqueta declarada em `chave`. É o que permite um limiar comparar dois
+campos do mesmo item (`consumidores == 0 e prontas > 0`). O carregador recusa a família que
+responda uma pergunta com limiar **sem medir os campos que o limiar compara** — senão o achado
+nunca dispararia, com a suíte toda verde.
+
 O `admin_http` segue a mesma ideia com `references/apis/<familia>.toml`: identifica a família
 pelas chaves do JSON de identificação e extrai por uma **linguagem fechada** (ponteiro JSON,
 campos, transformações e contas declaradas). Não há expressão arbitrária — o que não cabe nela
 vira adaptador próprio, com código e teste.
 
-**Papel `fila`** — a API de administração responde três perguntas: **filas** (com mensagens
+**Papel `fila`** — duas fontes respondem, e a mais específica vence. A **API de administração**
+traz vhost e taxa de entrada × saída, e por isso vem primeiro; o **exporter no Prometheus**
+responde filas e consumidores sem credencial nenhuma, para quem não quer criar usuário no
+broker. Vale saber que o plugin oficial **agrega** por padrão: sem
+`prometheus.return_per_object_metrics` (ou um scrape em `/metrics/per-object`), a etiqueta por
+fila não existe, e a resposta sai como `sem dados` dizendo exatamente isso — não como "a fonte
+não respondeu", que mandaria caçar problema de rede.
+
+A API de administração responde três perguntas: **filas** (com mensagens
 prontas, não confirmadas, consumidores e o total acumulado), **consumidores por fila** e
 **entrada × saída**. A lista de filas é ordenada pelo que está **acumulado** (prontas + não
 confirmadas), então a fila travada — consumidor conectado que recebe e nunca confirma —
@@ -383,6 +407,12 @@ achado: a skill não tem como medir estado interno de um agente.
 - **Porta em 0.0.0.0** significa publicada em todas as interfaces, **não** alcançável da internet:
   firewall e security group são invisíveis daqui.
 - **Métricas de runtime** só existem se o alvo declarar `metricas_url`.
+- **`metricas_url` é a API de um Prometheus**, não um `/metrics` cru. As perguntas são
+  consultas PromQL com janela (`increase(...[24h])`), e um raspão instantâneo de exporter não
+  tem onde avaliá-las. Endereço que não responde a `/api/v1/query` vira uma nota no alvo
+  dizendo isso. Houve um caminho paralelo que lia `/metrics` em texto, com uma tabela de
+  métricas escrita no código; ele foi retirado porque alimentava só o renderizador anterior,
+  que o relatório não usa mais — dois caminhos, um deles cego.
 
 ## Referências
 

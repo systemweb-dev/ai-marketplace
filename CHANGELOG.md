@@ -7,6 +7,49 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-infra-audit` (v0.14.0): **o papel `fila` deixou de exigir credencial.** Até aqui a única
+  fonte era a API de administração do broker, com usuário e senha; quem tem o exporter no
+  Prometheus e não quer criar usuário ficava com `sem dados`. Uma pergunta em forma de lista
+  passou a aceitar itens de **vários campos**, com uma consulta por campo, juntas pela etiqueta
+  declarada em `chave` — é o que permite um limiar comparar dois campos do mesmo item
+  (`consumidores == 0 e prontas > 0`), que uma consulta PromQL sozinha não consegue devolver.
+  Com as duas fontes declaradas, a mais específica vence e a pergunta é respondida **uma vez**.
+  O carregador recusa a família que responda pergunta com limiar **sem medir os campos que o
+  limiar compara**: sem essa trava o achado nunca dispararia, com a suíte toda verde.
+
+### Corrigido
+- `sw-infra-audit`: **dois componentes recebiam o MESMO número, cada um carimbado como se fosse
+  dele.** O adaptador supunha que o valor da etiqueta do seletor era o nome do serviço no
+  Swarm — verdade para o exporter de container, quase nunca para `job`, que vale o que o scrape
+  config disser. Agora os valores são **descobertos** e casados com o componente por igualdade
+  ou por composição (`<stack>_<serviço>`), nunca por substring solta: `db` dentro de `mariadb`
+  atribuiria a medida do banco errado. Não casando, com um valor só a resposta sai do exporter
+  inteiro e a fonte **diz isso**; com vários, vira `sem dados`, porque o número sem filtro
+  seria a soma de todos.
+- `sw-infra-audit`: **um banco apontando para o mesmo Prometheus do proxy era identificado como
+  o proxy.** A série do proxy existe naquele Prometheus, afinal. A família passou a só concorrer
+  se responde pergunta **do papel** daquele componente — o prefixo do id da pergunta é o que
+  liga família a papel, sem nome de produto no código.
+- `sw-infra-audit`: **`inf` numa pontuação derrubava a capa inteira**, e `NaN` saía como a
+  MELHOR nota possível. `round(inf)` levanta OverflowError, que o `except` da nota não pegava; e
+  `min(100, nan)` devolve 100, porque toda comparação com NaN é falsa. Na mesma varredura:
+  `timeout = nan` no `config.toml` — que é TOML válido — derrubava a coleta no meio, com uma
+  mensagem que não citava configuração nenhuma. As duas foram achadas por um teste que percorre
+  a árvore sintática do pacote e cobra filtro de NaN de **todo** `float()` que possa chegar ao
+  relatório; é a terceira vez que um conversor novo sem filtro mata a gravação do `report.json`,
+  e as duas primeiras só apareceram rodando contra infraestrutura real.
+
+### Removido
+- `sw-infra-audit`: **`lib/enrich.py` foi aposentado** — uma segunda coleta, com uma tabela de
+  consultas escrita no código, falando com o MESMO Prometheus para obter os MESMOS números que
+  o catálogo de famílias já obtém. Sobreviveu tanto tempo porque o único consumidor dela era o
+  renderizador anterior, que `build()` recusa desde que o relatório virou v3: dois caminhos, um
+  deles cego. As consultas viraram arquivo de família (o exporter de container e o do broker
+  AMQP); a sonda do alvo passou a ser a do próprio adaptador. Com isso, `metricas_url` passou a
+  ser **a API de um Prometheus**, e não um `/metrics` cru — as perguntas são consultas com
+  janela, que um raspão instantâneo não tem onde avaliar.
+
 ### Corrigido
 - `sw-infra-audit`: **o relatório assinava 🟢 num cluster que ele não conseguiu medir.** Numa
   rodada real o mesmo cluster passou de 🔴 para 🟢 sem nada ter melhorado: a variável com a

@@ -1,6 +1,6 @@
 import pytest
 
-from lib import stacks, discover, enrich
+from lib import stacks, discover
 
 
 # ---------------------------------------------------------------- stacks
@@ -98,53 +98,3 @@ def test_propose_nao_inventa_porta_quando_a_da_metrica_nao_esta_publicada():
 
 def test_propose_vazio_sem_fonte():
     assert discover.propose({"services": [{"name": "app", "image": "myapp", "ports": []}]}, "h") == []
-
-
-# ---------------------------------------------------------------- enrich
-def test_attach_casa_series_com_services():
-    rep = {"services": [{"name": "loja-api_api"}, {"name": "traefik_traefik"}]}
-    runtime = {"requests_24h": {"loja-api_api": 100, "fantasma": 7}}
-    enrich.attach(rep, runtime)
-    assert rep["services"][0]["runtime"]["requests_24h"] == 100
-    assert rep["runtime_cluster"]["requests_24h"] == {"fantasma": 7}   # sem match vira cluster
-
-
-def test_attach_casa_por_sufixo():
-    rep = {"services": [{"name": "loja-api_api"}]}
-    enrich.attach(rep, {"requests_24h": {"api": 42}})                  # router 'api' → stack_api
-    assert rep["services"][0]["runtime"]["requests_24h"] == 42
-
-
-# ---------------------------------------------------------------- exporter (/metrics texto)
-SAMPLE = """# HELP rabbitmq_queue_messages_ready mensagens prontas
-# TYPE rabbitmq_queue_messages_ready gauge
-rabbitmq_queue_messages_ready{queue="emails",vhost="/"} 42
-rabbitmq_queue_messages_ready{queue="jobs",vhost="/"} 8
-rabbitmq_queue_consumers{queue="emails"} 3
-traefik_service_requests_total{code="200",service="loja-api@docker"} 1000
-traefik_service_requests_total{code="500",service="loja-api@docker"} 7
-metrica_ignorada{x="1"} 99
-linha_invalida sem valor numerico
-"""
-
-
-def test_parse_text_metrics():
-    parsed = enrich.parse_text_metrics(SAMPLE)
-    nomes = [n for n, _, _ in parsed]
-    assert "rabbitmq_queue_messages_ready" in nomes
-    assert "linha_invalida" not in nomes                       # linha malformada ignorada
-    labels = [l for n, l, _ in parsed if n == "rabbitmq_queue_consumers"][0]
-    assert labels["queue"] == "emails"
-
-
-def test_collect_from_exporter_soma_series(monkeypatch):
-    monkeypatch.setattr(enrich, "get", lambda url, allowed, timeout=8: SAMPLE)
-    out = enrich.collect_from_exporter("http://h:15692", ["h"])
-    assert out["queue_ready"] == {"emails": 42, "jobs": 8}
-    assert out["queue_consumers"] == {"emails": 3}
-    assert out["requests_total"]["loja-api"] == 1007      # soma 200 + 500, '@docker' removido
-
-
-def test_collect_from_exporter_vazio_quando_nao_responde(monkeypatch):
-    monkeypatch.setattr(enrich, "get", lambda url, allowed, timeout=8: None)
-    assert enrich.collect_from_exporter("http://h:9999", ["h"]) == {}

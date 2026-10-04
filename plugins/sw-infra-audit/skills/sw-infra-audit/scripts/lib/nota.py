@@ -9,6 +9,8 @@ NAO existe nota unica da infraestrutura: numero so vira meta, e meta vira teatro
 A faixa daqui e a da CAPA — adjetivo de leitura, nao placar.
 """
 
+import math
+
 ORDEM = ("operacao", "disponibilidade", "seguranca", "higiene")
 
 ROTULO = {"operacao": "Operação", "disponibilidade": "Disponibilidade",
@@ -27,11 +29,21 @@ LIMIAR_RUIM = 60   # operacao abaixo disso e "tem coisa fora do ar"
 
 
 def _num(v):
-    """Pontuacao chega de JSON: numero fora da escala, None ou texto nao derrubam a capa."""
+    """Pontuacao chega de JSON: numero fora da escala, None ou texto nao derrubam a capa.
+
+    NaN e infinito tambem nao, e cada um enganava de um jeito diferente. `round(inf)` levanta
+    OverflowError, que o `except` daqui nao pegava: a capa inteira morria por causa de uma
+    pontuacao. E NaN, se escapasse para `min(100, nan)`, voltava 100 — porque toda comparacao
+    com NaN e falsa e o `min` fica com o primeiro. A dimensao corrompida saia com a MELHOR
+    nota possivel, que e pior que nao sair.
+    """
     try:
-        return max(0, min(100, round(float(v))))
+        numero = float(v)
     except (TypeError, ValueError):
         return None
+    if math.isnan(numero) or math.isinf(numero):
+        return None
+    return max(0, min(100, round(numero)))
 
 
 def _media(valores):

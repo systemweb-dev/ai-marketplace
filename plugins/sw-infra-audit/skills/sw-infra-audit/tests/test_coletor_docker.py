@@ -23,22 +23,29 @@ def test_devolve_o_bloco_do_alvo_com_saude_fatos_e_achados(monkeypatch):
 
 
 def test_metricas_usam_a_url_declarada_e_so_ela(monkeypatch):
-    """A allowlist de rede sai do alvo: host não declarado não é alcançável."""
-    permitidos = {}
+    """A allowlist de rede sai do alvo: host não declarado não é alcançável.
+
+    A sonda deixou de ser uma segunda coleta (`lib/enrich.py`) e passou a ser a do próprio
+    adaptador — então o que se observa aqui é o que o ADAPTADOR entrega ao módulo de rede,
+    que é o único lugar da skill que abre socket. O `/metrics` colado no fim da URL tem de
+    ser normalizado: sem isso a consulta vira `.../metrics/api/v1/query` → 404 → "a fonte não
+    respondeu", e o dono vai caçar problema de rede que não existe.
+    """
+    visto = {}
+
+    def espiar(url, permitidos, timeout=8):
+        visto.update(url=url, permitidos=permitidos)
+        return 200, '{"status":"success","data":{"result":[{"value":[0,"1"]}]}}'
+
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(BRUTO))
-    monkeypatch.setattr(coletor.enrich, "probe",
-                        lambda base, allowed, timeout: permitidos.update(base=base, allowed=allowed) or True)
-    monkeypatch.setattr(coletor.enrich, "collect_runtime",
-                        lambda base, allowed, timeout: {"requests_24h": 10})
-    monkeypatch.setattr(coletor.enrich, "attach", lambda bruto, runtime: None)
+    monkeypatch.setattr("lib.http_get.get_com_status", espiar)
 
-    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
-                             "metricas_url": "http://127.0.0.1:9090/metrics"},
-                            {"timeout": 5, "orcamento": 10, "at": ""})
+    coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
+                     "metricas_url": "http://127.0.0.1:9090/metrics"},
+                    {"timeout": 5, "orcamento": 10, "at": ""})
 
-    assert permitidos == {"base": "http://127.0.0.1:9090",
-                          "allowed": [("127.0.0.1", 9090)]}
-    assert bloco["fatos"]["runtime"] == {"requests_24h": 10}
+    assert visto["permitidos"] == [("127.0.0.1", 9090)], "host E porta, vindos do alvo"
+    assert visto["url"].startswith("http://127.0.0.1:9090/api/v1/query")
 
 
 def test_sem_metricas_url_o_alvo_segue_e_as_metricas_ficam_sem_dados(monkeypatch):
@@ -53,8 +60,7 @@ def test_sem_metricas_url_o_alvo_segue_e_as_metricas_ficam_sem_dados(monkeypatch
 
 def test_endpoint_que_nao_responde_vira_sem_dados_e_nao_achado(monkeypatch):
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(BRUTO))
-    monkeypatch.setattr(coletor.enrich, "probe", lambda *a, **k: False)
-    monkeypatch.setattr(coletor.enrich, "probe_exporter", lambda *a, **k: False)
+    monkeypatch.setattr(coletor.promql, "alcancavel", lambda *a, **k: False)
 
     bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
                              "metricas_url": "http://127.0.0.1:9090"},
@@ -182,8 +188,7 @@ def test_componente_herda_a_url_de_metricas_do_alvo_e_o_declarado_vence(monkeypa
     bruto["services"] = [{"name": "traefik", "image": "traefik:v3"},
                          {"name": "api", "image": "api:1"}]
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
-    monkeypatch.setattr(coletor.enrich, "probe", lambda *a, **k: False)
-    monkeypatch.setattr(coletor.enrich, "probe_exporter", lambda *a, **k: False)
+    monkeypatch.setattr(coletor.promql, "alcancavel", lambda *a, **k: False)
 
     bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
                              "metricas_url": "http://127.0.0.1:9090",
