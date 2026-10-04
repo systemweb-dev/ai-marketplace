@@ -25,12 +25,13 @@ def resp(pergunta, valor=None, sem_dados=False, motivo=None):
 def test_conta_so_as_perguntas_que_a_skill_sabe_fazer():
     """49 componentes de papel `app` não têm pergunta: não entram no denominador."""
     c = [{"nome": "proxy", "papel": "entrada", "respostas": [resp("entrada.latencia", 12)]},
-         {"nome": "app1", "papel": "app", "respostas": []},
-         {"nome": "app2", "papel": "app", "respostas": []}]
+         {"nome": "prom", "papel": "observabilidade", "respostas": []},
+         {"nome": "loki", "papel": "observabilidade", "respostas": []}]
 
     m = medir(alvo(c))
 
-    assert m["perguntadas"] == 3, "o papel `entrada` tem 3 perguntas; `app` não tem nenhuma"
+    assert m["perguntadas"] == 3, \
+        "`entrada` tem 3 perguntas; `observabilidade` segue sem nenhuma, de propósito"
     assert m["respondidas"] == 1
 
 
@@ -63,7 +64,7 @@ def test_lista_vazia_em_pergunta_com_limiar_nao_conta():
 def test_nada_a_perguntar_e_sem_dados_nao_zero_por_cento():
     """Alvo sem componente com pergunta: cobertura indefinida, não 0%. Tratar
     "nada a perguntar" como 0% é a mesma mentira ao contrário."""
-    c = [{"nome": "app1", "papel": "app", "respostas": []}]
+    c = [{"nome": "prom", "papel": "observabilidade", "respostas": []}]
 
     m = medir(alvo(c))
 

@@ -37,15 +37,17 @@ def test_agrupa_componentes_que_esperam_a_mesma_declaracao():
 def test_componente_sem_nenhuma_pergunta_tambem_e_pendencia():
     """O caso mais comum e o mais invisível: papel sem pergunta registrada não gera nem
     `sem_dados` — gera lista vazia, e o componente some do relatório sem deixar rastro."""
-    # `cache` e `banco` seguem sem pergunta registrada. (`fila` servia de exemplo aqui até o
-    # plano 2 dar a ela quatro perguntas — o exemplo precisa ser um papel que continue mudo.)
-    alvos = [_alvo("prod", [_comp("redis", "cache", []),
-                            _comp("postgres", "banco", [])])]
+    # O exemplo precisa ser um papel que CONTINUE mudo. Já serviram aqui `fila` (ganhou
+    # perguntas no plano 2) e `cache`/`banco` (ganharam agora). `observabilidade` segue sem
+    # pergunta DE PROPÓSITO: Prometheus, Loki e Grafana não compartilham vocabulário de
+    # métrica, e inventar uma pergunta só para o papel não aparecer mudo seria ruído.
+    alvos = [_alvo("prod", [_comp("prometheus", "observabilidade", []),
+                            _comp("loki", "observabilidade", [])])]
 
     pend = pendencias_de_declaracao(alvos)
 
     papeis = {p["papel"] for p in pend}
-    assert papeis == {"cache", "banco"}
+    assert papeis == {"observabilidade"}
     assert all("nenhuma pergunta" in p["motivo"] for p in pend)
 
 

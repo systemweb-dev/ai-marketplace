@@ -1,0 +1,24 @@
+# Família de exporter: redis_exporter.
+#
+# `cache.taxa_de_acerto` NÃO entra aqui: o Redis publica acertos e erros como dois contadores
+# separados, e a razão entre eles exige aritmética que a linguagem de extração não tem. Entra
+# quando houver derivação declarada para razão — antes disso, o campo ficaria `sem dados` com
+# um motivo que não explica nada.
+familia = "redis-exporter"
+prioridade = 40
+
+[identificacao]
+metrica_presente = "redis_memory_used_bytes"
+
+[seletor]
+etiqueta = "job"
+
+[[pergunta]]
+id = "cache.memoria_usada"
+query = 'sum(redis_memory_used_bytes{%SELETOR%})'
+valor = "inteiro"
+
+[[pergunta]]
+id = "cache.evicções"
+query = 'sum(increase(redis_evicted_keys_total{%SELETOR%}[%JANELA%]))'
+valor = "inteiro"

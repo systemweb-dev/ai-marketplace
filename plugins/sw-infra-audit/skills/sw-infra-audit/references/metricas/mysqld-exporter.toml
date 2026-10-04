@@ -1,0 +1,19 @@
+# Família de exporter: mysqld_exporter. Mesmas perguntas do papel `banco`, vocabulário do MySQL.
+familia = "mysqld-exporter"
+prioridade = 40
+
+[identificacao]
+metrica_presente = "mysql_global_status_threads_connected"
+
+[seletor]
+etiqueta = "job"
+
+[[pergunta]]
+id = "banco.conexoes"
+query = 'sum(mysql_global_status_threads_connected{%SELETOR%})'
+valor = "inteiro"
+
+[[pergunta]]
+id = "banco.tamanho"
+query = 'sum(mysql_info_schema_table_size{%SELETOR%})'
+valor = "inteiro"

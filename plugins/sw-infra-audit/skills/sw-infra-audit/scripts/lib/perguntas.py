@@ -60,6 +60,55 @@ _p("fila.taxa_entrada_saida", "fila", "Entrada × saída", "lista", unidade="men
    desempate="nome")
 
 
+# --- papel `app`: 49 componentes heterogêneos. NÃO existe métrica que toda aplicação publique
+# — uma API em Go, um worker em Python e um frontend estático não compartilham vocabulário.
+# O que existe para qualquer uma é o que o CONTAINER consome, e quem responde isso é o
+# exporter de container (cAdvisor e equivalentes), não a aplicação.
+#
+# Sem faixa: "CPU boa" depende do limite configurado para aquele serviço, e 80% num container
+# com 2 vCPU reservadas é saúde, enquanto 80% sem limite nenhum é vizinho prestes a sofrer.
+#
+# Sem limiar: reinício em excesso JÁ vira `OPS_TASK_FAILING` no coletor docker, que lê
+# `tasks_failed` direto do Swarm. Produzir o mesmo achado por outro caminho contaria duas
+# vezes o mesmo problema.
+_p("app.cpu", "app", "CPU em uso", "escalar", unidade="%")
+_p("app.memoria", "app", "Memória em uso", "escalar", unidade="bytes")
+
+
+# --- papel `banco`: o que qualquer exporter de banco responde. Conexões e tamanho são o
+# vocabulário comum de Postgres, MySQL e Mongo; o resto diverge por motor.
+#
+# Sem faixa: "muitas conexões" só existe contra o limite configurado, e a razão entre as duas
+# exige aritmética, que a linguagem de limiar não tem de propósito. Quando houver derivação
+# declarada para a razão, ela vira limiar — não antes.
+_p("banco.conexoes", "banco", "Conexões abertas", "escalar", unidade="conexões")
+_p("banco.tamanho", "banco", "Tamanho dos dados", "escalar", unidade="bytes")
+
+
+# --- papel `cache`: vocabulário comum de Redis e Memcached.
+#
+# Evicções sem faixa de propósito: cache com política LRU evicta POR DESENHO quando atinge o
+# limite, e isso é funcionamento normal, não defeito. O número importa — ele diz que o cache
+# está no teto —, mas transformá-lo em achado acusaria metade das instalações saudáveis.
+#
+# Taxa de acerto NÃO entra nesta versão, embora fosse a pergunta mais útil do papel: o Redis
+# publica acertos e erros como dois contadores separados, e a razão entre eles exige
+# aritmética que a linguagem de extração não tem de propósito. Declarar a pergunta sem
+# ninguém capaz de respondê-la deixaria todo cache com uma linha `sem dados` permanente e
+# derrubaria a cobertura sem que houvesse nada a consertar. Entra junto com a derivação
+# declarada de razão.
+_p("cache.memoria_usada", "cache", "Memória em uso", "escalar", unidade="bytes")
+_p("cache.evicções", "cache", "Chaves descartadas", "escalar", unidade="chaves")
+
+
+# --- papel `observabilidade`: NENHUMA pergunta nesta versão, de propósito.
+# Prometheus, Loki e Grafana não compartilham vocabulário de métrica — alvo de scrape só
+# existe no primeiro, taxa de ingestão de log só no segundo. Não há pergunta que QUALQUER
+# família responda, e inventar uma só para o papel deixar de aparecer mudo seria preencher a
+# lacuna com ruído. O relatório continua dizendo, em "O que falta declarar", que este papel
+# não tem pergunta nesta versão — que é a verdade.
+
+
 # O limiar é um produtor de achado, ao lado de `lib/rules.py` e do coletor http. Declarar o que
 # ele produz — derivado, nunca digitado — é o que deixa o teste do registro de regras enxergar
 # os três produtores em vez de dois.

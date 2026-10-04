@@ -1,0 +1,32 @@
+# Família de exporter: cAdvisor (e compatíveis que publicam o mesmo vocabulário).
+#
+# É ela que responde pelo papel `app`. A razão está em `lib/perguntas.py`: não existe métrica
+# que TODA aplicação publique — uma API em Go, um worker em Python e um frontend estático não
+# compartilham vocabulário. O que existe para qualquer uma é o que o CONTAINER consome, e isso
+# quem mede é o exporter de container, não a aplicação.
+#
+# As duas consultas abaixo não foram inventadas: são as que já rodavam em `lib/enrich.py`
+# contra um cluster real, com 43 séries respondidas em cada uma.
+familia = "cadvisor"
+prioridade = 40
+
+[identificacao]
+# A série que só um exporter de container publica. Identificar pela SÉRIE, e não pelo nome da
+# imagem, é o que faz um fork ou uma imagem interna continuarem sendo reconhecidos.
+metrica_presente = "container_cpu_usage_seconds_total"
+
+[seletor]
+# No Swarm, o cAdvisor carrega o nome do serviço nesta etiqueta. É ela que liga a série ao
+# COMPONENTE — sem isso, a resposta seria do nó inteiro e valeria para todos os serviços
+# igualmente, que é exatamente a mis-atribuição que o relatório já teve com o proxy.
+etiqueta = "container_label_com_docker_swarm_service_name"
+
+[[pergunta]]
+id = "app.cpu"
+query = 'sum(rate(container_cpu_usage_seconds_total{%SELETOR%}[%JANELA%])) * 100'
+valor = "decimal"
+
+[[pergunta]]
+id = "app.memoria"
+query = 'sum(container_memory_usage_bytes{%SELETOR%})'
+valor = "inteiro"

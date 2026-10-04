@@ -1,0 +1,23 @@
+# Família de exporter: postgres_exporter (o oficial do ecossistema Prometheus).
+#
+# Identificada pela série de estatística por base, que é a primeira coisa que ele publica.
+familia = "postgres-exporter"
+prioridade = 40
+
+[identificacao]
+metrica_presente = "pg_stat_database_numbackends"
+
+[seletor]
+# `datname` é a BASE, não a instância. A etiqueta que liga a série ao componente auditado é a
+# do alvo de scrape.
+etiqueta = "job"
+
+[[pergunta]]
+id = "banco.conexoes"
+query = 'sum(pg_stat_database_numbackends{%SELETOR%})'
+valor = "inteiro"
+
+[[pergunta]]
+id = "banco.tamanho"
+query = 'sum(pg_database_size_bytes{%SELETOR%})'
+valor = "inteiro"
