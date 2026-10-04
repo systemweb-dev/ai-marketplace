@@ -809,12 +809,18 @@ def _ranking(itens):
     itens = itens[:LIMITE_NO_RELATORIO]
     maior = max((i.get("valor") or 0 for i in itens), default=0) or 1
     linhas = []
-    for item in itens:
+    for ordem, item in enumerate(itens, 1):
         largura = 100 * (item.get("valor") or 0) / maior
-        linhas.append(f'<div class="rk"><span class="lb">{_e(item.get("chave"))}</span>'
-                      f'<span class="vl">{_numero(item.get("valor"))}</span>'
-                      f'<span class="bar"><i style="width:{largura:.0f}%"></i></span></div>')
-    return f'<div class="rank">{"".join(linhas)}</div>{_rodape_do_corte(total)}'
+        # A ORDEM das classes aqui não é estilo: `.rk` é uma grade de quatro colunas
+        # (ordinal · nome · trilho · valor), e cada filho cai na coluna da sua posição.
+        # Com o vocabulário antigo (`lb/vl/bar`) o nome caía na coluna de 20px do ordinal e
+        # transbordava POR CIMA do número: o relatório imprimia `notas4` e `emai0s`.
+        linhas.append(f'<div class="rk{" topo" if ordem == 1 else ""}">'
+                      f'<span class="o">{ordem:02d}</span>'
+                      f'<span class="nm">{_e(item.get("chave"))}</span>'
+                      f'<span class="tr"><i style="width:{largura:.0f}%"></i></span>'
+                      f'<span class="vl">{_numero(item.get("valor"))}</span></div>')
+    return f'<div class="rks">{"".join(linhas)}</div>{_rodape_do_corte(total)}'
 
 
 def _resposta(resposta):
@@ -1035,9 +1041,9 @@ def _topologia(alvos):
                        + "".join(_no_da_topologia(a, c) for a, c in nos) + "</div>")
 
     legenda = ('<div class="legenda">'
-               '<span><i style="--c:var(--verde)"></i>sem achado aberto</span>'
-               '<span><i style="--c:var(--ambar)"></i>1 achado</span>'
-               '<span><i style="--c:var(--vermelho)"></i>2 ou mais</span>'
+               '<span><i style="--c:var(--ok)"></i>sem achado aberto</span>'
+               '<span><i style="--c:var(--warn)"></i>1 achado</span>'
+               '<span><i style="--c:var(--crit)"></i>2 ou mais</span>'
                '</div>'
                '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o '
                'tráfego, quem processa, quem guarda. <b>Não é dependência medida</b>: a skill '
@@ -1055,19 +1061,46 @@ def _angulo(valor, faixa):
     return round(-90 + 180 * fracao, 1)
 
 
+def _arcos(faixa):
+    """Onde o verde vira âmbar e o âmbar vira vermelho, em graus do arco.
+
+    Vem da tolerância DECLARADA, nunca de terços fixos. O arco desenhado em três partes iguais
+    é bonito e mente: numa pergunta com `bom_ate` 700 e `ruim_a_partir` 1500 sobre um máximo de
+    3000, as marcas reais estão em 23% e 50% — um terço cada diria que 1000 ainda é bom. Num
+    relatório cuja regra é "número sem fonte não existe", faixa sem tolerância é pior: é número
+    com fonte inventada.
+
+    O lado bom é sempre o ESQUERDO, porque é assim que `_angulo` posiciona a agulha nos dois
+    sentidos; em `maior_melhor` as duas marcas espelham junto com ela.
+    """
+    maximo = float(faixa["maximo"]) or 1.0
+
+    def fracao(limite):
+        f = min(max(float(limite) / maximo, 0.0), 1.0)
+        return 1.0 - f if faixa["sentido"] == "maior_melhor" else f
+
+    bom, ruim = fracao(faixa["bom_ate"]), fracao(faixa["ruim_a_partir"])
+    return round(180 * min(bom, ruim), 1), round(180 * max(bom, ruim), 1)
+
+
 def _medidor(resposta, pergunta):
     faixa = pergunta["faixa"]
     ang = _angulo(resposta["valor"], faixa)
     unidade = f' <span class="un">{_e(pergunta.get("unidade"))}</span>' if pergunta.get("unidade") else ""
     limite = ("bom até" if faixa["sentido"] == "menor_melhor" else "bom a partir de")
-    return (f'<div class="med"><div class="anel">'
-            f'<div class="arco"></div><div class="furo"></div>'
+    # `med` colidia com `.achado.med` (achado de severidade MÉDIA) e `faixa` com a banda de
+    # triagem, que em impressão força página nova — o cartão partia ao meio na quebra. Nome de
+    # classe é vocabulário compartilhado com o template: repetir um já usado é herdar o que
+    # ele faz, em silêncio.
+    g1, g2 = _arcos(faixa)
+    return (f'<div class="mdr"><div class="anel">'
+            f'<div class="arco" style="--g1:{g1}deg;--g2:{g2}deg"></div><div class="furo"></div>'
             f'<div class="agulha" style="--ang:{ang}deg"></div><div class="eixo"></div></div>'
             f'<p class="v num">{_numero(resposta["valor"])}{unidade}</p>'
-            f'<p class="k">{_e(pergunta["titulo"])}</p>'
-            f'<p class="faixa">{limite} {_numero(faixa["bom_ate"])}'
+            f'<p class="rot">{_e(pergunta["titulo"])}</p>'
+            f'<p class="tol">{limite} {_numero(faixa["bom_ate"])}'
             f' · ruim a partir de {_numero(faixa["ruim_a_partir"])}</p>'
-            f'<p class="f">fonte: {_e(resposta.get("fonte"))}</p></div>')
+            f'<p class="src">fonte: {_e(resposta.get("fonte"))}</p></div>')
 
 
 def _instrumentos(alvos):
@@ -1523,7 +1556,7 @@ def _camadas(componentes):
     for papel in sorted(porpapel):                      # papel fora da ordem conhecida
         blocos.append(_camada_bloco(f"Outros · {papel}", papel, "aplicacoes", porpapel[papel]))
     return ("".join(blocos) +
-            '<p class="nota">As camadas agrupam por <b>papel</b> — quem recebe o tráfego, '
+            '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o tráfego, '
             'quem processa, quem guarda. <b>Não é dependência medida</b>: a skill observa '
             'o papel de cada componente, não quem chama quem.</p>')
 
@@ -1754,7 +1787,7 @@ def _bloco_remediacao(cr, completo=True):
     O catalogo e versionado e revisado em pull request — nada aqui e escrito na hora.
     """
     if not cr:
-        return ('<p class="nota">Esta regra ainda não tem ficha de remediação em '
+        return ('<p class="nota-legenda">Esta regra ainda não tem ficha de remediação em '
                 '<code>references/remediacao/</code>.</p>')
     partes = []
     if cr.get("como_resolver"):

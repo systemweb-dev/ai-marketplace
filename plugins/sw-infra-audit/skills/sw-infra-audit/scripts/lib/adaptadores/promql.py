@@ -164,9 +164,14 @@ def familia_do_componente(componente, contexto):
         valores = _valores_da_etiqueta(base, familia, contexto)
         if not valores:
             continue
+        # UMA consulta de identificação, e é esta. Havia uma segunda, confirmando
+        # `count({serie}{{etiqueta="<nome>"}})` — redundante por construção: os valores
+        # acabaram de vir da MESMA série, no MESMO instante (`--at`), da MESMA fonte. E
+        # quando ela voltava vazia, o adaptador caía no ramo de "nenhum valor casa" e o
+        # relatório afirmava o contrário do que a fonte tinha respondido, com o valor exato
+        # na mão. Numa rodada de cinco serviços, foram cinco componentes mudos assim.
         seletor = _seletor(familia, componente, valores)
-        if seletor and _consultar(base, f"count({serie}{{{seletor}}})",
-                                  contexto["timeout"], contexto.get("at")):
+        if seletor:
             achada = (familia, seletor)
             break
         # A família é esta, mas nenhum valor casou com o componente. Com UM valor só, o

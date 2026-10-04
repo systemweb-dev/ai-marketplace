@@ -668,6 +668,115 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var
 /* --- aceite cuja justificativa expirou volta a contar, e tem de parecer --- */
 .item.crit{border-left:3px solid var(--crit);padding-left:var(--s3)}
 .item .dt .tag.mal{background:var(--crits);color:var(--crit)}
+
+/* =======================================================================
+   O QUE O RENDERIZADOR EMITE E O TEMPLATE NAO DESENHAVA.
+   Trinta e seis classes sairam do `build_report.py` sem nenhuma regra aqui.
+   Classe sem regra nao e "sem estilo": e o fluxo padrao do navegador por
+   cima do desenho — rotulo colado no numero, legenda virando quatro
+   colunas, cartao de medida invisivel. `tests/test_template_conhece_o_que_
+   o_relatorio_emite.py` nao deixa voltar.
+   ======================================================================= */
+
+/* --- o mostrador: so quem declara tolerancia vira agulha --- */
+.medidores{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+ gap:var(--s4)}
+.mdr{display:flex;flex-direction:column;align-items:center;text-align:center;
+ padding:var(--s4) var(--s3) var(--s3);border:1px solid var(--fio);border-radius:var(--r2);
+ background:var(--campo);break-inside:avoid;page-break-inside:avoid}
+/* meia-lua: 180 graus do zero ao maximo declarado. `--ang` vem do Python. */
+.anel{position:relative;width:148px;height:78px;overflow:hidden;margin-bottom:var(--s2)}
+.arco{position:absolute;inset:0;width:148px;height:148px;border-radius:50%;
+ background:conic-gradient(from 270deg,var(--ok) 0 var(--g1),var(--warn) var(--g1) var(--g2),
+ var(--crit) var(--g2) 180deg,transparent 180deg)}
+.furo{position:absolute;left:22px;top:22px;width:104px;height:104px;border-radius:50%;
+ background:var(--campo)}
+.agulha{position:absolute;left:50%;bottom:0;width:2px;height:62px;background:var(--tinta);
+ transform-origin:50% 100%;transform:translateX(-50%) rotate(calc(var(--ang) - 90deg));
+ border-radius:2px}
+.eixo{position:absolute;left:50%;bottom:-5px;width:11px;height:11px;border-radius:50%;
+ background:var(--tinta);transform:translateX(-50%)}
+.mdr .v{font:700 27px/1 var(--disp);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mdr .rot{margin-top:5px;font:600 13.4px/1.3 var(--sans);color:var(--tinta2)}
+/* `tol`, e nao `faixa`: aquele nome e o da banda de triagem, que em impressao
+   forca pagina nova — e o cartao partia ao meio na quebra. */
+.mdr .tol{margin-top:7px;font:400 11.6px/1.4 var(--mono);color:var(--fraco)}
+.mdr .src{margin-top:4px;font:400 11px/1.3 var(--mono);color:var(--fraco)}
+
+/* --- grupo de achado: um titulo, a gravidade, quantas vezes, a regra --- */
+.grp-h{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;
+ padding-bottom:9px;border-bottom:1px solid var(--linha)}
+.grp-h b{font:600 15.4px/1.3 var(--sans);letter-spacing:-.008em;margin-right:auto}
+.sev{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+ color:var(--c,var(--fraco))}
+.grp.critical .sev,.grp.high .sev{--c:var(--crit)}
+.grp.medium .sev{--c:var(--warn)}
+.grp-n{font:400 12px/1 var(--mono);color:var(--fraco);white-space:nowrap}
+.grp-r{font:400 11.4px/1 var(--mono);color:var(--fraco)}
+.grp-d{margin-top:11px;font-size:14.6px;line-height:1.64;color:var(--tinta2);max-width:78ch}
+.grp-c{margin-top:7px;font-size:13.6px;color:var(--fraco);max-width:78ch}
+.fix-h{display:flex;align-items:center;gap:7px;font:600 13.4px/1.3 var(--sans)}
+.val{margin-top:9px;font-size:13.8px;line-height:1.6;color:var(--tinta2);max-width:78ch}
+
+/* --- a tabela de ocorrencias: uma LINHA por ocorrencia --- */
+.oc-o{font:400 12.8px/1.4 var(--mono);color:var(--tinta);overflow-wrap:anywhere}
+.oc-a{font:400 12.4px/1.4 var(--mono);color:var(--fraco);white-space:nowrap}
+.oc-d{font-size:13px;color:var(--tinta2)}
+.oc-v{text-align:right;white-space:nowrap}
+
+/* --- o que falta declarar --- */
+.pend{padding:var(--s3) 0;border-top:1px solid var(--linha)}
+.pend:first-child{border-top:0;padding-top:0}
+.pend-h{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.papel{font:500 12px/1 var(--mono);padding:3px 8px;border-radius:99px;
+ background:var(--campo2);color:var(--tinta2)}
+.pend-m{margin-top:6px;font-size:13.8px;line-height:1.6;color:var(--tinta2);max-width:84ch}
+.pend-c{margin-top:5px;font:400 12.4px/1.6 var(--mono);color:var(--fraco);
+ overflow-wrap:anywhere}
+
+/* --- o mapa de camadas (que NAO e grafo de dependencia) --- */
+.mapa{display:flex;flex-direction:column;gap:var(--s3)}
+.legenda{display:flex;gap:var(--s4);flex-wrap:wrap;font-size:12.4px;color:var(--fraco)}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.legenda i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+/* Um PARAGRAFO de nota. `.nota` ao lado e um BLOCO com icone (`display:flex`), e usa-la
+   num <p> fazia cada <b> e cada <code> virarem uma COLUNA — a legenda do mapa saia em
+   quatro colunas, com um dois-pontos solto comecando a ultima. */
+.nota-legenda{display:block;font-size:12.8px;line-height:1.6;color:var(--fraco);
+ max-width:88ch;margin-top:var(--s4);padding:var(--s3) var(--s4);border-radius:var(--r2);
+ background:var(--campo2);border:1px solid var(--fio)}
+.nota-legenda code{font:400 12px/1.4 var(--mono)}
+
+/* --- o item de "o que falta declarar": o renderizador emite dt/p/l, e as regras de
+   `.item` falavam l1/tt/ev. Sem isso o rotulo colava no numero: "3 perguntas sem
+   respostacobertura 70%". --- */
+.item .dt{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);
+ flex-wrap:wrap}
+.item .dt b{font:600 14.6px/1.3 var(--sans);letter-spacing:-.008em}
+.item .dt .p{font:400 12px/1 var(--mono);color:var(--fraco);white-space:nowrap}
+.item>p{margin-top:7px;font-size:13.8px;line-height:1.6;color:var(--tinta2);max-width:84ch}
+.item .l{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s4);
+ padding:5px 0;border-top:1px solid var(--linha)}
+.item .l:first-of-type{margin-top:9px}
+.item .l span{font:400 12.6px/1.4 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+.item .l em{font-style:italic;font-size:12.8px;color:var(--fraco);text-align:right}
+.leitura{margin-top:5px;font:400 11.8px/1.35 var(--mono);color:var(--fraco)}
+.leitura.vazio{font-style:italic}
+
+/* --- o cartao de um componente --- */
+.card{border:1px solid var(--fio);border-radius:var(--r2);background:var(--campo);
+ break-inside:avoid}
+.comp{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.sys{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;
+ padding-bottom:10px;border-bottom:1px solid var(--linha)}
+.sys h3{font:600 15.6px/1.25 var(--sans);letter-spacing:-.01em;margin-right:auto}
+.dono{font:400 11.8px/1 var(--mono);color:var(--fraco)}
+
+/* --- selo curto, com ponto de cor --- */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;
+ font:500 11.6px/1.5 var(--sans);background:var(--campo2);color:var(--tinta2)}
+.chip.bad{background:color-mix(in srgb,var(--crit) 12%,transparent);color:var(--crit)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
 </style>
 </head>
 <body>
@@ -695,7 +804,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var
 %%FORA%%
 
 <div class="idx">
-  <p class="idx-h">Como este relatorio esta organizado</p>
+  <p class="idx-h">Como este relatório está organizado</p>
   %%INDICE%%
 </div>
 

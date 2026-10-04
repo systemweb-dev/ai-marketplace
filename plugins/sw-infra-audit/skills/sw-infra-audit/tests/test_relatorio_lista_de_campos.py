@@ -1,3 +1,4 @@
+import re
 # tests/test_relatorio_lista_de_campos.py
 """Lista de vários campos no relatório — e o corte que só existe na hora de desenhar.
 
@@ -111,7 +112,10 @@ def test_ranking_tambem_corta():
 
     html = _resposta(resposta)
 
-    assert html.count('class="rk"') == LIMITE_NO_RELATORIO
+    # conta a LINHA: a primeira carrega `rk topo`, e o contêiner é `rks` — fixar a string
+    # exata fazia o teste do corte falhar por causa de um destaque visual, e contar por
+    # prefixo somava o contêiner junto
+    assert len(re.findall(r'<div class="rk(?: topo)?">', html)) == LIMITE_NO_RELATORIO
     assert "e mais 20" in html
 
 

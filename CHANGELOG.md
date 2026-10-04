@@ -7,6 +7,41 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-infra-audit` (v0.14.1): **o relatório imprimia o valor em cima do nome.** Na lista de
+  consumidores por fila saía `notas4`, `web2ooks`, `emai0s`. A causa não era CSS feio: o
+  renderizador falava um vocabulário de classes que o template não conhece. `.rk` é uma grade
+  de quatro colunas que espera `ordinal · nome · trilho · valor`, e o renderizador emitia
+  `lb/vl/bar` — o nome caía na coluna de 20px do ordinal e transbordava por cima do número.
+- `sw-infra-audit`: **o mostrador não existia.** `.med`, `.anel`, `.arco`, `.agulha` e `.eixo`
+  não tinham regra nenhuma no template: cinco `div` vazios. E o `<p class="faixa">` de dentro
+  dele herdava a regra da **faixa de triagem**, que em impressão força página nova — todo
+  cartão com tolerância declarada partia ao meio numa quebra de página. `perguntas.py` promete
+  que "só quem declara faixa vira mostrador no relatório"; a promessa não era cumprida.
+- `sw-infra-audit`: **o arco do mostrador mentia.** Desenhado em três partes iguais, ele dizia
+  que 1000 ms ainda era bom numa pergunta cujo `bom_ate` é 700. As marcas agora saem da
+  tolerância declarada, nos dois sentidos — num relatório cuja regra é "número sem fonte não
+  existe", faixa colorida sem tolerância é número com fonte inventada.
+- `sw-infra-audit`: **as três bolinhas da legenda do mapa eram invisíveis.** O renderizador
+  escrevia `var(--verde)`, `var(--ambar)` e `var(--vermelho)`; o template define `--ok`,
+  `--warn` e `--crit`. Variável que não existe resolve para vazio e leva a propriedade junto.
+- `sw-infra-audit`: a legenda das camadas saía **em quatro colunas, com um dois-pontos solto**
+  — o parágrafo usava `.nota`, que é um bloco com ícone (`display:flex`), e cada `<b>` virava
+  uma coluna. E o bloco "o que falta declarar" colava rótulo e número
+  (`3 perguntas sem respostacobertura 70%`), pelo mesmo motivo das classes acima.
+- `sw-infra-audit`: a identificação de família fazia **duas consultas onde uma basta**. A
+  segunda confirmava `count(serie{etiqueta="<nome>"})` depois de a primeira já ter devolvido os
+  valores que a etiqueta tem — mesma série, mesmo instante, mesma fonte. Voltando vazia, o
+  adaptador caía no ramo de "nenhum valor casa com este componente" e o relatório afirmava o
+  contrário do que a fonte tinha acabado de responder, com o valor exato na mão.
+
+### Adicionado
+- `sw-infra-audit`: duas travas na **junta entre o renderizador e o template**, que é onde todo
+  defeito acima nasceu: nenhuma classe emitida pode ficar sem regra, e nenhuma variável CSS
+  referenciada pode ficar sem definição. Trinta e seis classes estavam sem regra. A trava não
+  alcança o caso em que a classe tem regra *noutro contexto* — esse só aparece renderizando e
+  olhando, e foi assim que os desta rodada apareceram.
+
 ### Adicionado
 - `sw-infra-audit` (v0.14.0): **o papel `fila` deixou de exigir credencial.** Até aqui a única
   fonte era a API de administração do broker, com usuário e senha; quem tem o exporter no
