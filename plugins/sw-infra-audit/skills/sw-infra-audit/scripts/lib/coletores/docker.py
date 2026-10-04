@@ -10,22 +10,15 @@ from lib.rules import (findings_for_workload, findings_operational,
 from lib.runner import run
 import inspect
 import json
-from lib import cert, discover, impact, metrics, stacks
+from lib import cert, discover, impact, metrics, produtos, stacks
 from lib.adaptadores import promql
 from lib.coletores.docker_report import na, new_report, split_image
 
 DEFAULT_TIMEOUT = 15
 
-_KINDS = [
-    ("traefik", "ingress/proxy"), ("nginx", "proxy"), ("haproxy", "proxy"),
-    ("envoy", "proxy"), ("caddy", "proxy"), ("kong", "api-gateway"),
-    ("rabbitmq", "fila"), ("kafka", "fila/broker"), ("nats", "fila/broker"),
-    ("redis", "cache/fila"), ("memcached", "cache"),
-    ("postgres", "banco"), ("mysql", "banco"), ("mariadb", "banco"), ("mongo", "banco"),
-    ("elasticsearch", "busca"), ("opensearch", "busca"),
-    ("prometheus", "observabilidade"), ("grafana", "observabilidade"), ("loki", "observabilidade"),
-    ("minio", "object-storage"),
-]
+# A tabela de produtos saiu daqui para `references/produtos.toml`: era a terceira lista
+# chaveada por nome de imagem espalhada pelo código, e acrescentar um produto exigia editar
+# três. Ver `lib/produtos.py`.
 
 
 # Tipos que GUARDAM ESTADO. Nenhum deles pode ser deduzido da tag — ver `detect_kind`.
@@ -50,15 +43,12 @@ def detect_kind(referencia):
     `[[alvo.componente]]` do `alvos.toml`.
     """
     partes = split_image(referencia)
-    caminho = (partes["image"] or "").lower()
-    for key, kind in _KINDS:
-        if key in caminho:
-            return kind
+    catalogo = produtos.carregar()
+    kind = produtos.kind_do_caminho(partes["image"], catalogo)
+    if kind:
+        return kind
     primeiro = (partes["tag"] or "").lower().split("-")[0]
-    for key, kind in _KINDS:
-        if key == primeiro and kind not in _COM_ESTADO:
-            return kind
-    return "app"
+    return produtos.kind_da_tag(primeiro, _COM_ESTADO, catalogo) or "app"
 
 
 # ---------------------------------------------------------------- gate de context (seam testável)

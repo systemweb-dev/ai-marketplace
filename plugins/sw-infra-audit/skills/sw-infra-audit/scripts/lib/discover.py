@@ -6,21 +6,14 @@ Quem decide é o usuário (confirmação) — o `collect.py` só faz GET no que 
 """
 import re
 
-# Ordem de preferência: agregador que já faz scrape > exporter dedicado > API do serviço.
-# kind_hint: como interpretar o endpoint depois (parser/queries).
-CANDIDATES = [
-    # (regex na imagem, kind_hint, porta padrão, path de teste, prioridade, o que entrega)
-    (r"prom/prometheus|prometheus", "prometheus", 9090, "/api/v1/query?query=up", 1,
-     "requests, latência, filas, CPU/mem — tudo que o Prometheus já coleta"),
-    (r"traefik", "traefik_metrics", 8080, "/metrics", 2,
-     "requests/erros do Traefik (exige --metrics.prometheus=true)"),
-    (r"rabbitmq", "rabbitmq_prom", 15692, "/metrics", 2,
-     "mensagens em fila, consumers (plugin rabbitmq_prometheus)"),
-    (r"cadvisor", "cadvisor", 8080, "/metrics", 3,
-     "CPU/memória por container"),
-    (r"node-exporter|node_exporter", "node_exporter", 9100, "/metrics", 3,
-     "CPU/mem/disco por nó"),
-]
+from lib import produtos
+
+# Quem expõe métrica, e em que porta, vive em `references/produtos.toml` — era a terceira
+# lista deste código chaveada por nome de imagem. A `prioridade` de lá ordena a preferência:
+# agregador que já faz scrape (1) > exporter dedicado (3).
+#
+# O casamento é por TRECHO, não por expressão: expressão num arquivo de dados é código, e o
+# resto da skill recusa isso. `node-exporter|node_exporter` virou dois trechos no mesmo bloco.
 
 
 def _published_ports(svc):
@@ -61,8 +54,8 @@ def propose(report, host):
         haystack = " ".join(str(x or "").lower() for x in
                             (s.get("image"), s.get("tag"), s.get("name")))
         ports = _published_ports(s)
-        for pattern, hint, default_port, path, prio, provides in CANDIDATES:
-            if not re.search(pattern, haystack):
+        for trechos, hint, default_port, path, prio, provides in produtos.candidatos_de_metrica():
+            if not any(t in haystack for t in trechos):
                 continue
             # A porta é SEMPRE a do catálogo. Cair na primeira porta publicada parecia
             # esperto e propunha endereço que não serve métrica: o traefik publica 80/443

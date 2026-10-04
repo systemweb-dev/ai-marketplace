@@ -23,11 +23,8 @@ REGRAS_PRODUZIDAS = {
 _SENSITIVE = ("/var/run/docker.sock", "/run/docker.sock", "/etc", "/root",
               "/var/run", "/proc", "/sys")
 
-# Ferramentas em que montar o docker.sock é ESPERADO (é como elas funcionam). O achado continua
-# sendo registrado — mas como informativo, não como risco crítico.
-_SOCKET_EXPECTED = ("cadvisor", "promtail", "node-exporter", "node_exporter", "portainer",
-                    "traefik", "watchtower", "autoheal", "socket-proxy", "prune", "logspout",
-                    "dockerd-exporter", "swarm-cronjob", "shepherd", "diun")
+# Quem monta o docker.sock por DESENHO está marcado em `references/produtos.toml`. O achado
+# continua sendo registrado — mas como informativo, não como risco crítico.
 
 
 def imagem_fixada(wl):
@@ -65,8 +62,10 @@ def _is_root(user):
 
 
 def _socket_is_expected(wl):
+    from lib import produtos
+
     hay = " ".join(str(x or "").lower() for x in (wl.get("image"), wl.get("name")))
-    return any(t in hay for t in _SOCKET_EXPECTED)
+    return produtos.socket_esperado(hay)
 
 
 # ---------------------------------------------------------------- segurança (postura)

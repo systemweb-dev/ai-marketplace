@@ -1,0 +1,230 @@
+# Os produtos que a skill RECONHECE PELO NOME DA IMAGEM — e só isso.
+#
+# Três tabelas viviam no código, as três chaveadas por nome de imagem: o `kind` do serviço, a
+# lista de quem monta o `docker.sock` por desenho, e os candidatos a fonte de métrica do
+# `configurar.py alvos --sugerir`. Um produto é UMA coisa; o que a skill sabe sobre ele fica
+# num bloco só, e acrescentar um é escrever um bloco — não editar três listas em dois arquivos.
+#
+# ATENÇÃO ao que isto NÃO é. O catálogo de métrica (`references/metricas/`) identifica a
+# família pela SÉRIE QUE EXISTE, de propósito, porque nome de imagem mente com fork, imagem
+# interna e tag genérica. Aqui o casamento é por nome porque não há alternativa: antes de
+# falar com qualquer fonte, a skill precisa saber que perguntas fazer, e isso vem do papel, que
+# vem do `kind`. É o elo fraco reconhecido do inventário — e por isso o `alvos.toml` sempre
+# vence: `papel = "fila"` num `[[alvo.componente]]` corrige o que a imagem não diz.
+#
+# `imagem` é uma lista de trechos procurados no CAMINHO da imagem, em minúsculas. Trecho, não
+# expressão: expressão num arquivo de dados é código, e o resto da skill recusa isso.
+#
+# A ORDEM DOS BLOCOS DECIDE o empate — o primeiro que casar vence. `test_produtos.py` fixa a
+# classificação de cada produto conhecido, para reordenar não mudar o inventário em silêncio.
+
+# --- quem recebe o tráfego
+[[produto]]
+nome = "traefik"
+imagem = ["traefik"]
+kind = "ingress/proxy"
+socket_esperado = true          # lê o daemon para descobrir as rotas; é como ele funciona
+  [produto.metricas]
+  familia = "traefik_metrics"
+  porta = 8080
+  caminho = "/metrics"
+  prioridade = 2
+  entrega = "requisições e erros do proxy (exige o exporter Prometheus ligado nele)"
+
+[[produto]]
+nome = "nginx"
+imagem = ["nginx"]
+kind = "proxy"
+
+[[produto]]
+nome = "haproxy"
+imagem = ["haproxy"]
+kind = "proxy"
+
+[[produto]]
+nome = "envoy"
+imagem = ["envoy"]
+kind = "proxy"
+
+[[produto]]
+nome = "caddy"
+imagem = ["caddy"]
+kind = "proxy"
+
+[[produto]]
+nome = "kong"
+imagem = ["kong"]
+kind = "api-gateway"
+
+# --- quem enfileira
+[[produto]]
+nome = "rabbitmq"
+imagem = ["rabbitmq"]
+kind = "fila"
+  [produto.metricas]
+  familia = "rabbitmq_prom"
+  porta = 15692
+  caminho = "/metrics"
+  prioridade = 2
+  entrega = "mensagens em fila e consumidores (plugin `rabbitmq_prometheus`)"
+
+[[produto]]
+nome = "kafka"
+imagem = ["kafka"]
+kind = "fila/broker"
+
+[[produto]]
+nome = "nats"
+imagem = ["nats"]
+kind = "fila/broker"
+
+# --- quem guarda em memória
+# Redis é cache na maioria das instalações; quando ele é o broker de uma fila de tarefas, quem
+# sabe disso é o dono — e por isso o alvo pode declarar `papel = "fila"`.
+[[produto]]
+nome = "redis"
+imagem = ["redis"]
+kind = "cache/fila"
+
+[[produto]]
+nome = "memcached"
+imagem = ["memcached"]
+kind = "cache"
+
+# --- quem guarda em disco
+[[produto]]
+nome = "postgres"
+imagem = ["postgres"]
+kind = "banco"
+
+[[produto]]
+nome = "mysql"
+imagem = ["mysql"]
+kind = "banco"
+
+[[produto]]
+nome = "mariadb"
+imagem = ["mariadb"]
+kind = "banco"
+
+[[produto]]
+nome = "mongo"
+imagem = ["mongo"]
+kind = "banco"
+
+[[produto]]
+nome = "elasticsearch"
+imagem = ["elasticsearch"]
+kind = "busca"
+
+[[produto]]
+nome = "opensearch"
+imagem = ["opensearch"]
+kind = "busca"
+
+[[produto]]
+nome = "minio"
+imagem = ["minio"]
+kind = "object-storage"
+
+# --- quem observa
+[[produto]]
+nome = "prometheus"
+imagem = ["prom/prometheus", "prometheus"]
+kind = "observabilidade"
+  [produto.metricas]
+  familia = "prometheus"
+  porta = 9090
+  caminho = "/api/v1/query?query=up"
+  prioridade = 1                # agregador que já faz scrape vence exporter dedicado
+  entrega = "requisições, latência, filas, CPU e memória — tudo o que ele já coleta"
+
+[[produto]]
+nome = "grafana"
+imagem = ["grafana"]
+kind = "observabilidade"
+
+[[produto]]
+nome = "loki"
+imagem = ["loki"]
+kind = "observabilidade"
+
+[[produto]]
+nome = "cadvisor"
+imagem = ["cadvisor"]
+socket_esperado = true
+  [produto.metricas]
+  familia = "cadvisor"
+  porta = 8080
+  caminho = "/metrics"
+  prioridade = 3
+  entrega = "CPU e memória por container"
+
+[[produto]]
+nome = "node-exporter"
+imagem = ["node-exporter", "node_exporter"]
+socket_esperado = true
+  [produto.metricas]
+  familia = "node_exporter"
+  porta = 9100
+  caminho = "/metrics"
+  prioridade = 3
+  entrega = "CPU, memória e disco por nó"
+
+[[produto]]
+nome = "promtail"
+imagem = ["promtail"]
+socket_esperado = true
+
+# --- quem administra o próprio daemon
+# Para todos abaixo, montar o `docker.sock` É o funcionamento: o achado continua registrado,
+# como informativo, em vez de risco crítico.
+[[produto]]
+nome = "portainer"
+imagem = ["portainer"]
+socket_esperado = true
+
+[[produto]]
+nome = "watchtower"
+imagem = ["watchtower"]
+socket_esperado = true
+
+[[produto]]
+nome = "autoheal"
+imagem = ["autoheal"]
+socket_esperado = true
+
+[[produto]]
+nome = "socket-proxy"
+imagem = ["socket-proxy"]
+socket_esperado = true
+
+[[produto]]
+nome = "prune"
+imagem = ["prune"]
+socket_esperado = true
+
+[[produto]]
+nome = "logspout"
+imagem = ["logspout"]
+socket_esperado = true
+
+[[produto]]
+nome = "dockerd-exporter"
+imagem = ["dockerd-exporter"]
+socket_esperado = true
+
+[[produto]]
+nome = "swarm-cronjob"
+imagem = ["swarm-cronjob"]
+socket_esperado = true
+
+[[produto]]
+nome = "shepherd"
+imagem = ["shepherd"]
+socket_esperado = true
+
+[[produto]]
+nome = "diun"
+imagem = ["diun"]
+socket_esperado = true

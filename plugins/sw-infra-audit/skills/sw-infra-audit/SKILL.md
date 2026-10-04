@@ -107,7 +107,16 @@ Sem `alvos.toml`, **pergunte via `AskUserQuestion`** se cria o primeiro com
 
 Cada componente do alvo (um serviço do swarm, um endpoint) recebe um **papel** — `entrada`,
 `fila`, `banco`, `cache`, `busca`, `storage`, `observabilidade`, `app` — derivado da imagem e
-sobrescrevível no `alvos.toml`. O papel define as **perguntas** que ele recebe; um **adaptador**
+sobrescrevível no `alvos.toml`.
+
+O que a skill sabe **por nome de imagem** vive num arquivo só, `references/produtos.toml`: o
+tipo do serviço, quem monta o `docker.sock` por desenho, e em que porta cada produto expõe
+métrica. Acrescentar um produto é escrever um bloco. Repare na assimetria, que é deliberada: o
+catálogo de **métrica** identifica pela série que EXISTE, porque nome de imagem mente com fork
+e tag genérica; aqui o nome é o único sinal, porque antes de falar com qualquer fonte a skill
+precisa saber que perguntas fazer. É o elo fraco reconhecido do inventário — e por isso o que
+você declara vence sempre: `papel = "fila"` num `[[alvo.componente]]` corrige o que a imagem
+não diz. Produto que o arquivo não conhece entra como `app` e recebe só CPU e memória. O papel define as **perguntas** que ele recebe; um **adaptador**
 responde o que souber e carimba a **fonte**.
 
 | Adaptador | Fala com | Estado |

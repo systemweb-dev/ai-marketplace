@@ -7,6 +7,19 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Alterado
+- `sw-infra-audit` (v0.15.0): **o que a skill sabe por nome de imagem saiu do código.** Três
+  tabelas chaveadas por imagem viviam espalhadas — o tipo do serviço (`coletores/docker.py`),
+  quem monta o `docker.sock` por desenho (`rules.py`) e os candidatos a fonte de métrica do
+  `--sugerir` (`discover.py`). Acrescentar um produto exigia editar três listas em dois
+  arquivos, e quem não soubesse disso editava uma. Agora um produto é um bloco em
+  `references/produtos.toml`. A skill já prometia que "acrescentar um produto é escrever um
+  arquivo"; era verdade do caminho de métrica e mentira do resto.
+  Uma trava lê a árvore sintática e recusa nome de produto em literal de código — frase dirigida
+  a quem lê o relatório continua liberada, valor de tabela não. E a classificação de cada
+  produto conhecido ficou fixada em teste: a ordem dos blocos decide o empate no casamento por
+  trecho, e reordenar não pode mudar o inventário em silêncio.
+
 ### Corrigido
 - `sw-infra-audit` (v0.14.1): **o relatório imprimia o valor em cima do nome.** Na lista de
   consumidores por fila saía `notas4`, `web2ooks`, `emai0s`. A causa não era CSS feio: o

@@ -1,7 +1,7 @@
 # tests/test_papel.py
 import pytest
 
-from lib.coletores.docker import _KINDS
+from lib import produtos
 from lib.papel import PAPEIS, POR_KIND, PapelInvalido, papel_de
 
 
@@ -21,9 +21,10 @@ def test_cache_fila_resolve_para_cache_e_o_alvo_pode_corrigir():
 
 
 def test_todo_kind_conhecido_tem_papel():
-    """Um kind novo em _KINDS sem papel viraria `app` calado, e o componente perderia todas
-    as perguntas do papel certo sem ninguém notar."""
-    faltando = sorted({kind for _, kind in _KINDS} - set(POR_KIND))
+    """Um kind novo em `references/produtos.toml` sem papel viraria `app` calado, e o
+    componente perderia todas as perguntas do papel certo sem ninguém notar."""
+    declarados = {p["kind"] for p in produtos.carregar() if p.get("kind")}
+    faltando = sorted(declarados - set(POR_KIND))
     assert faltando == [], f"kind sem papel: {faltando}"
 
 
