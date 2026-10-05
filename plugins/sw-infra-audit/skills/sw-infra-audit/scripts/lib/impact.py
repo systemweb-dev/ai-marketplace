@@ -6,8 +6,9 @@ quanto dói?** Nada aqui é "saúde": são riscos e pendências de um cluster qu
 Tudo determinístico, derivado dos fatos. O agente pode enriquecer o texto, mas os cenários e a
 contagem saem daqui.
 """
-STATEFUL = {"banco", "fila", "cache/fila", "cache", "busca"}
-INGRESS = {"ingress/proxy", "proxy", "api-gateway"}
+from lib.papel import COM_ESTADO as STATEFUL
+from lib.produtos import e_regra_de_rota
+from lib.papel import NO_CAMINHO_CRITICO as INGRESS
 
 _ORDER = {"alto": 0, "médio": 1, "baixo": 2}
 
@@ -116,7 +117,7 @@ def build(report):
 
     nodes = report.get("nodes") or []
     for no, svcs in sorted(por_no.items(), key=lambda kv: -len(kv[1])):
-        rotas = sum(len([k for k in (s.get("routing_labels") or {}) if k.endswith(".rule")])
+        rotas = sum(len([k for k in (s.get("routing_labels") or {}) if e_regra_de_rota(k)])
                     for s in svcs)
         ingress = [s for s in svcs if s.get("kind") in INGRESS]
         estado = [s for s in svcs if s.get("kind") in STATEFUL]

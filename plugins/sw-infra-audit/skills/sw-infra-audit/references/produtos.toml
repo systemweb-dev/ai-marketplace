@@ -24,6 +24,18 @@ nome = "traefik"
 imagem = ["traefik"]
 kind = "ingress/proxy"
 socket_esperado = true          # lê o daemon para descobrir as rotas; é como ele funciona
+
+  # Como ESTE proxy publica rota em label do Docker. O bloco era conhecimento cravado em três
+  # módulos: a allowlist de redação (`redact`), a extração de rota por stack (`stacks`) e a
+  # contagem de rotas por nó (`impact`) — os três com `traefik.` ou `.rule` escritos no código.
+  #
+  # `prefixo` é o que sobrevive à redação: label que não começa com um prefixo declarado é
+  # DESCARTADO, nunca publicado. `sufixo_da_regra` é o que identifica a label que carrega a
+  # regra de roteamento em si. Outro proxy que publique rota em label é outro bloco como este,
+  # e nenhuma linha de código.
+  [produto.rotas]
+  prefixo = "traefik."
+  sufixo_da_regra = ".rule"
   [produto.metricas]
   familia = "traefik_metrics"
   porta = 8080

@@ -30,9 +30,6 @@ LIBERADOS = {
     # Mensagem de ajuda que NOMEIA os tipos de alvo ainda não suportados. Dizer "banco chega
     # no plano 2" sem dizer quais seria pior para quem lê o erro.
     ("lib/alvos.py", "postgres"), ("lib/alvos.py", "mysql"), ("lib/alvos.py", "mariadb"),
-    # Allowlist de prefixo de label de roteamento. É o único proxy que publica rota em label
-    # do Docker hoje; generalizar isso é trabalho do adaptador de rota, não desta trava.
-    ("lib/redact.py", "traefik"),
 }
 
 

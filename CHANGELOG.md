@@ -28,6 +28,18 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   Componente sem papel provado passou a contar como lacuna de medição: papel errado faz a
   pergunta errada, e isso é cegueira tanto quanto pergunta sem resposta.
 
+- `sw-infra-audit`: **o último nome de produto saiu do código.** A configuração de roteamento
+  só era legível para um proxy — `("traefik.",)` cravado na redação, e `k.endswith(".rule")`
+  escrito em mais dois módulos, que nem sabiam que aquilo era sintaxe de produto. Agora o
+  produto declara `[produto.rotas]` com o prefixo que sobrevive à redação e o sufixo que
+  identifica a regra; acrescentar um proxy é um bloco de dados. De quebra ficou mais estrito:
+  `endswith(".rule")` solto contava como rota qualquer label de terceiro terminada assim.
+- `sw-infra-audit`: o vocabulário de `kind` estava escrito **três vezes**, sob **dois nomes**
+  (`metrics.CRITICAL_PATH` e `impact.INGRESS`), e a terceira cópia já tinha derivado: faltava
+  `api-gateway`, então um gateway com réplica única não contava como ponto único de falha ali,
+  embora contasse nos outros dois. Mora num lugar só, em `lib/papel.py`, que já era o dono do
+  vocabulário.
+
 ### Corrigido
 - `sw-infra-audit`: `kind_do_caminho` **pulava produto sem `kind`**, então o bloco do
   `postgres-exporter` nem era considerado e `postgres` casava por substring — o exporter entrava

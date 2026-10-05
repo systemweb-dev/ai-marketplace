@@ -2,7 +2,7 @@
 titulo: Papel do componente provado pela evidencia, nao pelo nome da imagem
 slug: 2026-10-05-papel-do-componente-provado-pela-evidencia-nao-pelo-nome-da-imagem
 criado: 2026-10-05
-estado: em-execucao
+estado: concluido
 ---
 
 # Papel do componente provado pela evidência, não pelo nome da imagem

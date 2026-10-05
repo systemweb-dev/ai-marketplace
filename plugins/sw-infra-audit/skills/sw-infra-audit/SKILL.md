@@ -110,11 +110,13 @@ Cada componente do alvo (um serviço do swarm, um endpoint) recebe um **papel** 
 sobrescrevível no `alvos.toml`.
 
 O que a skill sabe **por nome de imagem** vive num arquivo só, `references/produtos.toml`: o
-tipo do serviço, quem monta o `docker.sock` por desenho, e em que porta cada produto expõe
-métrica. Acrescentar um produto é escrever um bloco. Repare na assimetria, que é deliberada: o
+tipo do serviço, quem monta o `docker.sock` por desenho, quem só OBSERVA os outros, em que porta
+cada produto expõe métrica e como ele publica rota em label do Docker. Acrescentar um produto é escrever um bloco. Repare na assimetria, que é deliberada: o
 catálogo de **métrica** identifica pela série que EXISTE, porque nome de imagem mente com fork
 e tag genérica; aqui o nome é o único sinal, porque antes de falar com qualquer fonte a skill
-precisa saber que perguntas fazer. É o elo fraco reconhecido do inventário — e por isso o que
+precisa saber que perguntas fazer — e essa derivação virou **palpite provisório**: quem
+responde pela série CORRIGE o papel, e o relatório diz de onde cada um veio. É o elo fraco
+reconhecido do inventário — e por isso o que
 você declara vence sempre: `papel = "fila"` num `[[alvo.componente]]` corrige o que a imagem
 não diz. Produto que o arquivo não conhece entra como `app` e recebe só CPU e memória. O papel define as **perguntas** que ele recebe; um **adaptador**
 responde o que souber e carimba a **fonte**.

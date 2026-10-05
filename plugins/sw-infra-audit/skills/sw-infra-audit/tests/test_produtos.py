@@ -148,3 +148,41 @@ def test_exportador_fora_do_arquivo_e_recusado(tmp_path):
 
     with pytest.raises(produtos.ProdutosInvalidos, match="exportador"):
         produtos.carregar(arquivo)
+
+
+# ---------------------------------------------------------------- rota em label do Docker
+def test_o_prefixo_de_rota_vem_do_arquivo():
+    """Era `("traefik.",)` cravado em `lib/redact.py`: com outro proxy, a configuração de
+    roteamento ficava invisível no relatório — não vazava, mas também não aparecia."""
+    assert produtos.prefixos_de_rota() == ("traefik.",)
+
+
+def test_so_e_regra_de_rota_com_prefixo_E_sufixo():
+    """`k.endswith(".rule")` solto, que era o que `stacks` e `impact` faziam, contava como rota
+    qualquer label de terceiro terminada em `.rule`."""
+    assert produtos.e_regra_de_rota("traefik.http.routers.api.rule") is True
+    assert produtos.e_regra_de_rota("com.exemplo.qualquer.rule") is False
+    assert produtos.e_regra_de_rota("traefik.enable") is False
+    assert produtos.e_regra_de_rota(None) is False
+
+
+def test_bloco_de_rota_pela_metade_e_recusado(tmp_path):
+    """Meio bloco faria a label sobreviver à redação sem ninguém saber ler a rota dela — ou o
+    contrário, a rota ser procurada numa label que a redação já descartou."""
+    arquivo = tmp_path / "p.toml"
+    arquivo.write_text('[[produto]]\nnome = "x"\nimagem = ["a"]\n'
+                       '[produto.rotas]\nprefixo = "x."\n', encoding="utf-8")
+
+    with pytest.raises(produtos.ProdutosInvalidos, match="sufixo_da_regra"):
+        produtos.carregar(arquivo)
+
+
+def test_label_fora_do_prefixo_declarado_e_descartada():
+    """A redação é ALLOWLIST: o que não casa é descartado, nunca publicado."""
+    from lib.redact import redact_labels
+
+    saida = redact_labels({"traefik.http.routers.api.rule": "Host(`x`)",
+                           "com.exemplo.interno": "segredo-de-negocio",
+                           "org.opencontainers.image.source": "git@algum/lugar"})
+
+    assert set(saida) == {"traefik.http.routers.api.rule"}

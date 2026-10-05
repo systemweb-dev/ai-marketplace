@@ -7,8 +7,10 @@ from collections import Counter
 
 from lib.rules import imagem_fixada, is_job_service
 
-STATEFUL = {"banco", "fila", "cache/fila", "cache", "busca"}
-CRITICAL_PATH = {"ingress/proxy", "proxy", "api-gateway"}
+# Reexportados de `lib.papel`, que é o dono do vocabulário de kind. Eram três cópias sob dois
+# nomes; os valores não mudaram, e `test_papel.py` prova.
+from lib.papel import COM_ESTADO as STATEFUL          # noqa: E402
+from lib.papel import NO_CAMINHO_CRITICO as CRITICAL_PATH  # noqa: E402
 
 
 def _desired_replicas(rep):

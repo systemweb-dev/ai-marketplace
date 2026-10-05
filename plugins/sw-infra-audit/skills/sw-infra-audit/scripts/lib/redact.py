@@ -78,14 +78,16 @@ def redact_service(insp):
         "mounts": [{"type": m.get("Type"), "source": m.get("Source"), "target": m.get("Target")}
                    for m in (cs.get("Mounts") or [])],
         "ports": [p.get("PublishedPort") for p in (ep.get("Ports") or [])],
-        "routing_labels": redact_labels(spec.get("Labels")),   # traefik.* (valores sensíveis redigidos)
+        "routing_labels": redact_labels(spec.get("Labels")),   # só prefixo declarado; valor sensível redigido
     }
 
 
 _CRED = re.compile(r"//[^/@\s]+:[^/@\s]+@")  # http://user:pass@host -> http://***@host
 
-# Labels de roteamento (analisáveis) — prefixos allowlisted.
-_LABEL_PREFIXES = ("traefik.",)
+# Labels de roteamento (analisáveis) — os prefixos vêm de `references/produtos.toml`, onde
+# cada proxy declara como ELE publica rota. Era `("traefik.",)` cravado aqui, e com outro proxy
+# a configuração de roteamento ficava invisível no relatório: não vazava, mas também não
+# aparecia. Acrescentar um proxy passou a ser um bloco de dados.
 # Chaves cujo VALOR é redigido mesmo estando num prefixo permitido (podem carregar segredo).
 _SENSITIVE_LABEL = re.compile(
     r"(basicauth|\.users|password|passwd|secret|token|apikey|api[_-]?key|credential|authorization)", re.I)
@@ -97,9 +99,12 @@ def redact_labels(labels):
     Mantém a config de roteamento (rule/entrypoints/service/tls) visível pra análise, sem vazar
     hash de basic-auth / tokens que às vezes vivem em labels do Traefik.
     """
+    from lib.produtos import prefixos_de_rota
+
+    prefixos = prefixos_de_rota()
     out = {}
     for k, v in (labels or {}).items():
-        if not any(k.startswith(p) for p in _LABEL_PREFIXES):
+        if not any(k.startswith(p) for p in prefixos):
             continue
         if _SENSITIVE_LABEL.search(k):
             out[k] = "***"                      # chave sensível → valor todo redigido

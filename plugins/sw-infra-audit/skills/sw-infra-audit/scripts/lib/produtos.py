@@ -35,6 +35,14 @@ def _validar(produto, onde):
         raise ProdutosInvalidos(f"{onde}: `exportador` de {produto['nome']!r} precisa ser "
                                 f"booleano — um texto qualquer passaria como verdadeiro e "
                                 f"silenciaria o papel de um produto inteiro")
+    rotas = produto.get("rotas")
+    if rotas is not None:
+        for obrigatorio in ("prefixo", "sufixo_da_regra"):
+            if not rotas.get(obrigatorio):
+                raise ProdutosInvalidos(f"{onde}: `[produto.rotas]` de {produto['nome']!r} sem "
+                                        f"{obrigatorio!r} — meio bloco faria a label sobreviver "
+                                        f"à redação sem ninguém saber ler a rota dela, ou o "
+                                        f"contrário")
     metricas = produto.get("metricas")
     if metricas is not None:
         for obrigatorio in ("familia", "porta", "caminho", "prioridade", "entrega"):
@@ -129,3 +137,28 @@ def e_exportador(texto, produtos=None):
     return any(any(t in alvo for t in produto["imagem"])
                for produto in (produtos if produtos is not None else carregar())
                if produto.get("exportador"))
+
+
+def prefixos_de_rota(produtos=None):
+    """Os prefixos de label que carregam configuração de ROTEAMENTO, e sobrevivem à redação.
+
+    Allowlist: label que não começa com um destes é descartada, nunca publicada. Estava cravada
+    como `("traefik.",)` em `lib/redact.py`, e com outro proxy a configuração de roteamento
+    ficava invisível no relatório — não vazava, mas também não aparecia.
+    """
+    return tuple(p["rotas"]["prefixo"]
+                 for p in (produtos if produtos is not None else carregar())
+                 if p.get("rotas"))
+
+
+def e_regra_de_rota(chave, produtos=None):
+    """Esta label carrega a REGRA de roteamento (o domínio, o caminho)?
+
+    `k.endswith(".rule")` estava escrito em `lib/stacks.py` e em `lib/impact.py` — sintaxe de um
+    proxy só, em dois lugares, e nenhum dos dois sabia que era sintaxe de produto.
+    """
+    alvo = str(chave or "")
+    return any(alvo.startswith(p["rotas"]["prefixo"])
+               and alvo.endswith(p["rotas"]["sufixo_da_regra"])
+               for p in (produtos if produtos is not None else carregar())
+               if p.get("rotas"))

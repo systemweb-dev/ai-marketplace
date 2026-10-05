@@ -3,6 +3,9 @@
 Serve pra o relatório mostrar cada aplicação junta (ex.: todo o `loja-api` num bloco),
 em vez de 56 services soltos numa lista.
 """
+from lib.papel import COM_ESTADO, NO_CAMINHO_CRITICO
+from lib.produtos import e_regra_de_rota
+
 
 def stack_of(service_name):
     """'loja-api_database' -> 'loja-api'. Sem '_' → o próprio nome (avulso)."""
@@ -52,10 +55,13 @@ def group(report):
         if kind not in g["kinds"]:
             g["kinds"].append(kind)
         for k, v in (s.get("routing_labels") or {}).items():
-            if k.endswith(".rule") and v not in g["routes"]:
+            if e_regra_de_rota(k) and v not in g["routes"]:
                 g["routes"].append(v)
         des = _desired(s.get("replicas"))
-        if des == 1 and kind in {"banco", "fila", "cache/fila", "cache", "busca", "ingress/proxy", "proxy"}:
+        # Era a TERCEIRA cópia deste conjunto, e a única que combinava os dois inline — ela
+        # nem incluía `api-gateway`, que as outras duas incluem. Vocabulário escrito três
+        # vezes já tinha começado a derivar.
+        if des == 1 and kind in (COM_ESTADO | NO_CAMINHO_CRITICO):
             g["spofs"].append(s.get("name"))
 
     for st, g in groups.items():

@@ -24,6 +24,18 @@ POR_KIND = {
 }
 
 
+# Propriedades do KIND, num lugar só. Elas estavam escritas TRÊS vezes — `metrics.STATEFUL`,
+# `impact.STATEFUL` e uma cópia inline em `stacks` — e o conjunto de entrada aparecia sob DOIS
+# nomes (`CRITICAL_PATH` e `INGRESS`). Três cópias de um vocabulário derivam, e o dia em que um
+# kind novo entrar em duas delas e faltar na terceira ninguém vai notar: a saúde e o impacto
+# simplesmente passam a discordar sobre o que é um serviço com estado.
+#
+# Moram aqui porque este módulo já é o dono do vocabulário de kind — é ele que o traduz para
+# papel. Os VALORES são os que já vigoravam; `tests/test_papel.py` fixa isso.
+COM_ESTADO = {"banco", "fila", "cache/fila", "cache", "busca"}
+NO_CAMINHO_CRITICO = {"ingress/proxy", "proxy", "api-gateway"}
+
+
 class PapelInvalido(Exception):
     """Papel declarado que não existe."""
 
