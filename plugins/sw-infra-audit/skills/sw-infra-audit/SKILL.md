@@ -415,6 +415,12 @@ achado: a skill não tem como medir estado interno de um agente.
 - **Não é monitoramento.** É fotografia sob demanda, não alerta contínuo.
 - **Porta em 0.0.0.0** significa publicada em todas as interfaces, **não** alcançável da internet:
   firewall e security group são invisíveis daqui.
+- **O papel provado exige que o `job` nomeie o SERVIÇO.** A identificação casa o nome do
+  componente com o valor da etiqueta do exporter. Num Prometheus cujo scrape config nomeia os
+  jobs pelo PRODUTO (`job="redis"` para um serviço `cache_valkey`), não há casamento e o papel
+  fica provisório — o relatório diz isso, em vez de carimbar um palpite. Casar `valkey` com
+  `redis` exigiria saber que um é fork do outro, que é conhecimento de produto por nome, e é
+  disto que a identificação está sendo tirada.
 - **Métricas de runtime** só existem se o alvo declarar `metricas_url`.
 - **`metricas_url` é a API de um Prometheus**, não um `/metrics` cru. As perguntas são
   consultas PromQL com janela (`increase(...[24h])`), e um raspão instantâneo de exporter não

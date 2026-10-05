@@ -102,18 +102,21 @@ def test_papel_que_ganhou_pergunta_deixa_de_ser_pendencia_de_papel():
     assert not any("papel `fila`" in p["motivo"] for p in pend)
 
 
+# `_insights_v3` era órfã — `build()` nunca a chamou. Quem desenha o cartão de componente no
+# relatório v3 é `_camada_bloco`, e a garantia destes três testes vale para ela: componente sem
+# nada a dizer não ganha cartão, e os que ficam de fora são contados uma vez.
 def test_insight_so_existe_para_componente_que_tem_o_que_dizer():
     """Antes, cada um dos 57 componentes ganhava um cartão inteiro para dizer "nenhuma pergunta
     para este papel nesta versão" — seis páginas A4 da mesma frase. Essa informação é uma
     pendência de declaração, e já é contada uma vez na seção própria."""
-    from build_report import _insights_v3
+    from build_report import _camada_bloco
 
     alvos = [_alvo("prod", [_comp("mudo", "app", []),
                             _comp("falante", "entrada",
                                   [{"pergunta": "entrada.latencia", "valor": 7,
                                     "fonte": "promql"}])])]
 
-    html = _insights_v3(alvos)
+    html = _camada_bloco("Processa", "app", "", alvos[0]["componentes"])
 
     assert "falante" in html
     assert "mudo" not in html
@@ -122,24 +125,24 @@ def test_insight_so_existe_para_componente_que_tem_o_que_dizer():
 
 def test_insight_mantem_componente_que_so_tem_analise():
     """Sem resposta, mas com análise escrita pelo agente: aí há o que ler."""
-    from build_report import _insights_v3
+    from build_report import _camada_bloco
 
     alvos = [_alvo("prod", [_comp("analisado", "app", []) | {"analise": "roda em réplica única"}])]
 
-    html = _insights_v3(alvos)
+    html = _camada_bloco("Processa", "app", "", alvos[0]["componentes"])
 
     assert "analisado" in html and "réplica única" in html
 
 
 def test_insight_conta_quantos_ficaram_de_fora():
     """Omitir em silêncio seria trocar um exagero por uma omissão."""
-    from build_report import _insights_v3
+    from build_report import _camada_bloco
 
     alvos = [_alvo("prod", [_comp(f"mudo-{n}", "app", []) for n in range(9)]
                    + [_comp("falante", "entrada",
                             [{"pergunta": "entrada.latencia", "valor": 7, "fonte": "promql"}])])]
 
-    html = _insights_v3(alvos)
+    html = _camada_bloco("Processa", "app", "", alvos[0]["componentes"])
 
     assert "9" in html and "falta declarar" in html.lower()
 

@@ -128,3 +128,38 @@ def test_no_sentido_invertido_o_bom_continua_a_esquerda():
     assert (g1, g2) == (18.0, 90.0)
     agulha_otima = build_report._angulo(100, faixa)
     assert agulha_otima == -90.0, "100 é o melhor valor e a agulha tem de encostar à esquerda"
+
+
+# ---------------------------------------------------------------- função que ninguém chama
+def test_nenhuma_funcao_do_v3_fica_inalcancavel():
+    """Função órfã no renderizador não é código morto inofensivo: é uma ARMADILHA.
+
+    Neste ciclo ela custou duas vezes. `_insights_v3` e `_topologia` desenhavam cartão de
+    componente e legenda de camada — exatamente como as funções vivas —, e `build()` não chamava
+    nenhuma das duas. Escrevi a origem do papel dentro da primeira: teste verde, nada no PDF.
+    Escrevi a nota da limitação dentro da segunda: teste verde, nada no PDF. As duas vezes só o
+    PDF renderizado mostrou, porque o teste provava que a FUNÇÃO funciona, não que ela é usada.
+    """
+    import ast
+
+    fonte = PY_.read_text(encoding="utf-8")
+    v3 = fonte[fonte.index(MARCA_V3):]
+    arvore = ast.parse(v3)
+
+    definidas = {no.name for no in ast.walk(arvore)
+                 if isinstance(no, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    chamadas = {no.func.id for no in ast.walk(arvore)
+                if isinstance(no, ast.Call) and isinstance(no.func, ast.Name)}
+    # o ponto de entrada e o que o `collect`/`build` chamam de fora não precisam de chamador
+    entradas = {"render_html_v3", "montar_contexto", "build"}
+    # Órfãs que JÁ existiam quando esta trava foi escrita (v0.16.0). Estão aqui nomeadas, e não
+    # perdoadas em silêncio: cada uma tem uma irmã viva que faz a mesma coisa, e é essa
+    # duplicação que arma a armadilha. Removê-las é limpeza de outro ciclo — o que esta trava
+    # impede é que a lista CRESÇA.
+    conhecidas = {"_achados_com_remediacao", "_estado", "_pendencias", "_topologia"}
+
+    orfas = sorted(definidas - chamadas - entradas - conhecidas)
+
+    assert not orfas, ("estas funções do renderizador v3 não são chamadas por ninguém. Escrever "
+                       "dentro de uma delas dá teste verde e nada no relatório:\n  "
+                       + "\n  ".join(orfas))

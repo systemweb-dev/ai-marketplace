@@ -8,6 +8,34 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Alterado
+- `sw-infra-audit` (v0.16.0): **o papel de um componente passou a ser provado pela série que
+  ele publica, não adivinhado pelo nome da imagem.** Era a última coisa na skill a violar o
+  princípio que ela mesma documenta — nome de imagem mente com fork e tag genérica —, e a mais
+  consequente: o papel decide quais perguntas o componente recebe.
+  Um fork de cache que o catálogo de produtos não conhece pelo nome entra como `app` e sai
+  `cache`, identificado pelo exporter do produto original, que o reconhece pela série. O
+  relatório diz de onde veio cada papel, e quando a evidência contradiz a imagem ele diz isso:
+  *"papel confirmado pelo exporter redis-exporter; a imagem sugeria app"*.
+  O `produtos.toml` foi rebaixado de autoridade a palpite, e o filtro por papel da v0.14.0 saiu
+  — a proteção que ele dava virou casamento de etiqueta, que é evidência e não heurística. O
+  custo CAIU: a identificação passou a ser uma consulta por família por fonte, em vez de uma por
+  pergunta, e o cache que o docstring prometia desde a v0.12.4 passou a funcionar de fato.
+  Duas travas existem porque sem elas o papel sai errado em direções opostas: a família declara
+  se a série dela PROVA papel (o exporter de container casa todo componente, porque a etiqueta
+  dele é o nome do serviço), e o produto declara se é um exportador (o container do
+  `postgres-exporter` casava a própria família e virava `banco`, enquanto o banco de verdade
+  ficava sem identidade — perfeitamente invertido).
+  Componente sem papel provado passou a contar como lacuna de medição: papel errado faz a
+  pergunta errada, e isso é cegueira tanto quanto pergunta sem resposta.
+
+### Corrigido
+- `sw-infra-audit`: `kind_do_caminho` **pulava produto sem `kind`**, então o bloco do
+  `postgres-exporter` nem era considerado e `postgres` casava por substring — o exporter entrava
+  no inventário como um banco, alimentando `metrics.STATEFUL` e `impact.CRITICAL_PATH`.
+- `sw-infra-audit`: quatro papéis compartilhavam o rótulo "guarda" e o relatório saía com duas
+  seções numeradas com o mesmo nome. Era invisível enquanto um fork de cache caía em `app`.
+
+### Alterado
 - `sw-infra-audit` (v0.15.0): **o que a skill sabe por nome de imagem saiu do código.** Três
   tabelas chaveadas por imagem viviam espalhadas — o tipo do serviço (`coletores/docker.py`),
   quem monta o `docker.sock` por desenho (`rules.py`) e os candidatos a fonte de métrica do

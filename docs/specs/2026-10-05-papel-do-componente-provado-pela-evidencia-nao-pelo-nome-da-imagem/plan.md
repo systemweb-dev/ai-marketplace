@@ -1444,7 +1444,7 @@ Esperado: PASSA
 
 **Depende de:** Task 7
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # tests/test_papel_no_relatorio.py
@@ -1488,12 +1488,12 @@ def test_a_limitacao_do_kind_e_declarada_no_relatorio():
     assert "classificam pela imagem" in build_report.NOTA_DO_PAPEL
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `./.venv/bin/python -m pytest tests/test_papel_no_relatorio.py -q`
 Esperado: FALHA com `AttributeError: module 'build_report' has no attribute '_papel_com_origem'`
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 Acrescente a `scripts/build_report.py`, na seção do relatório v3:
 
@@ -1525,7 +1525,7 @@ def _papel_com_origem(componente):
 
 O `papel_da_imagem` que este código compara já é gravado pelo coletor na Task 7, step 5.
 
-- [ ] **Step 4: EMITIR no relatório**
+- [x] **Step 4: EMITIR no relatório**
 
 Sem este step, `_papel_com_origem` e `NOTA_DO_PAPEL` existem, são testados e **nunca aparecem
 no HTML** — D3 ("o relatório diz que corrigiu") e D5 ("a limitação é declarada no relatório")
@@ -1544,7 +1544,7 @@ E no cabeçalho da seção que lista os componentes, acrescente a nota uma vez:
             f'<p class="nota-legenda">{NOTA_DO_PAPEL}</p>'
 ```
 
-- [ ] **Step 5: dar CSS à classe nova**
+- [x] **Step 5: dar CSS à classe nova**
 
 Em `assets/report-template/template_v3.html`, no bloco de CSS acrescentado para as classes do
 v3, acrescente:
@@ -1553,7 +1553,7 @@ v3, acrescente:
 .pr-o{margin-left:9px;font:400 11.6px/1.4 var(--mono);color:var(--fraco)}
 ```
 
-- [ ] **Step 6: rodar e confirmar que passa**
+- [x] **Step 6: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_papel_no_relatorio.py tests/test_template_conhece_o_que_o_relatorio_emite.py -q`
 Esperado: PASSA — inclusive a trava que recusa classe emitida sem regra no template.
@@ -1571,7 +1571,7 @@ Esperado: PASSA — inclusive a trava que recusa classe emitida sem regra no tem
 **Teste verde prova que o teste roda, não que a trava funciona.** Esta task quebra cada trava e
 confirma que um teste cai.
 
-- [ ] **Step 1: escrever o teste de mutação**
+- [x] **Step 1: escrever o teste de mutação**
 
 ```python
 # tests/test_mutacao_do_papel.py
@@ -1631,20 +1631,20 @@ def test_cada_trava_sustenta_um_teste(tmp_path):
             caminho.write_text(antes, encoding="utf-8")
 ```
 
-- [ ] **Step 2: rodar a prova por mutação**
+- [x] **Step 2: rodar a prova por mutação**
 
 Rode: `./.venv/bin/python -m pytest tests/test_mutacao_do_papel.py -q`
 Esperado: PASSA. Se falhar com "a trava X não sustenta nenhum teste", **a trava é decorativa** —
 escreva o teste que falta antes de seguir.
 
-- [ ] **Step 3: conferir que o docstring que mentia foi embora**
+- [x] **Step 3: conferir que o docstring que mentia foi embora**
 
 A frase "são duas consultas por família" morava no docstring de `familia_do_componente`, que a
 Task 7 substituiu inteiro. Rode `grep -rn "duas consultas" scripts/` e confirme que não há
 resultado. Se sobrou em `_valores_da_etiqueta` ou em outro lugar, remova: é **uma** desde a
 v0.12.4, quando a confirmação redundante saiu.
 
-- [ ] **Step 4: rodar a suíte inteira e o gate**
+- [x] **Step 4: rodar a suíte inteira e o gate**
 
 ```bash
 cd ~/.claude/skills/sw-infra-audit && ./.venv/bin/python -m pytest -q
@@ -1652,7 +1652,7 @@ cd /var/www/ai-marketplace && make check
 ```
 Esperado: suíte verde; gate sem nada sensível.
 
-- [ ] **Step 5: conferir a árvore publicada**
+- [x] **Step 5: conferir a árvore publicada**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-infra-audit BUMP=minor
@@ -1771,6 +1771,20 @@ marketplace a recebe.
 - **2026-10-05 — batch 3, recomendação do juiz aceita.** Componente marcado `exportador` nunca
   poderá ter papel confirmado (D4, por desenho), então cobrar `<identidade>` dele é cobrar o
   impossível toda rodada — e são 16 dos 37 produtos do catálogo. Ele passou a ser isento.
+
+- **2026-10-05 — batch 4: a função em que escrevi era órfã. Duas vezes.** `_insights_v3` e
+  `_topologia` desenhavam cartão de componente e legenda de camada — exatamente como as funções
+  vivas — e `build()` não chamava nenhuma das duas. Escrevi a origem do papel na primeira: teste
+  verde, nada no PDF. Escrevi a nota da limitação na segunda: teste verde, nada no PDF. As duas
+  vezes só o PDF renderizado mostrou, porque o teste provava que a FUNÇÃO funciona, não que ela
+  é usada. Nasceu `test_nenhuma_funcao_do_v3_fica_inalcancavel`, que lê a árvore sintática; ela
+  achou 5 órfãs, nomeia as 4 pré-existentes e impede a lista de crescer.
+
+- **2026-10-05 — batch 4: o ciclo revelou um defeito que ele mesmo tornou visível.** Quatro
+  papéis compartilhavam o rótulo "guarda", e o relatório saía com `04 Guarda 1 sistema` e
+  `05 Guarda 1 sistema` — duas seções numeradas com o mesmo nome. Era invisível enquanto um fork
+  de cache caía em `app` por não ser reconhecido pelo nome; só apareceu quando o papel passou a
+  ser provado pela série. Cada camada ganhou título próprio.
 
 - **2026-10-05 — limite descoberto no spike, para o spec registrar no fim.** O casamento exige
   que o valor de `job` nomeie o SERVIÇO. Num Prometheus cujo scrape config nomeia os jobs pelo

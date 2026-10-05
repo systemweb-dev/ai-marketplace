@@ -688,9 +688,38 @@ def build(report, out_dir, formato="html+pdf"):
 TEMPLATE_V3 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "..", "assets", "report-template", "template_v3.html")
 
+NOTA_DO_PAPEL = (
+    "O papel de cada componente vem da série que ele publica, quando alguma fonte o reconhece; "
+    "senão, do nome da imagem, e aí é palpite — a etiqueta ao lado do nome diz qual é o caso. "
+    "A saúde e o impacto do alvo <b>classificam pela imagem</b> em qualquer caso: eles não "
+    "acompanham a correção do papel nesta versão.")
+
+
 ORDEM_SEVERIDADE = ("critical", "high", "medium", "low", "info")
 ROTULO_SEVERIDADE = {"critical": "Crítico", "high": "Alto", "medium": "Médio",
                      "low": "Baixo", "info": "Informativo"}
+
+
+def _origem_do_papel(componente):
+    """De onde veio o papel, ao lado do nome do componente.
+
+    Toda medida carrega a fonte que respondeu; o papel carrega a dele pelo mesmo motivo. E
+    quando a evidência CONTRADIZ a imagem, dizer isso é informação acionável: é a imagem
+    mentindo, à vista de quem lê.
+    """
+    origem = componente.get("papel_origem") or "padrão"
+    if origem == "declarado":
+        nota = "papel declarado no alvos.toml"
+    elif origem.startswith("exporter "):
+        nota = f"papel confirmado pelo {_e(origem)}"
+        da_imagem = componente.get("papel_da_imagem")
+        if da_imagem and da_imagem != componente.get("papel"):
+            nota += f"; a imagem sugeria {_e(da_imagem)}"
+    elif origem == "imagem":
+        nota = "papel sugerido pela imagem, não confirmado"
+    else:
+        nota = "sem evidência: nenhuma fonte reconheceu este componente"
+    return f'<span class="pr-o">{nota}</span>'
 
 
 def montar_contexto(r):
@@ -849,41 +878,6 @@ def _resposta(resposta):
             f'{corpo}</div>')
 
 
-def _insights_v3(alvos):
-    """Um cartão por componente que TEM o que dizer: papel, análise e cada resposta com a FONTE.
-
-    Número sem fonte não entra no relatório — é isso que separa dado de chute, e é o que
-    permite ao leitor saber se "0 requisições" quer dizer "não houve tráfego" ou "ninguém
-    perguntou".
-
-    Componente sem resposta e sem análise não ganha cartão. Ele ganhava, e o cartão dizia
-    "nenhuma pergunta para este papel nesta versão" — numa auditoria de 57 componentes isso
-    imprimia a mesma frase 57 vezes, seis páginas A4. A informação não some: ela é contada,
-    uma vez, em "O que falta declarar".
-    """
-    blocos, calados = [], 0
-    for alvo in alvos:
-        for componente in alvo.get("componentes", []):
-            respostas = "".join(_resposta(r) for r in componente.get("respostas", []))
-            analise = (f'<p class="an">{_rich(componente["analise"])}</p>'
-                       if componente.get("analise") else "")
-            if not respostas and not analise:
-                calados += 1
-                continue
-            blocos.append(
-                f'<div class="card comp"><div class="sys">'
-                f'<span class="tag">{_e(componente.get("papel"))}</span>'
-                f'<h3>{_e(componente.get("nome"))}</h3>'
-                f'<span class="dono">{_e(alvo.get("nome"))}</span></div>'
-                f'{analise}{respostas}</div>')
-    rodape = (f'<p class="muted">Outros {calados} componentes não receberam pergunta nesta '
-              f'rodada — o motivo de cada um está em <a href="#pendencias">O que falta '
-              f'declarar</a>.</p>') if calados else ""
-    if not blocos:
-        return (rodape or '<p class="muted">nenhum componente respondeu nesta rodada.</p>')
-    return "".join(blocos) + rodape
-
-
 def _remediacao(bloco):
     if not bloco:
         return ""
@@ -980,10 +974,14 @@ def _achados_com_remediacao(achados):
     return "".join(blocos)
 
 
+# Quatro papéis compartilhavam o rótulo "guarda", e o relatório saía com seções repetidas:
+# `04 Guarda 1 sistema` e `05 Guarda 1 sistema`, uma para o banco e outra para o cache. Era
+# invisível enquanto um fork de cache caía em `app` por não ser reconhecido pelo nome — só
+# apareceu quando o papel passou a ser provado pela série.
 CAMADAS = (("entrada", "recebe o tráfego"), ("app", "processa"),
-           ("fila", "enfileira"), ("banco", "guarda"), ("cache", "guarda"),
-           ("busca", "guarda"), ("storage", "guarda"),
-           ("observabilidade", "observa"))
+           ("fila", "enfileira"), ("banco", "guarda em disco"),
+           ("cache", "guarda em memória"), ("busca", "indexa para busca"),
+           ("storage", "guarda arquivo"), ("observabilidade", "observa"))
 
 
 def _no_da_topologia(alvo, componente):
@@ -1045,6 +1043,7 @@ def _topologia(alvos):
                '<span><i style="--c:var(--warn)"></i>1 achado</span>'
                '<span><i style="--c:var(--crit)"></i>2 ou mais</span>'
                '</div>'
+               f'<p class="nota-legenda">{NOTA_DO_PAPEL}</p>'
                '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o '
                'tráfego, quem processa, quem guarda. <b>Não é dependência medida</b>: a skill '
                'observa o papel de cada componente, não quem chama quem.</p>')
@@ -1556,6 +1555,7 @@ def _camadas(componentes):
     for papel in sorted(porpapel):                      # papel fora da ordem conhecida
         blocos.append(_camada_bloco(f"Outros · {papel}", papel, "aplicacoes", porpapel[papel]))
     return ("".join(blocos) +
+            f'<p class="nota-legenda">{NOTA_DO_PAPEL}</p>'
             '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o tráfego, '
             'quem processa, quem guarda. <b>Não é dependência medida</b>: a skill observa '
             'o papel de cada componente, não quem chama quem.</p>')
@@ -1589,7 +1589,7 @@ def _camada_bloco(titulo, papel, icone, itens):
         marca = (f'<span class="qt">{_plural(len(achados), "achado", "achados")}</span>'
                  if achados else "")
         cartoes.append(f'<div class="sis{" crit" if achados else ""}">'
-                       f'<p class="nm2">{_e(c.get("nome"))}{marca}</p>'
+                       f'<p class="nm2">{_e(c.get("nome"))}{_origem_do_papel(c)}{marca}</p>'
                        f'{analise}{respostas}</div>')
 
     rodape = (f'<p class="corte">Outros {calados} nesta camada não receberam pergunta nesta '
