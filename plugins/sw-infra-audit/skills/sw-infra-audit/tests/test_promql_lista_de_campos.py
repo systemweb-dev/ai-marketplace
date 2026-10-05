@@ -10,7 +10,7 @@ import pytest
 from lib import catalogo
 from lib.adaptadores import promql
 
-from test_adaptador_promql import CONTEXTO, _vetor, prometheus  # noqa: F401
+from test_adaptador_promql import CONTEXTO, perguntar, _vetor, prometheus  # noqa: F401
 
 FAMILIA = """
 familia = "exporter-de-fila"
@@ -66,7 +66,7 @@ def test_cada_campo_e_uma_consulta_e_elas_se_juntam_pela_chave(catalogo_de_fila,
     falso.REGRAS.append(("sum by (queue) (fila_consumidores{job",
                          _vetor([({"queue": "emails"}, 0), ({"queue": "notas"}, 2)])))
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     assert resposta["valor"] == [{"nome": "emails", "prontas": 12, "consumidores": 0},
                                  {"nome": "notas", "prontas": 3, "consumidores": 2}]
@@ -84,7 +84,7 @@ def test_fila_presente_num_campo_e_ausente_no_outro_nao_vira_zero(catalogo_de_fi
                          _vetor([({"queue": "emails"}, 12)])))
     falso.REGRAS.append(("sum by (queue) (fila_consumidores{job", _vetor([])))
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     assert resposta["valor"] == [{"nome": "emails", "prontas": 12, "consumidores": None}]
 
@@ -97,7 +97,7 @@ def test_ordena_pelo_campo_declarado_e_desempata_pelo_nome(catalogo_de_fila, pro
                                  ({"queue": "meio"}, 9)])))
     falso.REGRAS.append(("sum by (queue) (fila_consumidores{job", _vetor([])))
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     assert [i["nome"] for i in resposta["valor"]] == ["meio", "alfa", "zeta"]
 
@@ -108,7 +108,7 @@ def test_nenhum_campo_respondeu_e_sem_dados_nao_lista_vazia(catalogo_de_fila, pr
     base, falso = prometheus
     _identifica(falso)
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     assert resposta.get("sem_dados") is True
 
@@ -123,7 +123,7 @@ def test_o_valor_do_report_e_serializavel(catalogo_de_fila, prometheus):
     falso.REGRAS.append(("sum by (queue) (fila_consumidores{job",
                          _vetor([({"queue": "emails"}, 1)])))
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     json.dumps(resposta, allow_nan=False)
     assert resposta["valor"] == [{"nome": "emails", "prontas": None, "consumidores": 1}]
@@ -140,7 +140,7 @@ def test_serie_agregada_sem_a_etiqueta_diz_que_o_exporter_agrega(catalogo_de_fil
     falso.REGRAS.append(("sum by (queue) (fila_mensagens_prontas{job", _vetor([({}, 41)])))
     falso.REGRAS.append(("sum by (queue) (fila_consumidores{job", _vetor([({}, 3)])))
 
-    resposta = promql.perguntar("fila.filas", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("fila.filas", _componente(base), dict(CONTEXTO))
 
     assert resposta["sem_dados"] is True
     assert "agregada" in resposta["motivo"] and "`queue`" in resposta["motivo"]

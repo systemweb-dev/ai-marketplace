@@ -22,32 +22,6 @@ def test_devolve_o_bloco_do_alvo_com_saude_fatos_e_achados(monkeypatch):
     assert bloco["dimensoes"] == {"seguranca": {"nota": "🟡"}}
 
 
-def test_metricas_usam_a_url_declarada_e_so_ela(monkeypatch):
-    """A allowlist de rede sai do alvo: host não declarado não é alcançável.
-
-    A sonda deixou de ser uma segunda coleta (`lib/enrich.py`) e passou a ser a do próprio
-    adaptador — então o que se observa aqui é o que o ADAPTADOR entrega ao módulo de rede,
-    que é o único lugar da skill que abre socket. O `/metrics` colado no fim da URL tem de
-    ser normalizado: sem isso a consulta vira `.../metrics/api/v1/query` → 404 → "a fonte não
-    respondeu", e o dono vai caçar problema de rede que não existe.
-    """
-    visto = {}
-
-    def espiar(url, permitidos, timeout=8):
-        visto.update(url=url, permitidos=permitidos)
-        return 200, '{"status":"success","data":{"result":[{"value":[0,"1"]}]}}'
-
-    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(BRUTO))
-    monkeypatch.setattr("lib.http_get.get_com_status", espiar)
-
-    coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
-                     "metricas_url": "http://127.0.0.1:9090/metrics"},
-                    {"timeout": 5, "orcamento": 10, "at": ""})
-
-    assert visto["permitidos"] == [("127.0.0.1", 9090)], "host E porta, vindos do alvo"
-    assert visto["url"].startswith("http://127.0.0.1:9090/api/v1/query")
-
-
 def test_sem_metricas_url_o_alvo_segue_e_as_metricas_ficam_sem_dados(monkeypatch):
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(BRUTO))
 
@@ -60,14 +34,14 @@ def test_sem_metricas_url_o_alvo_segue_e_as_metricas_ficam_sem_dados(monkeypatch
 
 def test_endpoint_que_nao_responde_vira_sem_dados_e_nao_achado(monkeypatch):
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: dict(BRUTO))
-    monkeypatch.setattr(coletor.promql, "alcancavel", lambda *a, **k: False)
-
     bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
                              "metricas_url": "http://127.0.0.1:9090"},
                             {"timeout": 5, "orcamento": 10, "at": ""})
 
+    # A outra metade desta garantia — a NOTA de fonte morta — mudou de casa junto com a sonda:
+    # ela nasce no passe de identificação e é registrada por `coletar_alvo`. Ver
+    # `test_passe_de_identificacao.py::test_fonte_morta_vira_nota_no_alvo`.
     assert len(bloco["achados"]) == 1, "endpoint mudo não vira achado novo"
-    assert any("não respondeu" in n["motivo"] for n in bloco["nao_coletado"])
 
 
 def test_a_descoberta_nunca_roda_na_coleta(monkeypatch):
@@ -188,7 +162,6 @@ def test_componente_herda_a_url_de_metricas_do_alvo_e_o_declarado_vence(monkeypa
     bruto["services"] = [{"name": "traefik", "image": "traefik:v3"},
                          {"name": "api", "image": "api:1"}]
     monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
-    monkeypatch.setattr(coletor.promql, "alcancavel", lambda *a, **k: False)
 
     bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
                              "metricas_url": "http://127.0.0.1:9090",
@@ -276,3 +249,41 @@ def test_sem_services_as_stacks_nao_quebram(monkeypatch):
                             {"timeout": 5, "orcamento": 10, "at": "x"})["fatos"]
 
     assert fatos.get("stacks") in (None, [])
+
+
+# ------------------------------------- a origem do papel, e quem só observa (D3, D4)
+def test_o_componente_nasce_com_a_origem_do_papel(monkeypatch):
+    """`papel_origem` é a ponta das restrições verificáveis 2 e 3 no caminho real: com ele
+    fixo em `padrão`, a evidência sobrescreve o papel DECLARADO pelo dono."""
+    bruto = dict(BRUTO)
+    bruto["services"] = [{"name": "borda_proxy", "image": "traefik:v3"},
+                         {"name": "app_api", "image": "registry.local/api:1"},
+                         {"name": "infra_broker", "image": "rabbitmq:3.13"}]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx",
+                             "componente": [{"nome": "infra_broker", "papel": "cache"}]},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    por_nome = {c["nome"]: c for c in bloco["componentes"]}
+    assert por_nome["borda_proxy"]["papel_origem"] == "imagem"
+    assert por_nome["app_api"]["papel_origem"] == "padrão", "imagem desconhecida não é palpite"
+    assert por_nome["infra_broker"]["papel_origem"] == "declarado"
+    # guardado para o relatório dizer "a imagem sugeria X" quando a evidência contradisser
+    assert por_nome["infra_broker"]["papel_da_imagem"] == "fila"
+
+
+def test_o_componente_nasce_marcado_se_e_exportador(monkeypatch):
+    """D4: a marca vem da IMAGEM, que `novo_componente` não guarda. Pelo nome do serviço, um
+    `monitoring_agent` rodando um exporter escaparia da trava."""
+    bruto = dict(BRUTO)
+    bruto["services"] = [{"name": "monitoring_agent", "image": "org/cadvisor:v0.47"},
+                         {"name": "dados_pg", "image": "postgres:16"}]
+    monkeypatch.setattr(coletor, "assemble_report", lambda **kwargs: bruto)
+
+    bloco = coletor.coletar({"nome": "c", "tipo": "docker", "context": "ctx"},
+                            {"timeout": 5, "orcamento": 10, "at": ""})
+
+    por_nome = {c["nome"]: c for c in bloco["componentes"]}
+    assert por_nome["monitoring_agent"]["exportador"] is True, "o nome não diz; a imagem diz"
+    assert por_nome["dados_pg"]["exportador"] is False

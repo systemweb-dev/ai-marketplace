@@ -204,7 +204,10 @@ def test_o_relatorio_carrega_a_cobertura_do_alvo():
     assert a["saude"] == "🟡"
     assert a["cobertura"]["pct"] == 0
     assert "cobertura" not in a["dimensoes"], "não é dimensão pontuada"
-    assert a["cobertura"]["mudos"][0]["motivo"] == "senha ausente"
+    # Indexar por posição quebrou quando a lacuna de `<identidade>` (D6) passou a entrar
+    # antes das perguntas. A garantia é o MOTIVO da pergunta muda, não onde ela cai na lista.
+    por_pergunta = {m["pergunta"]: m for m in a["cobertura"]["mudos"]}
+    assert por_pergunta["fila.filas"]["motivo"] == "senha ausente"
 
 
 # ------------------------------------- restrição verificável nº 6 (do spec)
@@ -303,3 +306,42 @@ def test_medidas_distintas_continuam_contando_cada_uma():
           "respostas": [{"pergunta": "entrada.latencia", "valor": 99, "fonte": "promql:b"}]}]
 
     assert medir(alvo(c))["respondidas"] == 2
+
+
+# ---------------------------------------------------------------- D6: identidade não provada
+def test_papel_nao_confirmado_entra_como_lacuna():
+    """"Silêncio não é saúde" aplicado à IDENTIDADE. Papel provisório errado faz as perguntas
+    erradas, e sem isto a lacuna sai 100% calada: o teto de saúde só olha pergunta com limiar,
+    e das 12 perguntas canônicas só `fila.filas` tem uma."""
+    alvo = {"componentes": [
+        {"nome": "app_a", "papel": "app", "papel_origem": "padrão", "respostas": []},
+        {"nome": "infra_broker", "papel": "fila",
+         "papel_origem": "exporter rabbitmq-prometheus", "respostas": []},
+    ]}
+
+    saida = medir(alvo)
+
+    nao_provados = [m for m in saida["mudos"] if m.get("pergunta") == "<identidade>"]
+    assert [m["componente"] for m in nao_provados] == ["app_a"]
+    assert "papel" in nao_provados[0]["motivo"]
+
+
+def test_papel_declarado_nao_e_lacuna():
+    """Quem o dono declarou está resolvido: cobrar declaração de quem já declarou é ruído."""
+    alvo = {"componentes": [
+        {"nome": "infra_broker", "papel": "fila", "papel_origem": "declarado", "respostas": []},
+    ]}
+
+    assert [m for m in medir(alvo)["mudos"]
+            if m.get("pergunta") == "<identidade>"] == []
+
+
+def test_papel_sugerido_pela_imagem_tambem_e_lacuna():
+    """`imagem` é palpite, não prova — e é justamente o palpite que este ciclo existe para
+    parar de tratar como autoridade."""
+    alvo = {"componentes": [
+        {"nome": "dados_pg", "papel": "banco", "papel_origem": "imagem", "respostas": []},
+    ]}
+
+    assert [m["componente"] for m in medir(alvo)["mudos"]
+            if m.get("pergunta") == "<identidade>"] == ["dados_pg"]

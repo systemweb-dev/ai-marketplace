@@ -29,8 +29,13 @@ def medir(alvo):
     """Mede a cobertura de um alvo.
 
     `perguntadas` conta só o que a skill SABE perguntar para aquele papel. Papel sem pergunta
-    registrada (hoje `app`, `banco`, `cache`, `observabilidade`) fica fora do denominador: ele
-    é limite da skill, não falha de cobertura, e já é reportado em "O que falta declarar".
+    registrada (hoje só `observabilidade`) fica fora do denominador: ele é limite da skill, não
+    falha de cobertura, e já é reportado em "O que falta declarar". `app`, `banco` e `cache`
+    estavam nesta lista e ganharam perguntas na v0.13.0.
+
+    Desde a v0.16.0, componente cujo PAPEL não foi provado por nenhuma fonte também entra em
+    `mudos`, como `<identidade>`: papel errado faz as perguntas erradas, e isso é lacuna de
+    medição tanto quanto pergunta sem resposta.
     """
     from lib.perguntas import do_papel
 
@@ -41,6 +46,27 @@ def medir(alvo):
     # cobertura: 6 de 9 onde o honesto eram 3 de 6.
     medidas_vistas = set()
     for componente in alvo.get("componentes") or []:
+        # D6 — identidade não provada é lacuna de medição, não detalhe cosmético. Papel
+        # provisório errado faz as perguntas erradas, e o teto de saúde não pega isso: ele só
+        # olha pergunta com `limiar`, e das 12 perguntas canônicas só `fila.filas` tem uma.
+        # Quem OBSERVA outros nunca poderá ser confirmado (D4): a série que ele publica é do
+        # observado. Cobrar identidade dele seria cobrar o impossível toda rodada — e são 16
+        # dos 37 produtos do catálogo que caem aqui.
+        if componente.get("papel_origem") in (None, "padrão", "imagem") \
+                and not componente.get("exportador"):
+            ambiguo = componente.get("papel_ambiguo")
+            if ambiguo:
+                # D3 pede o oposto de "nenhuma fonte provou": DUAS provaram, e em desacordo.
+                # Dizer "nenhuma" aqui manda o dono procurar exporter que ele já tem.
+                motivo = (f"duas famílias reconhecem este componente e discordam do papel "
+                          f"({', '.join(ambiguo)}) — declare `papel` no "
+                          f"`[[alvo.componente]]` do alvos.toml para desempatar")
+            else:
+                motivo = ("o papel deste componente não foi provado por nenhuma fonte — "
+                          "declare `papel` no `[[alvo.componente]]` do alvos.toml, ou aponte "
+                          "uma `metricas_url` cujo exporter o reconheça")
+            mudos.append({"componente": componente.get("nome"),
+                          "pergunta": "<identidade>", "motivo": motivo})
         catalogo = {p["id"]: p for p in do_papel(componente.get("papel"))}
         if not catalogo:
             continue

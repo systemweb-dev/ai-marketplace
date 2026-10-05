@@ -212,6 +212,60 @@ def _sem_contadores(resposta, limiar):
                        f"do componente podem estar desligadas")}
 
 
+def identificar(componentes, contexto, adaptadores, prazo, fonte_do_alvo=None):
+    """O passe de identificação: pergunta a cada FONTE quem está publicando nela.
+
+    Roda ANTES das perguntas, porque é ele que decide quais perguntas cada componente recebe. O
+    custo é por (fonte, família) — nunca por componente —, e por isso inverter a ordem saiu mais
+    barato que o estado anterior, em que a mesma identificação rodava uma vez por pergunta.
+
+    A sonda vem primeiro e vale pela fonte inteira: sem ela, uma fonte morta custaria F timeouts
+    antes da primeira pergunta, e o alvo sairia todo `sem dados` em vez de "algumas respondidas,
+    o resto sem orçamento".
+    """
+    from lib import identificacao
+
+    fontes = {identificacao.base_da_fonte(c.get("metricas_url"))
+              for c in componentes if c.get("metricas_url")}
+    # A fonte do ALVO entra mesmo sem componente nenhum: um swarm vazio, ou um em que todos os
+    # componentes foram recusados, continua merecendo a nota de "o endereço está errado" — ela
+    # era a única coisa que distinguia endereço errado de cluster sem nada para medir.
+    if fonte_do_alvo:
+        fontes.add(identificacao.base_da_fonte(fonte_do_alvo))
+    reconhecido, mortas = {}, []
+    # A alcançabilidade fica no cache do ALVO para `perguntar` consultá-la em vez de sondar de
+    # novo por pergunta — é a segunda das duas chamadas que a restrição nº 1 manda tirar.
+    viva = contexto.setdefault("cache", {}).setdefault("fonte_viva", {})
+    for fonte in sorted(fontes):
+        if prazo.esgotado():
+            break
+        contexto_fonte = dict(contexto, timeout=prazo.timeout(contexto["timeout"]))
+        for adaptador in adaptadores:
+            if not hasattr(adaptador, "reconhecer"):
+                continue
+            if not adaptador.alcancavel(fonte, contexto_fonte):
+                viva[fonte] = False
+                mortas.append(fonte)
+                continue                       # curto-circuita as F consultas desta fonte
+            viva[fonte] = True
+            reconhecido.setdefault(fonte, []).extend(
+                adaptador.reconhecer(fonte, contexto_fonte))
+
+    # `exportador` chega marcado pelo COLETOR, que é quem tem a imagem em mãos: `novo_componente`
+    # não a guarda, e pelo nome do serviço um `monitoring_agent` rodando um exporter escaparia.
+    resolvido = identificacao.resolver(componentes, reconhecido)
+    for componente in componentes:
+        decidido = resolvido.get(componente["nome"])
+        if not decidido:
+            continue
+        componente["papel"] = decidido["papel"]
+        componente["papel_origem"] = decidido["papel_origem"]
+        if decidido["ambiguidade"]:
+            componente["papel_ambiguo"] = decidido["ambiguidade"]
+        contexto.setdefault("cache", {}).setdefault("resolvido", {})[componente["nome"]] = decidido
+    return {"resolvido": resolvido, "fontes_mortas": sorted(set(mortas))}
+
+
 def responder(componente, contexto, adaptadores, prazo):
     """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
 
@@ -368,6 +422,14 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
 
     peneirar_componentes(registro)
     prazo = Prazo(contexto.get("orcamento", 120))
+    # O passe decide quais perguntas cada componente recebe, então roda ANTES delas. O `prazo`
+    # já existe aqui, e é ele que impede uma fonte lenta de comer o alvo inteiro.
+    passe = identificar(registro["componentes"], contexto, adaptadores, prazo,
+                        fonte_do_alvo=alvo.get("metricas_url"))
+    for fonte in passe["fontes_mortas"]:
+        registro["nao_coletado"].append(report_mod.na(
+            f"métricas: {fonte} não respondeu a uma consulta trivial — confira o endereço e "
+            f"se é a API de um Prometheus (`/api/v1/query`)"))
     for componente in registro["componentes"]:
         responder(componente, contexto, adaptadores, prazo)
     promover_achados(registro)

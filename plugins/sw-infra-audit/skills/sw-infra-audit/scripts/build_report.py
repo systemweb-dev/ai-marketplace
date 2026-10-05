@@ -1932,7 +1932,28 @@ def _pendencias_novo(alvos):
         # ver qual componente, qual pergunta e qual motivo.
         cobertura = a.get("cobertura") or {}
         if cobertura.get("mudos"):
-            linhas_mudas = "".join(
+            # `<identidade>` não é pergunta: contá-la em "N perguntas sem resposta" faz o
+            # número não bater com `perguntadas - respondidas`, e põe uma não-pergunta sob a
+            # frase "estas perguntas a skill sabe fazer".
+            sem_papel = [m for m in cobertura["mudos"] if m.get("pergunta") == "<identidade>"]
+            cobertura = dict(cobertura,
+                             mudos=[m for m in cobertura["mudos"]
+                                    if m.get("pergunta") != "<identidade>"])
+            if sem_papel:
+                nomes = ", ".join(_e(m["componente"]) for m in sem_papel[:14])
+                linhas.append(
+                    f'<div class="item"><div class="dt">'
+                    f'<b>{_plural(len(sem_papel), "componente sem papel provado", "componentes sem papel provado")}</b>'
+                    f'<span class="p">identidade</span></div>'
+                    f'<p>Nenhuma fonte reconheceu o que estes componentes são, então eles '
+                    f'receberam as perguntas do palpite da imagem — ou nenhuma. '
+                    f'<b>Papel errado faz a pergunta errada:</b> o relatório pode estar medindo '
+                    f'a coisa certa no lugar errado.</p>'
+                    f'<div class="l"><span>{nomes}</span></div></div>')
+            if not cobertura["mudos"]:
+                linhas_mudas = ""
+            else:
+                linhas_mudas = "".join(
                 f'<div class="l"><span>{_e(m["componente"])} · '
                 f'<code>{_e(m["pergunta"])}</code></span>'
                 f'<em>{_e(m["motivo"])}</em></div>' for m in cobertura["mudos"])

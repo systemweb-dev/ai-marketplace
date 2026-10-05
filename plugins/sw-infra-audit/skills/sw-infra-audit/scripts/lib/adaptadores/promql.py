@@ -110,74 +110,25 @@ def reconhecer(fonte, contexto):
     return saida
 
 
-def _seletor(familia, componente, valores=None):
-    """`job="proxy"` — a etiqueta declarada pela família, com o valor que casa com o
-    componente. Sem casamento, devolve vazio: a resposta vira a do exporter inteiro e a
-    fonte DIZ isso, em vez de mentir que o número é daquele componente."""
-    etiqueta = familia["seletor"]["etiqueta"]
-    nome = componente.get("nome") or ""
-    valor = casar_valor_da_etiqueta(nome, valores) if valores is not None else nome
-    return f'{etiqueta}="{valor}"' if valor else ""
+def familia_do_componente(componente, contexto, pergunta):
+    """(família, seletor) para ESTA pergunta — ou (None, None).
 
+    Não identifica mais nada: quem identifica é o passe (`collect.identificar`), e este módulo
+    só consulta o resultado. Foi assim que a decisão de papel deixou de ser efeito colateral de
+    uma chamada de adaptador, e que o filtro por papel da v0.14.0 pôde sair — a proteção que ele
+    dava passou a ser `identifica_papel` mais o casamento de etiqueta, que são evidência e não
+    heurística.
 
-def familia_do_componente(componente, contexto):
-    """(família, seletor) — ou (None, None) quando ninguém reconhece este componente.
-
-    A identificação é ESCOPADA pelo componente: `count(serie{job="x"})` em vez de
-    `count(serie)`. Sem escopo, a pergunta vira "este Prometheus tem alguma série de Traefik?",
-    e aí TODO componente que aponte para o mesmo Prometheus — inclusive o banco — viraria
-    Traefik.
-
-    Se a série existe mas não com esse escopo, cai para o exporter inteiro e DIZ isso na fonte:
-    num cluster com um proxy só, o número sem filtro é a resposta certa; mentir que ele é do
-    componente é que não pode.
-
-    O resultado fica em cache no contexto do alvo: são duas consultas por família, e repetir
-    isso a cada pergunta multiplicaria o tráfego por nada.
+    A `pergunta` entrou na assinatura porque, sem o filtro, duas famílias casadas podem declarar
+    o MESMO id: o desempate vive em `identificacao.familia_da_pergunta`.
     """
-    base = base_de(componente.get("metricas_url"))
-    cache = contexto.setdefault("_familia_por_base", {})
-    chave = (base, componente.get("nome"))
-    if chave in cache:
-        return cache[chave]
+    from lib import identificacao
 
-    achada = (None, None)
-    papel = componente.get("papel")
-    for familia in catalogo.familias():
-        # A família só é candidata se responde alguma pergunta DO PAPEL deste componente.
-        # Sem este filtro, um `banco` apontando para o mesmo Prometheus seria identificado
-        # como Traefik — a série existe naquele Prometheus, afinal — e receberia o número do
-        # exporter inteiro como se fosse dele. O prefixo do id da pergunta (`entrada.`,
-        # `app.`) é o que liga família a papel, sem nenhum nome de produto no código.
-        if not any(str(q["id"]).split(".")[0] == papel for q in familia.get("pergunta", [])):
-            continue
-        serie = familia["identificacao"]["metrica_presente"]
-        # Descobrir os valores que a etiqueta TEM, em vez de supor que ela vale o nome do
-        # serviço no Swarm. Esta consulta é o que separa "a medida é deste componente" de
-        # "a medida é do exporter inteiro" — e a suposição antiga fazia dois componentes
-        # diferentes receberem o MESMO número, com a fonte dizendo que era de cada um.
-        valores = _valores_da_etiqueta(base, familia, contexto)
-        if not valores:
-            continue
-        # UMA consulta de identificação, e é esta. Havia uma segunda, confirmando
-        # `count({serie}{{etiqueta="<nome>"}})` — redundante por construção: os valores
-        # acabaram de vir da MESMA série, no MESMO instante (`--at`), da MESMA fonte. E
-        # quando ela voltava vazia, o adaptador caía no ramo de "nenhum valor casa" e o
-        # relatório afirmava o contrário do que a fonte tinha respondido, com o valor exato
-        # na mão. Numa rodada de cinco serviços, foram cinco componentes mudos assim.
-        seletor = _seletor(familia, componente, valores)
-        if seletor:
-            achada = (familia, seletor)
-            break
-        # A família é esta, mas nenhum valor casou com o componente. Com UM valor só, o
-        # exporter cobre um componente e o número sem filtro é dele — a fonte carimba
-        # "exporter inteiro" para quem lê saber de onde veio. Com vários, o número sem
-        # filtro é a SOMA de todos, e entregá-lo como se fosse de um era exatamente a
-        # mentira que fazia dois componentes exibirem a mesma medida.
-        achada = (familia, "" if len(set(valores)) == 1 else None)
-        break
-    cache[chave] = achada
-    return achada
+    resolvido = contexto.get("cache", {}).get("resolvido", {}).get(componente.get("nome"))
+    escolhida = identificacao.familia_da_pergunta(resolvido or {}, pergunta)
+    if escolhida is None:
+        return (None, None)
+    return (escolhida["familia"], escolhida["seletor"])
 
 
 def _converter(bruto, tipo):
@@ -272,23 +223,33 @@ def perguntar(pergunta, componente, contexto):
                                              "responde a esta pergunta"), nao_se_aplica=True)
         return _sem_dados(pergunta, "o componente não declara `metricas_url` no alvos.toml")
 
-    base = base_de(base)
-    familia, seletor = familia_do_componente(componente, contexto)
-    if familia is not None and seletor is None:
-        etiqueta = familia["seletor"]["etiqueta"]
-        return _sem_dados(pergunta, f"o exporter {familia['familia']} cobre vários componentes "
-                                    f"e nenhum valor de `{etiqueta}` casa com este — o número "
-                                    f"sem filtro seria a soma de todos")
-    if familia is None:
-        if not alcancavel(base, contexto):
-            return _sem_dados(pergunta, "a fonte de métrica não respondeu")
-        return _sem_dados(pergunta, "a fonte respondeu, mas não reconheci a família de métrica "
-                                    "deste componente")
+    from lib import identificacao
 
-    declarada = next((p for p in familia.get("pergunta", []) if p["id"] == pergunta), None)
-    if declarada is None:
-        return _sem_dados(pergunta,
-                          f"o exporter {familia['familia']} não expõe o dado desta pergunta")
+    base = base_de(base)
+    familia, seletor = familia_do_componente(componente, contexto, pergunta)
+    if familia is None:
+        # A alcançabilidade vem do CACHE do passe, não de uma sonda nova. Sondar aqui rodava uma
+        # vez por pergunta para todo componente não resolvido, e é a segunda das duas chamadas
+        # que a restrição nº 1 manda tirar para o teto `K×(F+1)` valer.
+        cache = contexto.get("cache", {})
+        if cache.get("fonte_viva", {}).get(base) is False:
+            return _sem_dados(pergunta, "a fonte de métrica não respondeu")
+        resolvido = cache.get("resolvido", {}).get(componente.get("nome")) or {}
+        motivo = identificacao.motivo_da_falta(resolvido, pergunta)
+        if not motivo and resolvido.get("familias"):
+            # A família FOI reconhecida; ela é que não publica este dado. Dizer "não reconheci
+            # a família" aqui manda o dono procurar exporter que já existe — degradação de
+            # motivo em escala, que é o que o passe não pode introduzir.
+            nomes = ", ".join(sorted({f["familia"]["familia"]
+                                      for f in resolvido["familias"]}))
+            motivo = f"o exporter {nomes} não expõe o dado desta pergunta"
+        return _sem_dados(pergunta, motivo or "a fonte respondeu, mas não reconheci a família "
+                                              "de métrica deste componente")
+
+    # `familia_da_pergunta` só devolve família que DECLARA a pergunta, então o ramo antigo de
+    # "não expõe o dado desta pergunta" aqui virou inalcançável — ele vive agora no ramo
+    # `familia is None` acima, que é onde o caso realmente cai.
+    declarada = next(p for p in familia["pergunta"] if p["id"] == pergunta)
 
     fonte = f"{ID}:{familia['familia']}" + ("" if seletor else " (exporter inteiro)")
     if declarada.get("campo"):

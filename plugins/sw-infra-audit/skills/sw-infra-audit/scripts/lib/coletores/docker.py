@@ -11,7 +11,6 @@ from lib.runner import run
 import inspect
 import json
 from lib import cert, discover, impact, metrics, produtos, stacks
-from lib.adaptadores import promql
 from lib.coletores.docker_report import na, new_report, split_image
 
 DEFAULT_TIMEOUT = 15
@@ -334,21 +333,10 @@ def coletar(alvo, contexto):
         nao_coletado.append(report_mod.na(
             "métricas: o alvo não declara `metricas_url` — rode `configurar.py alvos --sugerir` "
             "para ver candidatos e colar um no alvos.toml"))
-    else:
-        # Sonda de ALVO, e só isso: quem mede é o adaptador, componente por componente, com a
-        # consulta vinda do arquivo de família. Até aqui havia uma segunda coleta aqui
-        # (`lib/enrich.py`), com uma tabela de consultas escrita no código, falando com o
-        # MESMO Prometheus para obter os MESMOS números — e o único consumidor dela era o
-        # renderizador anterior, que `build()` não chama mais. Dois caminhos, um deles cego.
-        #
-        # A sonda fica porque é a diferença entre "o endereço está errado" (uma nota no alvo) e
-        # 57 componentes repetindo "a fonte não respondeu" sem ninguém somar um mais um.
-        base = promql.base_de(url)
-        if not promql.alcancavel(base, {"timeout": contexto["timeout"],
-                                        "at": contexto.get("at")}):
-            nao_coletado.append(report_mod.na(
-                f"métricas: {base} não respondeu a uma consulta trivial — confira o endereço "
-                f"e se é a API de um Prometheus (`/api/v1/query`)"))
+    # Sem `else`: a sonda e a nota de fonte morta moram no passe de identificação
+    # (`collect.identificar`), que faz UMA sonda por fonte, curto-circuita as consultas de
+    # família quando ela falha, e devolve as mortas para `coletar_alvo` registrar. Sondar aqui
+    # também era a segunda chamada ao mesmo endereço, e furava o teto da restrição nº 1.
 
     achados = _para_achados_do_relatorio(bruto.get("findings", []), alvo["nome"])
     # `stacks` não vem do coletor bruto: é derivado aqui, agrupando os services pelo prefixo
@@ -376,8 +364,23 @@ def coletar(alvo, contexto):
         if not nome:
             continue
         declarado = declarados.get(nome, {})
+        papel_da_imagem = papel_de(detect_kind(servico.get("image")), None)
         componente = report_mod.novo_componente(
             nome, papel_de(detect_kind(servico.get("image")), declarado.get("papel")))
+        # De onde veio o papel. Toda medida carrega a fonte que respondeu; o papel carrega a
+        # dele pelo mesmo motivo. `padrão` é "ninguém reconheceu"; `imagem` é palpite do
+        # `produtos.toml`; `declarado` vence tudo, e o passe não o sobrescreve.
+        componente["papel_origem"] = ("declarado" if declarado.get("papel")
+                                      else "imagem" if papel_da_imagem != "app"
+                                      else "padrão")
+        # Guardado para o relatório poder dizer "a imagem sugeria X" quando a evidência
+        # contradisser o palpite (D3).
+        componente["papel_da_imagem"] = papel_da_imagem
+        # D4: quem OBSERVA outros nunca recebe papel provado pela série que só retransmite. A
+        # imagem é o sinal forte aqui — `novo_componente` não a guarda, e pelo nome do serviço
+        # um `monitoring_agent` rodando um exporter escaparia.
+        componente["exportador"] = produtos.e_exportador(
+            f"{servico.get('image') or ''} {nome}")
         endereco = declarado.get("metricas_url") or alvo.get("metricas_url")
         if endereco:
             componente["metricas_url"] = endereco

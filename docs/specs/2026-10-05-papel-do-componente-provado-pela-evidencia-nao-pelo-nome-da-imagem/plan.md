@@ -1024,7 +1024,7 @@ Esperado: PASSA (3 testes)
 **Contrato que esta task publica:**
 `familia_do_componente(componente, contexto, pergunta)` — a assinatura ganha `pergunta`.
 
-- [ ] **Step 1: escrever o teste que falha (restrição verificável 1)**
+- [x] **Step 1: escrever o teste que falha (restrição verificável 1)**
 
 ```python
 # tests/test_passe_de_identificacao.py
@@ -1114,12 +1114,12 @@ def test_o_papel_confirmado_chega_ao_componente(prometheus):
     assert componente["papel_origem"] == "exporter rabbitmq-prometheus"
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `./.venv/bin/python -m pytest tests/test_passe_de_identificacao.py -q`
 Esperado: FALHA com `AttributeError: module 'collect' has no attribute 'identificar'`
 
-- [ ] **Step 3: implementar o passe em `collect.py`**
+- [x] **Step 3: implementar o passe em `collect.py`**
 
 Acrescente a `scripts/collect.py`, logo antes de `def responder(`:
 
@@ -1169,12 +1169,12 @@ def identificar(componentes, contexto, adaptadores, prazo):
     return resolvido
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_passe_de_identificacao.py -q`
 Esperado: PASSA (3 testes)
 
-- [ ] **Step 5: LIGAR o passe ao fluxo real**
+- [x] **Step 5: LIGAR o passe ao fluxo real**
 
 Sem este step, `identificar` existe, é testado, e **nunca roda em produção**:
 `contexto["cache"]["resolvido"]` fica vazio, `familia_do_componente` devolve sempre
@@ -1197,7 +1197,7 @@ Confira, ao editar, que `prazo` já está criado nesse ponto do arquivo. Se não
 criação dele para cima do passe — **não** crie um segundo `Prazo`: dois orçamentos para o mesmo
 alvo é um alvo sem orçamento.
 
-- [ ] **Step 6: o componente nasce com a origem do papel, e marcado se é exportador**
+- [x] **Step 6: o componente nasce com a origem do papel, e marcado se é exportador**
 
 `papel_origem` **não existe no código hoje** (zero ocorrências em `scripts/`, `tests/` e
 `references/`). Sem este step, `resolver` lê `None` em todo componente: a precedência
@@ -1231,7 +1231,7 @@ Em `scripts/lib/coletores/docker.py`, onde o componente é montado:
 
 E acrescente `produtos` ao import do topo do arquivo.
 
-- [ ] **Step 7: o teste de que o passe roda de verdade**
+- [x] **Step 7: o teste de que o passe roda de verdade**
 
 Acrescente a `tests/test_passe_de_identificacao.py`:
 
@@ -1266,7 +1266,7 @@ def test_fonte_morta_vira_nota_no_alvo(monkeypatch, prometheus):
     assert passe["fontes_mortas"] == [base]
 ```
 
-- [ ] **Step 8: fazer o adaptador consultar o resultado**
+- [x] **Step 8: fazer o adaptador consultar o resultado**
 
 Em `scripts/lib/adaptadores/promql.py`, substitua `familia_do_componente` inteira por:
 
@@ -1317,7 +1317,7 @@ O ramo `if familia is not None and seletor is None:` **desaparece**: o estado `s
 não existe mais (o conjunto de famílias só guarda `""` ou um seletor casado), e o motivo da
 "soma de todos" passou a vir de `identificacao.motivo_da_falta`.
 
-- [ ] **Step 9: a sonda de alvo deixa de duplicar o passe**
+- [x] **Step 9: a sonda de alvo deixa de duplicar o passe**
 
 **Atenção:** o bloco `else:` de hoje (docker.py:344-351) tem a sonda **e** a nota
 `nao_coletado` com o endereço e o motivo. Trocá-lo por `pass` apagaria a nota, contra o
@@ -1342,7 +1342,7 @@ nota — se houver mais alguma coisa, ela fica.
 
 E remova o import de `promql` do topo do arquivo, que fica sem uso.
 
-- [ ] **Step 10: rodar a suíte inteira**
+- [x] **Step 10: rodar a suíte inteira**
 
 Rode: `./.venv/bin/python -m pytest -q`
 Esperado: muitos testes falham — `familia_do_componente` mudou de assinatura e o filtro saiu.
@@ -1360,7 +1360,7 @@ afrouxe nenhuma asserção de garantia** — só os anexos mudam. Rode até fica
 
 **Depende de:** Task 7
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 Acrescente ao fim de `tests/test_cobertura.py`:
 
@@ -1393,12 +1393,12 @@ def test_papel_declarado_nao_e_lacuna():
             if m.get("pergunta") == "<identidade>"] == []
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `./.venv/bin/python -m pytest tests/test_cobertura.py -q`
 Esperado: FALHA — `assert [] == ['app_a']`
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 Em `scripts/lib/cobertura.py`, dentro de `medir`, no início do laço
 `for componente in alvo.get("componentes") or []:`, antes de `catalogo = {...}`:
@@ -1417,7 +1417,7 @@ Em `scripts/lib/cobertura.py`, dentro de `medir`, no início do laço
             })
 ```
 
-- [ ] **Step 4: corrigir o docstring que mente**
+- [x] **Step 4: corrigir o docstring que mente**
 
 No docstring de `medir`, troque a frase sobre os papéis sem pergunta por:
 
@@ -1428,7 +1428,7 @@ No docstring de `medir`, troque a frase sobre os papéis sem pergunta por:
     estavam nesta lista e ganharam perguntas na v0.13.0.
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_cobertura.py -q`
 Esperado: PASSA
@@ -1731,6 +1731,46 @@ marketplace a recebe.
   delegar. E `reconhecer` acrescentava um campo `etiqueta` que ninguém lê (`resolver` usa
   `familia["seletor"]["etiqueta"]`): removido. `resolver` passou a devolver `papel_anterior`,
   que a D3 precisa para o relatório dizer "a imagem sugeria X".
+
+- **2026-10-05 — Task 7, três consequências do desenho que os testes tiveram de absorver.**
+  (a) O motivo preciso "o exporter X não expõe o dado desta pergunta" ia degradar para "não
+  reconheci a família" — falso, porque a família FOI reconhecida, e manda o dono procurar
+  exporter que já existe. `perguntar` passou a distinguir os dois casos. É a degradação de
+  motivo que a tabela de testes do spec lista como coisa a não deixar acontecer, e ela só
+  apareceu quando o filtro saiu de verdade. (b) O teste do "banco não vira proxy" testava o
+  FILTRO, que este ciclo remove: foi reescrito para a garantia real — o PAPEL do banco não pode
+  virar `entrada` —, agora sustentada pelo casamento de etiqueta. (c) "Não pergunta duas vezes"
+  passou a significar "não pergunta à MESMA família duas vezes": o passe pergunta a todas uma
+  vez por fonte, e é isso que torna o custo independente do número de componentes.
+
+- **2026-10-05 — Task 7, os testes do adaptador precisam do passe.** `promql.perguntar` não
+  identifica mais nada — consulta `contexto["cache"]["resolvido"]`. Chamá-lo sozinho devolve
+  `(None, None)` para tudo, e um teste assim mediria o adaptador num estado que nunca acontece
+  em produção. Um helper `perguntar()` em `test_adaptador_promql.py` roda o passe antes, como o
+  `collect` faz, e os 26 pontos de chamada passaram a usá-lo. Nenhuma asserção foi afrouxada.
+
+- **2026-10-05 — batch 3, o juiz achou que a correção do ciclo inteiro estava destestada.**
+  Duas mutações deixavam a suíte 100% verde: (a) mover o passe para DEPOIS do laço de perguntas
+  — o componente terminava com `papel_origem = "exporter ..."`, o relatório diria "confirmado",
+  e ele tinha recebido as perguntas do papel PROVISÓRIO, todas `sem_dados`. Papel certo no
+  papel, medidas erradas no relatório; (b) fixar `papel_origem` e `exportador` no coletor — as
+  duas pontas das restrições 2 e 3 no caminho real, com zero testes. Nenhum teste de unidade
+  pega a primeira: a ORDEM entre `identificar` e `responder` não é propriedade de nenhum dos
+  dois. Nasceu `tests/test_ciclo_ponta_a_ponta.py`, por `coletar_alvo`, e as três mutações
+  agora derrubam.
+
+- **2026-10-05 — batch 3, cinco achados menores do juiz, todos corrigidos.** O motivo de D6
+  dizia "nenhuma fonte provou" no caso em que DUAS provaram e discordaram — D3 pede o oposto,
+  nomear as duas. `<identidade>` entrava em "N perguntas sem resposta" no relatório, e não é
+  pergunta: virou bloco próprio. O teto K×(F+1) era medido contra o observado, então passaria
+  até se o passe parasse na primeira família: agora F vem do catálogo. A fonte do ALVO sem
+  componente nenhum deixou de ser sondada quando a sonda saiu do coletor, e com ela sumia a
+  única nota que dizia "o endereço está errado". E `_seletor` virou órfão, o ramo
+  `declarada is None` virou inalcançável, e dois docstrings passaram a contradizer o código.
+
+- **2026-10-05 — batch 3, recomendação do juiz aceita.** Componente marcado `exportador` nunca
+  poderá ter papel confirmado (D4, por desenho), então cobrar `<identidade>` dele é cobrar o
+  impossível toda rodada — e são 16 dos 37 produtos do catálogo. Ele passou a ser isento.
 
 - **2026-10-05 — limite descoberto no spike, para o spec registrar no fim.** O casamento exige
   que o valor de `job` nomeie o SERVIÇO. Num Prometheus cujo scrape config nomeia os jobs pelo

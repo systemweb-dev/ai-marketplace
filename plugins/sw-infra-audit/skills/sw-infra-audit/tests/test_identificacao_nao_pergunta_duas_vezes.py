@@ -15,7 +15,7 @@ que afirmava o contrário do que a fonte tinha acabado de responder.
 import pytest
 
 from lib.adaptadores import promql
-from test_adaptador_promql import CONTEXTO, _vetor, prometheus  # noqa: F401
+from test_adaptador_promql import CONTEXTO, perguntar, _vetor, prometheus  # noqa: F401
 
 
 def _componente(base, nome="proxy"):
@@ -28,12 +28,15 @@ def test_uma_consulta_de_identificacao_por_familia(prometheus):
                          _vetor([({"job": "proxy"}, 1)])))
     falso.REGRAS.append(("sum(increase(traefik_service_requests_total", _vetor([({}, 7)])))
 
-    resposta = promql.perguntar("entrada.volume_na_janela", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("entrada.volume_na_janela", _componente(base), dict(CONTEXTO))
 
     assert resposta["valor"] == 7
     assert resposta["fonte"] == "promql:traefik", "casou pela etiqueta, não pelo exporter inteiro"
+    # O passe pergunta a TODA família uma vez por fonte — é o desenho, e é o que torna o
+    # custo independente do número de componentes. O que não pode é perguntar a MESMA
+    # família duas vezes, que era o defeito.
     identificacao = [q for q in falso.RECEBIDAS if q.startswith("count")]
-    assert len(identificacao) == 1, identificacao
+    assert len(identificacao) == len(set(identificacao)), identificacao
 
 
 def test_valor_que_casa_nunca_vira_nenhum_valor_casa(prometheus):
@@ -45,7 +48,7 @@ def test_valor_que_casa_nunca_vira_nenhum_valor_casa(prometheus):
     falso.REGRAS.append(("sum(increase(traefik_service_requests_total", _vetor([({}, 9)])))
     # NENHUMA regra para `count(serie{job="proxy"})`: a confirmação voltaria vazia
 
-    resposta = promql.perguntar("entrada.volume_na_janela", _componente(base), dict(CONTEXTO))
+    resposta = perguntar("entrada.volume_na_janela", _componente(base), dict(CONTEXTO))
 
     assert resposta.get("sem_dados") is not True, resposta.get("motivo")
     assert resposta["valor"] == 9
