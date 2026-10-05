@@ -520,7 +520,7 @@ O spec diz que `lib/identificacao.py` é "o **único** lugar da skill que casa n
 com valor de etiqueta". A função já existe, mas mora no adaptador. Mover primeiro deixa as
 tasks seguintes construírem em cima do lugar certo.
 
-- [ ] **Step 1: criar o módulo com a função movida**
+- [x] **Step 1: criar o módulo com a função movida**
 
 Crie `scripts/lib/identificacao.py` com o cabeçalho abaixo e **o corpo de
 `casar_valor_da_etiqueta` copiado literalmente** de `scripts/lib/adaptadores/promql.py`
@@ -543,7 +543,7 @@ def casar_valor_da_etiqueta(componente, valores):
     ...  # corpo e docstring copiados de promql.py, sem alteração
 ```
 
-- [ ] **Step 2: apontar o adaptador para o módulo novo**
+- [x] **Step 2: apontar o adaptador para o módulo novo**
 
 Em `scripts/lib/adaptadores/promql.py`, **remova** a definição de `casar_valor_da_etiqueta` e
 acrescente ao bloco de imports:
@@ -555,7 +555,7 @@ from lib.identificacao import casar_valor_da_etiqueta
 O nome continua importável de `promql` (os testes existentes fazem
 `from lib.adaptadores.promql import casar_valor_da_etiqueta`), então nada quebra.
 
-- [ ] **Step 3: rodar a suíte e confirmar que nada quebrou**
+- [x] **Step 3: rodar a suíte e confirmar que nada quebrou**
 
 Rode: `./.venv/bin/python -m pytest -q`
 Esperado: PASSA, 1057+ testes. É um movimento puro: se algo falhou, o corpo foi copiado errado.
@@ -582,7 +582,7 @@ resolver(componentes, reconhecido_por_fonte)
 # familias: [{"familia": <dict da família>, "seletor": str}]  — "" = exporter inteiro
 ```
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # tests/test_identificacao.py
@@ -723,12 +723,12 @@ def test_componente_sem_fonte_fica_como_chegou():
                                 "ambiguidade": []}
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `./.venv/bin/python -m pytest tests/test_identificacao.py -q`
 Esperado: FALHA com `AttributeError: module 'lib.identificacao' has no attribute 'resolver'`
 
-- [ ] **Step 3: implementar `resolver`**
+- [x] **Step 3: implementar `resolver`**
 
 Acrescente a `scripts/lib/identificacao.py`:
 
@@ -793,12 +793,12 @@ def resolver(componentes, reconhecido_por_fonte):
     return saida
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_identificacao.py -q`
 Esperado: PASSA (9 testes)
 
-- [ ] **Step 5: escrever o teste do desempate e implementá-lo**
+- [x] **Step 5: escrever o teste do desempate e implementá-lo**
 
 Acrescente a `tests/test_identificacao.py`:
 
@@ -902,7 +902,7 @@ def motivo_da_falta(resolvido, pergunta):
     return None
 ```
 
-- [ ] **Step 6: rodar e confirmar que passa**
+- [x] **Step 6: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_identificacao.py -q`
 Esperado: PASSA (12 testes)
@@ -920,7 +920,7 @@ Esperado: PASSA (12 testes)
 **Contrato que esta task publica:**
 `promql.reconhecer(fonte, contexto) -> [familia_dict + {"valores": [...]}]`
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # tests/test_reconhecer.py
@@ -971,12 +971,12 @@ def test_o_cache_vale_para_a_fonte_inteira(prometheus):
     assert len([q for q in falso.RECEBIDAS if "traefik_service_requests_total" in q]) == 1
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `./.venv/bin/python -m pytest tests/test_reconhecer.py -q`
 Esperado: FALHA com `AttributeError: module 'lib.adaptadores.promql' has no attribute 'reconhecer'`
 
-- [ ] **Step 3: implementar**
+- [x] **Step 3: implementar**
 
 Acrescente a `scripts/lib/adaptadores/promql.py`, logo depois de `_valores_da_etiqueta`:
 
@@ -1004,7 +1004,7 @@ def reconhecer(fonte, contexto):
     return saida
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `./.venv/bin/python -m pytest tests/test_reconhecer.py -q`
 Esperado: PASSA (3 testes)
@@ -1705,6 +1705,32 @@ marketplace a recebe.
   confirmado. As variantes de nome entraram nas listas `imagem` (dado, não regra sobre palavra
   genérica, que D4 descartou). Fechado: `mysql-exporter`, `postgresql-exporter`, `pg-exporter`
   e `valkey-exporter` agora saem `kind=None, exportador=True`.
+
+- **2026-10-05 — batch 2, um fixture meu provava o contrário do que afirmava.** O teste de
+  "vários valores e nenhum casa" usava o componente `cdn_borda` contra os valores
+  `["proxy", "borda"]` — e `cdn_borda` tem núcleo `borda`, então ele CASAVA. O teste teria
+  passado verde provando o oposto se a implementação estivesse errada. Trocado por um nome que
+  não compartilha núcleo com nenhum valor. É a terceira vez neste dossiê que um fixture inventa
+  a condição que ele deveria testar.
+
+- **2026-10-05 — batch 2, o juiz achou três travas decorativas.** As três passavam verdes com
+  a mutação aplicada: (a) o teste do cache gravava pelo contexto ORIGINAL e lia pela cópia — e
+  `collect` chama sempre PELA CÓPIA, então o bug antigo (chave no topo do contexto) também
+  sobrevivia àquela ordem; o teste que existia para provar o conserto não provava nada;
+  (b) a 2ª chave do desempate (quem prova papel) nunca mudava resultado, porque o fixture dava
+  prioridades diferentes e a 3ª chave já decidia — e no catálogo real acontece o mesmo;
+  (c) `motivo_da_falta` ignorava a `pergunta` e era estruturalmente incapaz de considerá-la,
+  porque `soma_de_todos` guardava só o NOME da família: um componente medido pelo cAdvisor com
+  um proxy na soma recebia "o exporter traefik cobre vários componentes" para `app.cpu`,
+  pergunta que o traefik nem declara. As três foram consertadas e a mutação agora derruba cada
+  uma.
+
+- **2026-10-05 — batch 2, duas melhorias do juiz aceitas.** `promql.base_de` era a MESMA
+  expressão de `identificacao.base_da_fonte` escrita duas vezes, e o passe agrupa por aquela —
+  duas cópias derivam, e aí um componente é agrupado numa fonte e consultado noutra. Passou a
+  delegar. E `reconhecer` acrescentava um campo `etiqueta` que ninguém lê (`resolver` usa
+  `familia["seletor"]["etiqueta"]`): removido. `resolver` passou a devolver `papel_anterior`,
+  que a D3 precisa para o relatório dizer "a imagem sugeria X".
 
 - **2026-10-05 — limite descoberto no spike, para o spec registrar no fim.** O casamento exige
   que o valor de `job` nomeie o SERVIÇO. Num Prometheus cujo scrape config nomeia os jobs pelo

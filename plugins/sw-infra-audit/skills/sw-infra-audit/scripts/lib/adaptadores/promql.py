@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 from urllib.parse import quote
 
 from lib import catalogo, http_get
+# `casar_valor_da_etiqueta` mudou de casa: ela é identificação, não consulta, e o
+# módulo `identificacao` é o único lugar que casa nome de componente com valor de
+# etiqueta. Reexportada aqui porque o nome já era importado deste módulo.
+from lib.identificacao import base_da_fonte, casar_valor_da_etiqueta  # noqa: F401
 
 ID = "promql"
 
@@ -36,11 +40,15 @@ def momento(at):
 def base_de(url):
     """A raiz da API a partir do que o dono colou no alvos.toml.
 
+    Delega para `identificacao.base_da_fonte`: era a MESMA expressão escrita duas vezes, e o
+    passe agrupa as fontes por aquela — duas cópias de um normalizador derivam, e aí um
+    componente é agrupado numa fonte e consultado noutra.
+
     O `configurar.py alvos --sugerir` imprime a URL completa de uma consulta, e é natural colar
     aquilo inteiro. Sem normalizar, viraria `.../api/v1/query?query=up/api/v1/query` → 404 →
     "a fonte não respondeu", que manda o dono caçar problema de rede que não existe.
     """
-    return str(url or "").split("/api/")[0].split("/metrics")[0].rstrip("/")
+    return base_da_fonte(url)
 
 
 def _consultar(base, query, timeout, at=None):
@@ -69,41 +77,6 @@ def alcancavel(base, contexto):
     return _consultar(base, "vector(1)", contexto["timeout"], contexto.get("at")) is not None
 
 
-def casar_valor_da_etiqueta(componente, valores):
-    """Qual dos valores que a etiqueta TEM corresponde a este componente — ou None.
-
-    Supor que o valor é o nome do serviço só acerta quando os dois coincidem: verdade para o
-    cAdvisor, cujo rótulo É o nome do serviço no Swarm, e quase nunca verdade para `job`, que
-    vale o que o scrape config do Prometheus disser. Errando, a consulta caía para o exporter
-    inteiro e dois componentes diferentes recebiam o MESMO número.
-
-    A comparação é deliberadamente estreita. Casa por igualdade, e depois só quando um lado é
-    o outro com um prefixo separado por `_`, `-` ou `.` — que é como o Swarm nomeia
-    (`<stack>_<serviço>`). NÃO casa por substring solta: `db` dentro de `mariadb` atribuiria a
-    medida do banco errado, e errar em silêncio é pior que não medir.
-
-    Empate entre dois candidatos igualmente plausíveis devolve None: escolher um seria
-    atribuir a medida a quem pode não ser o dono dela.
-    """
-    if not componente or not valores:
-        return None
-    if componente in valores:
-        return componente
-
-    def nucleo(nome):
-        """O último segmento depois de um separador de composição."""
-        for sep in ("_", "-", "."):
-            if sep in nome:
-                nome = nome.rsplit(sep, 1)[-1]
-        return nome
-
-    alvo = nucleo(componente)
-    candidatos = [v for v in valores if v == alvo or nucleo(v) == alvo or nucleo(v) == componente]
-    if len(candidatos) == 1:
-        return candidatos[0]
-    return None                       # nenhum, ou ambíguo: não atribuir é mais honesto
-
-
 def _valores_da_etiqueta(base, familia, contexto):
     """Os valores que a etiqueta da família realmente tem nesta fonte."""
     serie = familia["identificacao"]["metrica_presente"]
@@ -113,6 +86,28 @@ def _valores_da_etiqueta(base, familia, contexto):
     if not bruto:
         return []
     return [str(((r.get("metric") or {}).get(etiqueta) or "")) for r in bruto if r]
+
+
+def reconhecer(fonte, contexto):
+    """Quem está publicando nesta fonte. UMA consulta por família, nunca por componente.
+
+    É o contrato que o passe de identificação consome. A consulta de descoberta depende só de
+    (fonte, família) — por isso o resultado fica no cache COMPARTILHADO do alvo
+    (`contexto["cache"]`, criado em `collect.py`), e não numa cópia por pergunta, que era onde
+    o cache anterior morria: a mesma identificação rodava uma vez por pergunta.
+    """
+    base = base_de(fonte)
+    cache = contexto.setdefault("cache", {}).setdefault("reconhecido", {})
+    if base in cache:
+        return cache[base]
+
+    saida = []
+    for familia in catalogo.familias():
+        valores = _valores_da_etiqueta(base, familia, contexto)
+        if valores:
+            saida.append(dict(familia, valores=valores))
+    cache[base] = saida
+    return saida
 
 
 def _seletor(familia, componente, valores=None):
