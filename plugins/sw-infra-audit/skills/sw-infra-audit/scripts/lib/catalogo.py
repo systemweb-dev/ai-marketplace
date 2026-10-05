@@ -24,6 +24,7 @@ class CatalogoInvalido(Exception):
 
 
 def carregar_arquivo(caminho):
+    from lib.papel import PAPEIS
     from lib.perguntas import PERGUNTAS
 
     caminho = Path(caminho)
@@ -40,6 +41,21 @@ def carregar_arquivo(caminho):
         raise CatalogoInvalido(f"{caminho.name}: falta `[seletor] etiqueta` — sem ela a "
                                f"consulta agregaria o exporter inteiro como se fosse o "
                                f"componente")
+    papel = dados.get("papel")
+    if not papel:
+        raise CatalogoInvalido(f"{caminho.name}: falta `papel` — é ele que diz de que papel "
+                               f"esta família fala, e sem isso ela não pode nem responder "
+                               f"pergunta nem provar identidade")
+    if papel not in PAPEIS:
+        raise CatalogoInvalido(f"{caminho.name}: papel {papel!r} não existe; os papéis são "
+                               f"{', '.join(PAPEIS)}")
+    if not isinstance(dados.get("identifica_papel"), bool):
+        raise CatalogoInvalido(
+            f"{caminho.name}: falta `identifica_papel` (booleano). `true` quando a série é "
+            f"assinatura do produto e prova o papel de quem a publica; `false` quando ela só "
+            f"MEDE — o exporter de container mede qualquer container, e a métrica HTTP "
+            f"genérica mede qualquer coisa que fale HTTP. Deixar implícito foi o que quase "
+            f"fez toda família votar")
     if not dados["identificacao"].get("metrica_presente"):
         raise CatalogoInvalido(f"{caminho.name}: identificacao sem `metrica_presente` — é ela "
                                f"que diz se esta família é a certa para o componente")
@@ -49,6 +65,10 @@ def carregar_arquivo(caminho):
         if id_ not in PERGUNTAS:
             raise CatalogoInvalido(f"{caminho.name}: pergunta {id_!r} não existe no registro "
                                    f"de perguntas canônicas")
+        if str(id_).split(".")[0] != papel:
+            raise CatalogoInvalido(f"{caminho.name}: a família diz falar de {papel!r} e "
+                                   f"responde {id_!r}, que é de outro papel — uma das duas "
+                                   f"afirmações mente, e descobrir qual no relatório é tarde")
         campos = pergunta.get("campo") or []
         if pergunta.get("query") and campos:
             raise CatalogoInvalido(f"{caminho.name}: {id_} declara `query` e `campo` ao mesmo "

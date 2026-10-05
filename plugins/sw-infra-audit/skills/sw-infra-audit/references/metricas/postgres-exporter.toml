@@ -4,6 +4,10 @@
 familia = "postgres-exporter"
 prioridade = 40
 
+papel = "banco"
+# `pg_stat_database_numbackends` só existe em Postgres.
+identifica_papel = true
+
 [identificacao]
 metrica_presente = "pg_stat_database_numbackends"
 

@@ -10,6 +10,12 @@
 familia = "cadvisor"
 prioridade = 40
 
+papel = "app"
+# NÃO prova papel: a etiqueta desta família é o nome do serviço no Swarm, então TODO
+# componente do cluster casa por igualdade exata (medido: 5 de 5). Ela MEDE qualquer
+# container e não diz nada sobre o que ele É. Ver D1 no spec.
+identifica_papel = false
+
 [identificacao]
 # A série que só um exporter de container publica. Identificar pela SÉRIE, e não pelo nome da
 # imagem, é o que faz um fork ou uma imagem interna continuarem sendo reconhecidos.

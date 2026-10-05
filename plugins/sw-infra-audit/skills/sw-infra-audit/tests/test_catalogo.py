@@ -19,7 +19,11 @@ def test_familias_vem_em_ordem_estavel():
     assert ordem == sorted(ordem)
 
 
-CABECA = ('familia = "x"\nprioridade = 10\n[identificacao]\nmetrica_presente = "m"\n'
+CABECA = ('familia = "x"\nprioridade = 10\n'
+          # obrigatórios desde D1: de que papel a família fala, e se a série
+          # dela PROVA esse papel ou só MEDE
+          'papel = "entrada"\nidentifica_papel = true\n'
+          '[identificacao]\nmetrica_presente = "m"\n'
           '[seletor]\netiqueta = "job"\n')
 
 
@@ -56,7 +60,8 @@ def test_pergunta_de_lista_sem_desempate_e_recusada(tmp_path):
 
 
 def test_arquivo_sem_identificacao_e_recusado(tmp_path):
-    caminho = _escrever(tmp_path, 'familia = "x"\nprioridade = 10\n')
+    caminho = _escrever(tmp_path, 'familia = "x"\nprioridade = 10\n'
+                                  'papel = "entrada"\nidentifica_papel = true\n')
     with pytest.raises(CatalogoInvalido):
         carregar_arquivo(caminho)
 
@@ -73,7 +78,9 @@ def test_tipo_de_valor_desconhecido_e_recusado(tmp_path):
 def test_familia_sem_etiqueta_de_seletor_e_recusada(tmp_path):
     """Sem etiqueta, a consulta sai com `{}` e agrega o exporter inteiro como se fosse o
     componente — número errado com cara de certo."""
-    caminho = _escrever(tmp_path, 'familia = "x"\nprioridade = 10\n[identificacao]\n'
+    caminho = _escrever(tmp_path, 'familia = "x"\nprioridade = 10\n'
+                                  'papel = "entrada"\nidentifica_papel = true\n'
+                                  '[identificacao]\n'
                                   'metrica_presente = "m"\n')
     with pytest.raises(CatalogoInvalido) as erro:
         carregar_arquivo(caminho)

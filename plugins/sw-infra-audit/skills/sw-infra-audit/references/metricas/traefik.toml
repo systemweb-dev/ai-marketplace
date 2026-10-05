@@ -3,6 +3,10 @@
 familia = "traefik"
 prioridade = 30
 
+papel = "entrada"
+# `traefik_service_requests_total` só existe neste proxy: a série é assinatura do produto.
+identifica_papel = true
+
 [identificacao]
 metrica_presente = "traefik_service_requests_total"
 

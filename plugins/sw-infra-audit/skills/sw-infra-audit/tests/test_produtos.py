@@ -93,3 +93,58 @@ def test_todo_papel_derivado_existe():
     declarados = {p["kind"] for p in produtos.carregar() if p.get("kind")}
 
     assert not declarados - set(POR_KIND), sorted(declarados - set(POR_KIND))
+
+
+# ---------------------------------------------------------------- D4: quem só observa
+EXPORTADORES = ("cadvisor", "node-exporter", "node_exporter", "promtail",
+                "dockerd-exporter",
+                # os três que D4 existe para travar, e que não existiam no arquivo
+                "postgres-exporter", "mysqld-exporter", "redis-exporter")
+
+
+@pytest.mark.parametrize("trecho", EXPORTADORES)
+def test_exportador_e_reconhecido_como_tal(trecho):
+    """Estes produtos OBSERVAM outros; o papel deles nunca pode ser provado pela série que
+    eles publicam, porque a série é do observado, não deles."""
+    assert produtos.e_exportador(f"org/{trecho}:latest") is True
+
+
+def test_produto_normal_nao_e_exportador():
+    assert produtos.e_exportador("registry.exemplo/postgres:16") is False
+    assert produtos.e_exportador("registry.exemplo/minha-api:4.2") is False
+
+
+# (trecho do exporter, trecho do produto que ele observa, kind do produto)
+PARES_DE_PREFIXO = [
+    ("postgres-exporter", "postgres", "banco"),
+    ("postgresql-exporter", "postgres", "banco"),
+    ("mysqld-exporter", "mysql", "banco"),
+    ("mysql-exporter", "mysql", "banco"),
+    ("redis-exporter", "redis", "cache/fila"),
+]
+
+
+@pytest.mark.parametrize("exportador,produto,kind", PARES_DE_PREFIXO)
+def test_o_exportador_nao_rouba_o_kind_do_produto_que_observa(exportador, produto, kind):
+    """O casamento é por trecho e o primeiro bloco que casa vence. Com o bloco do exporter
+    DEPOIS do bloco do produto, o exporter herda o `kind` dele e entra no inventário como se
+    fosse o produto — alimentando `metrics.STATEFUL` e `impact.CRITICAL_PATH`.
+
+    Parametrizado nos três pares, e não só em `postgres`: o teste cobria um caso e o comentário
+    do arquivo prometia três, então mover `mysqld-exporter` ou `redis-exporter` para o fim do
+    arquivo reintroduzia o defeito com a suíte verde.
+    """
+    assert produtos.kind_do_caminho(f"org/{exportador}:1") is None
+    assert produtos.e_exportador(f"org/{exportador}:1") is True
+    assert produtos.kind_do_caminho(f"org/{produto}:16") == kind
+
+
+def test_exportador_fora_do_arquivo_e_recusado(tmp_path):
+    """`exportador` tem de ser booleano: um `exportador = "sim"` passaria como verdadeiro e
+    silenciaria o papel de um produto inteiro sem ninguém notar."""
+    arquivo = tmp_path / "p.toml"
+    arquivo.write_text('[[produto]]\nnome = "x"\nimagem = ["a"]\nexportador = "sim"\n',
+                       encoding="utf-8")
+
+    with pytest.raises(produtos.ProdutosInvalidos, match="exportador"):
+        produtos.carregar(arquivo)

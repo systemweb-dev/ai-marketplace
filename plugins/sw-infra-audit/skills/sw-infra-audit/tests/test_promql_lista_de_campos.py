@@ -15,6 +15,8 @@ from test_adaptador_promql import CONTEXTO, _vetor, prometheus  # noqa: F401
 FAMILIA = """
 familia = "exporter-de-fila"
 prioridade = 50
+papel = "fila"
+identifica_papel = true
 [identificacao]
 metrica_presente = "fila_mensagens_prontas"
 [seletor]

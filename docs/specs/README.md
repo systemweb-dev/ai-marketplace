@@ -6,6 +6,7 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 <!-- DOSSIES:START -->
 | Trabalho | Estado | Criado | Tem |
 |---|---|---|---|
+| [Papel do componente provado pela evidencia, nao pelo nome da imagem](2026-10-05-papel-do-componente-provado-pela-evidencia-nao-pelo-nome-da-imagem/spec.md) | 🔵 em execução | 2026-10-05 | plano 0/10 |
 | [Mockup com leitura do pedido, variações por eixo e detector anti-slop](2026-09-21-mockup-com-leitura-do-pedido-variacoes-por-eixo-e-detector-anti-slop/spec.md) | ⚪ concluído | 2026-09-21 | — |
 | [Evolucao incremental da sw-flow-diagram](2026-09-21-evolucao-incremental-da-sw-flow-diagram/spec.md) | ⚪ concluído | 2026-09-21 | plano 7/7 |
 | [sw-infra-audit: auditoria de infraestrutura por alvos](2026-09-19-sw-infra-audit-auditoria-de-infraestrutura-por-alvos/spec.md) | ⚪ concluído | 2026-09-19 | plano 15/15 |

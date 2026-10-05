@@ -7,6 +7,11 @@
 familia = "redis-exporter"
 prioridade = 40
 
+papel = "cache"
+# `redis_memory_used_bytes` existe no Redis E nos forks compatíveis em protocolo — e é
+# exatamente por isso que ela PROVA o papel: identifica a família do produto, não a imagem.
+identifica_papel = true
+
 [identificacao]
 metrica_presente = "redis_memory_used_bytes"
 

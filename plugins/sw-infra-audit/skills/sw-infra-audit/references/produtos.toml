@@ -78,6 +78,40 @@ nome = "nats"
 imagem = ["nats"]
 kind = "fila/broker"
 
+# --- exporters de produto: publicam a série do OBSERVADO, não a deles
+#
+# A POSIÇÃO destes blocos importa: o casamento é por trecho e o primeiro que casa vence. Depois
+# dos blocos de `postgres`/`mysql`/`redis`, o `postgres-exporter` cairia no bloco de `postgres`
+# e ganharia `kind = "banco"` — entrando no inventário como se fosse um banco.
+#
+# Sem estes blocos, o container do exporter casa a etiqueta da própria família (o núcleo de
+# `<stack>_postgres-exporter` e de `postgres-exporter` é o mesmo `exporter`) e recebe o papel do
+# produto que ele apenas observa, enquanto o produto de verdade fica provisório. O resultado é
+# perfeitamente invertido, e com carimbo de autoridade. Ver D4 no spec.
+#
+# Sem `kind` de propósito: classificar o exporter como `banco` mudaria `detect_kind`, o
+# inventário e `metrics.STATEFUL` — não-objetivo deste ciclo.
+[[produto]]
+nome = "postgres-exporter"
+imagem = ["postgres-exporter", "postgres_exporter",
+          # variantes que CONTÊM o trecho de um produto com `kind`: sem elas,
+          # `postgresql-exporter` casa o bloco de `postgres` e sai `banco` — a tabela
+          # invertida de D4 de volta, e no lado inseguro (confirmado, não provisório).
+          "postgresql-exporter", "postgresql_exporter", "pg-exporter", "pgexporter"]
+exportador = true
+
+[[produto]]
+nome = "mysqld-exporter"
+imagem = ["mysqld-exporter", "mysqld_exporter",
+          # `mysql-exporter`, sem o `d`, casa o bloco de `mysql` e sai `banco`
+          "mysql-exporter", "mysql_exporter"]
+exportador = true
+
+[[produto]]
+nome = "redis-exporter"
+imagem = ["redis-exporter", "redis_exporter", "valkey-exporter", "valkey_exporter"]
+exportador = true
+
 # --- quem guarda em memória
 # Redis é cache na maioria das instalações; quando ele é o broker de uma fila de tarefas, quem
 # sabe disso é o dono — e por isso o alvo pode declarar `papel = "fila"`.
@@ -152,6 +186,7 @@ kind = "observabilidade"
 [[produto]]
 nome = "cadvisor"
 imagem = ["cadvisor"]
+exportador = true
 socket_esperado = true
   [produto.metricas]
   familia = "cadvisor"
@@ -163,6 +198,7 @@ socket_esperado = true
 [[produto]]
 nome = "node-exporter"
 imagem = ["node-exporter", "node_exporter"]
+exportador = true
 socket_esperado = true
   [produto.metricas]
   familia = "node_exporter"
@@ -174,6 +210,7 @@ socket_esperado = true
 [[produto]]
 nome = "promtail"
 imagem = ["promtail"]
+exportador = true
 socket_esperado = true
 
 # --- quem administra o próprio daemon
@@ -212,6 +249,7 @@ socket_esperado = true
 [[produto]]
 nome = "dockerd-exporter"
 imagem = ["dockerd-exporter"]
+exportador = true
 socket_esperado = true
 
 [[produto]]

@@ -31,6 +31,10 @@ def _validar(produto, onde):
             raise ProdutosInvalidos(f"{onde}: trecho {trecho!r} de {produto['nome']!r} precisa "
                                     f"ser texto minúsculo e não vazio — o casamento é feito "
                                     f"sobre o caminho da imagem já em minúsculas")
+    if "exportador" in produto and not isinstance(produto["exportador"], bool):
+        raise ProdutosInvalidos(f"{onde}: `exportador` de {produto['nome']!r} precisa ser "
+                                f"booleano — um texto qualquer passaria como verdadeiro e "
+                                f"silenciaria o papel de um produto inteiro")
     metricas = produto.get("metricas")
     if metricas is not None:
         for obrigatorio in ("familia", "porta", "caminho", "prioridade", "entrega"):
@@ -66,8 +70,13 @@ def kind_do_caminho(caminho_da_imagem, produtos=None):
     """O `kind` do primeiro produto cujo trecho aparece no caminho — ou None."""
     alvo = (caminho_da_imagem or "").lower()
     for produto in (produtos if produtos is not None else carregar()):
-        if produto.get("kind") and any(t in alvo for t in produto["imagem"]):
-            return produto["kind"]
+        if any(t in alvo for t in produto["imagem"]):
+            # O PRIMEIRO que casa vence, tenha `kind` ou não. Pular quem não declara `kind`
+            # fazia `postgres-exporter` atravessar o próprio bloco e cair no de `postgres`,
+            # entrando no inventário como um banco — mudando saúde e impacto, que são
+            # não-objetivos deste ciclo. Produto sem `kind` casa e devolve None: ele é
+            # conhecido, e o que se sabe dele é que não é nenhum dos tipos.
+            return produto.get("kind")
     return None
 
 
@@ -99,3 +108,24 @@ def candidatos_de_metrica(produtos=None):
             saida.append((tuple(produto["imagem"]), m["familia"], m["porta"], m["caminho"],
                           m["prioridade"], m["entrega"]))
     return saida
+
+
+def e_exportador(texto, produtos=None):
+    """Este produto OBSERVA outros, em vez de ser observado?
+
+    A série que um exporter standalone publica é do produto que ele observa, não dele. Sem esta
+    marca, o container do próprio exporter casaria a etiqueta da própria família e receberia
+    papel confirmado — enquanto o produto de verdade ficaria provisório. O resultado é
+    perfeitamente invertido, e com carimbo de autoridade. Ver D4 no spec.
+
+    Medido no spike deste ciclo: `casar_valor_da_etiqueta` reduz `postgres-exporter`,
+    `<stack>_mysqld-exporter` e `<stack>_node-exporter` ao mesmo núcleo `exporter`, então toda
+    família de exporter casa todo container de exporter — 12 casamentos espúrios em 5 famílias.
+
+    É um filtro NEGATIVO, e é isso que o torna seguro: errar por omissão (um exporter que
+    ninguém listou) deixa algo provisório, que é o estado de hoje; nunca carimba errado.
+    """
+    alvo = (texto or "").lower()
+    return any(any(t in alvo for t in produto["imagem"])
+               for produto in (produtos if produtos is not None else carregar())
+               if produto.get("exportador"))

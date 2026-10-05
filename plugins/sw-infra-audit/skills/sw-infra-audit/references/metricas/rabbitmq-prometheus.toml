@@ -18,6 +18,10 @@
 familia = "rabbitmq-prometheus"
 prioridade = 20
 
+papel = "fila"
+# `rabbitmq_queue_messages_ready` só existe em broker AMQP.
+identifica_papel = true
+
 [identificacao]
 metrica_presente = "rabbitmq_queue_messages_ready"
 

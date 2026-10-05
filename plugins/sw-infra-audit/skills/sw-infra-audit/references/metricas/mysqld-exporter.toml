@@ -2,6 +2,10 @@
 familia = "mysqld-exporter"
 prioridade = 40
 
+papel = "banco"
+# `mysql_global_status_threads_connected` só existe em MySQL/MariaDB.
+identifica_papel = true
+
 [identificacao]
 metrica_presente = "mysql_global_status_threads_connected"
 

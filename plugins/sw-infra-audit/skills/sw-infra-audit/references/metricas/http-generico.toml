@@ -5,6 +5,11 @@
 familia = "http-generico"
 prioridade = 40
 
+papel = "entrada"
+# NÃO prova papel: `http_requests_total` é publicado por qualquer aplicação instrumentada.
+# Sem esta marca, uma API viraria `entrada` confirmado e mudaria de camada na topologia.
+identifica_papel = false
+
 [identificacao]
 metrica_presente = "http_requests_total"
 

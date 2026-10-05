@@ -17,6 +17,8 @@ from lib import catalogo, limiar
 BASE = """
 familia = "exporter-de-fila"
 prioridade = 50
+papel = "fila"
+identifica_papel = true
 [identificacao]
 metrica_presente = "fila_mensagens_prontas"
 [seletor]
@@ -24,9 +26,16 @@ etiqueta = "job"
 """
 
 
-def _escrever(tmp_path, corpo, nome="familia.toml"):
+def _escrever(tmp_path, corpo, nome="familia.toml", papel="fila"):
+    """O `papel` do fixture acompanha a pergunta usada no corpo.
+
+    A validação de D1 recusa família que diga falar de um papel e responda pergunta de outro —
+    e é uma trava que se quer: dois testes aqui usavam pergunta de `entrada`/`app` num fixture
+    de `fila`, e eram recusados antes de chegar na asserção que eles realmente testam.
+    """
     caminho = tmp_path / nome
-    caminho.write_text(BASE + corpo, encoding="utf-8")
+    caminho.write_text(BASE.replace('papel = "fila"', f'papel = "{papel}"') + corpo,
+                       encoding="utf-8")
     return caminho
 
 
@@ -69,7 +78,7 @@ id = "entrada.volume_na_janela"
 valor = "inteiro"
 """
     with fail_sem_fonte():
-        catalogo.carregar_arquivo(_escrever(tmp_path, corpo))
+        catalogo.carregar_arquivo(_escrever(tmp_path, corpo, papel="entrada"))
 
 
 def fail_sem_fonte():
@@ -114,7 +123,7 @@ def test_campo_em_pergunta_escalar_e_recusado(tmp_path):
     """Escalar é um número só: vários campos não têm onde caber."""
     corpo = LISTA_VALIDA.replace('id = "fila.filas"', 'id = "entrada.volume_na_janela"')
     with pytest.raises(catalogo.CatalogoInvalido, match="não é lista"):
-        catalogo.carregar_arquivo(_escrever(tmp_path, corpo))
+        catalogo.carregar_arquivo(_escrever(tmp_path, corpo, papel="entrada"))
 
 
 def test_limiar_que_compara_campo_inexistente_e_recusado(tmp_path):
