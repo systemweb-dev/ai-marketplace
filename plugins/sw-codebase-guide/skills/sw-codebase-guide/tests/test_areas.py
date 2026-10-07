@@ -180,8 +180,9 @@ def test_area_grande_que_se_abre_em_tres_e_substituida_pelos_filhos():
     )
     # Act
     caminhos = sorted(a['caminho'] for a in detectar(arvore, None, None))
-    # Assert
-    assert caminhos == ['docs', 'scripts', 'src/app/agenda', 'src/app/funil',
+    # Assert — `docs` some: dez markdown não são área do sistema, e a pasta de
+    # documentação ainda ocupava lugar no menu que a área de código precisava
+    assert caminhos == ['scripts', 'src/app/agenda', 'src/app/funil',
                         'src/app/tarefas', 'tests']
 
 
@@ -263,3 +264,29 @@ def test_commits_por_pasta_desce_nos_subrepos_quando_a_raiz_nao_tem_git(tmp_path
     assert recentes.get('api') == 3
     assert recentes.get('admin') == 1
     assert recentes.get('api/src') == 3
+
+
+def test_pasta_so_de_documentacao_nao_vira_area():
+    """O menu pergunta QUAL PARTE DO SISTEMA documentar. Num projeto real, oito das
+    doze áreas oferecidas eram subpastas de `docs/` — `docs/marketing`,
+    `docs/product`, `docs/compliance` —, e `docs/product` tinha 47 arquivos e zero
+    código. Ninguém pede para entender a área de marketing."""
+    # Arrange
+    arvore = arvore_de(['src/a.py', 'src/b.py', 'src/c.py', 'src/d.py'])
+    arvore += [{'caminho': f'docs/produto/n{i}.md', 'bytes': 10, 'linguagem': 'markdown',
+                'gerado': False, 'acima_do_teto': False} for i in range(40)]
+    # Act
+    caminhos = [a['caminho'] for a in detectar(arvore, None)]
+    # Assert
+    assert caminhos == ['src']
+
+
+def test_o_numero_do_menu_e_de_arquivos_de_CODIGO():
+    """O rótulo diz quanto do sistema a área é. Contar markdown junto faz uma pasta
+    de documentação parecer maior que o serviço inteiro."""
+    # Arrange
+    arvore = arvore_de(['api/a.py', 'api/b.py', 'api/c.py'])
+    arvore += [{'caminho': f'api/doc{i}.md', 'bytes': 10, 'linguagem': 'markdown',
+                'gerado': False, 'acima_do_teto': False} for i in range(20)]
+    # Act / Assert
+    assert detectar(arvore, None)[0]['arquivos'] == 3

@@ -271,3 +271,16 @@ def test_arquivo_que_so_reexporta_e_barril():
     assert eh_barril("export { a } from './a'\n// nota\nexport * from './b'\n")
     assert not eh_barril("export { a } from './a'\nconst x = 1\n")
     assert not eh_barril('')
+
+
+def test_relativo_que_aponta_para_pasta_podada_e_externo_e_nao_pendurado():
+    """`require './../vendor/autoload.php'` jamais vai resolver: `vendor/` é podado
+    de propósito, e indexá-lo custaria a varredura inteira. Isso é dependência
+    externa, não falha de medição — e contá-lo como pendurado derrubava a taxa de
+    PHP de 99% para 91% num projeto real, com 62 ocorrências do mesmo autoloader."""
+    # Arrange
+    from lib.resolucao import aponta_para_podado
+    # Act / Assert
+    assert aponta_para_podado('backend/jobs/job.php', './../vendor/autoload.php')
+    assert aponta_para_podado('app/x.js', '../node_modules/pacote/index.js')
+    assert not aponta_para_podado('app/x.php', './irmao.php')

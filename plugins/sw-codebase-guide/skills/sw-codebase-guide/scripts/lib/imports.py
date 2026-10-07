@@ -167,7 +167,11 @@ def grafo(raiz, stacks: list, arvore: list, area: str | None = None) -> dict:
                         cont['relativos'] += 1
                         arestas.append({'de': caminho, 'para': destino,
                                         'origem': 'relativo'})
-                    elif not destino:
+                    elif resolucao.aponta_para_podado(caminho, alvo):
+                        # aponta para dentro de `vendor/` ou `node_modules/`: é
+                        # dependência externa, não falha de medição
+                        cont['externos'] += 1
+                    else:
                         cont['pendurados'] += 1
                     continue
                 if resolucao.eh_externo(alvo, classe, modulo.BUILTINS, declarados,

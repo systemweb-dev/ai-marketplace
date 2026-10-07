@@ -537,3 +537,39 @@ def test_arquivo_respondido_sai_da_lista_de_perguntas(tmp_path):
     assert 'servico/apoio.py' in perguntas, 'o não respondido continua'
     assert 'o agendador chama por reflexão' in guia
     assert '**ana**, 2026-10-07' in guia
+
+
+def test_imagem_importada_nao_entra_no_ranking_de_codigo():
+    """`import logo from '@/assets/fallback.png'` é aresta real e fica no grafo — mas
+    o ranking responde "quem depende de quem no CÓDIGO", e num projeto real uma
+    imagem ocupava uma das quinze vagas da lista."""
+    # Arrange
+    arestas = [{'de': f'src/t{i}.js', 'para': 'src/assets/fallback.png',
+                'origem': 'sufixo_unico'} for i in range(10)]
+    arestas += [{'de': f'src/t{i}.js', 'para': 'src/api.js', 'origem': 'relativo'}
+                for i in range(3)]
+    # Act
+    linhas = '\n'.join(_dependentes(inv_com(arestas, {'js': contagem(relativos=13)})))
+    # Assert
+    assert 'fallback.png' not in linhas
+    assert 'src/api.js' in linhas
+
+
+def test_a_pergunta_do_proposito_some_com_DEDUCAO_e_com_a_narrativa(tmp_path):
+    """A guarda contava só `fato` e `declarado`, e foi escrita quando propósito só
+    podia vir de fonte textual — regra que a v0.2.0 afrouxou depois do spike. Hoje
+    a resposta mais comum é uma `deducao` com evidência convergente, ou a narrativa
+    com a citação literal ao lado; nos dois casos, perguntar de novo faz o documento
+    se contradizer três parágrafos depois de responder."""
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\nsecao = "o-que-faz"\n'
+        'texto = "É um portal de notícias com curadoria por IA"\n'
+        'nivel = "deducao"\nevidencia = ["app/UserController.py"]\nmotivo = ""\n')
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'portal de notícias' in guia
+    assert 'Qual é o propósito de negócio' not in guia

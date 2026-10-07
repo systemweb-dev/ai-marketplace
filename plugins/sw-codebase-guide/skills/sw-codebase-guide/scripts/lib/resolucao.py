@@ -84,6 +84,23 @@ def resolver_relativo(origem, alvo, indice, extensoes, arquivo_de_pasta):
     return None
 
 
+def aponta_para_podado(origem: str, alvo: str) -> bool:
+    """O caminho relativo cai numa pasta que a varredura poda?
+
+    `require './../vendor/autoload.php'` nunca vai resolver, porque `vendor/` é
+    podado de propósito — indexá-lo custaria a varredura inteira. Isso é dependência
+    externa, não import pendurado: medido, contá-lo como falha derrubava a taxa de
+    PHP de 99% para 91% num projeto real, com 62 ocorrências do mesmo autoloader.
+    """
+    from lib.stacks import IGNORAR
+
+    pasta = origem.rsplit('/', 1)[0] if '/' in origem else ''
+    caminho = _normalizar(f'{pasta}/{alvo}' if pasta else alvo)
+    if caminho is None:
+        return False
+    return any(parte in IGNORAR for parte in caminho.split('/'))
+
+
 def candidatos(alvo: str, indice: dict, extensoes: list, arquivo_de_pasta,
                min_segmentos: int = MIN_SEGMENTOS) -> tuple:
     """Os arquivos cujo caminho termina no alvo, E o sufixo que casou.

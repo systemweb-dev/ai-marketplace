@@ -7,7 +7,28 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
-### Adicionado
+### Corrigido
+- `sw-codebase-guide` (v0.5.1): **seis defeitos achados rodando a skill num projeto que ela
+  nunca tinha visto** — um monorepo de cinco repositórios git, com PHP, Node e um invólucro
+  Android. Todos apareceram na primeira tela ou na leitura do documento; nenhum na suíte.
+
+  - **O menu de escopo oferecia a pasta de documentação.** Oito das doze áreas eram subpastas
+    de `docs/` — `docs/marketing`, `docs/product`, `docs/compliance` —, e `docs/product` tinha
+    47 arquivos e **zero** código. O menu pergunta qual parte do SISTEMA documentar, então ele
+    passou a pesar por arquivo de código: doze entradas viraram quatro.
+  - **`require 'vendor/autoload.php'` contava como import pendurado.** São 62 ocorrências do
+    mesmo autoloader num projeto, e `vendor/` é podado de propósito — indexá-lo custaria a
+    varredura inteira. Isso é dependência externa, não falha de medição, e contá-lo errado
+    derrubava a taxa de PHP de **99% para 91%**.
+  - **Uma imagem aparecia entre os arquivos mais importados do JavaScript.** A aresta é real e
+    fica no grafo, mas o ranking existe para mostrar acoplamento de código — e o `.png` ocupava
+    uma das quinze vagas.
+  - **O documento perguntava o propósito do sistema três parágrafos depois de respondê-lo.** A
+    guarda que suprime a pergunta fixa contava só `fato` e `declarado`; foi escrita quando
+    propósito só podia vir de fonte textual, regra que caiu no spike da v0.2.0. Hoje a resposta
+    mais comum é uma dedução de evidências convergentes, ou a narrativa com a citação literal.
+  - **"1 pessoa commitaram"** e "12 semanas parado" — concordância no bloco de decisão.
+
 - `sw-codebase-guide` (v0.5.0): **o que alguém responde passa a sobreviver à regeração.** Até
   aqui os três artefatos eram descartáveis por desenho — o inventário se refaz, a
   interpretação se reescreve, o documento se monta de novo —, e com eles ia embora tudo que

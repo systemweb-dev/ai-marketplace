@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import conhecimento, julgar  # noqa: E402
-from lib.arvore import eh_codigo  # noqa: E402
+from lib.arvore import eh_codigo, linguagem_de  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
 TETO_SIMBOLOS = 40
@@ -345,8 +345,12 @@ def _dependentes(inv: dict) -> list:
         # todo `@/utils` resolve nele e o topo viraria "300 arquivos importam
         # index.ts" — verdadeiro, inútil, e com o arquivo que a pessoa precisa abrir
         # a dois saltos, que o não-objetivo "sem análise transitiva" proíbe seguir
+        # o ranking é de CÓDIGO: a aresta para uma imagem é real e fica no grafo,
+        # mas num projeto real um `.png` ocupava uma das quinze vagas da lista que
+        # existe para mostrar acoplamento
         ranking = sorted(((alvo, des) for alvo, des in entrada.get(linguagem, {}).items()
-                          if alvo not in barris),
+                          if alvo not in barris
+                          and eh_codigo(linguagem_de(Path(alvo)))),
                          key=lambda t: (-len(t[1]), t[0]))
         linhas.append(f'Resolvidos {resolvidos} de {denominador} imports '
                       f'({pct}%).  [fato]\n')
@@ -396,13 +400,16 @@ def _julgamento(inv: dict, respostas: list) -> list:
     A('**Vale manter ou reescrever?** Esta skill não responde, e isso é desenho: a')
     A('resposta depende de quanto custa reescrever e do que o negócio depende, e o')
     A('código não contém nenhum dos dois. O que dá para pôr na mesa é isto —\n')
-    pessoas = ('não apurado' if d['autores'] is None else
-               f'{d["autores"]} pessoa' + ('' if d['autores'] == 1 else 's'))
-    A(f'- **{pessoas}** commitaram, em {d["commits"] or "não apurado"} commits')
+    if d['autores'] is None:
+        A('- autoria **não apurada** — não há repositório git')
+    else:
+        um = d['autores'] == 1
+        A(f'- **{d["autores"]} pessoa{"" if um else "s"}** '
+          f'{"commitou" if um else "commitaram"}, em {d["commits"]} commits')
     parado = d['semanas_parado'] or 0
-    A(f'- **{d["semanas_de_vida"] or "?"} semanas de vida**, e '
-      + ('**sem nenhuma parada**' if parado == 0 else
-         f'**{parado} semana{"" if parado == 1 else "s"} parado**'))
+    A(f'- **{d["semanas_de_vida"] or "?"} semanas de vida**, '
+      + ('**mexido esta semana**' if parado == 0 else
+         f'**parado há {parado} semana{"" if parado == 1 else "s"}**'))
     A(f'- **{d["arquivos_de_codigo"]} arquivos de código** em {d["stacks"]} stack(s), '
       f'**{d["pct_teste"]}% é teste**')
     A(f'- import medido em: {", ".join(d["linguagens_medidas"]) or "nenhuma linguagem"}')
@@ -480,7 +487,8 @@ def _dentro_da_area(caminho: str, area: str) -> bool:
     return caminho == area or caminho.startswith(f'{area}/')
 
 
-def montar(inv: dict, afirmacoes: list, respostas: list | None = None) -> str:
+def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
+           narrativa: list | None = None) -> str:
     respostas = respostas or []
     L = []
     A = L.append
@@ -593,7 +601,14 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None) -> str:
     # Pergunta fixa só faz sentido enquanto ninguém respondeu. Repetir "qual é o
     # propósito?" logo abaixo de três afirmações `declarado` com fonte citada faz o
     # documento se contradizer na mesma página.
-    respondido = {a['secao'] for a in afirmacoes if a['nivel'] in ('fato', 'declarado')}
+    # Qualquer nível MENOS lacuna conta como resposta. A versão anterior exigia
+    # `fato` ou `declarado`, e foi escrita quando propósito só podia vir de fonte
+    # textual — regra que caiu no spike da v0.2.0. Hoje a resposta mais comum é uma
+    # dedução de evidências convergentes, e o documento perguntava de novo três
+    # parágrafos depois de responder.
+    respondido = {a['secao'] for a in afirmacoes if a['nivel'] != 'lacuna'}
+    if any(b['parte'] == 'o-que-e' for b in (narrativa or [])):
+        respondido.add('o-que-faz')     # a narrativa responde, com trecho literal
     if not h['co_mudanca']:
         A('- Existe histórico de versionamento deste projeto em outro lugar?')
     if 'o-que-faz' not in respondido:
@@ -645,7 +660,7 @@ def main() -> int:
     except ValueError as erro:
         print(erro, file=sys.stderr)
         return 2
-    texto_guia = montar(inv, afirmacoes, respostas)
+    texto_guia = montar(inv, afirmacoes, respostas, narrativa)
     texto_leia_me = montar_leia_me(inv, narrativa)
     (base / 'guide.md').write_text(texto_guia, encoding='utf-8')
     (base / 'leia-me.md').write_text(texto_leia_me, encoding='utf-8')

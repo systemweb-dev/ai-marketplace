@@ -24,6 +24,9 @@ e cada um nasceu de um menu que não servia:
 3. **Lixo de ferramenta não é área.** `.playwright-mcp` entrou num menu real.
 """
 from collections import Counter
+from pathlib import Path
+
+from lib.arvore import eh_codigo, linguagem_de
 
 DOMINANTE = 0.80        # um filho com ≥ 80% dos arquivos: desce mais
 MIN_FILHOS = 3          # a partir de 3 filhos acima do piso, corta aqui
@@ -116,7 +119,13 @@ def detectar(arvore: list, recentes: dict | None, stacks: list | None = None) ->
     `stacks` é a seção homônima do inventário. Quem tem manifesto próprio vira
     átomo: é um sistema inteiro, e abrir por dentro mistura as duas aplicações.
     """
-    contagem = _conta_por_prefixo(arvore)
+    # Só arquivo de CÓDIGO conta. O menu pergunta qual parte do SISTEMA documentar,
+    # e num projeto real oito das doze áreas oferecidas eram subpastas de `docs/` —
+    # `docs/product` tinha 47 arquivos e zero código. Ninguém pede para entender a
+    # área de marketing, e contar markdown junto ainda fazia a pasta de documentação
+    # parecer maior que o serviço.
+    codigo = [a for a in arvore if eh_codigo(linguagem_de(Path(a['caminho'])))]
+    contagem = _conta_por_prefixo(codigo)
     atomos = frozenset(
         s['caminho'] for s in (stacks or [])
         if s.get('manifesto') and s.get('caminho') not in ('', '.')
