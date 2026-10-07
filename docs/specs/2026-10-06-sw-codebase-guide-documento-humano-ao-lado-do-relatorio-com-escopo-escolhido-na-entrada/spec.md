@@ -2,7 +2,7 @@
 titulo: "sw-codebase-guide: documento humano ao lado do relatorio, com escopo escolhido na entrada"
 slug: 2026-10-06-sw-codebase-guide-documento-humano-ao-lado-do-relatorio-com-escopo-escolhido-na-entrada
 criado: 2026-10-06
-estado: aprovado
+estado: concluido
 ---
 
 # Documento humano ao lado do relatório, com escopo escolhido na entrada
