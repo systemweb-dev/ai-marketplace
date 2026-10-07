@@ -408,3 +408,32 @@ def test_trecho_do_segundo_bloco_tambem_e_conferido(tmp_path):
     # Assert
     assert r.returncode == 2
     assert 'não aparece' in (r.stderr + r.stdout)
+
+
+def test_fonte_textual_fora_da_arvore_vale_como_evidencia(tmp_path):
+    """A skill lê `.claude/CLAUDE.md` porque num projeto real é a única documentação
+    que existe — e depois recusava citá-la, porque a pasta é podada da árvore e a
+    guarda de evidência só conhecia `caminhos_do_projeto`.
+
+    Um agente seguindo o SKILL.md bateu nisso: a mensagem dizia "evidência não
+    existe no projeto" sobre um arquivo que a própria skill tinha acabado de ler, e
+    que estava no inventário duas vezes."""
+    # Arrange
+    projeto = tmp_path / 'proj'
+    (projeto / '.claude').mkdir(parents=True)
+    (projeto / '.claude' / 'CLAUDE.md').write_text('# Sistema\n\nApuração fiscal.')
+    (projeto / 'app.py').write_text('x = 1')
+    (projeto / 'pyproject.toml').write_text('[project]\nname = "x"')
+    saida = tmp_path / 'out'
+    subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'varrer.py'),
+                    '--projeto', str(projeto), '--out', str(saida)],
+                   check=True, capture_output=True)
+    (saida / 'interpretation.toml').write_text(
+        '[[narrativa]]\nparte = "o-que-e"\ntexto = "É uma apuração fiscal"\n'
+        'trecho = "Apuração fiscal"\nfonte = ".claude/CLAUDE.md"\n'
+        'evidencia = [".claude/CLAUDE.md"]\n')
+    # Act
+    r = subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'montar.py'),
+                        '--dir', str(saida)], capture_output=True, text=True)
+    # Assert
+    assert r.returncode == 0, r.stderr

@@ -326,7 +326,12 @@ def bloco_o_que_e(narrativa: list) -> str:
 def bloco_percurso(narrativa: list) -> str:
     blocos = _por_parte(narrativa, 'percurso')
     if not blocos:
-        return ''
+        # o markdown imprime "a interpretação não escreveu esta parte" e o HTML
+        # omitia: dois documentos do mesmo material dizendo coisas diferentes
+        return _bloco('O percurso de uma funcionalidade', 'lacuna',
+                      'Esta parte não foi escrita.',
+                      '<p class="aviso">A interpretação não escreveu esta parte.</p>',
+                      classe='n3')
     partes = []
     for b in blocos:
         partes.append(f'<p>{citacao(b["texto"])}</p>')
@@ -350,7 +355,12 @@ def bloco_percurso(narrativa: list) -> str:
 def bloco_mapa(narrativa: list) -> str:
     blocos = _por_parte(narrativa, 'mapa')
     if not blocos:
-        return ''
+        # o markdown imprime "a interpretação não escreveu esta parte" e o HTML
+        # omitia: dois documentos do mesmo material dizendo coisas diferentes
+        return _bloco('Onde ficam as coisas', 'lacuna',
+                      'Esta parte não foi escrita.',
+                      '<p class="aviso">A interpretação não escreveu esta parte.</p>',
+                      classe='n3')
     return _bloco('Onde ficam as coisas', 'deducao',
                   'Em que pasta procurar o que você veio mexer.',
                   ''.join(f'<p>{citacao(b["texto"])}</p>' for b in blocos),
@@ -360,7 +370,12 @@ def bloco_mapa(narrativa: list) -> str:
 def bloco_orientacoes(narrativa: list) -> str:
     blocos = _por_parte(narrativa, 'orientacoes')
     if not blocos:
-        return ''
+        # o markdown imprime "a interpretação não escreveu esta parte" e o HTML
+        # omitia: dois documentos do mesmo material dizendo coisas diferentes
+        return _bloco('Para mexer', 'lacuna',
+                      'Esta parte não foi escrita.',
+                      '<p class="aviso">A interpretação não escreveu esta parte.</p>',
+                      classe='n3')
     return _bloco('Para mexer', 'deducao',
                   'O que saber antes de abrir o editor.',
                   ''.join(f'<p>{citacao(b["texto"])}</p>' for b in blocos),

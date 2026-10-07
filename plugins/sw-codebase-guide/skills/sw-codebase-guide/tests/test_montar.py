@@ -168,6 +168,10 @@ def test_co_mudanca_de_subrepos_aparece_com_ressalva(tmp_path):
         'subrepos': [{'caminho': 'api', 'commits': 325}],
         'lacuna': 'a raiz não é repositório git; a co-mudança vem de 1 sub-repositório (api)',
     }
+    # os dois caminhos precisam existir: o emissor filtra par que cita arquivo que
+    # não está mais no projeto, e sem isto o teste mediria o filtro
+    inv['caminhos_do_projeto'] = sorted(
+        set(inv['caminhos_do_projeto']) | {'api/Rotas.php', 'api/Middleware.php'})
     (tmp_path / 'inventory.json').write_text(json.dumps(inv))
     # Act
     montar(tmp_path)
@@ -288,6 +292,12 @@ def _com_escopo(tmp_path, **ajustes):
     inv = json.loads((tmp_path / 'inventory.json').read_text())
     inv['escopo'] = {'area': 'app', 'criterio': 'prefixo de caminho', 'n_arquivos': 1}
     inv.update(ajustes)
+    # os pares injetados usam caminhos sintéticos, e o emissor passou a filtrar par
+    # que cita arquivo inexistente — então eles precisam constar como existentes,
+    # senão o teste mede o filtro em vez de medir o que ele quer medir
+    citados = {a for c in (inv.get('historia') or {}).get('co_mudanca') or []
+               for a in c['arquivos']}
+    inv['caminhos_do_projeto'] = sorted(set(inv.get('caminhos_do_projeto') or []) | citados)
     (tmp_path / 'inventory.json').write_text(json.dumps(inv))
     r = montar(tmp_path)
     assert r.returncode == 0, r.stderr
@@ -573,3 +583,44 @@ def test_a_pergunta_do_proposito_some_com_DEDUCAO_e_com_a_narrativa(tmp_path):
     # Assert
     assert 'portal de notícias' in guia
     assert 'Qual é o propósito de negócio' not in guia
+
+
+def test_a_co_mudanca_nao_cita_arquivo_que_nao_existe_mais(tmp_path):
+    """O `git log` devolve caminho HISTÓRICO: arquivo apagado ou renomeado continua
+    na co-mudança. Num projeto real eram 16 caminhos que não existem hoje, e o
+    leitor ia procurá-los. O par vale pelo que ensina sobre o código de agora."""
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    vivo = inv['caminhos_do_projeto'][0]
+    inv['historia'] = {'commits': 100, 'commits_descartados': 0, 'lacuna': None,
+                       'co_mudanca': [
+                           {'arquivos': [vivo, 'apagado/ha/tempo.php'], 'vezes': 9},
+                           {'arquivos': [vivo, inv['caminhos_do_projeto'][-1]],
+                            'vezes': 7}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'apagado/ha/tempo.php' not in guia
+    assert inv['caminhos_do_projeto'][-1] in guia
+
+
+def test_as_afirmacoes_saem_na_ORDEM_EM_QUE_FORAM_ESCRITAS(tmp_path):
+    """Ordenar por texto é ordenar por acaso: num teste real a frase mais importante
+    de "o que o sistema faz" começava com "É o esqueleto…" e caiu em ÚLTIMO lugar,
+    atrás de três detalhes. Quem escreve a interpretação ordena por importância —
+    o emissor não pode desfazer isso."""
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\nsecao = "o-que-faz"\ntexto = "Zebra: a frase que importa"\n'
+        'nivel = "deducao"\nevidencia = ["app/UserController.py"]\nmotivo = ""\n\n'
+        '[[afirmacao]]\nsecao = "o-que-faz"\ntexto = "Abacate: um detalhe"\n'
+        'nivel = "deducao"\nevidencia = ["app/UserController.py"]\nmotivo = ""\n')
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert guia.index('Zebra') < guia.index('Abacate')

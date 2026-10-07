@@ -8,6 +8,34 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Corrigido
+- `sw-codebase-guide` (v0.5.2): **oito defeitos achados por um agente que usou a skill lendo
+  só o `SKILL.md`.** Era o teste que faltava: todas as execuções anteriores foram feitas por
+  quem conhecia o código por dentro e preenchia de cabeça o que o documento não dissesse.
+  Proibido de abrir os scripts, um agente seguiu o fluxo até o fim — e foi onde ele hesitou
+  que apareceu o que importa.
+
+  - **A skill lia `.claude/CLAUDE.md` e depois recusava citá-lo como evidência.** A pasta é
+    podada da árvore, e a guarda só conhecia `caminhos_do_projeto` — então a mensagem dizia
+    *"evidência não existe no projeto"* sobre um arquivo que o inventário tinha acabado de
+    ler, e que constava nele duas vezes. Numa skill cujo valor é ler o `.claude/` "onde mora a
+    única documentação de muitos projetos", isso é a regra brigando consigo mesma.
+  - **O `SKILL.md` mandava não escrever o percurso em "o projeto todo"**, enquanto a tabela da
+    narrativa o exige como uma das quatro partes. Obedecer produzia no documento a frase *"a
+    interpretação não escreveu esta parte"* — o defeito que a skill avisa para evitar. Agora
+    o percurso é obrigatório sempre; o que muda sem recorte é a ambição.
+  - **"Leia os arquivos que o inventário aponta como centrais"** — e nenhum campo se chama
+    central. O documento agora diz onde olhar, em ordem.
+  - **A co-mudança citava 25 pares com arquivos que não existem mais**, porque o `git log`
+    devolve caminho histórico. O leitor ia procurá-los. Agora o emissor filtra e **declara
+    quantos** ficaram de fora; o inventário continua guardando o fato bruto.
+  - **Caminho com acento saía em octal** (`"Documenta\303\247\303\243o.txt"`): faltava
+    `core.quotepath=false` nas chamadas ao git.
+  - **As afirmações eram reordenadas alfabeticamente**, e a frase mais importante de uma seção
+    caiu em último lugar por começar com "É". Quem escreve a interpretação ordena por
+    importância; o emissor não pode desfazer isso.
+  - **HTML e Markdown discordavam** sobre a parte não escrita: um omitia, o outro avisava.
+  - **O rótulo de confiança saía `[deducao]` em dois blocos e `[dedução]` num terceiro.**
+
 - `sw-infra-audit` (v0.16.1): **o motivo com dois exporters se lia como um nome de produto.**
   Visto num relatório real: *"o exporter cadvisor, traefik não expõe o dado desta pergunta"* —
   correto no conteúdo, e lido como se `cadvisor, traefik` fosse um produto só. Agora o plural

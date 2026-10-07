@@ -145,3 +145,17 @@ def test_frase_de_ausencia_so_vale_com_NOME_e_DATA_ao_lado(tmp_path):
     assert suspeitas, 'o fixture precisa produzir a frase, senão o teste não prova nada'
     for linha in suspeitas:
         assert ATRIBUICAO.search(linha), f'frase de ausência sem nome e data: {linha}'
+
+
+def test_o_rotulo_de_confianca_e_escrito_sempre_igual(tmp_path):
+    """O documento usava `[deducao]` em dois blocos e `[dedução]` num terceiro. São
+    o mesmo nível de confiança, e grafia que varia faz o leitor procurar diferença
+    onde não há."""
+    # Arrange
+    varrer_em(POLIGLOTA, tmp_path)
+    subprocess.run([sys.executable, str(RAIZ / 'scripts' / 'montar.py'),
+                    '--dir', str(tmp_path)], check=True, capture_output=True)
+    # Act
+    guia = (tmp_path / 'guide.md').read_text('utf-8')
+    # Assert
+    assert '[deducao]' not in guia, 'o rótulo sai acentuado'

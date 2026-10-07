@@ -121,3 +121,23 @@ def test_raiz_com_git_proprio_ignora_os_filhos(tmp_path):
     # Assert
     assert h['lacuna'] is None
     assert 'subrepos' not in h
+
+
+def test_caminho_com_acento_nao_sai_em_octal(tmp_path):
+    """O `git log` cita caminho não-ASCII em octal (`"Documenta\\303\\247\\303\\243o.txt"`)
+    a não ser que se peça o contrário. Visto num relatório real, ilegível."""
+    # Arrange
+    git(tmp_path, 'init', '-q')
+    git(tmp_path, 'config', 'user.email', 'teste@exemplo.local')
+    git(tmp_path, 'config', 'user.name', 'Teste')
+    for i in range(55):
+        (tmp_path / 'Documentação.txt').write_text(f'a{i}')
+        (tmp_path / 'b.py').write_text(f'x = {i}')
+        git(tmp_path, 'add', '-A')
+        git(tmp_path, 'commit', '-q', '-m', f'c{i}')
+    # Act
+    pares = historico(tmp_path)['co_mudanca']
+    # Assert
+    nomes = {a for p in pares for a in p['arquivos']}
+    assert 'Documentação.txt' in nomes, nomes
+    assert not any('\\3' in n for n in nomes)

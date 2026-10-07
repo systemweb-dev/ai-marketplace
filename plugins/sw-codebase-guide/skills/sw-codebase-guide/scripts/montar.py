@@ -420,7 +420,7 @@ def _julgamento(inv: dict, respostas: list) -> list:
         A(f'Os três sinais **juntos**: mais de {julgar.MIN_DEPENDENTES} arquivos')
         A(f'importando, mais de {julgar.MIN_COMMITS} commits de histórico, e nenhum')
         A('teste com o mesmo nome. Isoladamente nenhum diz nada — arquivo muito')
-        A('importado pode estar estável há anos.  [deducao]\n')
+        A('importado pode estar estável há anos.  [dedução]\n')
         for a in j['perigo'][:10]:
             A(f'- `{a["caminho"]}` — {a["dependentes"]} dependentes, '
               f'{a["mudancas"]} commits, sem teste')
@@ -443,7 +443,7 @@ def _julgamento(inv: dict, respostas: list) -> list:
         A('**São perguntas, não veredito.** Nenhum import alcança estes arquivos e')
         A(f'ninguém os toca há mais de {julgar.DIAS_PARADO // 365} ano, mas o grafo')
         A('não vê injeção de dependência, rota como string nem reflexão. Papel que o')
-        A('framework instancia por convenção já ficou de fora desta lista.  [deducao]\n')
+        A('framework instancia por convenção já ficou de fora desta lista.  [dedução]\n')
         for a in abertos[:10]:
             A(f'- `{a["caminho"]}` — {a["dias_parado"]} dias sem mudança')
         if len(abertos) > 10:
@@ -476,8 +476,14 @@ def _escrever(L: list, afirmacoes: list, secao: str) -> None:
     if not do_agente:
         L.append('*A interpretação não escreveu nada aqui.*  [lacuna: seção não interpretada]\n')
         return
-    for a in sorted(do_agente, key=lambda x: x['texto']):
-        L.append(f'- {a["texto"]}  [{a["nivel"]}]')
+    # ORDEM DE ESCRITA, não alfabética: ordenar por texto é ordenar por acaso, e
+    # num teste real a frase mais importante da seção caiu em último lugar porque
+    # começava com "É". Quem escreve a interpretação ordena por importância.
+    # o nível no TOML é sem acento (é chave de formato); o RÓTULO impresso é
+    # acentuado, porque é texto para gente ler
+    rotulos = {'deducao': 'dedução'}
+    for a in do_agente:
+        L.append(f'- {a["texto"]}  [{rotulos.get(a["nivel"], a["nivel"])}]')
         for e in a.get('evidencia', []):
             L.append(f'    ↳ `{e}`')
     L.append('')
@@ -549,7 +555,18 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     _escrever(L, afirmacoes, 'depende-de')
 
     A('### O que muda junto\n')
-    h = inv['historia']
+    h = dict(inv['historia'])
+    # O `git log` devolve caminho HISTÓRICO: arquivo apagado ou renomeado continua
+    # na lista. Num projeto real eram 16 caminhos que não existem hoje, e o leitor
+    # ia procurá-los. O par vale pelo que ensina sobre o código de AGORA.
+    existe = set(inv.get('caminhos_do_projeto') or [])
+    if existe:
+        vivos = [c for c in h['co_mudanca']
+                 if all(a in existe for a in c['arquivos'])]
+        sumidos = len(h['co_mudanca']) - len(vivos)
+        h['co_mudanca'] = vivos
+    else:
+        sumidos = 0
     # Decide pelo DADO, não pela lacuna. Depois que a busca por sub-repositórios
     # entrou, `lacuna` passou a significar duas coisas — "não há dado" e "há dado,
     # com ressalva" — e o documento escondia 40 pares de co-mudança que tinha.
@@ -561,8 +578,11 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
         if h['lacuna']:
             A(f'> Ressalva: {h["lacuna"]}.  [lacuna parcial]\n')
         de_onde = ' do projeto todo' if area else ''
+        fora = (f'; {sumidos} par(es) ficaram de fora por citarem arquivo que não '
+                f'existe mais' if sumidos else '')
         A(f'De {h["commits"]} commits{de_onde} '
-          f'({h["commits_descartados"]} descartados por tocarem arquivos demais).  [fato]\n')
+          f'({h["commits_descartados"]} descartados por tocarem arquivos '
+          f'demais{fora}).  [fato]\n')
         for c in h['co_mudanca'][:20]:
             # a ponta que está FORA da área sai marcada: "mexer aqui mexe lá fora"
             # só ensina alguma coisa se o leitor souber qual é o lá fora
@@ -639,7 +659,11 @@ def main() -> int:
         # `caminhos` vem de `caminhos_do_projeto`, NÃO de `arvore`: com área
         # escolhida a árvore está recortada, e citar a ponta de fora é legítimo —
         # é exatamente o que a seção de orientações existe para dizer.
-        caminhos = set(inv.get('caminhos_do_projeto')
+        # as fontes textuais entram junto: `.claude/CLAUDE.md` é lido pela skill
+        # porque num projeto real é a única documentação que existe, mas a pasta é
+        # podada da árvore — e sem esta união a guarda recusava, dizendo "não existe
+        # no projeto", um arquivo que o próprio inventário tinha acabado de ler
+        caminhos = set(inv.get('textos') or {}) | set(inv.get('caminhos_do_projeto')
                        or [a['caminho'] for a in inv.get('arvore', [])])
         afirmacoes = _ler_interpretacao(base / 'interpretation.toml', caminhos)
         arquivo = base / 'interpretation.toml'

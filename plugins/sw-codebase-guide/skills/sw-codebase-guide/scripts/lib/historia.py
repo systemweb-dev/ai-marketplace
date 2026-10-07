@@ -23,7 +23,11 @@ def _git(raiz, *args, segundos: int = 20):
     critério sem git — o spec exige isso: um `git log` de repositório gigante não
     pode travar a primeira tela da skill."""
     try:
-        r = subprocess.run(['git', *args], cwd=str(raiz), capture_output=True,
+        # `core.quotepath=false`: sem isto o git cita caminho não-ASCII em octal
+        # (`"Documenta\303\247\303\243o.txt"`), e o nome chega ilegível ao
+        # documento — visto num relatório real.
+        r = subprocess.run(['git', '-c', 'core.quotepath=false', *args],
+                           cwd=str(raiz), capture_output=True,
                            text=True, timeout=segundos)
     except subprocess.TimeoutExpired:
         return None          # o chamador cai para o critério sem git

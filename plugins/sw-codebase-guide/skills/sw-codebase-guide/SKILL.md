@@ -93,9 +93,10 @@ gravação, na mesma chamada.
 python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project [--area <caminho>]
 ```
 
-Grava `docs/project/inventory.json` com doze seções: `stacks`, `arvore`, `historia`, `retrato`,
-`imports`, `superficie`, `ambiente`, `mencoes`, `textos`, `escopo`, `caminhos_do_projeto` e
-`gerado_em_versao`. É determinístico — sem carimbo de tempo, ordem estável — para o documento
+Grava `docs/project/inventory.json` com estas chaves de primeiro nível: `stacks`, `arvore`,
+`historia`, `retrato`, `imports` (que carrega `arestas`, `indisponivel`, `resolucao` e
+`barris` **dentro** dela), `superficie`, `ambiente`, `mencoes`, `textos`, `julgamento`,
+`escopo`, `caminhos_do_projeto`, `mudanca_por_arquivo` e `gerado_em_versao`. É determinístico — sem carimbo de tempo, ordem estável — para o documento
 dar diff.
 
 O que cada seção carrega, e o quanto confiar nela:
@@ -122,7 +123,7 @@ O que cada seção carrega, e o quanto confiar nela:
 - **`mencoes`** — grafo textual: onde cada símbolo aparece como texto. Fica no inventário para
   quem quiser olhar à mão; não entra no documento, porque casa PALAVRA e numa base em
   português devolve `banco` e `caminho` às centenas sem haver relação de código.
-- **`resolucao`** — por linguagem, sete números: `relativos`, `externos`, `sufixo_unico`,
+- **`imports.resolucao`** — por linguagem, sete números: `relativos`, `externos`, `sufixo_unico`,
   `base_provada`, `config_conferida`, `ambiguos`, `pendurados` e `nao_resolvidos`. A taxa é
   `(relativos + sufixo_unico + base_provada + config_conferida)` sobre tudo isso **menos
   `externos`**; denominador zero é "não medido", nunca 0%.
@@ -156,7 +157,11 @@ O que cada seção carrega, e o quanto confiar nela:
 
 ### 2. Escrever a interpretação
 
-Leia o `inventory.json` e os **poucos** arquivos que ele aponta como centrais. Não leia o
+Leia o `inventory.json` e os **poucos** arquivos que ele mais destaca. Onde olhar, em ordem:
+`julgamento.perigo` (os que mais gente importa e que mais mudam), `textos` (o que alguém
+escreveu sobre o sistema), `historia.co_mudanca` (o que anda junto) e `superficie` (por onde
+se entra). Um agente que seguiu este documento travou aqui: a frase dizia "os arquivos que o
+inventário aponta como centrais", e **nenhum campo se chama central**. Não leia o
 projeto inteiro: o inventário existe justamente para isso.
 
 Leia também o `knowledge.toml`, se existir: ele traz o que alguém já respondeu, e
@@ -191,7 +196,13 @@ que quem recebe leva ao cliente como se fosse apurada.
 buraco". O campo é obrigatório justamente para "não tentei" não se confundir com "segui
 inteiro".
 
-**Só escreva o percurso com escopo recortado.** Em "o projeto todo" de um legado, rastrear é
+**O percurso é obrigatório como as outras três partes — inclusive em "o projeto todo".** A
+regra anterior dizia para só escrevê-lo com escopo recortado, e isso brigava com a tabela
+acima: obedecer gerava no documento a frase *"a interpretação não escreveu esta parte"*, que é
+o defeito que esta skill existe para evitar. O que muda sem recorte é a AMBIÇÃO: escolha **uma**
+funcionalidade representativa e diga qual é, em vez de tentar cobrir o sistema.
+
+**Cuidado com o orçamento.** Em "o projeto todo" de um legado, rastrear é
 adivinhar onde a execução começa — e a skill não detecta entrypoint.
 
 #### O bloco `[[narrativa]]` — o documento humano
