@@ -2,7 +2,7 @@
 titulo: Grafo de import real para PHP e TypeScript, resolvido por evidencia
 slug: 2026-10-07-grafo-de-import-real-para-php-e-typescript-resolvido-por-evidencia
 criado: 2026-10-07
-estado: em-execucao
+estado: concluido
 ---
 
 # Grafo de import real para PHP e TypeScript, resolvido por evidência

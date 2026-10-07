@@ -614,7 +614,7 @@ Esperado: a suíte inteira verde (ficou em **224**; a aritmética do plano é an
 
 **Contrato que esta task publica:** `lib.linguagens.php`, cumprindo o contrato da Task 2.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_linguagens.py
@@ -669,12 +669,12 @@ def test_classificar_de_php_trata_classe_global_como_nome_puro():
     assert php.classificar('App/Dominio/Models/Pedido') == 'qualificado'
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.linguagens.php'`
 
-- [ ] **Step 3: escrever o módulo**
+- [x] **Step 3: escrever o módulo**
 
 ```python
 # scripts/lib/linguagens/php.py
@@ -723,7 +723,7 @@ def classificar(alvo: str) -> str:
     return 'qualificado' if '/' in alvo else 'nome_puro'
 ```
 
-- [ ] **Step 4: ligar ao contrato e rodar**
+- [x] **Step 4: ligar ao contrato e rodar**
 
 Acrescente também, em `tests/test_linguagens.py`:
 
@@ -748,17 +748,17 @@ MODULOS = ['python', 'js', 'php']
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: PASSA (12 testes)
 
-- [ ] **Step 5: prova por mutação — o `use` agrupado some**
+- [x] **Step 5: prova por mutação — o `use` agrupado some**
 
 Troque o corpo do laço de `AGRUPADO` por `pass` e rode.
 Esperado: **cai** `test_extrator_de_php_pega_as_formas_do_use`. Desfaça.
 
-- [ ] **Step 6: prova por mutação — a declaração de namespace vira import**
+- [x] **Step 6: prova por mutação — a declaração de namespace vira import**
 
 Acrescente a `SIMPLES` a alternativa `|^\s*namespace\s+([A-Za-z_][\w\\]*)\s*;` e rode.
 Esperado: **cai** `test_extrator_de_php_nao_devolve_a_propria_declaracao_de_namespace`. Desfaça.
 
-- [ ] **Step 7: rodar a suíte inteira**
+- [x] **Step 7: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **221 passam**
@@ -780,7 +780,7 @@ Esperado: **221 passam**
 `candidatos(alvo, indice, extensoes, arquivo_de_pasta) -> tuple[list[str], str]`
 (os caminhos **e o sufixo que casou**) · `MIN_SEGMENTOS = 2`
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_resolucao.py
@@ -888,12 +888,12 @@ def test_candidato_de_um_segmento_so_nao_tenta_o_indice():
     assert candidatos('utils', idx, EXTS, PASTA) == ([], '')
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.resolucao'`
 
-- [ ] **Step 3: escrever o módulo**
+- [x] **Step 3: escrever o módulo**
 
 ```python
 # scripts/lib/resolucao.py
@@ -995,34 +995,34 @@ def candidatos(alvo: str, indice: dict, extensoes: list, arquivo_de_pasta) -> tu
     return [], ''
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: PASSA (9 testes)
 
-- [ ] **Step 5: prova por mutação — ambíguo passa a resolver pelo primeiro**
+- [x] **Step 5: prova por mutação — ambíguo passa a resolver pelo primeiro**
 
 Em `candidatos`, troque `return sorted(achados), tentativa` por
 `return sorted(achados)[:1], tentativa` e rode.
 Esperado: **cai** `test_sufixo_ambiguo_devolve_os_dois_candidatos`. Desfaça.
 
-- [ ] **Step 6: prova por mutação — o piso de segmentos some**
+- [x] **Step 6: prova por mutação — o piso de segmentos some**
 
 Troque `MIN_SEGMENTOS = 2` por `MIN_SEGMENTOS = 1` e rode.
 Esperado: **cai** `test_candidato_de_um_segmento_so_nao_tenta_o_indice`. Desfaça.
 
-- [ ] **Step 7b: prova por mutação — o `..` sobrando volta a ser engolido**
+- [x] **Step 7b: prova por mutação — o `..` sobrando volta a ser engolido**
 
 Em `_normalizar`, troque `if not partes: return None` por `if partes:` (e reindente o `pop`)
 e rode.
 Esperado: **cai** `test_relativo_que_sobe_acima_da_raiz_nao_resolve`. Desfaça.
 
-- [ ] **Step 7: prova por mutação — o arquivo de pasta volta a ser fixo em `index`**
+- [x] **Step 7: prova por mutação — o arquivo de pasta volta a ser fixo em `index`**
 
 Em `_tentativas`, troque `f'{alvo}/{arquivo_de_pasta}{e}'` por `f'{alvo}/index{e}'` e rode.
 Esperado: **cai** `test_relativo_de_python_acha_o_arquivo_de_pasta_declarado`. Desfaça.
 
-- [ ] **Step 8: rodar a suíte inteira**
+- [x] **Step 8: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **229 passam**
@@ -1042,7 +1042,7 @@ Esperado: **229 passam**
 `eh_externo(alvo, classe, builtins, declarados, raizes, nome_puro_pode_ser_interno) -> bool` ·
 `stacks.dependencias_declaradas(raiz) -> dict[str, set[str]]` (caminho do manifesto -> nomes)
 
-- [ ] **Step 1: escrever o teste de `dependencias_declaradas`, que falha**
+- [x] **Step 1: escrever o teste de `dependencias_declaradas`, que falha**
 
 ```python
 # acrescente em tests/test_stacks.py
@@ -1075,12 +1075,12 @@ def test_manifesto_quebrado_nao_derruba_a_varredura(tmp_path):
     assert dependencias_declaradas(tmp_path) == {}
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_stacks.py -q`
 Esperado: FALHA com `ImportError: cannot import name 'dependencias_declaradas'`
 
-- [ ] **Step 3: escrever `dependencias_declaradas` no `stacks.py`**
+- [x] **Step 3: escrever `dependencias_declaradas` no `stacks.py`**
 
 ```python
 # acrescente ao fim de scripts/lib/stacks.py
@@ -1121,7 +1121,7 @@ def dependencias_declaradas(raiz) -> dict:
 
 Se o `import json` não estiver no topo do `stacks.py`, acrescente-o lá.
 
-- [ ] **Step 4: escrever o teste de `eh_externo`, que falha**
+- [x] **Step 4: escrever o teste de `eh_externo`, que falha**
 
 ```python
 # acrescente em tests/test_resolucao.py
@@ -1186,12 +1186,12 @@ def test_pacote_escopado_DECLARADO_e_externo_mesmo_sendo_qualificado():
     assert externo('@vue/test-utils', classe='qualificado')
 ```
 
-- [ ] **Step 5: rodar e confirmar que falha**
+- [x] **Step 5: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: FALHA com `ImportError: cannot import name 'eh_externo'`
 
-- [ ] **Step 6: escrever `eh_externo`**
+- [x] **Step 6: escrever `eh_externo`**
 
 ```python
 # acrescente em scripts/lib/resolucao.py
@@ -1228,25 +1228,25 @@ def eh_externo(alvo, classe, builtins, declarados, raizes,
     return not cabe_em_raiz
 ```
 
-- [ ] **Step 7: rodar e confirmar que passa**
+- [x] **Step 7: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: PASSA (14 testes)
 
-- [ ] **Step 8: prova por mutação — o builtin deixa de ser excluído**
+- [x] **Step 8: prova por mutação — o builtin deixa de ser excluído**
 
 Apague a linha `if alvo in builtins or primeiro in builtins: return True` **inteira** (as duas
 checagens de uma vez; tirar só uma delas deixa o teste verde, porque a outra ainda pega `fs`) e
 rode.
 Esperado: **cai** `test_builtin_e_externo_mesmo_na_linguagem_que_permite_interno`. Desfaça.
 
-- [ ] **Step 9: prova por mutação — a regra do JS vira universal**
+- [x] **Step 9: prova por mutação — a regra do JS vira universal**
 
 Troque `if nome_puro_pode_ser_interno: return False` por `if False: return False` e rode.
 Esperado: **cai** `test_nome_puro_NAO_e_externo_na_linguagem_que_permite_modulo_local` — que é
 o teste que protege o grafo de Python. Desfaça.
 
-- [ ] **Step 10: rodar a suíte inteira**
+- [x] **Step 10: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **237 passam**
@@ -1264,7 +1264,7 @@ Esperado: **237 passam**
 `ler_vocabulario(raiz: Path, configs: list[dict]) -> dict` com as chaves
 `prefixos: list[tuple[str, str]]` e `raizes: list[str]`
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_resolucao.py
@@ -1316,12 +1316,12 @@ def test_o_leitor_e_o_mesmo_para_psr4(tmp_path):
     assert ('App', 'app') in vocab['prefixos']
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: FALHA com `ImportError: cannot import name 'ler_vocabulario'`
 
-- [ ] **Step 3: escrever `ler_vocabulario`**
+- [x] **Step 3: escrever `ler_vocabulario`**
 
 ```python
 # acrescente em scripts/lib/resolucao.py
@@ -1373,17 +1373,17 @@ def ler_vocabulario(raiz, configs: list) -> dict:
     return {'prefixos': sorted(set(prefixos)), 'raizes': sorted(set(raizes))}
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: PASSA (17 testes)
 
-- [ ] **Step 5: prova por mutação — a configuração deixa de ser conferida**
+- [x] **Step 5: prova por mutação — a configuração deixa de ser conferida**
 
 Troque `if base and (raiz / base).is_dir():` por `if base:` e rode.
 Esperado: **cai** `test_mapeamento_que_aponta_para_pasta_inexistente_e_descartado`. Desfaça.
 
-- [ ] **Step 6: rodar a suíte inteira**
+- [x] **Step 6: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **240 passam**
@@ -1410,7 +1410,7 @@ O **sufixo que casou** entra na assinatura, e não é detalhe: sem ele o desempa
 candidatos de `@/constants` (`src/constants/…` e `src/assets/js/constants/…`) começam ambos com
 `src/` e **nenhum** desempata. Pior, `startswith` é gerador de aresta errada em geral.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_resolucao.py
@@ -1480,12 +1480,12 @@ def test_fraco_sem_base_provada_nao_resolve():
     assert desempatar('@', 'utils', [], '', {}, idx, EXTS, PASTA) is None
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: FALHA com `ImportError: cannot import name 'base_de'`
 
-- [ ] **Step 3: escrever as três funções**
+- [x] **Step 3: escrever as três funções**
 
 ```python
 # acrescente em scripts/lib/resolucao.py
@@ -1549,28 +1549,28 @@ def desempatar(prefixo, resto, candidatos_, sufixo, provadas, indice, extensoes,
     return next(iter(achados)) if len(achados) == 1 else None
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
 Esperado: PASSA (23 testes)
 
-- [ ] **Step 5: prova por mutação — base com 4 provas passa a valer**
+- [x] **Step 5: prova por mutação — base com 4 provas passa a valer**
 
 Troque `MIN_PROVAS = 5` por `MIN_PROVAS = 1` e rode.
 Esperado: **cai** `test_base_so_vale_com_cinco_provas`. Desfaça.
 
-- [ ] **Step 6: prova por mutação — o desempate volta a ser por `startswith`**
+- [x] **Step 6: prova por mutação — o desempate volta a ser por `startswith`**
 
 Troque `if base_de(c, sufixo) in bases` por `if any(c.startswith(b + '/') for b in bases)`
 e rode.
 Esperado: **cai** `test_ambiguo_resolve_quando_UM_candidato_esta_sob_base_provada`. Desfaça.
 
-- [ ] **Step 7: prova por mutação — dois candidatos resolvem pelo primeiro**
+- [x] **Step 7: prova por mutação — dois candidatos resolvem pelo primeiro**
 
 Troque `return sob[0] if len(sob) == 1 else None` por `return sob[0] if sob else None` e rode.
 Esperado: **cai** `test_ambiguo_com_dois_candidatos_sob_base_provada_nao_resolve`. Desfaça.
 
-- [ ] **Step 8: rodar a suíte inteira**
+- [x] **Step 8: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **246 passam**
@@ -1595,7 +1595,7 @@ fica na assinatura **sem uso no corpo**, para não quebrar quem chama; a Task 11
 `tests/test_imports.py` **não são alterados**. Eles são a prova de que a migração do extrator
 não mudou o resultado — e foi exatamente neles que o revisor do plano pegou a regressão.
 
-- [ ] **Step 1: ler os testes de Python que já existem**
+- [x] **Step 1: ler os testes de Python que já existem**
 
 ```bash
 sed -n '1,60p' tests/test_imports.py
@@ -1603,7 +1603,7 @@ sed -n '1,60p' tests/test_imports.py
 São quatro, e todos passam hoje. Nenhum step desta task os altera; se algum cair, **o conserto
 é no código**, não no teste.
 
-- [ ] **Step 2: escrever os testes novos, que falham**
+- [x] **Step 2: escrever os testes novos, que falham**
 
 ```python
 # acrescente em tests/test_imports.py
@@ -1683,12 +1683,12 @@ def test_a_contagem_e_por_LINGUAGEM_e_nao_por_extensao(tmp_path):
     assert chaves == {'js'}
 ```
 
-- [ ] **Step 3: rodar e confirmar que falha**
+- [x] **Step 3: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_imports.py -q`
 Esperado: FALHA com `TypeError: grafo() takes 2 positional arguments but 3 were given`
 
-- [ ] **Step 4: reescrever o `grafo` — a parte que esta task cobre**
+- [x] **Step 4: reescrever o `grafo` — a parte que esta task cobre**
 
 Substitua o corpo de `scripts/lib/imports.py` abaixo do docstring do módulo por:
 
@@ -1815,7 +1815,7 @@ def grafo(raiz, stacks: list, arvore: list, area: str | None = None) -> dict:
             'resolucao': contagem}
 ```
 
-- [ ] **Step 5: ligar o `varrer.py`**
+- [x] **Step 5: ligar o `varrer.py`**
 
 Em `scripts/varrer.py`, troque a linha 78 por:
 
@@ -1825,7 +1825,7 @@ Em `scripts/varrer.py`, troque a linha 78 por:
 
 A árvore completa (`todos`), não a recortada.
 
-- [ ] **Step 6: rodar os testes de import e conferir o Python**
+- [x] **Step 6: rodar os testes de import e conferir o Python**
 
 Rode: `.venv/bin/python -m pytest tests/test_imports.py -q`
 Esperado: os quatro testes de Python **passam sem alteração**. Se algum cair, pare: é a
@@ -1836,13 +1836,13 @@ Dois deles dependem da etapa 3, que só chega na Task 10 — se
 (`from pedido import Pedido` é `nome_puro` e Python o deixa seguir) e **registre em "Ajustes"**
 que ele volta ao verde na Task 10, step 5.
 
-- [ ] **Step 7: prova por mutação — o despacho volta a ter piso de quantidade**
+- [x] **Step 7: prova por mutação — o despacho volta a ter piso de quantidade**
 
 Em `sem_extrator`, envolva o `indisponivel.append` com
 `if len(arquivos) >= mod_stacks.MIN_ARQUIVOS:` e rode.
 Esperado: **cai** `test_extensao_de_CODIGO_sem_extrator_vira_lacuna_com_motivo`. Desfaça.
 
-- [ ] **Step 8: prova por mutação — a contagem volta a ser por extensão**
+- [x] **Step 8: prova por mutação — a contagem volta a ser por extensão**
 
 Troque `por_linguagem[nome].append(caminho)` por `por_linguagem[extensao].append(caminho)` e
 rode.
@@ -1858,7 +1858,7 @@ Esperado: **cai** `test_a_contagem_e_por_LINGUAGEM_e_nao_por_extensao`. Desfaça
 
 **Depende de:** Task 9
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_imports.py
@@ -1945,12 +1945,12 @@ def test_exemplos_do_que_nao_resolveu_tem_teto_e_ordem(tmp_path):
     assert exemplos == sorted(exemplos)
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_imports.py -q`
 Esperado: FALHA — não há aresta de sufixo nem de configuração
 
-- [ ] **Step 3: trocar o fim do laço por import**
+- [x] **Step 3: trocar o fim do laço por import**
 
 No `grafo`, troque a linha `cont['nao_resolvidos'] += 1` (e o comentário acima dela) por:
 
@@ -2035,12 +2035,12 @@ e troque `cont['exemplos_nao_resolvidos'] = []` por:
         cont['exemplos_nao_resolvidos'] = sorted(nao_resolvidos)[:TETO_EXEMPLOS]
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_imports.py -q`
 Esperado: PASSA, incluindo os quatro testes de Python
 
-- [ ] **Step 5: conferir que o grafo de Python voltou inteiro**
+- [x] **Step 5: conferir que o grafo de Python voltou inteiro**
 
 ```bash
 .venv/bin/python -m pytest tests/test_imports.py -q
@@ -2055,23 +2055,23 @@ print('arestas:', len(i['arestas']), '· python:', res, 'de', den)"
 Esperado: **centenas de arestas** e a taxa de Python **acima de 70%**. Este repositório tem
 210 arquivos `.py`; se a taxa cair abaixo do piso, a v0.2.0 regrediu e o plano para aqui.
 
-- [ ] **Step 5b: prova por mutação — nome puro que não casa volta a ser falha**
+- [x] **Step 5b: prova por mutação — nome puro que não casa volta a ser falha**
 
 Troque `and modulo.NOME_PURO_PODE_SER_INTERNO:` por `and False:` e rode.
 Esperado: **cai** `test_nome_puro_que_nao_casa_no_indice_e_externo_e_nao_falha`. Desfaça.
 
-- [ ] **Step 6: prova por mutação — a configuração deixa de ser tentada**
+- [x] **Step 6: prova por mutação — a configuração deixa de ser tentada**
 
 Troque `for declarado, base in vocab['prefixos']:` por `for declarado, base in []:` e rode.
 Esperado: **cai** `test_psr4_conferido_resolve_e_carrega_a_procedencia`. Desfaça.
 
-- [ ] **Step 7: prova por mutação — a string inteira deixa de ser tentada primeiro**
+- [x] **Step 7: prova por mutação — a string inteira deixa de ser tentada primeiro**
 
 Troque `for tentativa in (alvo, resto):` por `for tentativa in (resto,):` e rode.
 Esperado: **cai** um dos testes de Python (`from lib.config import ...` deixa de resolver).
 Desfaça.
 
-- [ ] **Step 8: rodar a suíte inteira**
+- [x] **Step 8: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **254 passam**
@@ -2086,7 +2086,7 @@ Esperado: **254 passam**
 
 **Depende de:** Task 10
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_imports.py
@@ -2127,7 +2127,7 @@ def test_as_arestas_saem_ordenadas(tmp_path):
     assert [a['de'] for a in arestas] == ['alfa.py', 'z.ts']
 ```
 
-- [ ] **Step 2: rodar, implementar o recorte e confirmar**
+- [x] **Step 2: rodar, implementar o recorte e confirmar**
 
 No fim do `grafo`, logo antes do `return`, acrescente:
 
@@ -2144,7 +2144,7 @@ No fim do `grafo`, logo antes do `return`, acrescente:
 Rode: `.venv/bin/python -m pytest tests/test_imports.py -q`
 Esperado: PASSA
 
-- [ ] **Step 3: medir a taxa nos projetos reais — a restrição de aceitação**
+- [x] **Step 3: medir a taxa nos projetos reais — a restrição de aceitação**
 
 ```bash
 for p in <raiz-do-monorepo> <raiz-do-projeto-php> <raiz-do-projeto-next>; do
@@ -2160,17 +2160,17 @@ done
 Esperado: **php ≥ 95%** e **js ≥ 95%**. Registre os números em "Ajustes durante a execução".
 **Abaixo disso, pare** — a meta do spec não foi atingida e a decisão é do dono.
 
-- [ ] **Step 4: prova por mutação — o recorte passa a exigir as DUAS pontas**
+- [x] **Step 4: prova por mutação — o recorte passa a exigir as DUAS pontas**
 
 Troque o `or` do filtro por `and` e rode.
 Esperado: **cai** `test_com_area_vale_a_aresta_com_UMA_PONTA_dentro`. Desfaça.
 
-- [ ] **Step 5: prova por mutação — a ordenação final some**
+- [x] **Step 5: prova por mutação — a ordenação final some**
 
 Troque `sorted(arestas, key=...)` por `arestas` no `return` e rode.
 Esperado: **cai** `test_as_arestas_saem_ordenadas`. Desfaça.
 
-- [ ] **Step 6: rodar a suíte inteira**
+- [x] **Step 6: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **256 passam**
@@ -2185,7 +2185,7 @@ Esperado: **256 passam**
 
 **Depende de:** Task 11
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # acrescente em tests/test_arvore.py
@@ -2207,12 +2207,12 @@ def test_declaracao_de_tipo_e_instantaneo_contam_como_gerados(tmp_path):
     assert por_caminho['Lista.stories.tsx'] is True
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_arvore.py -q`
 Esperado: FALHA — `Botao.d.ts` vem `False`
 
-- [ ] **Step 3: acrescentar os sufixos**
+- [x] **Step 3: acrescentar os sufixos**
 
 Em `scripts/lib/arvore.py`, troque a tupla por:
 
@@ -2225,7 +2225,7 @@ GERADOS = ('.min.js', '.min.css', '.lock', '.map', '-lock.json', '.pyc', '.gener
            '.stories.ts', '.stories.tsx', '.stories.js', '.stories.jsx', '.stories.vue')
 ```
 
-- [ ] **Step 4: rodar a suíte inteira**
+- [x] **Step 4: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **257 passam**
@@ -2254,7 +2254,7 @@ execução.** `test_sem_grafo_de_import_a_secao_vira_lacuna`,
 nos três casos, a frase deixa de existir e o filtro de símbolo também. Os steps 8 e 9 os
 reescrevem — não os apagam em silêncio.
 
-- [ ] **Step 1: escrever os testes novos, que falham**
+- [x] **Step 1: escrever os testes novos, que falham**
 
 ```python
 # acrescente em tests/test_montar.py
@@ -2341,12 +2341,12 @@ def test_o_texto_gerado_nao_usa_nenhuma_frase_proibida():
     assert not [f for f in PROIBIDAS if f in texto]
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_montar.py -q`
 Esperado: FALHA — o `_dependentes` de hoje é indexado por símbolo e não lê `resolucao`
 
-- [ ] **Step 3: reescrever `_dependentes`**
+- [x] **Step 3: reescrever `_dependentes`**
 
 Substitua a função inteira em `scripts/montar.py` por:
 
@@ -2424,12 +2424,12 @@ def _dependentes(inv: dict) -> list:
     return linhas
 ```
 
-- [ ] **Step 4: rodar e conferir que os testes novos passam**
+- [x] **Step 4: rodar e conferir que os testes novos passam**
 
 Rode: `.venv/bin/python -m pytest tests/test_montar.py -q -k "ranking or piso or denominador or proibida or diretamente"`
 Esperado: PASSA
 
-- [ ] **Step 5: escrever o teste do barril, que falha**
+- [x] **Step 5: escrever o teste do barril, que falha**
 
 ```python
 # acrescente em tests/test_montar.py
@@ -2464,7 +2464,7 @@ def test_arquivo_que_so_reexporta_e_barril():
     assert not eh_barril('')
 ```
 
-- [ ] **Step 6: escrever `eh_barril` e marcar os barris**
+- [x] **Step 6: escrever `eh_barril` e marcar os barris**
 
 Em `scripts/lib/resolucao.py` (acrescente `import re` no topo, se não houver):
 
@@ -2493,12 +2493,12 @@ Em `scripts/lib/imports.py`, dentro do laço por arquivo, logo depois de ler o `
 com `barris = []` antes do laço por linguagem, e `'barris': sorted(barris)` no dicionário
 devolvido pelo `grafo`.
 
-- [ ] **Step 7: rodar e confirmar que passa**
+- [x] **Step 7: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_montar.py tests/test_resolucao.py -q`
 Esperado: PASSA
 
-- [ ] **Step 8: reescrever os três testes que descreviam a seção sem grafo**
+- [x] **Step 8: reescrever os três testes que descreviam a seção sem grafo**
 
 Em `tests/test_montar.py`, os três testes que exigem a frase *"não foi medido nesta versão"*
 descreviam o comportamento de quando **não havia** resolvedor para a stack. Com o grafo real,
@@ -2519,7 +2519,7 @@ Se algum desses testes montar um inventário sem a chave `resolucao`, acrescente
 `'resolucao': {}` ao `imports` dele — é o estado de um projeto sem linguagem reconhecida, e
 `_dependentes` devolve a lacuna genérica.
 
-- [ ] **Step 9: apagar o teste do símbolo citado só em documentação, com registro**
+- [x] **Step 9: apagar o teste do símbolo citado só em documentação, com registro**
 
 Ache o bloco em `tests/test_montar.py` e apague-o inteiro:
 
@@ -2539,18 +2539,18 @@ Ele testa o filtro de `mencoes`, que a reescrita removeu junto com a lista por s
 **Registre em "Ajustes durante a execução"**: *"o filtro de símbolo citado só em documentação saiu com a lista por
 símbolo; o ruído que ele combatia era do casamento por palavra, que o grafo real substitui."*
 
-- [ ] **Step 10: prova por mutação — o piso some**
+- [x] **Step 10: prova por mutação — o piso some**
 
 Troque `PISO_RESOLUCAO = 0.70` por `PISO_RESOLUCAO = 0.0` e rode.
 Esperado: **cai** `test_abaixo_do_piso_a_linguagem_vira_lacuna_e_nao_ranking`. Desfaça.
 
-- [ ] **Step 11: prova por mutação — denominador zero vira 0%**
+- [x] **Step 11: prova por mutação — denominador zero vira 0%**
 
 Troque `if denominador == 0:` por `if False:` e rode.
 Esperado: **cai** `test_denominador_zero_e_nao_medido_e_nunca_zero_por_cento` (com
 `ZeroDivisionError`, que também é falha). Desfaça.
 
-- [ ] **Step 12: rodar a suíte inteira e LER o documento de um projeto real**
+- [x] **Step 12: rodar a suíte inteira e LER o documento de um projeto real**
 
 ```bash
 .venv/bin/python -m pytest tests/ -q
@@ -2571,7 +2571,7 @@ que importam nesta skill apareceram todos na leitura, nunca no código de saída
 
 **Depende de:** Task 13
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # acrescente em tests/test_imprimir.py
@@ -2595,12 +2595,12 @@ def test_bloco_da_taxa_mostra_os_numeros_absolutos(tmp_path):
     assert '569' in bloco and '424' in bloco
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_imprimir.py -q`
 Esperado: FALHA com `IndexError` ao fatiar — o bloco não existe
 
-- [ ] **Step 3: escrever `bloco_resolucao` no `pagina.py`**
+- [x] **Step 3: escrever `bloco_resolucao` no `pagina.py`**
 
 ```python
 def bloco_resolucao(inv: dict) -> str:
@@ -2634,7 +2634,7 @@ def bloco_resolucao(inv: dict) -> str:
                          'resolvedor não casou com arquivo nenhum não vira aresta.')
 ```
 
-- [ ] **Step 4: incluir no corpo do documento**
+- [x] **Step 4: incluir no corpo do documento**
 
 Em `scripts/imprimir.py`, dentro da lista de `construir`, logo **depois** de
 `pagina.bloco_muda_junto(inv),`, acrescente:
@@ -2643,7 +2643,7 @@ Em `scripts/imprimir.py`, dentro da lista de `construir`, logo **depois** de
         pagina.bloco_resolucao(inv),
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: todos passam, com o teste novo verde
@@ -2669,7 +2669,7 @@ produziria aresta nenhuma e não poderia detectar o que existe para detectar. A 
 tem as três linguagens, e inclui o caso que o spec pede por nome: **um projeto Vue cujo
 apelido só existe no config executável.**
 
-- [ ] **Step 1: escrever o teste da restrição de desenho**
+- [x] **Step 1: escrever o teste da restrição de desenho**
 
 ```python
 # tests/test_restricoes.py
@@ -2700,13 +2700,13 @@ def test_o_resolvedor_nao_conhece_nenhuma_linguagem():
     assert 'if linguagem' not in codigo.lower()
 ```
 
-- [ ] **Step 2: rodar e confirmar que passa (ou corrigir o resolvedor)**
+- [x] **Step 2: rodar e confirmar que passa (ou corrigir o resolvedor)**
 
 Rode: `.venv/bin/python -m pytest tests/test_restricoes.py -q`
 Esperado: PASSA. Se falhar, **o conserto é no `resolucao.py`**, movendo o que for específico
 para o módulo da linguagem — não no teste.
 
-- [ ] **Step 3: criar a fixture com as três linguagens**
+- [x] **Step 3: criar a fixture com as três linguagens**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide/tests/fixtures
@@ -2764,7 +2764,7 @@ def ajudar():
 EOF
 ```
 
-- [ ] **Step 4: escrever o teste que prova que a fixture tem o que testar**
+- [x] **Step 4: escrever o teste que prova que a fixture tem o que testar**
 
 ```python
 # acrescente em tests/test_restricoes.py
@@ -2785,7 +2785,7 @@ def test_a_fixture_poliglota_produz_aresta_nas_tres_linguagens(tmp_path):
     assert {'php', 'vue', 'py'} <= linguagens_com_aresta
 ```
 
-- [ ] **Step 5: escrever o teste de idempotência ENTRE PROCESSOS**
+- [x] **Step 5: escrever o teste de idempotência ENTRE PROCESSOS**
 
 ```python
 # acrescente em tests/test_restricoes.py
@@ -2811,13 +2811,13 @@ def test_mesmo_projeto_mesmo_inventario_em_processos_diferentes(tmp_path):
     assert saidas[0] == saidas[1]
 ```
 
-- [ ] **Step 6: rodar e conferir**
+- [x] **Step 6: rodar e conferir**
 
 Rode: `.venv/bin/python -m pytest tests/test_restricoes.py -q`
 Esperado: PASSA. Se falhar, há ordem instável em alguma seção — ache-a comparando os dois
 JSON com `json.loads` e `difflib`, e ordene **na origem**, não no teste.
 
-- [ ] **Step 7: escrever o teste de orçamento de tempo**
+- [x] **Step 7: escrever o teste de orçamento de tempo**
 
 ```python
 # acrescente em tests/test_restricoes.py
@@ -2843,12 +2843,12 @@ def test_varredura_cabe_no_orcamento(tmp_path):
     assert gasto < 60, f'{gasto:.1f}s'
 ```
 
-- [ ] **Step 8: rodar e registrar o tempo**
+- [x] **Step 8: rodar e registrar o tempo**
 
 Rode: `.venv/bin/python -m pytest tests/test_restricoes.py -q`
 Esperado: PASSA, e bem abaixo de 60 s. Registre o tempo real em "Ajustes durante a execução".
 
-- [ ] **Step 9: escrever o teste da garantia sobre o documento MONTADO**
+- [x] **Step 9: escrever o teste da garantia sobre o documento MONTADO**
 
 ```python
 # acrescente em tests/test_restricoes.py
@@ -2876,7 +2876,7 @@ def test_o_documento_montado_nao_afirma_ausencia_de_dependentes(tmp_path):
     assert not achadas, f'o documento gerado afirma ausência: {achadas}'
 ```
 
-- [ ] **Step 10: rodar a suíte inteira**
+- [x] **Step 10: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: todos passam. Se alguma frase proibida aparecer, **reescreva o texto do bloco** —
@@ -2891,7 +2891,7 @@ nunca afrouxe a lista.
 
 **Depende de:** Task 15
 
-- [ ] **Step 1: atualizar os limites declarados no `SKILL.md`**
+- [x] **Step 1: atualizar os limites declarados no `SKILL.md`**
 
 A seção "Limites desta versão" ainda diz **"Grafo de import só para Python"**. Troque por:
 
@@ -2906,7 +2906,7 @@ A seção "Limites desta versão" ainda diz **"Grafo de import só para Python"*
   afirmando ausência de dependentes.
 ```
 
-- [ ] **Step 2: descrever a seção `resolucao` no `SKILL.md`**
+- [x] **Step 2: descrever a seção `resolucao` no `SKILL.md`**
 
 Na lista de seções do inventário, depois do item `imports`, acrescente:
 
@@ -2920,7 +2920,7 @@ Na lista de seções do inventário, depois do item `imports`, acrescente:
 Rode depois: `.venv/bin/python -m pytest tests/test_skill_md.py -q`
 Esperado: PASSA — o teste que confere que toda seção do inventário está citada no `SKILL.md`.
 
-- [ ] **Step 3: rodar a suíte inteira e o ciclo completo num projeto real**
+- [x] **Step 3: rodar a suíte inteira e o ciclo completo num projeto real**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide && .venv/bin/python -m pytest tests/ -q
@@ -2932,7 +2932,7 @@ cd ~/.claude/skills/sw-codebase-guide && .venv/bin/python -m pytest tests/ -q
 Esperado: suíte verde e os três documentos gerados. **Leia** a seção de dependências do
 `guide.md` antes de seguir — os defeitos que importam aparecem na leitura, não no exit code.
 
-- [ ] **Step 4: sincronizar com bump de minor**
+- [x] **Step 4: sincronizar com bump de minor**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-codebase-guide BUMP=minor
@@ -2940,7 +2940,7 @@ cd /var/www/ai-marketplace && make sync SKILL=sw-codebase-guide BUMP=minor
 Esperado: `✓ plugin.json, marketplace.json e README atualizados.` com a versão **0.3.0**.
 Não edite `marketplace.json` nem a tabela do `README.md` à mão — o sync já faz.
 
-- [ ] **Step 5: escrever a entrada no `CHANGELOG.md`**
+- [x] **Step 5: escrever a entrada no `CHANGELOG.md`**
 
 Acrescente no topo de `## [Não publicado]`, trocando os `<…>` pelos números que a Task 9,
 step 8 e a Task 13, step 6 mediram:
@@ -2985,7 +2985,7 @@ step 8 e a Task 13, step 6 mediram:
   processo — passava por acidente porque só o Python gerava aresta.
 ```
 
-- [ ] **Step 6: rodar o gate de segurança DEPOIS de preparar o commit**
+- [x] **Step 6: rodar o gate de segurança DEPOIS de preparar o commit**
 
 ```bash
 cd /var/www/ai-marketplace && git add -A && make check
@@ -3105,3 +3105,40 @@ metade. A frase errada estava também no plano, e saiu dos dois.
 
 Suíte: **224 passam**, em 20 s — inclusive um teste de desempenho, porque o 2ⁿ é invisível numa
 suíte verde e voltaria na primeira vez que alguém "melhorasse" o miolo.
+
+### 2026-10-07 — Tasks 4 a 16, executadas sem gate a pedido do dono
+
+O dono apontou, com razão, que o processo tinha ficado maior que o trabalho: 300 linhas de
+código cercadas por spec, plano, três revisores e um juiz por task. As treze tasks restantes
+foram feitas direto, com os testes e a medição valendo como prova.
+
+**Defeitos achados durante a execução**, todos por medição ou por leitura do documento:
+
+| # | Defeito | Como apareceu |
+|---|---|---|
+| 1 | `_de_fora` tratava prefixo de apelido como externo | prefixo de apelido **nunca** existe como arquivo, então todo import apelidado não resolvido virava "externo" e o caminho fraco morria |
+| 2 | dependência externa contada como falha | `collections/Counter` e `use SysWeb\Controller`: Python a 33% e PHP a 57%, com as arestas certas |
+| 3 | o ranking de `js` listava arquivos `.php` | a entrada era global; passou a ser por linguagem, pela extensão de quem importa |
+| 4 | vinte linhas de lacuna antes do conteúdo | eu dupliquei um emissor que já existia, e `.log`, `.css`, `.txt` e `.sql` eram declarados "linguagem sem resolvedor" |
+| 5 | `from pedido import X` com `pedido.py` no projeto virava externo | o piso de dois segmentos barrava o nome puro, que não tem prefixo para tirar |
+| 6 | a ressalva repetia as cinco cegueiras | o preâmbulo da seção já as lista; três vezes a mesma coisa na mesma página |
+
+O defeito 4 é a v0.1.1 de novo, por outro caminho — e foi encontrado **lendo o documento
+gerado**, não rodando teste. Nenhum teste reclamava.
+
+**Cinco testes existentes descreviam o mundo pré-grafo** e foram reescritos, não apagados: os
+que exigiam a frase "não foi medido nesta versão", o do símbolo citado só em documentação, e o
+do acoplamento invisível. Este último registra uma **perda de capacidade real**: o acoplamento
+que existe só por string e injeção aparecia na lista por símbolo e agora não aparece em lugar
+nenhum. A seção que cruza co-mudança com import para achá-lo ficou para o próximo ciclo; o
+documento diz o que não enxerga e aponta onde o dado bruto está.
+
+**Medição final**, quatro projetos reais: js 98% e 99%, php 99% e 100%, Python idêntico ao
+anterior (353 arestas, diferença zero). Num repositório com oito cópias quase idênticas de
+skill, o Python fica em 39% e a seção vira lacuna — correto: ali `from lib import stacks` é
+genuinamente ambíguo, e o código antigo tinha a mesma ambiguidade, só nunca a contou.
+
+**Desempenho:** 600 arquivos com 1.200 imports em **0,11 s**. O tempo dos projetos reais vem
+do `git log`, não do grafo.
+
+Suíte: **95 → 266 testes**. Publicada a v0.3.0, commit sem push.

@@ -6,7 +6,7 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 <!-- DOSSIES:START -->
 | Trabalho | Estado | Criado | Tem |
 |---|---|---|---|
-| [Grafo de import real para PHP e TypeScript, resolvido por evidencia](2026-10-07-grafo-de-import-real-para-php-e-typescript-resolvido-por-evidencia/spec.md) | 🔵 em execução | 2026-10-07 | plano 0/16, 2 ref |
+| [Grafo de import real para PHP e TypeScript, resolvido por evidencia](2026-10-07-grafo-de-import-real-para-php-e-typescript-resolvido-por-evidencia/spec.md) | ⚪ concluído | 2026-10-07 | plano 16/16, 2 ref |
 | [sw-codebase-guide: skill que le um projeto e escreve a documentacao dele](2026-10-06-sw-codebase-guide-skill-que-le-um-projeto-e-escreve-a-documentacao-dele/spec.md) | ⚪ concluído | 2026-10-06 | plano 10/10, 1 ref |
 | [sw-codebase-guide: documento humano ao lado do relatorio, com escopo escolhido na entrada](2026-10-06-sw-codebase-guide-documento-humano-ao-lado-do-relatorio-com-escopo-escolhido-na-entrada/spec.md) | ⚪ concluído | 2026-10-06 | plano 13/13, 1 ref |
 | [Papel do componente provado pela evidencia, nao pelo nome da imagem](2026-10-05-papel-do-componente-provado-pela-evidencia-nao-pelo-nome-da-imagem/spec.md) | ⚪ concluído | 2026-10-05 | plano 10/10 |
