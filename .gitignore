@@ -34,3 +34,8 @@ Thumbs.db
 .scan-denylist
 docs/infra/*
 !docs/infra/config.toml
+
+# Saída da sw-codebase-guide quando rodada AQUI, para testar a própria skill.
+# Nos projetos auditados ela é documentação e vai para o git; neste repositório é
+# só artefato de teste.
+docs/project/

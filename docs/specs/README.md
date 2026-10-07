@@ -6,6 +6,8 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 <!-- DOSSIES:START -->
 | Trabalho | Estado | Criado | Tem |
 |---|---|---|---|
+| [sw-codebase-guide: skill que le um projeto e escreve a documentacao dele](2026-10-06-sw-codebase-guide-skill-que-le-um-projeto-e-escreve-a-documentacao-dele/spec.md) | ⚪ concluído | 2026-10-06 | plano 10/10, 1 ref |
+| [sw-codebase-guide: documento humano ao lado do relatorio, com escopo escolhido na entrada](2026-10-06-sw-codebase-guide-documento-humano-ao-lado-do-relatorio-com-escopo-escolhido-na-entrada/spec.md) | 🟢 aprovado | 2026-10-06 | — |
 | [Papel do componente provado pela evidencia, nao pelo nome da imagem](2026-10-05-papel-do-componente-provado-pela-evidencia-nao-pelo-nome-da-imagem/spec.md) | ⚪ concluído | 2026-10-05 | plano 10/10 |
 | [Mockup com leitura do pedido, variações por eixo e detector anti-slop](2026-09-21-mockup-com-leitura-do-pedido-variacoes-por-eixo-e-detector-anti-slop/spec.md) | ⚪ concluído | 2026-09-21 | — |
 | [Evolucao incremental da sw-flow-diagram](2026-09-21-evolucao-incremental-da-sw-flow-diagram/spec.md) | ⚪ concluído | 2026-09-21 | plano 7/7 |

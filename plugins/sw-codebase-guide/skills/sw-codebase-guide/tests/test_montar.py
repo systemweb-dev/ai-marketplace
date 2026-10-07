@@ -1,0 +1,201 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+RAIZ_SKILL = Path(__file__).resolve().parent.parent
+FIXTURES = Path(__file__).parent / 'fixtures'
+
+# Frases que a skill NUNCA pode emitir: o grafo não sabe o bastante para afirmar
+# ausência, e "nada depende disso" é exatamente o dano que ela existe para evitar.
+PROIBIDAS = ('nada depende', 'sem dependentes', 'não é usado', 'nao e usado',
+             'nenhum dependente', 'não há dependentes')
+
+
+def varrer(projeto, saida):
+    subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'varrer.py'),
+                    '--projeto', str(projeto), '--out', str(saida)],
+                   check=True, capture_output=True, text=True)
+
+
+def montar(saida):
+    return subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'montar.py'),
+                           '--dir', str(saida)], capture_output=True, text=True)
+
+
+def test_acoplamento_invisivel_aparece_como_mencao(tmp_path):
+    # Arrange — o acoplamento existe SÓ por string e injeção
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — o par POSITIVO: o acoplamento TEM que aparecer
+    assert 'UserController' in guia
+    assert 'menç' in guia.lower()          # apareceu como menção textual
+    assert 'rotas.py' in guia or 'container.py' in guia
+
+
+def test_nenhuma_frase_de_ausencia(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text().lower()
+    # Assert — o par NEGATIVO
+    for frase in PROIBIDAS:
+        assert frase not in guia, frase
+
+
+def test_diz_o_que_o_grafo_de_import_nao_enxerga(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text().lower()
+    # Assert — a ressalva viaja junto da afirmação, não numa nota de rodapé
+    assert 'injeção de dependência' in guia or 'injecao de dependencia' in guia
+    assert 'rota como string' in guia
+
+
+def test_secao_de_co_mudanca_existe_com_motivo_sem_historico(tmp_path):
+    # Arrange — a fixture não é repositório git
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — omissão se leria como "nada muda junto"
+    assert 'muda junto' in guia.lower()
+    assert 'git' in guia.lower()
+
+
+def test_as_quatro_secoes_do_contrato_aparecem(tmp_path):
+    # Arrange — uma afirmação em cada seção publicada pelo contrato
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '\n'.join(
+            f'[[afirmacao]]\nsecao = "{secao}"\ntexto = "marca-{secao}"\n'
+            f'nivel = "declarado"\nevidencia = ["rotas.py:1"]\nmotivo = ""\n'
+            for secao in ('como-entrar', 'depende-de', 'o-que-faz', 'superficie')))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — seção publicada no contrato e não consumida faz o agente trabalhar à toa
+    for secao in ('como-entrar', 'depende-de', 'o-que-faz', 'superficie'):
+        assert f'marca-{secao}' in guia, secao
+
+
+def test_secao_invalida_e_recusada_sem_traceback(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\ntexto = "sem secao"\nnivel = "fato"\n'
+        'evidencia = ["rotas.py:1"]\nmotivo = ""\n')
+    # Act
+    r = montar(tmp_path)
+    # Assert
+    assert r.returncode == 2
+    assert 'secao' in (r.stderr + r.stdout).lower()
+    assert 'Traceback' not in r.stderr
+
+
+def test_superficie_sai_marcada_como_deducao(tmp_path):
+    # Arrange — a fixture tem rotas.py na raiz, sem pasta de convenção
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — sem convenção reconhecida, é lacuna com motivo; nunca silêncio
+    assert 'Superfície pública' in guia
+    assert 'lacuna' in guia.lower() or 'dedução' in guia
+
+
+def test_duas_montagens_identicas(tmp_path):
+    # Arrange — interpretation.toml CONGELADO: a parte não-determinística fica fora
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\n'
+        'secao = "o-que-faz"\n'
+        'texto = "Expõe um endpoint de usuário"\n'
+        'nivel = "deducao"\n'
+        'evidencia = ["rotas.py:3"]\n'
+        'motivo = ""\n')
+    # Act
+    montar(tmp_path)
+    primeira = (tmp_path / 'guide.md').read_bytes()
+    montar(tmp_path)
+    segunda = (tmp_path / 'guide.md').read_bytes()
+    # Assert
+    assert primeira == segunda
+
+
+def test_afirmacao_sem_evidencia_e_recusada(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\n'
+        'secao = "o-que-faz"\n'
+        'texto = "O sistema gere uma loja de departamentos"\n'
+        'nivel = "deducao"\n'
+        'evidencia = []\n'
+        'motivo = ""\n')
+    (tmp_path / 'guide.md').write_text('documento anterior')   # sentinela
+    # Act
+    r = montar(tmp_path)
+    # Assert — prosa plausível sem lastro não entra, e o documento bom não é destruído
+    assert r.returncode == 2
+    assert 'evidencia' in (r.stderr + r.stdout).lower()
+    assert (tmp_path / 'guide.md').read_text() == 'documento anterior'
+
+
+def test_co_mudanca_de_subrepos_aparece_com_ressalva(tmp_path):
+    # Arrange — inventário de um projeto cuja raiz não tem git mas os filhos têm:
+    # há dado E há lacuna. Decidir pela lacuna escondia os 40 pares que existiam.
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['historia'] = {
+        'commits': 782, 'commits_descartados': 3,
+        'co_mudanca': [{'arquivos': ['api/Rotas.php', 'api/Middleware.php'], 'vezes': 38}],
+        'subrepos': [{'caminho': 'api', 'commits': 325}],
+        'lacuna': 'a raiz não é repositório git; a co-mudança vem de 1 sub-repositório (api)',
+    }
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — o dado aparece, e a ressalva viaja junto
+    assert 'api/Rotas.php' in guia and '38x' in guia
+    assert 'Ressalva' in guia and 'sub-repositório' in guia
+    assert 'Não apurado' not in guia
+    # e a pergunta sobre histórico não faz mais sentido
+    assert 'Existe histórico de versionamento' not in guia
+
+
+def test_pergunta_fixa_some_quando_a_secao_foi_respondida(tmp_path):
+    # Arrange — a interpretação declara o propósito com fonte
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    (tmp_path / 'interpretation.toml').write_text(
+        '[[afirmacao]]\nsecao = "o-que-faz"\n'
+        'texto = "Transmite eventos do eSocial de processo trabalhista"\n'
+        'nivel = "declarado"\nevidencia = ["commit 3c5aabb"]\nmotivo = ""\n')
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — perguntar o propósito logo abaixo da resposta é o documento se
+    # contradizendo na mesma página
+    assert 'Transmite eventos do eSocial' in guia
+    assert 'Qual é o propósito de negócio' not in guia
+
+
+def test_simbolo_so_citado_em_documentacao_fica_de_fora(tmp_path):
+    # Arrange — nome de arquivo de spec virava "dependente"
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['mencoes']['PlanoDeMigracao'] = [{'caminho': 'docs/plano.md', 'linha': 3},
+                                         {'caminho': 'README.md', 'linha': 9}]
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert '**PlanoDeMigracao**' not in guia
+    assert 'só em documentação' in guia

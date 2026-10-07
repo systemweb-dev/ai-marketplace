@@ -7,6 +7,40 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-codebase-guide` (v0.1.0): **lê um projeto que você acabou de receber e escreve a
+  documentação dele** em `docs/project/` — como entrar, o que depende do quê e o que o sistema
+  faz, cada afirmação com o nível de confiança e a evidência, fechando com as perguntas que a
+  skill não conseguiu responder.
+
+  A decisão fundante é não entrevistar: quem roda a skill é exatamente quem acabou de receber o
+  projeto e não sabe responder. Um script determinístico apura os fatos num `inventory.json`,
+  o agente escreve a interpretação num arquivo próprio e um segundo script monta o documento —
+  três artefatos com um escritor cada, para o inventário continuar regenerável e o documento
+  dar diff. **Propósito só é afirmado com fonte textual citada** (README, ADR, mensagem de
+  commit); sem fonte, vira pergunta em aberto, porque deduzir propósito de rota e modelo produz
+  prosa plausível que o consultor leva ao cliente como se fosse apurada.
+
+  Duas garantias são estruturais, não boa intenção. **Nenhum segredo sai:** de cada `.env` o
+  inventário carrega só os NOMES das variáveis, extraídos na origem — contra 15 credenciais
+  reais de um projeto, nenhuma vazou, e as 93 chaves entraram, que é a informação útil para
+  quem vai subir o ambiente. **Ausência de dependentes nunca é afirmada:** o grafo de import não
+  enxerga injeção de dependência, rota como string nem template, então "nada depende disso" não
+  existe no documento — sai "N por import, M menções textuais", com a lista do que o grafo não
+  vê anexada, e um conjunto de frases proibidas é testado contra o texto gerado.
+
+  Rodou em seis projetos reais da casa antes de ser publicada, e foi isso que achou os defeitos
+  que fixture nenhuma acharia: 210 arquivos Python saindo como "sem stack" por não haver
+  `pyproject.toml`, 243 imports locais virando zero arestas porque o módulo era ancorado na raiz
+  em vez da source root, e 782 commits em quatro sub-repositórios sendo reportados como "não há
+  repositório git aqui" — monorepo por justaposição, que é o formato de um terço dos projetos
+  testados.
+
+  Limites desta versão, escritos na própria skill: grafo de import só para Python (as outras
+  stacks aparecem como indisponíveis **com motivo**), superfície por convenção de caminho, sem
+  conhecimento humano persistido entre execuções, sem recorte por área, sem HTML nem PDF, e sem
+  extração de regra de negócio.
+
 ### Alterado
 - `sw-infra-audit` (v0.16.0): **o papel de um componente passou a ser provado pela série que
   ele publica, não adivinhado pelo nome da imagem.** Era a última coisa na skill a violar o
