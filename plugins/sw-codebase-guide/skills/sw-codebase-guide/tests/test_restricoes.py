@@ -106,7 +106,42 @@ def test_o_documento_montado_nao_afirma_ausencia_de_dependentes(tmp_path):
     subprocess.run([sys.executable, str(RAIZ / 'scripts' / 'montar.py'),
                     '--dir', str(tmp_path)], check=True, capture_output=True)
     # Act
-    guia = (tmp_path / 'guide.md').read_text('utf-8').lower()
+    guia = (tmp_path / 'guide.md').read_text('utf-8')
     # Assert
-    achadas = [f for f in PROIBIDAS if f in guia]
+    achadas = [f for f in PROIBIDAS if f in guia.lower()]
     assert not achadas, f'o documento gerado afirma ausência: {achadas}'
+
+
+ATRIBUICAO = re.compile(r'— \*\*[^*]+\*\*, \d{4}-\d{2}-\d{2}')
+
+
+def test_frase_de_ausencia_so_vale_com_NOME_e_DATA_ao_lado(tmp_path):
+    """A formulação exata da promessa: **a skill** nunca afirma ausência de
+    dependentes, porque o grafo não pode provar isso. Uma **pessoa** pode — ela sabe
+    o que o grafo não vê, e é justamente para isso que o `knowledge.toml` existe.
+
+    O que separa as duas é a atribuição. "não é usado em lugar nenhum" escrito pelo
+    script é falsa confiança; a mesma frase com `— **ana**, 2026-10-07` ao lado é
+    testemunho, e o leitor sabe a quem perguntar se discordar.
+
+    Proibir a frase na resposta humana seria absurdo — "removemos o último chamador
+    ano passado, isto está morto" é exatamente o conhecimento que o código não tem.
+    """
+    # Arrange
+    sys.path.insert(0, str(RAIZ / 'scripts'))
+    from gravar import gravar
+    from montar import PROIBIDAS
+    varrer_em(POLIGLOTA, tmp_path)
+    gravar(tmp_path, sobre='servico/apoio.py', pergunta='pode apagar?',
+           resposta='sim, não é usado desde a migração', quem='ana',
+           quando='2026-10-07')
+    subprocess.run([sys.executable, str(RAIZ / 'scripts' / 'montar.py'),
+                    '--dir', str(tmp_path)], check=True, capture_output=True)
+    # Act
+    guia = (tmp_path / 'guide.md').read_text('utf-8')
+    suspeitas = [l for l in guia.split('\n')
+                 if any(f in l.lower() for f in PROIBIDAS)]
+    # Assert
+    assert suspeitas, 'o fixture precisa produzir a frase, senão o teste não prova nada'
+    for linha in suspeitas:
+        assert ATRIBUICAO.search(linha), f'frase de ausência sem nome e data: {linha}'

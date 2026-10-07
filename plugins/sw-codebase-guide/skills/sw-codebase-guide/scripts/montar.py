@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import julgar  # noqa: E402
+from lib import conhecimento, julgar  # noqa: E402
 from lib.arvore import eh_codigo  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
@@ -376,7 +376,7 @@ def _dependentes(inv: dict) -> list:
     return linhas
 
 
-def _julgamento(inv: dict) -> list:
+def _julgamento(inv: dict, respostas: list) -> list:
     """As quatro perguntas de quem recebe um projeto.
 
     É a única seção que OPINA, e por isso cada bloco segue a mesma forma: sinal
@@ -429,16 +429,31 @@ def _julgamento(inv: dict) -> list:
             A(f'- `{r["onde"]}` — {r["o_que"]}')
         A('')
 
-    if j['sem_alcance']:
+    ja_respondidos = {r['sobre'] for r in respostas}
+    abertos = [a for a in j['sem_alcance'] if a['caminho'] not in ja_respondidos]
+    if abertos:
         A('### Ninguém parece usar — ainda é usado?\n')
         A('**São perguntas, não veredito.** Nenhum import alcança estes arquivos e')
         A(f'ninguém os toca há mais de {julgar.DIAS_PARADO // 365} ano, mas o grafo')
         A('não vê injeção de dependência, rota como string nem reflexão. Papel que o')
         A('framework instancia por convenção já ficou de fora desta lista.  [deducao]\n')
-        for a in j['sem_alcance'][:10]:
+        for a in abertos[:10]:
             A(f'- `{a["caminho"]}` — {a["dias_parado"]} dias sem mudança')
-        if len(j['sem_alcance']) > 10:
-            A(f'- … e mais {len(j["sem_alcance"]) - 10}')
+        if len(abertos) > 10:
+            A(f'- … e mais {len(abertos) - 10}')
+        A('')
+
+    if respostas:
+        A('### Já perguntamos\n')
+        A('O que alguém respondeu, e que o código não diz. Sai da lista acima para o')
+        A('documento melhorar a cada rodada — e fica aqui, com nome e data, porque')
+        A('resposta sem quem a deu não dá para conferir depois.  [confirmado]\n')
+        for r in respostas:
+            aviso = ('' if not r.get('mudou_depois') else
+                     f' ⚠ o arquivo mudou em {r["mudou_depois"]}, depois desta '
+                     f'resposta — pode ter voltado a valer')
+            A(f'- `{r["sobre"]}` — *{r["pergunta"]}* {r["resposta"]} '
+              f'— **{r["quem"]}**, {r["quando"]}{aviso}')
         A('')
     return L
 
@@ -465,13 +480,15 @@ def _dentro_da_area(caminho: str, area: str) -> bool:
     return caminho == area or caminho.startswith(f'{area}/')
 
 
-def montar(inv: dict, afirmacoes: list) -> str:
+def montar(inv: dict, afirmacoes: list, respostas: list | None = None) -> str:
+    respostas = respostas or []
     L = []
     A = L.append
     A('# Guia do projeto\n')
     A('> Documento gerado por leitura do código. Cada afirmação carrega o nível de')
     A('> confiança: **fato** (medido) · **declarado** (humano escreveu antes) ·')
-    A('> **dedução** (inferida, com evidência) · **lacuna** (não apurado, com motivo).\n')
+    A('> **dedução** (inferida, com evidência) · **lacuna** (não apurado, com motivo)')
+    A('> · **confirmado** (alguém respondeu, e o nome está junto).\n')
 
     escopo = inv.get('escopo') or {}
     area = escopo.get('area')
@@ -480,7 +497,7 @@ def montar(inv: dict, afirmacoes: list) -> str:
         A(f'> **Recorte:** este documento cobre a área `{area}` '
           f'({escopo["n_arquivos"]} arquivo{plural}), não o projeto inteiro.\n')
 
-    L.extend(_julgamento(inv))
+    L.extend(_julgamento(inv, respostas))
     A('## Como entrar\n')
     for c in inv['stacks']:
         marca = '  *(fora da área, herdado da raiz)*' if c.get('de_fora_da_area') else ''
@@ -619,7 +636,16 @@ def main() -> int:
 
     # as DUAS montagens antes de qualquer escrita: recusa pela metade deixaria o
     # `guide.md` novo ao lado de um `leia-me.md` velho, e ninguém saberia qual
-    texto_guia = montar(inv, afirmacoes)
+    # o conhecimento humano é lido AQUI e envelhecido contra a data de mudança de
+    # cada arquivo: resposta dada antes da última alteração vira suspeita
+    try:
+        respostas = conhecimento.envelhecidas(
+            conhecimento.ler(base),
+            {c: {'ultima': d} for c, d in (inv.get('mudanca_por_arquivo') or {}).items()})
+    except ValueError as erro:
+        print(erro, file=sys.stderr)
+        return 2
+    texto_guia = montar(inv, afirmacoes, respostas)
     texto_leia_me = montar_leia_me(inv, narrativa)
     (base / 'guide.md').write_text(texto_guia, encoding='utf-8')
     (base / 'leia-me.md').write_text(texto_leia_me, encoding='utf-8')

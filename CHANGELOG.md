@@ -8,6 +8,37 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.5.0): **o que alguém responde passa a sobreviver à regeração.** Até
+  aqui os três artefatos eram descartáveis por desenho — o inventário se refaz, a
+  interpretação se reescreve, o documento se monta de novo —, e com eles ia embora tudo que
+  uma pessoa tivesse confirmado. Rodar a skill de novo em três meses fazia as mesmas perguntas
+  que já tinham sido respondidas, que é exatamente como um documento gerado perde
+  credibilidade.
+
+  O `knowledge.toml` é o **único arquivo da skill que não se regenera**, e por isso tem o
+  formato mais fechado de todos: quem grava é o `gravar.py`, com escrita **atômica** — o texto
+  novo é montado, conferido como TOML em memória, e só então substitui o arquivo. Anexar e
+  validar depois deixava um bloco quebrado dentro de um arquivo que ninguém pode refazer, e
+  aí a informação de todo mundo fica inacessível por causa de uma resposta malformada.
+
+  Isso cria o **quinto nível de confiança**. Os outros quatro — `fato`, `declarado`, `deducao`
+  e `lacuna` — derivam do repositório; `confirmado` é o único cujo lastro é uma pessoa, e por
+  isso ele nunca aparece sem o **nome dela e a data** ao lado. Resposta sem nome não dá para
+  conferir depois.
+
+  **A resposta envelhece por evidência, não por cronômetro.** O inventário passou a carregar a
+  data da última mudança de cada arquivo: respondido em outubro, arquivo mexido em dezembro, a
+  resposta aparece com aviso em vez de ser repetida como verdade. Ela não vira falsa — vira
+  suspeita, e o documento diz isso.
+
+  O que foi respondido **sai** da lista de perguntas e passa a constar em "já perguntamos". O
+  documento melhora a cada rodada, e a resposta continua conferível.
+
+  E a promessa mais forte da skill ganhou a sua formulação exata: **ela** nunca afirma ausência
+  de dependentes, porque o grafo não pode provar isso; uma **pessoa** pode, porque sabe o que o
+  grafo não vê. O que separa as duas é a atribuição, e há um teste que exige isso linha a
+  linha: frase de ausência no documento só vale com nome e data ao lado.
+
 - `sw-codebase-guide` (v0.4.0): **a skill passou a julgar** — e esta é a primeira versão em
   que ela opina sobre o projeto, não só o descreve. São as quatro perguntas de quem recebe
   código que ninguém da casa conhece, e cada uma tem uma forma só: **sinal medido, limiar

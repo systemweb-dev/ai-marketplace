@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import montar
-from lib import pagina  # noqa: E402
+from lib import conhecimento, pagina  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent.parent / 'assets'
 ESTILOS = ('escuro', 'brutalista')
@@ -172,7 +172,8 @@ def _abertura(inv: dict, narrativa: list | None = None) -> str:
 </header>'''
 
 
-def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str) -> str:
+def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str,
+              respostas: list | None = None) -> str:
     titulo = titulo_do_documento(inv, narrativa)
     corpo = ''.join(filter(None, [
         pagina.bloco_o_que_e(narrativa),
@@ -189,6 +190,7 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str) -> str:
         pagina.bloco_resolucao(inv),
         pagina.bloco_risco(inv),
         pagina.bloco_sem_alcance(inv),
+        pagina.bloco_respondido(respostas or []),
         pagina.bloco_ambiente(inv),
         pagina.bloco_afirmacoes(afirmacoes, 'como-entrar', 'Como entrar',
                                 'O que você precisa saber antes do primeiro comando.',
@@ -255,8 +257,11 @@ def main() -> int:
 
     inv = json.loads(inventario.read_text('utf-8'))
     afirmacoes, narrativa = _ler_interpretacao(base)
+    respostas = conhecimento.envelhecidas(
+        conhecimento.ler(base),
+        {c: {'ultima': d} for c, d in (inv.get('mudanca_por_arquivo') or {}).items()})
     destino = base / 'leia-me.html'
-    destino.write_text(construir(inv, afirmacoes, narrativa, args.estilo),
+    destino.write_text(construir(inv, afirmacoes, narrativa, args.estilo, respostas),
                        encoding='utf-8')
     print(destino)
 

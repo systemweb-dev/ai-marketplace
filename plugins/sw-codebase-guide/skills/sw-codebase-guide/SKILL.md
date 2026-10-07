@@ -147,6 +147,9 @@ O que cada seção carrega, e o quanto confiar nela:
   `.env.example` não declara) e `dossie` (os números da decisão "vale manter", **sem o
   veredito** — ele depende do custo de reescrita e do que o negócio depende, e nenhum dos dois
   está no código).
+- **`mudanca_por_arquivo`** — a data da última alteração de cada arquivo. Existe para
+  envelhecer resposta humana: respondida em outubro, arquivo mexido em dezembro, a pergunta
+  pode ter voltado a valer. Invalidação por **evidência**, não por cronômetro.
 - **`escopo`** e **`caminhos_do_projeto`** — o recorte usado e a lista completa de caminhos do
   projeto **inteiro**. A segunda existe porque percentual de teste e autoria são do projeto,
   não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%.
@@ -155,6 +158,9 @@ O que cada seção carrega, e o quanto confiar nela:
 
 Leia o `inventory.json` e os **poucos** arquivos que ele aponta como centrais. Não leia o
 projeto inteiro: o inventário existe justamente para isso.
+
+Leia também o `knowledge.toml`, se existir: ele traz o que alguém já respondeu, e
+repetir uma pergunta respondida é como um documento gerado perde credibilidade.
 
 Escreva `docs/project/interpretation.toml`. O formato é fechado — você preenche campos, não
 escreve prosa:
@@ -306,8 +312,13 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
 - **O grafo continua sem ver** injeção de dependência, rota como string, reflexão e include de
   template. Grafo melhor não torna verdadeiro o que ele não vê, e a skill continua **nunca**
   afirmando ausência de dependentes.
-- **Sem conhecimento humano persistido.** Não há `knowledge.toml` nem `gravar.py`: o que
-  alguém confirmar não sobrevive entre execuções — reescrever a interpretação é manual.
+- **O conhecimento humano sobrevive à regeração.** O `knowledge.toml` é o **único** arquivo
+  que não se regenera: inventário, interpretação e documento se refazem, mas o que está ali só
+  existe porque alguém respondeu. Grave com
+  `python3 <skill-dir>/scripts/gravar.py --dir docs/project --sobre <caminho> --pergunta "…"
+  --resposta "…" --quem <nome>`. O que foi respondido **sai** da lista de perguntas e passa a
+  constar em "já perguntamos", com nome e data — e volta a ser destacado se o arquivo mudar
+  depois da resposta.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os
   que estão no código dos módulos; stack de nicho não é reconhecida.
 - **Sem extração de regra de negócio** — só propósito com fonte textual citada.

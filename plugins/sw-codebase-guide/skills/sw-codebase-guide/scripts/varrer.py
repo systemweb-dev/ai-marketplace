@@ -98,6 +98,11 @@ def apurar(projeto: Path, area: str | None = None) -> dict:
         'risco': julgar.risco_visivel(inventario, historia.rastreados(projeto)),
         'dossie': julgar.dossie_de_decisao(inventario),
     }
+    # a data da última mudança de cada arquivo fica no inventário porque é ela que
+    # envelhece uma resposta humana: respondido em outubro, arquivo mexido em
+    # dezembro, a pergunta pode ter voltado a valer
+    inventario['mudanca_por_arquivo'] = {
+        c: v['ultima'] for c, v in sorted(por_arquivo.items())}
     return inventario
 
 

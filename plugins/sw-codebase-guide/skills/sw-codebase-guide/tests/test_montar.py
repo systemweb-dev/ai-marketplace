@@ -505,3 +505,35 @@ def test_o_texto_gerado_nao_usa_nenhuma_frase_proibida():
         {'js': contagem(relativos=1)}))).lower()
     # Assert
     assert not [f for f in PROIBIDAS if f in texto]
+
+
+def test_arquivo_respondido_sai_da_lista_de_perguntas(tmp_path):
+    """O documento precisa melhorar a cada rodada: pergunta já respondida que volta
+    a aparecer é como um relatório perde credibilidade. A resposta não some — vai
+    para "já perguntamos", com nome e data."""
+    # Arrange
+    import sys
+    sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+    from gravar import gravar as gravar_resposta
+    varrer(FIXTURES / 'poliglota_com_codigo', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['julgamento'] = {
+        'perigo': [], 'risco': [], 'dossie': {'autores': 1, 'commits': 2,
+                                              'semanas_de_vida': 1, 'semanas_parado': 0,
+                                              'arquivos_de_codigo': 3, 'pct_teste': 0,
+                                              'stacks': 1, 'linguagens_medidas': ['js'],
+                                              'falta': 'custo de reescrita'},
+        'sem_alcance': [{'caminho': 'api/app/Servico.php', 'dias_parado': 500},
+                        {'caminho': 'servico/apoio.py', 'dias_parado': 400}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    gravar_resposta(tmp_path, 'api/app/Servico.php', 'ainda é usado?',
+                    'sim, o agendador chama por reflexão', 'ana', quando='2026-10-07')
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    perguntas = guia.split('ainda é usado?')[1].split('### Já perguntamos')[0]
+    # Assert
+    assert 'api/app/Servico.php' not in perguntas, 'o respondido saiu da lista'
+    assert 'servico/apoio.py' in perguntas, 'o não respondido continua'
+    assert 'o agendador chama por reflexão' in guia
+    assert '**ana**, 2026-10-07' in guia

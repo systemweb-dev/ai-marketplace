@@ -450,3 +450,28 @@ def bloco_sem_alcance(inv: dict) -> str:
                          'os toca há mais de um ano — mas o grafo não vê injeção de '
                          'dependência, rota como string nem reflexão, e o papel que o '
                          'framework instancia por convenção já ficou de fora da lista.')
+
+
+def bloco_respondido(respostas: list) -> str:
+    """O que gente respondeu — o único bloco cujo lastro é uma pessoa.
+
+    Por isso ele nunca aparece sem nome e data: é isso que o separa de uma frase
+    solta no documento, e é o que dá a quem discorda a quem perguntar.
+    """
+    if not respostas:
+        return ''
+    itens = []
+    for r in respostas:
+        aviso = ('' if not r.get('mudou_depois') else
+                 f'<span class="leg alerta"> O arquivo mudou em '
+                 f'{e(r["mudou_depois"])}, depois desta resposta.</span>')
+        itens.append(
+            f'<li><code>{e(_encurtar(r["sobre"], 40))}</code>'
+            f'<span class="leg"><i>{e(r["pergunta"])}</i> {e(r["resposta"])} '
+            f'— <b>{e(r["quem"])}</b>, {e(r["quando"])}</span>{aviso}</li>')
+    return _bloco('Já perguntamos', 'declarado',
+                  'O que alguém respondeu, e que o código não diz.',
+                  f'<ul class="saltos">{"".join(itens)}</ul>', classe='n2', largo=True,
+                  rodape='Isto sobrevive à regeração: é o único arquivo da skill que não '
+                         'se refaz sozinho. A resposta volta a ser destacada se o arquivo '
+                         'mudar depois dela — invalidação por evidência, não por prazo.')
