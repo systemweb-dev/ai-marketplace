@@ -7,6 +7,75 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-codebase-guide` (v0.2.0): **um segundo documento, para gente, ao lado do relatório
+  técnico** — e o escopo escolhido na entrada, porque num projeto de 1.900 arquivos
+  "documentar o projeto" e "documentar o cadastro de cliente" são documentos diferentes.
+
+  `varrer.py --areas` imprime o menu de escopo e **não grava nada**; `--area <caminho>`
+  recorta. O recorte tem três regras, uma por seção: árvore e superfície por prefixo; stack e
+  ambiente por prefixo **mais o que é herdado de cima, marcado como tal**; história e menções
+  por **uma ponta dentro** — porque o par que cruza a fronteira é justamente o valor da seção
+  ("para mexer no funil você quase sempre mexe num componente que mora fora daqui").
+
+  O `montar.py` passa a emitir também o `leia-me.md`, em quatro partes: *o que o produto faz*,
+  *o percurso de uma funcionalidade*, *onde ficam as coisas* e *para mexer*. O `imprimir.py`
+  gera o `leia-me.html` — arquivo único, sem nenhuma requisição de rede, com as fontes
+  embutidas — e o PDF sob demanda. Três guardas recusam o processo inteiro, e nenhum dos dois
+  documentos é escrito quando uma delas fala: **frase de ausência** ("nada depende disso" não
+  existe neste documento), **trecho literal** (a citação tem que aparecer de fato na fonte) e
+  **caminho inventado** (toda evidência tem que existir no projeto).
+
+  Novo no inventário: `retrato` — quantas pessoas commitaram, quantos commits, idade e semanas
+  parado —, `textos` (a única seção que carrega conteúdo, e por isso redigida linha a linha),
+  `escopo` e `caminhos_do_projeto`. **Nunca zero no lugar de "não sei"**: sem git, o retrato
+  vem `None` com o motivo, porque `0 autores` se lê como *ninguém mexe nisso* e `1` como *uma
+  pessoa só*.
+
+### Corrigido
+- `sw-codebase-guide` (v0.2.0): **dez defeitos achados rodando a skill em dois projetos que
+  ela nunca tinha visto** — um monorepo por justaposição (quatro repositórios git, nenhum na
+  raiz) e um projeto PHP. Nenhum deles aparecia na suíte verde, e cinco têm a mesma causa: a
+  regra *"desça um nível quando a raiz não tem git"* fora escrita uma vez **por consumidor**,
+  então cada consumidor novo esquecia dela. Agora é um `subrepos()` só.
+
+  - **Fonte textual só valia na raiz.** Os padrões estavam ancorados em `^`, e num monorepo o
+    README de cada aplicação mora em `admin/`, `api/`, `website/`: seis READMEs na árvore,
+    **zero** lidos. Como "propósito só com fonte textual" é regra da skill, a frase mais
+    valiosa do documento virava lacuna por causa de um acento circunflexo. No projeto PHP o
+    caso era outro e pior: a única documentação morava em `.claude/`, que é podada da árvore —
+    agora ela é procurada à parte, e aquele projeto passou de 0 para 15 fontes.
+  - **A seção `textos` ganhou teto** (32 arquivos, 384 KB). Desancorar os padrões fez a
+    varredura engolir os dossiês de trabalho: 68 fontes e **1,4 MB** num arquivo que é
+    commitado, 60 delas `plan.md` e `spec.md` de tarefas já entregues. O que não cabe continua
+    na lista com o motivo, para quem lê abrir à mão.
+  - **O menu de escopo anunciava `0 commits` nas seis áreas de um monorepo vivo**, e ordenava
+    pela maior aplicação em vez da mais mexida. Não medido agora é `null`; zero medido segue
+    zero.
+  - **O documento dizia "não há repositório git aqui" ao lado de 782 commits de co-mudança**,
+    porque o `retrato` era o único que não descia nos sub-repositórios. E o bloco carimbava
+    NÃO APURADO sobre seis autores medidos: a lacuna ali não é ausência, é procedência.
+  - **`**Não rastreado:** Não rastreado:`** — o emissor põe o rótulo e quem escreve usa a mesma
+    palavra, que é a frase natural. Junto: *"Sem saltos: o percurso foi seguido sem buraco"*
+    saía sob **cada** parágrafo, então a página negava buraco duas vezes antes de mostrar dois.
+  - **A aba do navegador dizia "Guia do projeto"** em todo documento, e a manchete saiu com 207
+    caracteres num projeto cuja primeira frase separa as orações com `:` e vírgula.
+  - **O mesmo documento chamava um `.md` de código no cabeçalho e de "não é código" no bloco de
+    arquivos maiores** — duas definições na mesma página, com o conjunto `ATIVOS` existindo em
+    três cópias.
+  - **A crase da prosa aparecia na tela**: só a citação literal passava pelo renderizador, e
+    `` `Helper::isMinor` `` chegava ao leitor com as crases.
+
+  Mudança de contrato: **só o primeiro bloco de `o-que-e` precisa citar**. A guarda confere que
+  a citação *existe* na fonte, nunca que ela *sustenta* a frase — e exigir citação de todo
+  bloco empurra quem escreve a pendurar um trecho verdadeiro e sem relação embaixo do
+  parágrafo, que na tela aparece com cara de evidência. Pior que não citar. A frase mais
+  valiosa costuma ser dedução de evidências convergentes de código, e agora ela pode ser
+  escrita como é.
+
+  **30 provas por mutação**, e quatro delas só mataram depois de consertar o *fixture*. A
+  suíte foi de 95 para 206 testes.
+
 ### Corrigido
 - `sw-codebase-guide` (v0.1.1): **a seção "O que depende do quê" virava ruído ilegível quando
   não havia grafo de import.** Num projeto Next.js real ela saía com 142 linhas assim:

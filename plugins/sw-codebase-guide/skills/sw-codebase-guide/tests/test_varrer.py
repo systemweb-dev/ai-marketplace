@@ -89,3 +89,77 @@ def test_inventario_nao_carrega_carimbo_de_tempo(tmp_path):
     # Assert
     assert (tmp_path / 'a' / 'inventory.json').read_bytes() == \
            (tmp_path / 'b' / 'inventory.json').read_bytes()
+
+
+def rodar_areas(projeto):
+    return subprocess.run(
+        [sys.executable, str(RAIZ_SKILL / 'scripts' / 'varrer.py'),
+         '--projeto', str(projeto), '--areas'],
+        capture_output=True, text=True)
+
+
+def test_fase_de_areas_imprime_json_em_stdout(tmp_path):
+    # Arrange
+    projeto = projeto_simples(tmp_path / 'p')
+    for pasta in ('funil', 'tarefas', 'agenda'):
+        (projeto / 'src' / pasta).mkdir(parents=True)
+        for i in range(3):
+            (projeto / 'src' / pasta / f'{i}.py').write_text('x = 1')
+    # Act
+    r = rodar_areas(projeto)
+    # Assert
+    assert r.returncode == 0, r.stderr
+    saida = json.loads(r.stdout)
+    assert set(saida) >= {'areas', 'total_arquivos', 'ordenado_por'}
+    assert {a['caminho'] for a in saida['areas']} >= {'src/funil', 'src/tarefas'}
+
+
+def test_fase_de_areas_nao_grava_nada(tmp_path):
+    # Arrange
+    projeto = projeto_simples(tmp_path / 'p')
+    antes = {p for p in tmp_path.rglob('*')}
+    # Act
+    r = rodar_areas(projeto)
+    # Assert — o returncode importa: sem ele o teste passava inteirinho mesmo se
+    # `--areas` não existisse, e o step "esperado: FALHA" nunca aconteceria
+    assert r.returncode == 0, r.stderr
+    assert {p for p in tmp_path.rglob('*')} == antes
+
+
+def test_fase_de_areas_nao_abre_codigo(tmp_path, monkeypatch):
+    # Arrange — lista branca: a fase de áreas só pode abrir o que `textos` declara.
+    # O espião cobre `Path.read_text` E `open`: o plano previa os dois, mas o
+    # segundo chamava um `original_open` que nunca era definido — o teste teria
+    # morrido de NameError na primeira leitura, acusando a guarda errada.
+    import builtins
+    import pathlib
+
+    projeto = projeto_simples(tmp_path / 'p')
+    (projeto / 'README.md').write_text('# Loja')
+    abertos = []
+    original_read_text = pathlib.Path.read_text
+    original_open = builtins.open
+
+    def espiao_read_text(self, *a, **k):
+        abertos.append(str(self))
+        return original_read_text(self, *a, **k)
+
+    def espiao_open(arquivo, *a, **k):
+        abertos.append(str(arquivo))
+        return original_open(arquivo, *a, **k)
+
+    monkeypatch.setattr(pathlib.Path, 'read_text', espiao_read_text)
+    monkeypatch.setattr(builtins, 'open', espiao_open)
+    # Act
+    sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+    from varrer import apurar_areas
+    apurar_areas(projeto)
+    # Assert — o par POSITIVO primeiro: sem ele o laço não executa e o teste passa
+    # sem provar nada. `apurar_areas` TEM que ler as fontes textuais, senão a
+    # conferência de trecho literal não tem de onde sair.
+    from lib.textos import eh_fonte_textual
+    dentro = [c for c in abertos if str(projeto) in c]
+    assert dentro, 'a fase de áreas não leu nenhuma fonte textual'
+    for caminho in dentro:
+        relativo = str(Path(caminho).relative_to(projeto))
+        assert eh_fonte_textual(relativo), f'abriu {relativo}, que não é fonte textual'

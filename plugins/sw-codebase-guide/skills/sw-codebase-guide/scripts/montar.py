@@ -13,9 +13,13 @@ Duas propriedades inegociáveis:
 """
 import argparse
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.arvore import eh_codigo  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
 TETO_SIMBOLOS = 40
@@ -31,7 +35,213 @@ CEGUEIRAS = [
 ]
 
 
-def _ler_interpretacao(caminho: Path) -> list:
+# prefixo que denuncia evidência que NÃO é caminho de arquivo
+NAO_CAMINHO = ('commit ', 'http://', 'https://')
+
+
+def evidencia_valida(ev: str, caminhos: set) -> bool:
+    """A evidência aponta para algo que existe? Quatro formas são legítimas.
+
+    O `SKILL.md` documenta `app/Pedido.php:88` e os testes usam `commit 3c5aabb`.
+    Uma conferência ingênua recusaria a evidência CORRETA e derrubaria três testes
+    que já passam — por isso a guarda nasce conhecendo as quatro formas:
+    caminho, caminho com `:linha`, diretório com barra no fim, e não-caminho.
+    """
+    if ev.startswith(NAO_CAMINHO):
+        return True
+    alvo = ev.rsplit(':', 1)[0] if re.search(r':\d+$', ev) else ev
+    if alvo in caminhos:
+        return True
+    if alvo.endswith('/'):
+        return any(c.startswith(alvo) for c in caminhos)
+    return False
+
+
+# Frases que a skill NUNCA emite: o grafo não sabe o bastante para afirmar
+# ausência, e "nada depende disso" é o dano que ela existe para evitar.
+# Mora aqui, e não no teste, porque a recusa é do PARSER — duas listas
+# divergiriam na primeira vez que alguém acrescentasse uma frase a uma só.
+# Em prosa livre sobre pasta o FEMININO é a forma natural ("a pasta não é usada").
+# A lista veio de um `guide.md` templatizado, onde só o masculino aparecia; para
+# texto do agente ela precisa da flexão, senão a guarda passa ao largo.
+PROIBIDAS = ('nada depende', 'sem dependentes', 'nenhum dependente',
+             'não é usad', 'nao e usad', 'não são usad', 'nao sao usad',
+             'não há dependentes', 'nao ha dependentes', 'sem uso')
+
+PARTES = {'o-que-e', 'percurso', 'mapa', 'orientacoes'}
+# `trecho` e `fonte` NÃO são obrigatórios em todo bloco de `o-que-e`: o primeiro
+# ancora a parte numa fonte textual, e exigir dos demais empurrava quem escreve a
+# pendurar uma citação verdadeira e sem relação embaixo do parágrafo — que na tela
+# aparece com cara de evidência, e é pior que não citar. A guarda confere que a
+# citação EXISTE, nunca que ela SUSTENTA a frase; esse limite não se resolve com
+# mais exigência, se resolve tirando o incentivo.
+OBRIGATORIOS = {
+    'o-que-e': ('texto', 'evidencia'),
+    'percurso': ('texto', 'evidencia'),
+    'mapa': ('texto', 'evidencia'),
+    'orientacoes': ('texto', 'evidencia'),
+}
+
+TITULOS = {
+    'o-que-e': 'O que o produto faz',
+    'percurso': 'O percurso de uma funcionalidade',
+    'mapa': 'Onde ficam as coisas',
+    'orientacoes': 'Para mexer',
+}
+# a ordem é PEDAGÓGICA: o que é → como funciona de ponta a ponta → onde ficam as
+# coisas → como agir. Não é a ordem em que o agente escreve.
+ORDEM_DAS_PARTES = ('o-que-e', 'percurso', 'mapa', 'orientacoes')
+
+# Cada parte aponta a seção do relatório técnico: é a mitigação declarada da
+# decisão "número livre na narrativa" — não impede divergir, torna descobrível em
+# um clique. Cada parte aponta uma seção DIFERENTE: duas apontando a mesma
+# (`percurso` e `mapa` iam as duas para "como entrar") entregam o leitor no lugar
+# errado, que é pior do que não ter link.
+ANCORA = {'o-que-e': 'o-que-o-sistema-faz',
+          'percurso': 'superfície-pública',
+          'mapa': 'como-entrar',
+          'orientacoes': 'o-que-depende-do-quê'}
+
+
+def _normalizar(texto: str) -> str:
+    """Colapsa espaço, tabulação e quebra de linha num espaço só.
+
+    Sem isto a guarda do trecho nasce morta: README quebrado em 80 colunas faz
+    qualquer frase citada atravessar linhas, a substring exata falha, e o agente
+    aprende a citar fragmentos de quatro palavras para escapar — o oposto do que
+    se quer.
+    """
+    return ' '.join(texto.split())
+
+
+def _conferir_trecho(bloco: dict, textos: dict) -> None:
+    """O pior modo de falha da parte "o que o produto faz" não é falsidade: é ser
+    fluente, verdadeira e INÚTIL. *"O sistema gerencia clientes e pedidos, com
+    um funil de vendas"* passa em qualquer conferência de caminho, e o dev já
+    sabia disso lendo o nome das pastas. Trecho literal não consegue ser
+    vazio-e-fluente: ou está escrito na fonte, ou não está."""
+    fonte = bloco['fonte']
+    if fonte not in textos:
+        raise ValueError(
+            f'fonte não é fonte textual reconhecida: {fonte!r} — '
+            f'use README, CLAUDE.md, docs/ ou ADR')
+    if textos[fonte].get('omitido'):
+        # sem esta guarda a mensagem seria "o trecho não aparece em X" — e mandaria
+        # procurar erro na citação quando o conteúdo é que não foi lido
+        raise ValueError(
+            f'o conteúdo de {fonte} não entrou no inventário ({textos[fonte]["motivo"]}); '
+            f'cite uma fonte lida ou leia este arquivo e confira o trecho à mão')
+    if _normalizar(bloco['trecho']) not in _normalizar(textos[fonte]['conteudo']):
+        raise ValueError(
+            f'o trecho citado não aparece em {fonte}: {bloco["trecho"][:60]!r}')
+
+
+ROTULO_DO_SALTO = re.compile(r'(?i)^\s*n[aã]o\s+rastreado\s*[:\-—]\s*')
+
+
+def limpar_salto(salto: str) -> str:
+    """Tira o rótulo que o documento já põe.
+
+    "Não rastreado" é a frase natural de quem escreve o salto, e os dois emissores
+    carimbam o rótulo por conta própria — o `leia-me.md` no texto, o HTML por CSS.
+    Rodando num projeto real saiu `**Não rastreado:** Não rastreado: o que acontece…`.
+    Limpar aqui, no leitor, conserta os dois de uma vez.
+    """
+    return ROTULO_DO_SALTO.sub('', salto).strip()
+
+
+def _ler_narrativa(dados: dict, caminhos: set, textos: dict) -> list:
+    blocos = dados.get('narrativa', [])
+    for b in blocos:
+        parte = b.get('parte')
+        if parte not in PARTES:
+            raise ValueError(f'parte inválida ou ausente: {parte!r}')
+        for campo in OBRIGATORIOS[parte]:
+            if not b.get(campo):
+                raise ValueError(f'{parte}: campo obrigatório ausente: {campo}')
+        baixo = b['texto'].lower()
+        for frase in PROIBIDAS:
+            if frase in baixo:
+                raise ValueError(
+                    f'{parte}: frase proibida no texto ({frase!r}) — ausência de '
+                    f'dependentes nunca é afirmada')
+        # `saltos` é obrigatório no percurso MESMO VAZIO: a lista vazia afirma
+        # "segui do clique até o banco sem buraco nenhum", que é afirmação forte.
+        # Omitir o campo deixaria "não tentei" indistinguível de "segui inteiro".
+        if parte == 'percurso' and 'saltos' not in b:
+            raise ValueError(
+                'percurso: o campo `saltos` é obrigatório, mesmo vazio — lista vazia '
+                'afirma "segui do clique até o banco sem buraco", e omitir o campo '
+                'deixaria "não tentei" indistinguível disso')
+        # `ordem` precisa ser inteiro: `ordem = "dois"` passava por todas as
+        # validações e explodia no `sorted` com TypeError e traceback — o parser
+        # tem que recusar com motivo, nunca estourar
+        if 'ordem' in b and not isinstance(b['ordem'], int):
+            raise ValueError(
+                f'{parte}: ordem precisa ser um número inteiro, veio {b["ordem"]!r}')
+        if b.get('saltos'):
+            b['saltos'] = [limpar_salto(s) for s in b['saltos']]
+        if parte == 'o-que-e' and b.get('trecho'):
+            if not b.get('fonte'):
+                raise ValueError('o-que-e: bloco com `trecho` precisa de `fonte`')
+            _conferir_trecho(b, textos)
+        for ev in b['evidencia']:
+            if not evidencia_valida(ev, caminhos):
+                raise ValueError(f'evidência não existe no projeto: {ev!r}')
+    # a parte "o que o produto faz" continua ancorada: sem nenhuma citação ela vira
+    # prosa fluente sem lastro, que é o modo de falha que a guarda existe para pegar
+    o_que_e = sorted((b for b in blocos if b['parte'] == 'o-que-e'),
+                     key=lambda b: b.get('ordem', 0))
+    if o_que_e and not o_que_e[0].get('trecho'):
+        raise ValueError(
+            'o-que-e: o primeiro bloco precisa de `trecho` e `fonte` — é ele que '
+            'ancora a parte numa fonte textual. Os blocos seguintes podem se '
+            'sustentar só na evidência de código')
+    return sorted(blocos, key=lambda b: (b['parte'], b.get('ordem', 0)))
+
+
+def montar_leia_me(inv: dict, narrativa: list) -> str:
+    """O documento humano, ao lado do relatório técnico.
+
+    Markdown aqui é para versionar e dar diff; quem vai LER de ponta a ponta abre
+    o `leia-me.html`, que o `imprimir.py` monta do mesmo material.
+    """
+    L = []
+    A = L.append
+    A('# Guia para quem vai mexer\n')
+    escopo = inv.get('escopo') or {}
+    if escopo.get('area'):
+        A(f'> Cobre a área `{escopo["area"]}`, não o projeto inteiro.\n')
+    A('> Documento escrito a partir do código. O relatório técnico, com a evidência')
+    A('> de cada afirmação, está em [`guide.md`](guide.md).\n')
+
+    por_parte = {}
+    for b in narrativa:
+        por_parte.setdefault(b['parte'], []).append(b)
+
+    for parte in ORDEM_DAS_PARTES:
+        A(f'## {TITULOS[parte]}\n')
+        # link curto, não frase: a mesma sentença repetida sob quatro títulos
+        # vira ruído e o olho aprende a pular justamente o que deveria seguir
+        A(f'[→ a evidência, no relatório técnico](guide.md#{ANCORA[parte]})\n')
+        blocos = sorted(por_parte.get(parte, []), key=lambda b: b.get('ordem', 0))
+        if not blocos:
+            A('*A interpretação não escreveu esta parte.*\n')
+            continue
+        for b in blocos:
+            A(b['texto'] + '\n')
+            if b.get('trecho'):
+                # o literal ao lado da paráfrase: é assim que o leitor confere
+                A(f'> {b["trecho"]}')
+                A(f'> — `{b["fonte"]}`\n')
+            for salto in b.get('saltos', []):
+                A(f'- **Não rastreado:** {salto}')
+            if b.get('saltos'):
+                A('')
+    return '\n'.join(L)
+
+
+def _ler_interpretacao(caminho: Path, caminhos: set | None = None) -> list:
     if not caminho.exists():
         return []
     dados = tomllib.loads(caminho.read_text('utf-8'))
@@ -46,6 +256,12 @@ def _ler_interpretacao(caminho: Path) -> list:
         if a['nivel'] != 'lacuna' and not a.get('evidencia'):
             raise ValueError(
                 f'afirmacao sem evidencia e sem ser lacuna: {a.get("texto")!r}')
+        # a conferência é o que impede prosa plausível de entrar com citação
+        # inventada — o modo de falha mais caro, porque quem recebe o documento
+        # leva a frase ao cliente como se fosse apurada
+        for ev in a.get('evidencia', []):
+            if caminhos is not None and not evidencia_valida(ev, caminhos):
+                raise ValueError(f'evidência não existe no projeto: {ev!r}')
     return afirmacoes
 
 
@@ -136,6 +352,10 @@ def _escrever(L: list, afirmacoes: list, secao: str) -> None:
     L.append('')
 
 
+def _dentro_da_area(caminho: str, area: str) -> bool:
+    return caminho == area or caminho.startswith(f'{area}/')
+
+
 def montar(inv: dict, afirmacoes: list) -> str:
     L = []
     A = L.append
@@ -144,20 +364,28 @@ def montar(inv: dict, afirmacoes: list) -> str:
     A('> confiança: **fato** (medido) · **declarado** (humano escreveu antes) ·')
     A('> **dedução** (inferida, com evidência) · **lacuna** (não apurado, com motivo).\n')
 
+    escopo = inv.get('escopo') or {}
+    area = escopo.get('area')
+    if area:
+        plural = '' if escopo['n_arquivos'] == 1 else 's'
+        A(f'> **Recorte:** este documento cobre a área `{area}` '
+          f'({escopo["n_arquivos"]} arquivo{plural}), não o projeto inteiro.\n')
+
     A('## Como entrar\n')
     for c in inv['stacks']:
-        A(f'- **{c["stack"]}** em `{c["caminho"]}` — {_como_foi_detectada(c)}  [fato]')
+        marca = '  *(fora da área, herdado da raiz)*' if c.get('de_fora_da_area') else ''
+        A(f'- **{c["stack"]}** em `{c["caminho"]}` — {_como_foi_detectada(c)}  [fato]{marca}')
     if not inv['stacks']:
         A('- nenhum manifesto reconhecido na raiz  [lacuna: o projeto não declara stack '
           'por manifesto conhecido]')
     A('')
     # "2.036 arquivos" se lê como 2.036 arquivos de CÓDIGO; num projeto real metade
-    # eram PNG e SVG. A afirmação estava correta e comunicava errado.
-    ATIVOS = {'png', 'svg', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'woff', 'woff2',
-              'ttf', 'eot', 'mp4', 'pdf', 'zip', 'config'}
-    ativos = sum(1 for a in inv['arvore'] if a['linguagem'] in ATIVOS)
-    codigo = len(inv['arvore']) - ativos
-    A(f'{codigo} arquivos de código e {ativos} de imagem, fonte ou configuração '
+    # eram PNG e SVG. A afirmação estava correta e comunicava errado. O predicado
+    # mora no `pagina.py` e vale para os dois documentos: markdown e YAML entram no
+    # segundo número, que é onde o bloco de arquivos maiores já os punha.
+    codigo = sum(1 for a in inv['arvore'] if eh_codigo(a['linguagem']))
+    resto = len(inv['arvore']) - codigo
+    A(f'{codigo} arquivos de código e {resto} de imagem, texto ou configuração '
       f'(fora `vendor/`, `node_modules/`, cache e gerados).  [fato]\n')
     for arquivo, chaves in inv['ambiente'].items():
         A(f'`{arquivo}` declara {len(chaves)} variáveis — **só os nomes**, '
@@ -197,10 +425,15 @@ def montar(inv: dict, afirmacoes: list) -> str:
     else:
         if h['lacuna']:
             A(f'> Ressalva: {h["lacuna"]}.  [lacuna parcial]\n')
-        A(f'De {h["commits"]} commits '
+        de_onde = ' do projeto todo' if area else ''
+        A(f'De {h["commits"]} commits{de_onde} '
           f'({h["commits_descartados"]} descartados por tocarem arquivos demais).  [fato]\n')
         for c in h['co_mudanca'][:20]:
-            A(f'- `{c["arquivos"][0]}` + `{c["arquivos"][1]}` — {c["vezes"]}x')
+            # a ponta que está FORA da área sai marcada: "mexer aqui mexe lá fora"
+            # só ensina alguma coisa se o leitor souber qual é o lá fora
+            marcas = [f'`{a}`' + ('' if not area or _dentro_da_area(a, area) else ' *(fora)*')
+                      for a in c['arquivos']]
+            A(f'- {marcas[0]} + {marcas[1]} — {c["vezes"]}x')
         A('')
 
     A('## Superfície pública\n')
@@ -240,7 +473,10 @@ def montar(inv: dict, afirmacoes: list) -> str:
         A('- Qual é o propósito de negócio do sistema, e quem o usa?')
     if 'como-entrar' not in respondido:
         A('- Como se sobe este projeto do zero?')
-    A('- Alguma destas pastas já não é usada e pode ser apagada?')
+    # A pergunta não pode CONTER a forma de uma afirmação de ausência: quem lê
+    # de relance guarda "a pasta não é usada" e esquece o ponto de interrogação.
+    # A própria guarda `PROIBIDAS` pegava esta linha, e estava certa.
+    A('- Estas pastas ainda são usadas? Alguma pode ser apagada?')
     A('')
     return '\n'.join(L)
 
@@ -257,14 +493,28 @@ def main() -> int:
         return 2
 
     try:
-        afirmacoes = _ler_interpretacao(base / 'interpretation.toml')
+        inv = json.loads(inventario.read_text('utf-8'))
+        # `caminhos` vem de `caminhos_do_projeto`, NÃO de `arvore`: com área
+        # escolhida a árvore está recortada, e citar a ponta de fora é legítimo —
+        # é exatamente o que a seção de orientações existe para dizer.
+        caminhos = set(inv.get('caminhos_do_projeto')
+                       or [a['caminho'] for a in inv.get('arvore', [])])
+        afirmacoes = _ler_interpretacao(base / 'interpretation.toml', caminhos)
+        arquivo = base / 'interpretation.toml'
+        dados = tomllib.loads(arquivo.read_text('utf-8')) if arquivo.exists() else {}
+        narrativa = _ler_narrativa(dados, caminhos, inv.get('textos') or {})
     except ValueError as erro:
         print(f'interpretation.toml inválido: {erro}', file=sys.stderr)
         return 2
 
-    texto = montar(json.loads(inventario.read_text('utf-8')), afirmacoes)
-    (base / 'guide.md').write_text(texto, encoding='utf-8')
+    # as DUAS montagens antes de qualquer escrita: recusa pela metade deixaria o
+    # `guide.md` novo ao lado de um `leia-me.md` velho, e ninguém saberia qual
+    texto_guia = montar(inv, afirmacoes)
+    texto_leia_me = montar_leia_me(inv, narrativa)
+    (base / 'guide.md').write_text(texto_guia, encoding='utf-8')
+    (base / 'leia-me.md').write_text(texto_leia_me, encoding='utf-8')
     print(f'{base / "guide.md"}')
+    print(f'{base / "leia-me.md"}')
     return 0
 
 

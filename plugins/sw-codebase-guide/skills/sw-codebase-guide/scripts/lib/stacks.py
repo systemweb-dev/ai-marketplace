@@ -41,6 +41,9 @@ IGNORAR = {
     # cache de ferramenta e config de editor: apareciam como EVIDÊNCIA de símbolo no
     # documento (`.ruff_cache/0.16.3/11569727403539023932`), que não ajuda ninguém
     '.ruff_cache', '.pytest_cache', '.mypy_cache', '.claude', '.idea', '.vscode',
+    # `.temp` do Supabase guardava um JSON de 2,8 MB que entrava no documento como
+    # "o maior arquivo do projeto" — era cache de migration, não código de ninguém
+    '.temp', '.tmp', '.parcel-cache', '.gradle', '.dart_tool', '.playwright-mcp',
 }
 
 # Extensão → stack, para a linguagem que domina o projeto sem nenhum manifesto.

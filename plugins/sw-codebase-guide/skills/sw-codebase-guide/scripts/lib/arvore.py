@@ -7,6 +7,29 @@ from pathlib import Path
 
 from lib.stacks import IGNORAR, caminhar
 
+# O vocabulário de "o que é código" mora AQUI, junto de quem atribui a linguagem, e
+# não em cada emissor: o conjunto já existiu em três cópias, e os dois documentos
+# chegaram a discordar sobre se um `.md` é código.
+ATIVOS = {'png', 'svg', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'woff', 'woff2',
+          'ttf', 'eot', 'mp4', 'pdf', 'zip', 'config'}
+
+# prosa e dado: contam em "do que é feito" (saber que um projeto tem 73 markdowns
+# diz algo), mas NÃO em "arquivos maiores", que pergunta onde está a massa do
+# CÓDIGO. Sem este corte, os cinco maiores eram todos documento, e o bloco
+# respondia outra pergunta — num projeto real o topo era um plano de 253 KB.
+NAO_E_CODIGO = {'markdown', 'text', 'rst', 'adoc', 'json', 'yaml', 'yml',
+                'toml', 'xml', 'csv', 'ini', 'tsbuildinfo', 'lock'}
+
+
+def eh_codigo(linguagem: str) -> bool:
+    """Uma definição de código, para o documento inteiro.
+
+    O cabeçalho contava `.md` e `.yaml` como código e o bloco de arquivos maiores
+    dizia que não eram — duas definições na mesma página, e o conjunto `ATIVOS` em
+    três cópias, uma por emissor.
+    """
+    return linguagem not in ATIVOS and linguagem not in NAO_E_CODIGO
+
 LINGUAGENS = {
     '.php': 'php', '.py': 'python', '.js': 'javascript', '.jsx': 'javascript',
     '.ts': 'typescript', '.tsx': 'typescript', '.go': 'go', '.rb': 'ruby',
@@ -17,7 +40,8 @@ LINGUAGENS = {
 }
 
 # Sufixo que denuncia arquivo gerado: ele infla a contagem e polui o grafo.
-GERADOS = ('.min.js', '.min.css', '.lock', '.map', '-lock.json', '.pyc', '.generated.ts')
+GERADOS = ('.min.js', '.min.css', '.lock', '.map', '-lock.json', '.pyc', '.generated.ts',
+           '.tsbuildinfo', '.snap', '.pb.go', '_pb2.py')
 
 
 def linguagem_de(caminho: Path) -> str:

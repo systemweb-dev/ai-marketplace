@@ -16,6 +16,114 @@ fonte.
 **Stack:** Python 3 só stdlib, pytest pela `.venv` da skill. Rode sempre
 `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q` — não há pytest no sistema.
 
+**Ajustes durante a execução (07/10):**
+
+1. **A task 13 (HTML) sobe para depois da 6.** O dono aprovou em mockup o desenho do documento
+   e quer vê-lo virar arquivo cedo, sobre o conteúdo que já existe. As tasks 7 a 12 passam a
+   preencher um documento que já tem forma, em vez de ganharem forma no fim.
+2. **O spike da task 1 passou, e mudou uma regra.** Propósito pode sair como `deducao` com
+   evidência convergente de três fontes de natureza diferente, todas citadas — ver
+   [`referencias/spike-prosa.md`](referencias/spike-prosa.md). A regra antiga ("só com fonte
+   textual") é estrita demais e joga fora a frase mais útil do documento.
+3. **O recorte por funcionalidade não está neste plano.** O mockup mostrou que ninguém pede uma
+   pasta, pede "o cadastro de cliente" — e que a funcionalidade atravessa 5 pastas. Entra como
+   trabalho próprio depois do marco 2; o `areas.py` da task 3 continua valendo como base.
+
+4. **A calibração da task 3 (step 7) mudou o `areas.py` em quatro pontos.** O menu que o
+   código do plano produzia não servia em projeto real, e o teste-âncora do Next.js passava
+   por acidente do fixture. Os números novos:
+
+   | Constante | Valor | Por quê |
+   |---|---|---|
+   | `COBERTURA` | 0.70 | **nova.** Os filhos precisam responder por 70% do pai. Sem ela, uma pasta com 180 arquivos soltos no topo e três subpastas de 4 era cortada nas três, e os 180 sumiam do menu. |
+   | `TETO_AREA` | 120 | **nova.** Área maior que isto é substituída pelo que há dentro. É o que leva de `src` às áreas do App Router — o corte global parava no nível 1 e oferecia `src` num projeto de 630 arquivos. |
+   | átomo de stack | — | **nova regra.** Pasta com manifesto próprio não se abre: no monorepo, `admin/` é um sistema inteiro. Guardada em dois pontos; quebrar um só não derruba o teste, quebrar os dois derruba. |
+   | `LIXO` | 6 nomes | **nova.** `.playwright-mcp` entrou num menu real; a poda do `stacks` não pega saída de ferramenta. |
+
+   `DOMINANTE` (0.80), `MIN_FILHOS` (3) e `PISO_ARQUIVOS` (3) ficaram como o plano previa.
+   Menus resultantes nos quatro projetos: monorepo → as 3 aplicações; Next.js → `src/app`,
+   `src/lib`, `src/components`, `supabase`, `tests/*`; framework PHP → `app/Admin`,
+   `app/LogicApp/Models`, `app/LogicApp/Rules`…; este repositório → um `plugins/<skill>` cada.
+
+5. **Defeito de desempenho no `redact.py`, achado pela task 2.** O padrão `PAR` tinha a chave
+   ilimitada, e 64 KB numa linha só levavam **80 segundos** — busca quadrática, não
+   backtracking exótico. Chave limitada a 128 caracteres: 0,34 s. Nome de chave real não
+   passa disso.
+
+6. **A task 13 mudou de forma ao ser executada (07/10).** O plano previa converter o
+   `leia-me.md` em HTML com um parser de Markdown de cozinha. Isso **não serve**: hierarquia de
+   três níveis, barras, cartões de retrato e etiqueta de confiança não existem em Markdown, e
+   converter perderia exatamente o que o mockup provou fazer o documento ser lido. O HTML passou
+   a ser um **emissor irmão do `montar.py`**, sobre o mesmo `inventory.json` — módulo novo
+   `lib/pagina.py` (os blocos) + `scripts/imprimir.py` (CLI e template). Dois estilos à escolha:
+   `--estilo escuro|brutalista`.
+
+7. **Seção `retrato` nova no inventário** (`historia.retrato`), que o desenho exigia e não
+   existia: autores distintos, commits, primeiro e último commit, semanas de vida e semanas
+   parado. **Nunca devolve zero no lugar de "não sei"** — sem git, `autores` vem `None` com a
+   lacuna escrita, porque `0 autores` se lê como *ninguém mexe nisso* e `1` se lê como *uma
+   pessoa só*. É a frente **B** (julgamento) começando, e saiu quase de graça.
+
+8. **Três defeitos de inventário achados olhando o documento gerado**, nenhum visível na suíte:
+   `supabase/.temp/` não era podado e um JSON de cache de **2,8 MB** aparecia como "o maior
+   arquivo do projeto"; `.tsbuildinfo` não contava como gerado; e "arquivos maiores" listava
+   markdown e lock, respondendo outra pergunta que não "onde está a massa do código". O
+   encurtamento de caminho também cortava no meio do nome (`…afbad8760d14-179103…`) — passou a
+   ceder a pasta e preservar o arquivo.
+
+9. **Defeitos achados nas tasks 7 a 12**, todos por execução e leitura, nenhum visível na
+   suíte verde:
+
+   | Onde | O que estava errado |
+   |---|---|
+   | `montar.py` | A pergunta que a própria skill fazia — *"Alguma destas pastas já não é usada?"* — **continha** uma frase de ausência. A guarda `PROIBIDAS` real pegou, e estava certa: quem lê de relance guarda a afirmação e esquece o ponto de interrogação. Reescrita para *"Estas pastas ainda são usadas?"*. |
+   | `test_montar.py` | Tinha a **própria cópia** de `PROIBIDAS`, mais fraca que a do parser. Importar a de verdade derrubou dois testes na hora. |
+   | `_ler_narrativa` | `ordem = "dois"` passava por todas as validações e explodia no `sorted` com `TypeError` e traceback. |
+   | `leia-me.md` | `percurso` e `mapa` apontavam a **mesma** seção do relatório, e `percurso` apontava a errada. Link que entrega no lugar errado é pior que link nenhum. |
+   | `leia-me.md` | A frase *"Os números e a evidência estão em…"* repetida sob quatro títulos vira ruído; virou um link curto. |
+   | `pagina.py` | O trecho literal vem de um `.md` e chegava cru: `**single-tenant**` na tela. Agora escapa e **depois** renderiza negrito e código — com teste provando que HTML da fonte não vira HTML da página. |
+   | `pagina.py` | O **% de teste** do retrato saía da árvore recortada, enquanto autores e commits eram do projeto: uma área de telas virava *"0% é teste · mexer aqui não tem rede"* num projeto com 44% de cobertura. |
+
+10. **O `imprimir.py` passou a carregar a narrativa.** Sem isso o HTML tinha o desenho e não
+    tinha o texto, e o título era *"Um projeto de 630 arquivos em node"* — verdadeiro e vazio.
+    Agora o título sai da primeira frase do bloco `o-que-e`.
+
+11. **Rodada de teste em dois projetos novos (07/10), antes de publicar.** Um monorepo por
+    justaposição (4 repositórios git, sem git na raiz, 1.938 arquivos) e um projeto PHP com
+    git na raiz. **Dez defeitos**, nenhum visível na suíte verde — e cinco deles são a mesma
+    causa: a regra *"desça um nível quando a raiz não tem git"* foi escrita uma vez **por
+    consumidor**, então cada consumidor novo esqueceu dela. Agora é um `subrepos()` só.
+
+    | # | O que estava errado | Por que importa |
+    |---|---|---|
+    | 1 | `commits_recentes: 0` nas seis áreas de um monorepo vivo | zero medido ≠ não medido; agora `None` |
+    | 2 | `commits_por_pasta` não descia nos sub-repos | o menu ordenava a maior aplicação primeiro, não a viva |
+    | 3 | `retrato` não descia | o documento dizia "não há git aqui" ao lado de 782 commits |
+    | 4 | fonte textual só valia na **raiz** (`^`) | 6 READMEs na árvore, **zero** lidos: propósito virava lacuna por um `^` |
+    | 5 | desancorar varreu os dossiês | 68 fontes e **1,4 MB** num arquivo commitado, 60 delas `plan.md` de tarefas |
+    | 6 | `.claude/` é podada e guardava a **única** documentação | projeto PHP documentado saía com `textos: []` |
+    | 7 | `**Não rastreado:** Não rastreado:` | o emissor põe o rótulo e o autor escreve a mesma palavra |
+    | 8 | `<title>` fixo e manchete de 207 caracteres | três projetos abertos, três abas idênticas |
+    | 9 | `.md` era código no cabeçalho e não-código em "arquivos maiores" | duas definições na mesma página, e `ATIVOS` em **três** cópias |
+    | 10 | crase da prosa aparecia na tela | só a citação literal passava pelo renderizador |
+
+    Dois defeitos tinham a assinatura de "a correção chegou a um emissor só": o rótulo do
+    salto (consertado no markdown, não no HTML, porque os dois leem o TOML por conta própria)
+    e o `Sem saltos: o percurso foi seguido sem buraco`, que saía sob **cada** parágrafo — a
+    página negava buraco duas vezes e então mostrava dois.
+
+    **26 provas por mutação, 26 mortes** — mas quatro só depois de consertar o *fixture*: três
+    vezes o teto **por arquivo** (64 KB) fez o orçamento da seção nunca estourar no teste, e
+    uma vez o fixture tinha autores diferentes em cada sub-repo, que é justamente o caso em
+    que união e soma dão o mesmo número. **95 → 202 testes.**
+
+12. **Limite conhecido, não consertado.** A guarda do trecho literal exige que a citação
+    **exista** na fonte, não que ela **sustente** a frase. Escrevendo a interpretação do
+    monorepo eu mesmo satisfiz a guarda com uma citação verdadeira e sem relação com o
+    parágrafo — e na tela ela aparece logo abaixo do texto, com cara de evidência. É mais
+    grave que não ter citação. Decisão do dono: ver o item "Limite do trecho literal" no
+    relato da rodada.
+
 **Marcos (do spec), com ponto de parada utilizável no meio:**
 
 | Marco | Tasks | Fecha quando |
@@ -75,7 +183,7 @@ parte 1 do documento humano — o coração do pedido do dono — vira ruído ed
 **Se não:** o documento humano encolhe para mapa + orientações, a parte 1 vira só a citação
 literal sem paráfrase, e as tasks 9 e 10 encolhem junto.
 
-- [ ] **Step 1: escolher dois projetos de formas diferentes**
+- [x] **Step 1: escolher dois projetos de formas diferentes**
 
 Um **com** fonte textual rica (README ou `CLAUDE.md` que explique o sistema) e um **sem** —
 só código. O contraste é o ponto: o spike mede se a prosa se sustenta nos dois casos, não só
@@ -83,7 +191,7 @@ no fácil.
 
 Registre no arquivo de referência qual é qual, e por quê.
 
-- [ ] **Step 2: gerar o inventário dos dois**
+- [x] **Step 2: gerar o inventário dos dois**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide
@@ -91,7 +199,7 @@ cd ~/.claude/skills/sw-codebase-guide
 .venv/bin/python scripts/varrer.py --projeto <projeto-sem-texto> --out /tmp/spike-b
 ```
 
-- [ ] **Step 3: escrever a parte 1 de cada um, à mão**
+- [x] **Step 3: escrever a parte 1 de cada um, à mão**
 
 Leia o `inventory.json` e **no máximo 5 arquivos** de cada projeto. Escreva 2-3 parágrafos:
 o que o sistema é, quem usa, quais são as partes. No projeto com fonte textual, cite o trecho
@@ -100,7 +208,7 @@ literal; no sem, escreva o que der e marque o que não deu.
 Essa escrita é o produto do spike. Não automatize: automatizar seria medir a prosa com quem a
 escreve.
 
-- [ ] **Step 4: escrever o resultado em `referencias/spike-prosa.md`**
+- [x] **Step 4: escrever o resultado em `referencias/spike-prosa.md`**
 
 ```markdown
 # Spike — a prosa de produto se sustenta?
@@ -131,7 +239,7 @@ escreve.
   encolhe para mapa + orientações>
 ```
 
-- [ ] **Step 5: mostrar ao dono e registrar a decisão**
+- [x] **Step 5: mostrar ao dono e registrar a decisão**
 
 Apresente as duas e pergunte, sem defender nenhuma. A resposta vai para o "Veredito" e decide
 o escopo das tasks 9 a 11.
@@ -154,7 +262,7 @@ do inventário, que é commitado. O invariante de segredo do `varrer.py` diz por
 inventário "só carrega caminho, contagem e nome de chave, nunca conteúdo" — esta task é a
 exceção, e ela precisa nascer com a redação junto, não ganhá-la depois.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_textos.py
@@ -220,12 +328,12 @@ def test_ordem_estavel(tmp_path):
     assert primeira == segunda == sorted(primeira)
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_textos.py -v`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.textos'`
 
-- [ ] **Step 3: escrever o `textos.py`**
+- [x] **Step 3: escrever o `textos.py`**
 
 ```python
 """As fontes textuais do projeto: README, CLAUDE.md, docs, ADR, tradução.
@@ -299,12 +407,12 @@ def _redigir_por_linha(texto: str) -> str:
     return '\n'.join(redact.redigir(linha) for linha in texto.split('\n'))
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_textos.py -v`
 Esperado: 5 passed
 
-- [ ] **Step 5: prova por mutação na redação**
+- [x] **Step 5: prova por mutação na redação**
 
 Troque `redact.redigir(bruto[:TETO_BYTES])` por `bruto[:TETO_BYTES]` e rode.
 Esperado: `test_token_em_readme_nao_vaza` **FALHA**. Desfaça e confirme o verde.
@@ -334,7 +442,7 @@ existindo para a seção "Superfície pública", onde sai marcada como dedução
 decidir o escopo**, que é a primeira tela da skill. As áreas saem da `arvore`, que vem do
 `os.walk` com poda e é a parte mais confiável do inventário.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_areas.py
@@ -472,12 +580,12 @@ def test_commits_por_pasta_conta_o_periodo(tmp_path):
     assert por_pasta.get('api') == 3
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_areas.py -v`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.areas'`
 
-- [ ] **Step 3: acrescentar `commits_por_pasta` ao `historia.py`**
+- [x] **Step 3: acrescentar `commits_por_pasta` ao `historia.py`**
 
 ```python
 def commits_por_pasta(raiz, dias: int = 90) -> dict:
@@ -522,7 +630,7 @@ def commits_por_pasta(raiz, dias: int = 90) -> dict:
     return por_pasta
 ```
 
-- [ ] **Step 3b: pôr teto de tempo no `_git`**
+- [x] **Step 3b: pôr teto de tempo no `_git`**
 
 O spec exige: *"limitada no tempo: estourando o teto, cai para ordenação por número de arquivos
 e diz isso no `ordenado_por`"*. Hoje `_git` roda `subprocess.run` sem limite.
@@ -555,7 +663,7 @@ def test_git_lento_cai_para_contagem_de_arquivos(tmp_path, monkeypatch):
     assert ordem == ['b', 'a']
 ```
 
-- [ ] **Step 4: escrever o `areas.py`**
+- [x] **Step 4: escrever o `areas.py`**
 
 ```python
 """As áreas do projeto, por agrupamento de diretórios da árvore.
@@ -625,17 +733,17 @@ def detectar(arvore: list, recentes: dict | None) -> list:
     return areas
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_areas.py -v`
 Esperado: 7 passed
 
-- [ ] **Step 6: prova por mutação no piso**
+- [x] **Step 6: prova por mutação no piso**
 
 Troque `if contagem[f] >= PISO_ARQUIVOS` por `if True` e rode.
 Esperado: `test_pasta_abaixo_do_piso_nao_vira_area` **FALHA**. Desfaça e confirme o verde.
 
-- [ ] **Step 7: calibrar contra os seis projetos reais**
+- [x] **Step 7: calibrar contra os seis projetos reais**
 
 Rode a detecção nos projetos que já temos e **olhe os menus**:
 
@@ -673,7 +781,7 @@ número novo no plano**, em "Ajustes durante a execução" — não mude em sil�
 de saída contém exatamente `['inventory.json']`. Qualquer arquivo intermediário o quebra — por
 isso a fase de áreas sai por stdout.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_varrer.py
@@ -742,12 +850,12 @@ def test_fase_de_areas_nao_abre_codigo(tmp_path, monkeypatch):
         assert eh_fonte_textual(relativo), f'abriu {relativo}, que não é fonte textual'
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_varrer.py -v`
 Esperado: FALHA — `--areas` não existe (`returncode != 0`) e `apurar_areas` não importa
 
-- [ ] **Step 3: acrescentar a fase ao `varrer.py`**
+- [x] **Step 3: acrescentar a fase ao `varrer.py`**
 
 ```python
 def apurar_areas(projeto: Path) -> dict:
@@ -795,7 +903,7 @@ E no `main()`, antes de exigir `--out`:
         return 2
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_varrer.py -v`
 Esperado: 8 passed — os 5 de antes mais os 3 novos.
@@ -803,7 +911,7 @@ Esperado: 8 passed — os 5 de antes mais os 3 novos.
 Confira em especial `test_fase_de_areas_nao_grava_nada` e `test_fase_de_areas_nao_abre_codigo`:
 são as duas restrições verificáveis desta task.
 
-- [ ] **Step 5: prova por mutação na lista branca**
+- [x] **Step 5: prova por mutação na lista branca**
 
 Em `apurar_areas`, acrescente uma leitura indevida — `(projeto / 'package.json').read_text()` —
 e rode. Esperado: `test_fase_de_areas_nao_abre_codigo` **FALHA**. Remova e confirme o verde.
@@ -831,7 +939,7 @@ e rode. Esperado: `test_fase_de_areas_nao_abre_codigo` **FALHA**. Remova e confi
 | `stacks`, `ambiente` | prefixo **+ herança do que mora acima**, marcada | o `package.json` está em `.` e o `.env` na raiz; prefixo puro faria o documento dizer "nenhum manifesto reconhecido", que é falso |
 | `historia`, `mencoes` | **uma ponta dentro** | o valor das orientações vem do par que CRUZA a fronteira |
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_recorte.py
@@ -958,12 +1066,12 @@ def test_commits_continuam_do_projeto_todo(tmp_path):
     assert inv['historia']['commits'] == 60
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_recorte.py -v`
 Esperado: FALHA — `--area` ainda não recorta nada (`arvore` vem inteira)
 
-- [ ] **Step 3: filtrar a co-mudança ANTES do teto e DEPOIS do prefixo de sub-repo**
+- [x] **Step 3: filtrar a co-mudança ANTES do teto e DEPOIS do prefixo de sub-repo**
 
 ```python
 def _cruza_ou_entra(par, area: str) -> bool:
@@ -991,7 +1099,7 @@ corte em `MAX_PARES`:
 > O "antes do teto" não é detalhe: `MAX_PARES = 40` é global. Filtrar **depois** dos 40 pares
 > do projeto devolveria um ou dois para a área e apagaria o sinal que a seção existe para dar.
 
-- [ ] **Step 4: recortar no `apurar` do `varrer.py`**
+- [x] **Step 4: recortar no `apurar` do `varrer.py`**
 
 ```python
 def _dentro(caminho: str, area: str | None) -> bool:
@@ -1051,7 +1159,7 @@ def apurar(projeto: Path, area: str | None = None) -> dict:
     }
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_recorte.py -v`
 Esperado: 5 passed
@@ -1059,13 +1167,13 @@ Esperado: 5 passed
 São duas restrições verificáveis nesta task: `test_co_mudanca_cruzando_a_fronteira_sobrevive` e
 `test_stack_e_env_da_raiz_sao_herdados`.
 
-- [ ] **Step 6: prova por mutação no filtro da co-mudança**
+- [x] **Step 6: prova por mutação no filtro da co-mudança**
 
 Mova o filtro de `_cruza_ou_entra` para **depois** do `most_common(MAX_PARES)` e rode.
 Esperado: `test_co_mudanca_cruzando_a_fronteira_sobrevive` **FALHA** ou devolve lista vazia.
 Desfaça e confirme o verde.
 
-- [ ] **Step 7: a suíte inteira continua verde**
+- [x] **Step 7: a suíte inteira continua verde**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes. **É o critério de fechamento do marco 1** — os 92 testes de antes mais
@@ -1081,7 +1189,7 @@ os novos, sem nenhum quebrado por causa do recorte.
 
 **Depende de:** Task 5
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_montar.py
@@ -1148,12 +1256,12 @@ def test_commits_do_projeto_todo_sao_declarados(tmp_path):
     assert 'fora/b.py' in guia
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_montar.py -v`
 Esperado: 3 failed — o documento ainda não sabe do escopo
 
-- [ ] **Step 3: escrever o cabeçalho de escopo e as marcas**
+- [x] **Step 3: escrever o cabeçalho de escopo e as marcas**
 
 No início de `montar()`, logo depois da nota de confiança:
 
@@ -1191,7 +1299,7 @@ aqui a partir do `escopo`, sem campo novo no inventário:
         A(f'- {marcas[0]} + {marcas[1]} — {c["vezes"]}x')
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes. **Marco 1 fechado.**
@@ -1212,7 +1320,7 @@ Esperado: todos verdes. **Marco 1 fechado.**
 testes usam `["rotas.py:1"]` e `["commit 3c5aabb"]`. Uma conferência ingênua recusaria a
 evidência **correta** e derrubaria três testes que já passam.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_montar.py
@@ -1248,12 +1356,12 @@ def test_diretorio_casa_por_prefixo(tmp_path):
     assert r.returncode == 0, r.stderr + r.stdout
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_montar.py -v`
 Esperado: `test_caminho_inventado_recusado_nos_dois_blocos` FALHA (hoje nada é conferido)
 
-- [ ] **Step 3: escrever a guarda**
+- [x] **Step 3: escrever a guarda**
 
 ```python
 # `evidencia_valida` usa `re.search`, e o `montar.py` de hoje importa só
@@ -1291,12 +1399,12 @@ e, em `_ler_interpretacao`, recebendo o conjunto de caminhos:
                 raise ValueError(f'evidência não existe no projeto: {ev!r}')
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes — inclusive os três antigos que usam `rotas.py:1` e `commit 3c5aabb`.
 
-- [ ] **Step 5: prova por mutação no descascamento da linha**
+- [x] **Step 5: prova por mutação no descascamento da linha**
 
 Troque `alvo = ev.rsplit(':', 1)[0] if ... else ev` por `alvo = ev` e rode.
 Esperado: `test_quatro_formas_de_evidencia` **FALHA**. Desfaça e confirme o verde.
@@ -1314,7 +1422,7 @@ Esperado: `test_quatro_formas_de_evidencia` **FALHA**. Desfaça e confirme o ver
 **Contrato que esta task publica:** `PROIBIDAS` passa a viver no `montar.py` ·
 `_ler_narrativa(caminho, caminhos, textos) -> list`
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_narrativa.py
@@ -1382,12 +1490,12 @@ def test_ordem_governa_o_mapa(tmp_path):
     assert doc.index('aaa primeira') < doc.index('zzz segunda')
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_narrativa.py -v`
 Esperado: 4 failed — não há bloco `[[narrativa]]` nem `leia-me.md`
 
-- [ ] **Step 3: mover `PROIBIDAS` para o `montar.py` e validar a narrativa**
+- [x] **Step 3: mover `PROIBIDAS` para o `montar.py` e validar a narrativa**
 
 ```python
 # Frases que a skill NUNCA emite: o grafo não sabe o bastante para afirmar
@@ -1433,12 +1541,12 @@ def _ler_narrativa(dados: dict, caminhos: set) -> list:
 
 E no `tests/test_montar.py`, trocar a tupla local por `from montar import PROIBIDAS`.
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes.
 
-- [ ] **Step 5: prova por mutação na recusa da frase proibida**
+- [x] **Step 5: prova por mutação na recusa da frase proibida**
 
 Troque `for frase in PROIBIDAS:` por `for frase in ():` e rode.
 Esperado: `test_frase_proibida_recusada_pelo_parser` **FALHA**. Desfaça e confirme o verde.
@@ -1458,7 +1566,7 @@ faz" não é falsidade — é ser **fluente, verdadeira e inútil**. *"O sistema
 aeronaves, com um funil de vendas"* passa em qualquer conferência de caminho, e o dev já sabia
 disso lendo o nome das pastas. Trecho literal não consegue ser vazio-e-fluente.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_narrativa.py
@@ -1517,12 +1625,12 @@ def test_fonte_fora_das_fontes_textuais_e_recusada(tmp_path):
     assert 'fonte' in (r.stderr + r.stdout).lower()
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_narrativa.py -v`
 Esperado: 3 failed — o trecho ainda não é conferido
 
-- [ ] **Step 3: escrever a conferência**
+- [x] **Step 3: escrever a conferência**
 
 ```python
 def _normalizar(texto: str) -> str:
@@ -1548,12 +1656,12 @@ def _conferir_trecho(bloco: dict, textos: dict) -> None:
 
 chamada em `_ler_narrativa`, para os blocos `o-que-e`.
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes.
 
-- [ ] **Step 5: prova por mutação na normalização**
+- [x] **Step 5: prova por mutação na normalização**
 
 Troque `_normalizar(bloco['trecho']) not in _normalizar(...)` por
 `bloco['trecho'] not in textos[fonte]['conteudo']` e rode.
@@ -1571,7 +1679,7 @@ Esperado: `test_trecho_quebrado_em_duas_linhas_casa` **FALHA**. Desfaça e confi
 
 **Contrato que esta task publica:** `montar.py --dir D` grava `guide.md` **e** `leia-me.md`
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_narrativa.py
@@ -1666,12 +1774,12 @@ def test_recusa_nao_escreve_nenhum_dos_dois(tmp_path):
     assert (saida / 'leia-me.md').read_text() == 'leia-me anterior'
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_narrativa.py -v`
 Esperado: 5 failed — `leia-me.md` não existe
 
-- [ ] **Step 3: escrever o emissor do `leia-me.md`**
+- [x] **Step 3: escrever o emissor do `leia-me.md`**
 
 ```python
 TITULOS = {
@@ -1733,12 +1841,12 @@ e, no `main()`, gravar os dois **só depois** de as duas montagens terem sucesso
     (base / 'leia-me.md').write_text(texto_leia_me, encoding='utf-8')
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes.
 
-- [ ] **Step 5: conferir a idempotência dos dois**
+- [x] **Step 5: conferir a idempotência dos dois**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_narrativa.py::test_dois_documentos_identicos_em_duas_montagens -v`
 Esperado: PASSA — é a restrição verificável desta task.
@@ -1759,7 +1867,7 @@ quê, não com um caminho pela metade"*. Aqui ele volta porque **mudou quem prod
 script seguindo o grafo, aqui é o agente lendo arquivo. A razão original continua valendo, e por
 isso vem com trava.
 
-- [ ] **Step 1: escrever o teste que falha**
+- [x] **Step 1: escrever o teste que falha**
 
 ```python
 # acrescentar a tests/test_narrativa.py
@@ -1775,12 +1883,12 @@ def test_percurso_sem_saltos_exige_o_campo_declarado(tmp_path):
     assert 'saltos' in (r.stderr + r.stdout).lower()
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_narrativa.py -v`
 Esperado: FALHA — hoje `saltos` não é obrigatório em `percurso`
 
-- [ ] **Step 3: tornar `saltos` obrigatório em `percurso`**
+- [x] **Step 3: tornar `saltos` obrigatório em `percurso`**
 
 ```python
 OBRIGATORIOS = {
@@ -1801,7 +1909,7 @@ passa a ter, logo abaixo da checagem de campos:
                 'deixaria "não tentei" indistinguível disso')
 ```
 
-- [ ] **Step 4: escrever a regra no `SKILL.md`**
+- [x] **Step 4: escrever a regra no `SKILL.md`**
 
 Na seção 2 (escrever a interpretação), acrescentar:
 
@@ -1814,7 +1922,7 @@ e `saltos = []` é afirmação forte — significa "segui do clique até o banco
 adivinhar onde a execução começa — e a skill não detecta entrypoint.
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes.
@@ -1829,7 +1937,7 @@ Esperado: todos verdes.
 
 **Depende de:** Task 11
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescentar a tests/test_skill_md.py
@@ -1859,12 +1967,12 @@ def test_documenta_o_bloco_narrativa_e_as_guardas():
     assert 'saltos' in texto
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_skill_md.py -v`
 Esperado: 3 failed
 
-- [ ] **Step 3: reescrever o fluxo do `SKILL.md`**
+- [x] **Step 3: reescrever o fluxo do `SKILL.md`**
 
 O fluxo passa a ter cinco passos, e o passo 1 é novo:
 
@@ -1896,12 +2004,12 @@ python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project [--area <ca
 E a seção "Escrever a interpretação" ganha o bloco `[[narrativa]]`, as quatro partes, os campos
 obrigatórios por parte e as três guardas.
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q`
 Esperado: todos verdes.
 
-- [ ] **Step 5: o ciclo completo num projeto real, com área**
+- [x] **Step 5: o ciclo completo num projeto real, com área**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide
@@ -1942,7 +2050,7 @@ continua sendo um inventário.
 `~/.claude/skills/sw-infra-audit/assets/report-template/fontes/` junto com o `LICENCAS.md`, e
 embuta em base64 no template. É o que faz o PDF sair offline.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # tests/test_imprimir.py
@@ -2023,12 +2131,12 @@ def test_sem_leia_me_md_para_com_motivo(tmp_path):
     assert 'Traceback' not in r.stderr
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_imprimir.py -v`
 Esperado: FALHA — `imprimir.py` não existe (`returncode != 0`)
 
-- [ ] **Step 3: escrever o template `assets/leia-me.html`**
+- [x] **Step 3: escrever o template `assets/leia-me.html`**
 
 Um arquivo só, com `%%TITULO%%` e `%%CORPO%%` como marcadores, as três fontes em base64, e a
 mecânica de impressão. O miolo do `<style>`:
@@ -2049,7 +2157,7 @@ blockquote, pre, table { break-inside: avoid; }
 > A casa usa um plugin por skill, então não há como compartilhar — copiar é o caminho, com a
 > origem citada em comentário no topo do template.
 
-- [ ] **Step 4: escrever o `imprimir.py`**
+- [x] **Step 4: escrever o `imprimir.py`**
 
 ```python
 #!/usr/bin/env python3
@@ -2161,7 +2269,7 @@ if __name__ == '__main__':
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: rodar e confirmar que passa**
+- [x] **Step 5: rodar e confirmar que passa**
 
 Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_imprimir.py -v`
 Esperado: 5 passed
@@ -2169,13 +2277,13 @@ Esperado: 5 passed
 As duas restrições verificáveis desta task são `test_sem_chromium_entrega_o_html_e_avisa` e
 `test_html_e_self_contained`.
 
-- [ ] **Step 6: prova por mutação na queda graciosa**
+- [x] **Step 6: prova por mutação na queda graciosa**
 
 Troque `if not navegador:` por `if False:` e rode com `PATH` vazio.
 Esperado: `test_sem_chromium_entrega_o_html_e_avisa` **FALHA** (o processo quebra em vez de
 terminar com sucesso). Desfaça e confirme o verde.
 
-- [ ] **Step 7: escrever a oferta no `SKILL.md`, no passo 4**
+- [x] **Step 7: escrever a oferta no `SKILL.md`, no passo 4**
 
 ```markdown
 ### 5. Oferecer o HTML e o PDF — no fim, não antes
@@ -2192,7 +2300,7 @@ perguntar no começo gasta a atenção de quem só queria entender o projeto. Se
 máquina, diga isso e entregue o HTML: não é falha da skill.
 ```
 
-- [ ] **Step 8: gerar o PDF de um projeto real e ABRIR**
+- [x] **Step 8: gerar o PDF de um projeto real e ABRIR**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide
@@ -2217,14 +2325,14 @@ nesta skill a leitura da saída achou mais defeito que todos os testes somados.
 o `make check` **obrigatórios** antes de commitar, e o spec declara o rollout. Sem task, isso
 fica a cargo de alguém lembrar.
 
-- [ ] **Step 1: tirar do `SKILL.md` a pergunta que foi absorvida**
+- [x] **Step 1: tirar do `SKILL.md` a pergunta que foi absorvida**
 
 A tabela de perguntas tem hoje a linha *"A varredura achou sub-repositórios | documentar o
 conjunto, ou só um deles"*. O spec diz que a pergunta de escopo **a absorve** — é literalmente
 a mesma pergunta. Deixar as duas faz a skill perguntar duas vezes a mesma coisa num terço dos
 projetos.
 
-- [ ] **Step 2: acertar o comentário-invariante do `varrer.py`**
+- [x] **Step 2: acertar o comentário-invariante do `varrer.py`**
 
 O arquivo diz hoje: *"a proteção acontece na ORIGEM: o inventário só carrega caminho, contagem
 e nome de chave, nunca conteúdo"*. Com a seção `textos` isso virou falso. Reescreva declarando
@@ -2237,21 +2345,21 @@ a exceção e a trava:
     # antes de entrar, com teto de 64 KB.
 ```
 
-- [ ] **Step 3: rodar a suíte inteira e o ciclo completo**
+- [x] **Step 3: rodar a suíte inteira e o ciclo completo**
 
 ```bash
 cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/ -q
 ```
 Esperado: todos verdes, incluindo os 92 de v0.1.0.
 
-- [ ] **Step 4: sincronizar com bump de minor**
+- [x] **Step 4: sincronizar com bump de minor**
 
 ```bash
 cd /var/www/ai-marketplace && make sync SKILL=sw-codebase-guide BUMP=minor
 ```
 Esperado: `versão: 0.2.0`, e `marketplace.json`/`README.md` atualizados pelo próprio script.
 
-- [ ] **Step 5: escrever a entrada no `CHANGELOG.md`**
+- [x] **Step 5: escrever a entrada no `CHANGELOG.md`**
 
 Em `## [Não publicado]`, sob `### Alterado`:
 
@@ -2282,7 +2390,7 @@ Em `## [Não publicado]`, sob `### Alterado`:
   o documento marca qual é.
 ```
 
-- [ ] **Step 6: rodar o gate de segurança DEPOIS de preparar o commit**
+- [x] **Step 6: rodar o gate de segurança DEPOIS de preparar o commit**
 
 ```bash
 cd /var/www/ai-marketplace && git add -A && make check

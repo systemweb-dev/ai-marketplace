@@ -6,10 +6,11 @@ from pathlib import Path
 RAIZ_SKILL = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).parent / 'fixtures'
 
-# Frases que a skill NUNCA pode emitir: o grafo não sabe o bastante para afirmar
-# ausência, e "nada depende disso" é exatamente o dano que ela existe para evitar.
-PROIBIDAS = ('nada depende', 'sem dependentes', 'não é usado', 'nao e usado',
-             'nenhum dependente', 'não há dependentes')
+# A lista vive no `montar.py`, porque a recusa é do PARSER. Importar em vez de
+# copiar é o que impede as duas divergirem na primeira vez que alguém
+# acrescentar uma frase a uma só delas.
+sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+from montar import PROIBIDAS  # noqa: E402
 
 
 def varrer(projeto, saida):
@@ -255,3 +256,134 @@ def test_sem_lista_o_aviso_nao_se_repete(tmp_path):
     assert 'injeção de dependência' not in guia
     assert guia.count('[lacuna]') >= 1
     assert 'não foi medido nesta versão' in guia
+
+
+def _com_escopo(tmp_path, **ajustes):
+    """Inventário da fixture, com o escopo (e o que mais for pedido) forçado."""
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['escopo'] = {'area': 'app', 'criterio': 'prefixo de caminho', 'n_arquivos': 1}
+    inv.update(ajustes)
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    r = montar(tmp_path)
+    assert r.returncode == 0, r.stderr
+    return (tmp_path / 'guide.md').read_text()
+
+
+def test_documento_diz_qual_escopo_o_gerou(tmp_path):
+    # Act
+    guia = _com_escopo(tmp_path)
+    # Assert — quem lê precisa saber que está vendo um recorte, e isso tem que
+    # estar no TOPO: o plano mandava procurar em `linhas[2:8].__str__()`, que
+    # passaria com a palavra em qualquer lugar daquelas seis linhas
+    topo = '\n'.join(guia.split('\n')[:10])
+    assert 'Recorte' in topo
+    assert '`app`' in topo
+    assert '1 arquivo' in topo
+
+
+def test_sem_recorte_o_documento_nao_fala_de_area(tmp_path):
+    # Arrange — o par negativo: sem ele, um cabeçalho fixo passaria no teste acima
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    # Act
+    assert montar(tmp_path).returncode == 0
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'Recorte' not in guia
+
+
+def test_stack_de_fora_da_area_sai_marcada(tmp_path):
+    # Act
+    guia = _com_escopo(tmp_path, stacks=[
+        {'stack': 'node', 'caminho': '.', 'manifesto': 'package.json',
+         'por': 'manifesto', 'de_fora_da_area': True}])
+    # Assert
+    assert 'fora da área' in guia
+
+
+def test_ponta_de_fora_sai_marcada(tmp_path):
+    # Act
+    guia = _com_escopo(tmp_path, historia={
+        'commits': 90, 'commits_descartados': 0, 'lacuna': None,
+        'co_mudanca': [{'arquivos': ['app/a.py', 'fora/b.py'], 'vezes': 9}]})
+    # Assert — "mexer aqui mexe lá fora" só ensina se o leitor souber qual é o lá fora
+    assert '`fora/b.py` *(fora)*' in guia
+    assert '`app/a.py`' in guia and '`app/a.py` *(fora)*' not in guia
+
+
+def test_commits_do_projeto_todo_sao_declarados(tmp_path):
+    # Act
+    guia = _com_escopo(tmp_path, historia={
+        'commits': 500, 'commits_descartados': 0, 'lacuna': None,
+        'co_mudanca': [{'arquivos': ['app/a.py', 'fora/b.py'], 'vezes': 9}]})
+    # Assert — o número é do projeto, não da área, e o documento não pode esconder isso
+    assert 'De 500 commits do projeto todo' in guia
+
+
+def _com_evidencia(tmp_path, evidencias):
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    linhas = ''.join(
+        f'[[afirmacao]]\nsecao = "o-que-faz"\ntexto = "t{i}"\nnivel = "deducao"\n'
+        f'evidencia = {json.dumps([e])}\nmotivo = ""\n\n'
+        for i, e in enumerate(evidencias))
+    (tmp_path / 'interpretation.toml').write_text(linhas)
+    return montar(tmp_path)
+
+
+def test_quatro_formas_de_evidencia(tmp_path):
+    # Arrange / Act — caminho, caminho:linha, diretório e não-caminho.
+    # O SKILL.md documenta `app/Pedido.php:88` e os testes usam `commit 3c5aabb`:
+    # uma conferência ingênua recusaria a evidência CORRETA.
+    r = _com_evidencia(tmp_path, ['rotas.py', 'rotas.py:3', 'app/', 'commit 3c5aabb'])
+    # Assert
+    assert r.returncode == 0, r.stderr + r.stdout
+
+
+def test_caminho_inventado_recusado_nos_dois_blocos(tmp_path):
+    # Arrange / Act
+    r = _com_evidencia(tmp_path, ['nao/existe.php'])
+    # Assert
+    assert r.returncode == 2
+    assert 'nao/existe.php' in (r.stderr + r.stdout)
+    assert 'Traceback' not in r.stderr
+
+
+def test_diretorio_casa_por_prefixo(tmp_path):
+    # Arrange — a árvore só tem arquivos; `app/` é diretório e é citação legítima
+    r = _com_evidencia(tmp_path, ['app/'])
+    # Assert
+    assert r.returncode == 0, r.stderr + r.stdout
+
+
+def test_diretorio_inventado_tambem_e_recusado(tmp_path):
+    # Arrange — o par negativo do anterior: sem ele, bastaria aceitar tudo que
+    # termina em barra para os dois testes passarem
+    r = _com_evidencia(tmp_path, ['inventado/'])
+    # Assert
+    assert r.returncode == 2
+    assert 'inventado/' in (r.stderr + r.stdout)
+
+
+def test_markdown_nao_conta_como_codigo_no_cabecalho(tmp_path):
+    """O mesmo documento chamava `.md` de código no cabeçalho e de "não é código" no
+    bloco de arquivos maiores — duas definições de código na mesma página. E o
+    conjunto `ATIVOS` existia em TRÊS cópias, uma por emissor."""
+    # Arrange
+    projeto = tmp_path / 'proj'
+    projeto.mkdir()
+    (projeto / 'app.py').write_text('x = 1')
+    (projeto / 'pyproject.toml').write_text('[project]\nname = "x"')
+    (projeto / 'README.md').write_text('# Projeto')
+    (projeto / 'notas.md').write_text('# Notas')
+    (projeto / 'dados.yaml').write_text('a: 1')
+    saida = tmp_path / 'out'
+    subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'varrer.py'),
+                    '--projeto', str(projeto), '--out', str(saida)],
+                   check=True, capture_output=True)
+    # Act
+    subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'montar.py'),
+                    '--dir', str(saida)], check=True, capture_output=True)
+    guia = (saida / 'guide.md').read_text()
+    # Assert — só `app.py` é código; os três markdown/yaml e o toml não são
+    assert '1 arquivos de código' in guia or '1 arquivo de código' in guia, \
+        [l for l in guia.split('\n') if 'arquivos de código' in l]

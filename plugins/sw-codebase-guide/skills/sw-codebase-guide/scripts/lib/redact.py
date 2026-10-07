@@ -59,8 +59,14 @@ DECLARACAO = (r'(?:export|ENV|ARG|const|let|var|public|private|protected|static'
 
 # Um par `chave <sep> valor` em qualquer lugar do texto. O valor entre aspas pode
 # atravessar linha — é o que faz valor multilinha ser mascarado inteiro.
+#
+# A chave é LIMITADA a 128 caracteres, e isso não é higiene: sem o limite, um
+# texto longo sem separador (64 KB de uma linha só, um badge em base64, um bloco
+# minificado) faz o `*` guloso recuar caractere a caractere a partir de cada
+# posição — 65 mil posições × 65 mil recuos. Medido: 80 segundos num teste de
+# 64 KB. Com o limite, 8 centésimos. Nome de chave de verdade não passa de 128.
 PAR = re.compile(
-    r'[\'"]?(?P<chave>[A-Za-z_][\w.\-]*)[\'"]?'
+    r'[\'"]?(?P<chave>[A-Za-z_][\w.\-]{0,127})[\'"]?'
     r'(?P<sep>\s*(?:=>|:|=)\s*)'
     r'(?P<valor>"[^"]*"|\'[^\']*\'|[A-Za-z0-9_\-./+=:@~!$%^&*]+)'
 )

@@ -1,7 +1,7 @@
 {
   "name": "sw-codebase-guide",
   "description": "Lê um projeto que você acabou de receber e escreve a documentação dele em docs/project/ — como entrar, o que depende do quê e o que o sistema faz, com o nível de confiança de cada afirmação e a lista do que ficou sem resposta.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": {
     "name": "systemweb-dev"
   }
