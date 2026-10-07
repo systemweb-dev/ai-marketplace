@@ -18,6 +18,7 @@ Duas lições de rodar contra projeto real, e por isso estão escritas:
 """
 import os
 from collections import Counter
+import json
 from pathlib import Path
 
 MANIFESTOS = {
@@ -99,3 +100,38 @@ def detectar(raiz) -> list:
                             'por': f'{quantos} arquivos, nenhum manifesto declara'})
 
     return sorted(achados, key=lambda a: (a['caminho'], a['stack']))
+
+
+CHAVES_DE_DEPENDENCIA = ('dependencies', 'devDependencies', 'peerDependencies',
+                         'optionalDependencies', 'require', 'require-dev')
+
+
+def dependencias_declaradas(raiz) -> dict:
+    """Por manifesto, os NOMES das dependências declaradas — nunca os valores.
+
+    Quem descobre manifesto é este módulo, que já caminha com poda e já aprendeu a
+    lição do `.next/package.json`. Duas descobertas de manifesto em arquivos
+    diferentes é como aquele bug volta.
+
+    **Só as chaves.** O valor de uma dependência carrega URL de registro privado com
+    token — é a mesma regra do `.env`, e vale igual aqui.
+    """
+    raiz = Path(raiz)
+    achados = {}
+    for arquivo in caminhar(raiz):
+        if arquivo.name not in ('package.json', 'composer.json'):
+            continue
+        try:
+            dados = json.loads(arquivo.read_text('utf-8', 'replace'))
+        except (json.JSONDecodeError, OSError):
+            continue        # manifesto quebrado não derruba a varredura
+        if not isinstance(dados, dict):
+            continue
+        nomes = set()
+        for chave in CHAVES_DE_DEPENDENCIA:
+            bloco = dados.get(chave)
+            if isinstance(bloco, dict):
+                nomes |= set(bloco)
+        if nomes:
+            achados[arquivo.relative_to(raiz).as_posix()] = nomes
+    return achados

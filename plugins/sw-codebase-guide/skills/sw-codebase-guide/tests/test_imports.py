@@ -1,5 +1,10 @@
 # tests/test_imports.py
+from lib.arvore import varrer as varrer_arvore
 from lib.imports import grafo
+
+
+def arvore_de(raiz):
+    return varrer_arvore(raiz)
 
 
 def test_resolve_import_de_modulo_local(tmp_path):
@@ -8,9 +13,10 @@ def test_resolve_import_de_modulo_local(tmp_path):
     (tmp_path / 'servico.py').write_text('from pedido import Pedido\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert
-    assert {'de': 'servico.py', 'para': 'pedido.py'} in g['arestas']
+    assert any(a['de'] == 'servico.py' and a['para'] == 'pedido.py'
+               for a in g['arestas'])
 
 
 def test_ignora_import_de_biblioteca_externa(tmp_path):
@@ -18,7 +24,7 @@ def test_ignora_import_de_biblioteca_externa(tmp_path):
     (tmp_path / 'servico.py').write_text('import json\nimport requests\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert — só aresta para arquivo QUE EXISTE no projeto
     assert g['arestas'] == []
 
@@ -30,32 +36,43 @@ def test_arquivo_com_erro_de_sintaxe_nao_derruba_a_varredura(tmp_path):
     (tmp_path / 'servico.py').write_text('from pedido import Pedido\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert
-    assert {'de': 'servico.py', 'para': 'pedido.py'} in g['arestas']
+    assert any(a['de'] == 'servico.py' and a['para'] == 'pedido.py'
+               for a in g['arestas'])
 
 
-def test_stack_sem_ferramenta_nativa_diz_o_motivo(tmp_path):
+def test_linguagem_de_codigo_sem_extrator_diz_o_motivo(tmp_path):
+    """Este teste descrevia o PHP, que até esta versão não tinha resolvedor. Agora
+    tem — então o que ele guarda mudou de assunto, não de valor: a garantia é que
+    linguagem de CÓDIGO sem extrator vira indisponibilidade declarada, nunca
+    silêncio. Silêncio se lê como "nada depende de nada".
+
+    E não há piso de quantidade: dois arquivos bastam. O piso de 5 do `stacks.py` é
+    justamente o defeito que o despacho por extensão veio consertar."""
     # Arrange
-    (tmp_path / 'index.php').write_text('<?php')
-    stacks = [{'stack': 'php', 'caminho': '.', 'manifesto': 'composer.json'}]
+    (tmp_path / 'main.go').write_text('package main\n')
+    (tmp_path / 'outro.go').write_text('package main\n')
+    (tmp_path / 'LEIAME.md').write_text('# doc\n')
     # Act
-    g = grafo(tmp_path, stacks)
-    # Assert — não é silêncio: é indisponibilidade declarada
+    g = grafo(tmp_path, [], arvore_de(tmp_path))
+    # Assert
+    motivos = {i['stack']: i['motivo'] for i in g['indisponivel']}
     assert g['arestas'] == []
-    assert g['indisponivel'][0]['stack'] == 'php'
-    assert g['indisponivel'][0]['motivo']
+    assert '.go' in motivos and motivos['.go']
+    assert '.md' not in motivos, 'markdown não é código: declarar lacuna dele é ruído'
 
 
 # ─── Casos reais que o plano não previa. Cada um ataca o mesmo risco: grafo vazio
 #     se lê como "nada depende de nada", e é esse dano que o módulo existe para evitar.
 
-def test_sem_stack_nenhuma_o_silencio_e_proibido(tmp_path):
-    # Arrange — projeto sem manifesto nenhum existe de verdade (331 arquivos PHP e
-    # nenhum composer.json), e aí `stacks.detectar` devolve []
-    (tmp_path / 'index.php').write_text('<?php')
+def test_sem_linguagem_reconhecida_o_silencio_e_proibido(tmp_path):
+    """Projeto em que nada é linguagem reconhecida: o grafo sai vazio, e vazio se
+    lê como "nada depende de nada". Tem que sair com o motivo escrito."""
+    # Arrange
+    (tmp_path / 'LEIAME.md').write_text('# só documentação\n')
     # Act
-    g = grafo(tmp_path, [])
+    g = grafo(tmp_path, [], arvore_de(tmp_path))
     # Assert — sem arestas E sem indisponível seria silêncio: o leitor concluiria
     # que nada depende de nada, quando a verdade é que nada foi sequer tentado
     assert g['arestas'] == []
@@ -76,12 +93,12 @@ def test_import_relativo_vira_aresta(tmp_path):
         'from .pedido import Pedido\nfrom ..modelos import X\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert — nível 1 resolve no próprio pacote, nível 2 sobe um
-    assert {'de': 'loja/dominio/servico.py',
-            'para': 'loja/dominio/pedido.py'} in g['arestas']
-    assert {'de': 'loja/dominio/servico.py',
-            'para': 'loja/modelos.py'} in g['arestas']
+    assert any(a['de'] == 'loja/dominio/servico.py' and a['para'] == 'loja/dominio/pedido.py'
+               for a in g['arestas'])
+    assert any(a['de'] == 'loja/dominio/servico.py' and a['para'] == 'loja/modelos.py'
+               for a in g['arestas'])
 
 
 def test_import_de_pacote_aponta_para_o_init(tmp_path):
@@ -92,9 +109,10 @@ def test_import_de_pacote_aponta_para_o_init(tmp_path):
     (tmp_path / 'app.py').write_text('from pacote import X\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert
-    assert {'de': 'app.py', 'para': 'pacote/__init__.py'} in g['arestas']
+    assert any(a['de'] == 'app.py' and a['para'] == 'pacote/__init__.py'
+               for a in g['arestas'])
 
 
 def test_import_pela_source_root_e_resolvido(tmp_path):
@@ -106,9 +124,10 @@ def test_import_pela_source_root_e_resolvido(tmp_path):
     (tmp_path / 'scripts' / 'app.py').write_text('from lib.config import X\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert
-    assert {'de': 'scripts/app.py', 'para': 'scripts/lib/config.py'} in g['arestas']
+    assert any(a['de'] == 'scripts/app.py' and a['para'] == 'scripts/lib/config.py'
+               for a in g['arestas'])
 
 
 def test_sufixo_ambiguo_nao_vira_aresta(tmp_path):
@@ -119,6 +138,6 @@ def test_sufixo_ambiguo_nao_vira_aresta(tmp_path):
     (tmp_path / 'app.py').write_text('from lib.config import X\n')
     stacks = [{'stack': 'python', 'caminho': '.', 'manifesto': 'pyproject.toml'}]
     # Act
-    g = grafo(tmp_path, stacks)
+    g = grafo(tmp_path, stacks, arvore_de(tmp_path))
     # Assert — aresta errada manda mexer no arquivo errado; a falta o grafo textual cobre
     assert not [a for a in g['arestas'] if a['de'] == 'app.py']

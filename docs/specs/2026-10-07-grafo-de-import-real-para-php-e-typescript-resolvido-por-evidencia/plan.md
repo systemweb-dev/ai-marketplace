@@ -248,7 +248,7 @@ deste plano tratou "nome puro é externo" e "pasta tem `index`" como universais 
 do JS. O resultado medido pelo revisor: cada import Python de módulo de um segmento virava
 externo, e `from pacote import X` nunca achava o `__init__.py`.
 
-- [ ] **Step 1: escrever o teste do contrato, que falha**
+- [x] **Step 1: escrever o teste do contrato, que falha**
 
 ```python
 # tests/test_linguagens.py
@@ -308,12 +308,12 @@ def test_python_declara_que_nome_puro_pode_ser_interno():
     assert python.ARQUIVO_DE_PASTA == '__init__'
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.linguagens'`
 
-- [ ] **Step 3: criar o pacote e o módulo de Python**
+- [x] **Step 3: criar o pacote e o módulo de Python**
 
 ```python
 # scripts/lib/linguagens/__init__.py
@@ -377,18 +377,18 @@ def classificar(alvo: str) -> str:
     return 'qualificado' if '/' in alvo else 'nome_puro'
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: PASSA (4 testes)
 
-- [ ] **Step 5: prova por mutação — o relativo de Python volta a ser cru**
+- [x] **Step 5: prova por mutação — o relativo de Python volta a ser cru**
 
 Troque `achados.append('./' + '../' * (no.level - 1) + modulo)` por
 `achados.append('.' * no.level + modulo)` e rode.
 Esperado: **cai** `test_import_relativo_de_python_vira_caminho_relativo`. Desfaça.
 
-- [ ] **Step 6: rodar a suíte inteira**
+- [x] **Step 6: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
 Esperado: **210 passam** (206 + 4). O `imports.py` ainda usa o caminho antigo — a troca
@@ -406,7 +406,7 @@ acontece na Task 9, e até lá nada regride.
 
 **Contrato que esta task publica:** `lib.linguagens.js`, cumprindo o contrato da Task 2.
 
-- [ ] **Step 1: escrever os testes que falham**
+- [x] **Step 1: escrever os testes que falham**
 
 ```python
 # acrescente em tests/test_linguagens.py
@@ -485,12 +485,12 @@ def test_js_declara_os_builtins_do_node():
     assert {'fs', 'path', 'url', 'crypto', 'events'} <= js.BUILTINS
 ```
 
-- [ ] **Step 2: rodar e confirmar que falha**
+- [x] **Step 2: rodar e confirmar que falha**
 
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: FALHA com `ModuleNotFoundError: No module named 'lib.linguagens.js'`
 
-- [ ] **Step 3: escrever o módulo**
+- [x] **Step 3: escrever o módulo**
 
 ```python
 # scripts/lib/linguagens/js.py
@@ -526,9 +526,10 @@ CONFIGS = [
      'raizes': 'compilerOptions.baseUrl'},
 ]
 
-# As cinco formas, medidas como presentes nos projetos reais. A ordem das
-# alternativas importa: `import … from` antes de `import 'x'`, senão a segunda
-# casaria a primeira pela metade.
+# As cinco formas, medidas como presentes nos projetos reais. (A ordem das
+# alternativas NÃO importa aqui: a de efeito colateral exige aspa imediatamente
+# depois de `import`, então ela não casa `import X from 'y'` de jeito nenhum —
+# conferido invertendo a ordem e comparando a saída.)
 FORMAS = re.compile(
     r"""(?:^|\n)\s*import\s[^'"\n]*from\s*['"]([^'"]+)['"]"""     # import … from
     r"""|(?:^|\n)\s*export\s[^'"\n]*from\s*['"]([^'"]+)['"]"""    # export … from
@@ -567,13 +568,13 @@ def classificar(alvo: str) -> str:
     return 'nome_puro'
 ```
 
-- [ ] **Step 4: rodar e confirmar que passa**
+- [x] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: FALHA ainda, em `test_todo_modulo_de_linguagem_cumpre_o_contrato` — falta
 acrescentar `'js'` à lista.
 
-- [ ] **Step 5: ligar o módulo ao teste de contrato**
+- [x] **Step 5: ligar o módulo ao teste de contrato**
 
 Em `tests/test_linguagens.py`, troque `MODULOS = ['python']` por:
 
@@ -584,21 +585,21 @@ MODULOS = ['python', 'js']
 Rode: `.venv/bin/python -m pytest tests/test_linguagens.py -q`
 Esperado: PASSA (9 testes)
 
-- [ ] **Step 6: prova por mutação — o extrator perde o `import()` dinâmico**
+- [x] **Step 6: prova por mutação — o extrator perde o `import()` dinâmico**
 
 Apague a linha do `import() dinâmico` em `FORMAS` e rode
 `.venv/bin/python -m pytest tests/test_linguagens.py -q`.
 Esperado: **cai** `test_extrator_de_js_pega_as_cinco_formas`. Desfaça.
 
-- [ ] **Step 7: prova por mutação — o `.vue` deixa de ser lido**
+- [x] **Step 7: prova por mutação — o `.vue` deixa de ser lido**
 
 Troque o corpo de `extrair` por `return []` quando o texto contiver `'<template>'` e rode.
 Esperado: **cai** `test_extrator_de_js_le_o_script_do_arquivo_vue`. Desfaça.
 
-- [ ] **Step 8: rodar a suíte inteira**
+- [x] **Step 8: rodar a suíte inteira**
 
 Rode: `.venv/bin/python -m pytest tests/ -q`
-Esperado: **218 passam**
+Esperado: a suíte inteira verde (ficou em **224**; a aritmética do plano é anterior às correções da Task 2)
 
 ---
 
@@ -820,6 +821,19 @@ def test_relativo_de_python_acha_o_arquivo_de_pasta_declarado():
                              '__init__') == 'app/pacote/__init__.py'
 
 
+def test_relativo_que_sobe_acima_da_raiz_nao_resolve():
+    """`../../x` num arquivo de raiz não tem para onde subir. O extrator não pode
+    barrar isso — ele não conhece o caminho de origem —, e a normalização engole o
+    `..` sobrando em silêncio: o alvo viraria `x` e casaria com um `x.py` qualquer.
+    Isso é ARESTA ERRADA, a única coisa que o desenho declara pior que aresta
+    faltando. O extrator antigo tinha a guarda (`if no.level - 1 > len(partes)`) e
+    ela não podia simplesmente desaparecer."""
+    # Arrange
+    idx = indexar(['pagina.ts', 'x.ts'])
+    # Act / Assert
+    assert resolver_relativo('pagina.ts', '../../x', idx, EXTS, PASTA) is None
+
+
 def test_relativo_que_nao_existe_devolve_nulo():
     """Import pendurado é contado, nunca vira aresta: inventar o destino seria a
     aresta errada que este desenho existe para evitar."""
@@ -928,13 +942,20 @@ def _tentativas(alvo: str, extensoes: list, arquivo_de_pasta) -> list:
     return saida
 
 
-def _normalizar(caminho: str) -> str:
-    """Resolve `.` e `..` sem tocar o disco."""
+def _normalizar(caminho: str):
+    """Resolve `.` e `..` sem tocar o disco. Subiu acima da raiz -> None.
+
+    O `..` sobrando NÃO pode ser engolido em silêncio: `../../x` num arquivo de raiz
+    viraria `x` e casaria com um `x.py` qualquer — aresta errada, que é a única
+    coisa que este desenho declara pior que aresta faltando. O extrator não pode
+    barrar isso sozinho porque não conhece o caminho de origem.
+    """
     partes = []
     for parte in caminho.split('/'):
         if parte == '..':
-            if partes:
-                partes.pop()
+            if not partes:
+                return None
+            partes.pop()
         elif parte not in ('.', ''):
             partes.append(parte)
     return '/'.join(partes)
@@ -944,6 +965,8 @@ def resolver_relativo(origem, alvo, indice, extensoes, arquivo_de_pasta):
     """`./x` e `../x` contra o arquivo de origem. Não existe -> None (pendurado)."""
     pasta = origem.rsplit('/', 1)[0] if '/' in origem else ''
     caminho = _normalizar(f'{pasta}/{alvo}' if pasta else alvo)
+    if not caminho:
+        return None         # subiu acima da raiz, ou o alvo era só `./`
     for tentativa in _tentativas(caminho, extensoes, arquivo_de_pasta):
         # a tentativa é um caminho a partir da raiz, e todo caminho é sufixo de si
         # mesmo no índice: se ele estiver no próprio conjunto, o arquivo existe
@@ -975,7 +998,7 @@ def candidatos(alvo: str, indice: dict, extensoes: list, arquivo_de_pasta) -> tu
 - [ ] **Step 4: rodar e confirmar que passa**
 
 Rode: `.venv/bin/python -m pytest tests/test_resolucao.py -q`
-Esperado: PASSA (8 testes)
+Esperado: PASSA (9 testes)
 
 - [ ] **Step 5: prova por mutação — ambíguo passa a resolver pelo primeiro**
 
@@ -987,6 +1010,12 @@ Esperado: **cai** `test_sufixo_ambiguo_devolve_os_dois_candidatos`. Desfaça.
 
 Troque `MIN_SEGMENTOS = 2` por `MIN_SEGMENTOS = 1` e rode.
 Esperado: **cai** `test_candidato_de_um_segmento_so_nao_tenta_o_indice`. Desfaça.
+
+- [ ] **Step 7b: prova por mutação — o `..` sobrando volta a ser engolido**
+
+Em `_normalizar`, troque `if not partes: return None` por `if partes:` (e reindente o `pop`)
+e rode.
+Esperado: **cai** `test_relativo_que_sobe_acima_da_raiz_nao_resolve`. Desfaça.
 
 - [ ] **Step 7: prova por mutação — o arquivo de pasta volta a ser fixo em `index`**
 
@@ -1767,6 +1796,9 @@ def grafo(raiz, stacks: list, arvore: list, area: str | None = None) -> dict:
                     continue
                 # a etapa 3 e a segunda passada entram na Task 10
                 cont['nao_resolvidos'] += 1
+                # (na Task 10 isto vira: tenta o índice; e, para a linguagem que
+                # permite nome puro interno, o que NÃO casou é `externos`, não
+                # `nao_resolvidos` — `import json` não é falha de resolução)
 
         cont['exemplos_nao_resolvidos'] = []
         contagem[nome] = cont
@@ -1884,6 +1916,22 @@ def test_psr4_conferido_resolve_e_carrega_a_procedencia(tmp_path):
     assert g['resolucao']['php']['config_conferida'] == 1
 
 
+def test_nome_puro_que_nao_casa_no_indice_e_externo_e_nao_falha(tmp_path):
+    """`import json` não é falha de resolução: é a stdlib. Na linguagem que permite
+    nome puro interno, quem decide é o índice — o que não casou com arquivo do
+    projeto é externo. Contá-lo como não resolvido levaria a taxa do Python a ~28%
+    (86 de 119 alvos desta skill são stdlib de um segmento) e jogaria a seção
+    abaixo do piso, regredindo a v0.2.0 pela CONTAGEM, com as arestas certas."""
+    # Arrange
+    (tmp_path / 'a.py').write_text('import json\nfrom b import coisa\n')
+    (tmp_path / 'b.py').write_text('coisa = 1\n')
+    # Act
+    r = grafo(tmp_path, [], arvore_de(tmp_path))['resolucao']['python']
+    # Assert
+    assert r['externos'] == 1, 'json é externo'
+    assert r['nao_resolvidos'] == 0
+
+
 def test_exemplos_do_que_nao_resolveu_tem_teto_e_ordem(tmp_path):
     """Com teto e ordem lexicográfica, porque o `inventory.json` tem que dar diff."""
     # Arrange
@@ -1941,6 +1989,16 @@ No `grafo`, troque a linha `cont['nao_resolvidos'] += 1` (e o comentário acima 
                     arestas.append({'de': caminho, 'para': achados[0],
                                     'origem': 'sufixo_unico'})
                     resolvidos.append((prefixo, sufixo, achados[0]))
+                elif not achados and classe == 'nome_puro' \
+                        and modulo.NOME_PURO_PODE_SER_INTERNO:
+                    # `import json` não casou com arquivo nenhum do projeto: é
+                    # externo, não falha de resolução. Na linguagem que permite nome
+                    # puro interno, QUEM DECIDE É O ÍNDICE — e contá-lo como não
+                    # resolvido derrubaria a taxa do Python para ~28% (medido: 86 de
+                    # 119 alvos desta skill são stdlib de um segmento), jogando a
+                    # seção abaixo do piso de 70% e regredindo a v0.2.0 pela
+                    # CONTAGEM, com as arestas todas certas.
+                    cont['externos'] += 1
                 else:
                     pendentes.append((caminho, prefixo, resto or alvo, achados, sufixo))
 ```
@@ -1996,6 +2054,11 @@ print('arestas:', len(i['arestas']), '· python:', res, 'de', den)"
 ```
 Esperado: **centenas de arestas** e a taxa de Python **acima de 70%**. Este repositório tem
 210 arquivos `.py`; se a taxa cair abaixo do piso, a v0.2.0 regrediu e o plano para aqui.
+
+- [ ] **Step 5b: prova por mutação — nome puro que não casa volta a ser falha**
+
+Troque `and modulo.NOME_PURO_PODE_SER_INTERNO:` por `and False:` e rode.
+Esperado: **cai** `test_nome_puro_que_nao_casa_no_indice_e_externo_e_nao_falha`. Desfaça.
 
 - [ ] **Step 6: prova por mutação — a configuração deixa de ser tentada**
 
@@ -2969,3 +3032,76 @@ alcança. Mesma coisa para `router/index.js` e para um `.vue` homônimo em dois 
 O script do spike rodou sem ajuste nenhum — o código do plano está correto como escrito.
 Tempo: ~3,5 s para os três projetos juntos. Conclusão: **o desenho fica como está** (piso de
 dois segmentos, `MIN_PROVAS = 5`); nenhuma das saídas de contingência precisou ser acionada.
+
+### 2026-10-07 — Task 2: o contrato das linguagens
+
+Feita como escrita, com **um desvio e quatro correções** vindas do juiz, todas medidas contra
+código real.
+
+**O desvio, e ele estava certo.** O código do step 3 do plano (`'./' + '../' * (no.level - 1)`)
+produzia `./../pai/modulo`, enquanto o teste do step 1 exige `../pai/modulo`. A implementação
+seguiu o teste, que é o contrato. As duas formas apontam o mesmo lugar depois da normalização;
+a curta é a canônica, e é ela que chega ao `inventory.json`.
+
+**O que o juiz achou, com número:**
+
+1. **O extrator perdia o candidato por NOME.** `from lib import arvore` devolvia só `lib`. O
+   extrator antigo emitia os dois (`imports.py:67`), e 35% das arestas Python desta skill
+   vinham só desse candidato. O caso pior é o ponto de entrada dela mesma: `scripts/lib/` não
+   tem `__init__.py`, então o `varrer.py` ficaria isolado no grafo do próprio projeto.
+   Corrigido, com três testes.
+2. **`extrair` devolvia alvo repetido** (10 em 119 nos arquivos da skill). O orquestrador dá
+   `append` por ocorrência: viraria aresta duplicada no inventário e dependente contado duas
+   vezes no ranking. Agora sai sem repetição, preservando a ordem.
+3. **O comentário do `BUILTINS` afirmava o que o pipeline não fazia.** Ele diz "o índice
+   decide", mas `import json` terminaria em `nao_resolvidos` — e stdlib de um segmento é 72%
+   dos alvos desta skill, o que levaria a taxa do Python a ~28% e jogaria a seção abaixo do
+   piso de 70%. Seria a restrição *"o grafo de Python não regride"* violada pela **contagem**,
+   com as arestas todas certas. A regra foi escrita na **Task 10** (nome puro que não casa é
+   externo, na linguagem que permite nome puro interno), com teste e mutação.
+4. **A guarda de "sobe acima da raiz" tinha sumido.** A antiga era
+   `if no.level - 1 > len(partes)`; o extrator novo não conhece o caminho de origem e não pode
+   tê-la. O `_normalizar` engoliria o `..` sobrando em silêncio, e `../../x` num arquivo de
+   raiz casaria com um `x.py` qualquer — aresta errada. A guarda foi para a **Task 5**, com
+   teste e mutação.
+
+Também corrigido: `except SyntaxError` virou `except (SyntaxError, ValueError, RecursionError)`
+— `ValueError` é o que o `ast` levanta para byte nulo antes do 3.12, e a skill roda com o
+`python3` que a máquina tiver.
+
+Suíte: **214 passam** (206 no começo da task; +4 do plano, +4 das correções).
+
+### 2026-10-07 — Task 3: o extrator de JavaScript, TypeScript e Vue
+
+Feita como escrita, mais **três defeitos** achados depois — e o pior deles foi introduzido pela
+correção do primeiro, o que vale registrar inteiro.
+
+1. **Import multilinha não casava.** `import {\n um,\n dois,\n} from '…'` é o que o formatador
+   produz assim que a linha passa da largura — forma padrão, não borda. Medido: **40 imports
+   internos** perdidos nos três projetos de calibração, todos relativos ou apelidados, sem erro
+   nenhum, só ausentes. Depois do conserto as contagens subiram exatamente 16, 14 e 10.
+
+2. **A correção trouxe backtracking catastrófico.** Escrevi o miolo como
+   `(?:[^'";]|\n)*?` — alternância **ambígua**, porque classe negada já casa `\n`. Os dois ramos
+   disputando o mesmo caractere fazem o backtracking dobrar por linha: medido **0,56 s** com 18
+   linhas, 2,3 s com 20, 9 s com 22 e **36 s com 24**. O gatilho é uma `interface` TypeScript
+   sem ponto e vírgula, que é o padrão do formatador em projeto Vue — **um** arquivo desses
+   estoura sozinho o orçamento de 60 s da Task 15. É a mesma classe de bug que o `redact.py`
+   desta skill já custou (80 s num arquivo), e ela voltou por outro caminho.
+
+   A correção é uma classe única com a crase dentro, `` [^'"`;]*? ``: 200 linhas em 0,000 s,
+   **zero** alvos perdidos nos 427 arquivos reais, e de quebra fecha o defeito 3.
+
+3. **O miolo preguiçoso atravessava instrução.** `export const DOC = \`veja from
+   "@/paginas/Home.vue"\`` virava aresta para um arquivo que existe, inventada por prosa dentro
+   de template literal. Zero ocorrências nos projetos reais, mas aresta errada é a única coisa
+   que este desenho declara pior que aresta faltando.
+
+**Dois comentários afirmavam o que o código não fazia**, e foram reescritos: a âncora de início
+de linha barra `//` e ` * `, mas **não** barra bloco `/* */` sem prefixo por linha (limite
+conhecido, zero ocorrências medidas); e "a ordem das alternativas importa" é falso — a de efeito
+colateral exige aspa logo depois de `import`, então nunca casaria `import X from 'y'` pela
+metade. A frase errada estava também no plano, e saiu dos dois.
+
+Suíte: **224 passam**, em 20 s — inclusive um teste de desempenho, porque o 2ⁿ é invisível numa
+suíte verde e voltaria na primeira vez que alguém "melhorasse" o miolo.

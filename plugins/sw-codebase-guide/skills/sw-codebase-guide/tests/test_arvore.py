@@ -77,3 +77,19 @@ def test_dotfile_composto_nao_inventa_linguagem(tmp_path):
     por_caminho = {a['caminho']: a['linguagem'] for a in varrer(tmp_path)}
     # Assert
     assert set(por_caminho.values()) == {'config'}
+
+
+def test_declaracao_de_tipo_e_historia_contam_como_gerados(tmp_path):
+    """`.d.ts` e `.stories.*` são fabricantes clássicos de sufixo duplicado: cada
+    `Botao.d.ts` ao lado de `Botao.ts` cria uma ambiguidade artificial que derruba a
+    taxa de resolução sem que nada esteja errado."""
+    # Arrange
+    (tmp_path / 'Botao.ts').write_text('export const x = 1')
+    (tmp_path / 'Botao.d.ts').write_text('export declare const x: number')
+    (tmp_path / 'Lista.stories.tsx').write_text('export default {}')
+    # Act
+    por_caminho = {i['caminho']: i['gerado'] for i in varrer(tmp_path)}
+    # Assert
+    assert por_caminho['Botao.ts'] is False
+    assert por_caminho['Botao.d.ts'] is True
+    assert por_caminho['Lista.stories.tsx'] is True

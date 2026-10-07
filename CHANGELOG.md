@@ -8,6 +8,63 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.3.0): **o grafo de import passou a existir para PHP, JavaScript,
+  TypeScript e Vue** — e a seção "o que depende do quê", que era lacuna nessas stacks, agora
+  diz quem importa quem. Medido nos projetos de calibração: **98% a 100%** dos imports
+  internos resolvidos em JS e PHP, com o grafo de Python **idêntico ao anterior**, aresta por
+  aresta.
+
+  A decisão que faz isso funcionar é não acreditar na configuração. Resolver a string do
+  import em arquivo exigiria ler PSR-4, `tsconfig.paths` e o apelido do bundler — e num
+  projeto real o apelido mora num `vue.config.js`, que é **JavaScript executando**, não dado.
+  A skill resolve pelos **arquivos que existem**: casa o import contra o índice de sufixos do
+  projeto, e sufixo único vira aresta. Numa segunda passada, as bases já provadas por cinco
+  imports desempatam o que ficou ambíguo — e isso **redescobriu os quatro apelidos declarados**
+  naquele `vue.config.js` sem abrir o arquivo. A configuração entra só como atalho, e só
+  depois de conferida contra o disco: mapeamento que aponta para pasta inexistente é
+  descartado.
+
+  **Sintaxe é por linguagem, resolução é uma só.** Cada `lib/linguagens/<x>.py` devolve as
+  strings de import, classifica cada uma em `relativo | qualificado | nome_puro` e declara o
+  que a resolução precisa saber sem perguntar — extensões, builtins, arquivo de pasta, se nome
+  puro pode ser interno, onde mora a configuração. Nenhuma dessas sete peças toca o disco, e
+  um teste confere que o resolvedor não contém nome de linguagem nenhum: acrescentar uma
+  linguagem custa um extrator pequeno.
+
+  **Cada execução publica a própria taxa de resolução**, em sete números absolutos e não em
+  percentual — é o resolvedor que decide o que é "externo", e inflar esse balde inflaria a
+  fração. Abaixo de **70%** numa linguagem, a seção de dependências dela volta a ser lacuna,
+  porque ranking sobre metade do grafo tem cara de fato.
+
+### Corrigido
+- `sw-codebase-guide` (v0.3.0): **a lista por símbolo saiu, e o ranking é por arquivo.** Ela
+  vinha de `mencoes` e casava PALAVRA, o que numa base em português devolvia `banco` e
+  `caminho` com centenas de menções; com aresta real, "quem importa quem" tem resposta direta.
+  O grafo textual continua no `inventory.json` para quem quiser olhar à mão, e o documento diz
+  onde ele está.
+
+  Quatro defeitos achados medindo, não lendo:
+
+  - **nome puro vira externo por regra**, não por coincidência: `import 'server-only'` casaria
+    com `tests/helpers/server-only.ts` — oito arestas erradas num projeto real. Mas a regra é
+    do JavaScript: em Python `from pedido import X` é módulo local, e aplicá-la lá apagaria o
+    grafo que já funciona. Por isso a linguagem **declara** qual dos dois vale;
+  - **dependência externa não é falha de medição.** `collections/Counter` e
+    `use SysWeb\Controller` eram contados como não resolvidos — o primeiro é stdlib, o segundo
+    mora em `vendor/`, e nome de pacote do composer não é namespace do PHP. Isso levava a taxa
+    do Python a 33% e a do PHP a 57%, com as arestas todas certas;
+  - **backtracking catastrófico** numa expressão que aceitava quebra de linha: `(?:[^'";]|\n)*?`
+    é alternância ambígua, porque classe negada já casa `\n`. Medido 0,56 s com 18 linhas de
+    miolo e **36 s com 24** — e o gatilho é uma `interface` TypeScript sem ponto e vírgula, o
+    padrão do formatador em projeto Vue. Um arquivo desses estourava sozinho o orçamento de
+    60 s da varredura;
+  - **import quebrado em várias linhas** não casava, e é a forma padrão assim que a linha passa
+    da largura: 40 imports internos sumiam, sem erro, só ausentes.
+
+  O `inventory.json` voltou a ser determinístico entre processos: as arestas eram concatenadas
+  num laço sobre um `set`, cuja ordem muda por processo, e passava por acidente porque só uma
+  linguagem gerava aresta.
+
 - `sw-codebase-guide` (v0.2.0): **um segundo documento, para gente, ao lado do relatório
   técnico** — e o escopo escolhido na entrada, porque num projeto de 1.900 arquivos
   "documentar o projeto" e "documentar o cadastro de cliente" são documentos diferentes.

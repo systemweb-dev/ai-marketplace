@@ -453,3 +453,23 @@ def test_percurso_inteiro_sem_salto_diz_isso_uma_vez(tmp_path):
     html = (tmp_path / 'leia-me.html').read_text()
     # Assert
     assert html.count('Sem saltos') == 1
+
+
+def test_bloco_da_taxa_mostra_os_numeros_absolutos(tmp_path):
+    """Sem a taxa, uma lista de dependências parece completa mesmo quando metade
+    falhou. Os números absolutos, e não o percentual sozinho, porque é a rotulagem
+    do balde `externos` que move a fração."""
+    # Arrange
+    preparar(tmp_path, imports={'arestas': [], 'indisponivel': [], 'barris': [],
+                                'resolucao': {'php': {
+                                    'relativos': 0, 'externos': 424,
+                                    'sufixo_unico': 569, 'base_provada': 0,
+                                    'config_conferida': 0, 'ambiguos': 0,
+                                    'pendurados': 0, 'nao_resolvidos': 0}}})
+    # Act
+    r = imprimir(tmp_path)
+    html = (tmp_path / 'leia-me.html').read_text()
+    # Assert
+    assert r.returncode == 0, r.stderr
+    bloco = secao_do_bloco(html, 'Quanto disto foi medido')
+    assert '569' in bloco and '424' in bloco and '100%' in bloco

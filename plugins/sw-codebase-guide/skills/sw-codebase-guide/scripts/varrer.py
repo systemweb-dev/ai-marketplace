@@ -75,7 +75,7 @@ def apurar(projeto: Path, area: str | None = None) -> dict:
         # o retrato é do PROJETO, não da área: quantas pessoas conhecem este
         # código e há quanto tempo ninguém encosta nele não mudam com o recorte
         'retrato': historia.retrato(projeto),
-        'imports': imports.grafo(projeto, componentes),
+        'imports': imports.grafo(projeto, componentes, todos, area=area),
         'superficie': [s for s in superficie.detectar(projeto)
                        if _dentro(s['caminho'], area)],
         # `textos` NÃO é recortado: a guarda da vacuidade exige que `fonte` esteja

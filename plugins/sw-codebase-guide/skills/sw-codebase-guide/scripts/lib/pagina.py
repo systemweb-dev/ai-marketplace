@@ -365,3 +365,37 @@ def bloco_orientacoes(narrativa: list) -> str:
                   'O que saber antes de abrir o editor.',
                   ''.join(f'<p>{citacao(b["texto"])}</p>' for b in blocos),
                   classe='n1', largo=True)
+
+
+def bloco_resolucao(inv: dict) -> str:
+    """Quanto do grafo foi de fato medido, em números absolutos.
+
+    O percentual sozinho esconde a decisão que o produz: é o resolvedor que decide
+    o que é `externo`, e inflar aquele balde infla a fração. Num projeto medido a
+    diferença entre duas rotulagens plausíveis era 85,5% e 75,7% — o veredito sairia
+    da rotulagem, não do resolvedor.
+    """
+    resolucao = (inv.get('imports') or {}).get('resolucao') or {}
+    if not resolucao:
+        return ''
+    linhas = []
+    for linguagem, c in sorted(resolucao.items()):
+        resolvidos = (c['relativos'] + c['sufixo_unico'] + c['base_provada']
+                      + c['config_conferida'])
+        denominador = (resolvidos + c['ambiguos'] + c['pendurados']
+                       + c['nao_resolvidos'])
+        quanto = (f'{round(resolvidos * 100 / denominador)}%' if denominador
+                  else '—')
+        detalhe = (f'{resolvidos} de {denominador} imports internos. '
+                   f'{c["externos"]} externos, {c["ambiguos"]} ambíguos, '
+                   f'{c["pendurados"]} pendurados.' if denominador
+                   else 'Nenhum import interno: não medido, que não é zero.')
+        linhas.append(
+            f'<div class="r{"" if denominador else " alerta"}"><b>{e(quanto)}</b>'
+            f'<span>{e(linguagem)}</span><p>{e(detalhe)}</p></div>')
+    return _bloco('Quanto disto foi medido', 'fato',
+                  'O quanto confiar na seção de dependências.',
+                  f'<div class="retratos">{"".join(linhas)}</div>',
+                  classe='n2', largo=True,
+                  rodape='O que não resolveu está contado, não escondido: import que o '
+                         'resolvedor não casou com arquivo nenhum não vira aresta.')

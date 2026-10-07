@@ -116,8 +116,13 @@ O que cada seção carrega, e o quanto confiar nela:
 - **`ambiente`** — por arquivo `.env`, **os nomes das variáveis e nada mais**. Saber que o
   projeto usa `STRIPE_SECRET_KEY` e `REDIS_URL` é uma das informações mais úteis do documento
   para quem vai subir o ambiente pela primeira vez; o valor nunca é lido para dentro.
-- **`mencoes`** — grafo textual: onde cada símbolo aparece como texto. É o que pega o
-  acoplamento que o import não vê.
+- **`mencoes`** — grafo textual: onde cada símbolo aparece como texto. Fica no inventário para
+  quem quiser olhar à mão; não entra no documento, porque casa PALAVRA e numa base em
+  português devolve `banco` e `caminho` às centenas sem haver relação de código.
+- **`resolucao`** — por linguagem, sete números: `relativos`, `externos`, `sufixo_unico`,
+  `base_provada`, `config_conferida`, `ambiguos`, `pendurados` e `nao_resolvidos`. A taxa é
+  `(relativos + sufixo_unico + base_provada + config_conferida)` sobre tudo isso **menos
+  `externos`**; denominador zero é "não medido", nunca 0%.
 - **`retrato`** — quantas pessoas commitaram, quantos commits, idade e semanas parado. Sem git
   vem tudo `None` com a lacuna dizendo por quê: **`0 autores` se lê como "ninguém mexe nisso"**,
   e `1` como "uma pessoa só". Num monorepo por justaposição o retrato é do CONJUNTO — autores é
@@ -278,8 +283,17 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
 
 ## Limites desta versão
 
-- **Grafo de import só para Python** (pelo `ast` da stdlib). Outras stacks aparecem em
-  `indisponivel` com o motivo declarado, e o acoplamento delas sai pelo grafo textual.
+- **Grafo de import para Python, PHP, JavaScript, TypeScript e Vue.** A resolução é por
+  **evidência** — o arquivo que existe —, não pela configuração declarada: num projeto real os
+  apelidos moram num `vue.config.js`, que é JavaScript executando. A configuração entra só como
+  atalho **conferido contra o disco**. Linguagem com sistema de módulos que esta versão não
+  resolve aparece em `indisponivel` com o motivo.
+- **Cada execução publica a própria taxa de resolução**, em sete números absolutos. Abaixo de
+  **70%** resolvido numa linguagem, a seção de dependências dela volta a ser lacuna: ranking
+  sobre metade do grafo tem cara de fato, e é o erro que a v0.1.1 custou.
+- **O grafo continua sem ver** injeção de dependência, rota como string, reflexão e include de
+  template. Grafo melhor não torna verdadeiro o que ele não vê, e a skill continua **nunca**
+  afirmando ausência de dependentes.
 - **Sem conhecimento humano persistido.** Não há `knowledge.toml` nem `gravar.py`: o que
   alguém confirmar não sobrevive entre execuções — reescrever a interpretação é manual.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os

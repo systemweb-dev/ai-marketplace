@@ -10,7 +10,7 @@ FIXTURES = Path(__file__).parent / 'fixtures'
 # copiar é o que impede as duas divergirem na primeira vez que alguém
 # acrescentar uma frase a uma só delas.
 sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
-from montar import PROIBIDAS  # noqa: E402
+from montar import PROIBIDAS, _dependentes  # noqa: E402
 
 
 def varrer(projeto, saida):
@@ -24,16 +24,25 @@ def montar(saida):
                            '--dir', str(saida)], capture_output=True, text=True)
 
 
-def test_acoplamento_invisivel_aparece_como_mencao(tmp_path):
-    # Arrange — o acoplamento existe SÓ por string e injeção
+def test_o_documento_diz_que_nao_ve_acoplamento_por_string(tmp_path):
+    """Esta fixture tem acoplamento que existe SÓ por string e injeção. Antes ele
+    aparecia na lista por símbolo, que vinha do grafo textual; com o grafo de import
+    real, a lista saiu e o acoplamento invisível **deixa de ser mostrado**.
+
+    Isso é perda de capacidade, e a resposta honesta não é escondê-la: o documento
+    diz o que não enxerga e aponta onde o dado bruto está. A seção que cruza
+    co-mudança com import para achar esse acoplamento ficou para o próximo ciclo."""
+    # Arrange
     varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
     # Act
     montar(tmp_path)
     guia = (tmp_path / 'guide.md').read_text()
-    # Assert — o par POSITIVO: o acoplamento TEM que aparecer
-    assert 'UserController' in guia
-    assert 'menç' in guia.lower()          # apareceu como menção textual
-    assert 'rotas.py' in guia or 'container.py' in guia
+    # Assert — o documento declara o que não enxerga, e não finge medir
+    assert 'rota como string' in guia
+    assert 'injeção de dependência' in guia
+    assert 'continua por apurar' in guia or 'não medido' in guia
+    for frase in PROIBIDAS:
+        assert frase not in guia.lower(), frase
 
 
 def test_nenhuma_frase_de_ausencia(tmp_path):
@@ -187,8 +196,13 @@ def test_pergunta_fixa_some_quando_a_secao_foi_respondida(tmp_path):
     assert 'Qual é o propósito de negócio' not in guia
 
 
-def test_simbolo_so_citado_em_documentacao_fica_de_fora(tmp_path):
-    # Arrange — nome de arquivo de spec virava "dependente"
+def test_simbolo_citado_em_documentacao_nao_vira_dependente(tmp_path):
+    """Este teste guardava um filtro da lista por SÍMBOLO, que vinha de `mencoes` e
+    casava palavra. Com grafo de import real a lista saiu inteira, e o filtro foi
+    junto — o que ele combatia (nome de arquivo de spec virando "dependente") deixa
+    de ser possível, porque só aresta resolvida entra. A garantia continua, com
+    outra causa."""
+    # Arrange
     varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
     inv = json.loads((tmp_path / 'inventory.json').read_text())
     inv['mencoes']['PlanoDeMigracao'] = [{'caminho': 'docs/plano.md', 'linha': 3},
@@ -198,8 +212,8 @@ def test_simbolo_so_citado_em_documentacao_fica_de_fora(tmp_path):
     montar(tmp_path)
     guia = (tmp_path / 'guide.md').read_text()
     # Assert
-    assert '**PlanoDeMigracao**' not in guia
-    assert 'só em documentação' in guia
+    assert 'PlanoDeMigracao' not in guia
+    assert 'docs/plano.md' not in guia
 
 
 def test_sem_grafo_de_import_a_secao_vira_lacuna(tmp_path):
@@ -218,7 +232,8 @@ def test_sem_grafo_de_import_a_secao_vira_lacuna(tmp_path):
     montar(tmp_path)
     guia = (tmp_path / 'guide.md').read_text()
     # Assert — a lacuna aparece com motivo, e o ruído não
-    assert 'não foi medido nesta versão' in guia
+    assert 'indisponível para **node**' in guia
+    assert 'sem resolvedor' in guia, 'a lacuna precisa dizer POR QUE não mediu'
     assert '[lacuna]' in guia
     assert '**banco**' not in guia and 'import não medido' not in guia
     # e a garantia mais forte continua de pé
@@ -230,15 +245,22 @@ def test_com_grafo_de_import_a_lista_continua(tmp_path):
     # Arrange — o par positivo: havendo aresta, a seção não some
     varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
     inv = json.loads((tmp_path / 'inventory.json').read_text())
-    inv['imports'] = {'arestas': [{'de': 'rotas.py', 'para': 'app/UserController.py'}],
-                      'indisponivel': []}
+    inv['imports'] = {
+        'arestas': [{'de': 'rotas.py', 'para': 'app/UserController.py',
+                     'origem': 'sufixo_unico'}],
+        'indisponivel': [], 'barris': [],
+        'resolucao': {'python': {'relativos': 0, 'externos': 0, 'sufixo_unico': 1,
+                                 'base_provada': 0, 'config_conferida': 0,
+                                 'ambiguos': 0, 'pendurados': 0,
+                                 'nao_resolvidos': 0}}}
     (tmp_path / 'inventory.json').write_text(json.dumps(inv))
     # Act
     montar(tmp_path)
     guia = (tmp_path / 'guide.md').read_text()
-    # Assert
-    assert 'por import' in guia
-    assert 'não foi medido nesta versão' not in guia
+    # Assert — a lista virou ranking por ARQUIVO, com a taxa ao lado
+    assert '1 arquivo importa diretamente `app/UserController.py`' in guia
+    assert 'Resolvidos 1 de 1' in guia
+    assert 'indisponível para' not in guia
 
 
 def test_sem_lista_o_aviso_nao_se_repete(tmp_path):
@@ -253,9 +275,11 @@ def test_sem_lista_o_aviso_nao_se_repete(tmp_path):
     montar(tmp_path)
     guia = (tmp_path / 'guide.md').read_text()
     # Assert
-    assert 'injeção de dependência' not in guia
+    # a indisponibilidade sai UMA vez, no preâmbulo — imprimi-la também na lista
+    # deu vinte linhas repetidas num projeto real
     assert guia.count('[lacuna]') >= 1
-    assert 'não foi medido nesta versão' in guia
+    assert guia.count('indisponível para **node**') == 1
+    assert 'importa diretamente' not in guia, 'sem lista, a ressalva da lista não sai'
 
 
 def _com_escopo(tmp_path, **ajustes):
@@ -387,3 +411,97 @@ def test_markdown_nao_conta_como_codigo_no_cabecalho(tmp_path):
     # Assert — só `app.py` é código; os três markdown/yaml e o toml não são
     assert '1 arquivos de código' in guia or '1 arquivo de código' in guia, \
         [l for l in guia.split('\n') if 'arquivos de código' in l]
+
+
+# ───────────────────────── o ranking por arquivo, com piso ─────────────────────
+BALDES = ('relativos', 'externos', 'sufixo_unico', 'base_provada', 'config_conferida',
+          'ambiguos', 'pendurados', 'nao_resolvidos')
+
+
+def contagem(**valores):
+    return {**dict.fromkeys(BALDES, 0), **valores}
+
+
+def inv_com(arestas, resolucao, barris=()):
+    return {'imports': {'arestas': arestas, 'indisponivel': [],
+                        'resolucao': resolucao, 'barris': list(barris)},
+            'mencoes': {}}
+
+
+def test_ranking_por_arquivo_ordenado_por_quem_importa():
+    """A lista de antes era por SÍMBOLO e ordenada por menções textuais — ela existia
+    só por não haver grafo. Com aresta real, a pergunta 'o que mais gente importa'
+    tem resposta direta e sem o ruído do casamento por palavra."""
+    # Arrange
+    arestas = [{'de': f'src/t{i}.ts', 'para': 'src/servico.ts', 'origem': 'relativo'}
+               for i in range(3)]
+    arestas.append({'de': 'src/t0.ts', 'para': 'src/raro.ts', 'origem': 'relativo'})
+    # Act
+    linhas = '\n'.join(_dependentes(inv_com(arestas, {'js': contagem(relativos=4)})))
+    # Assert
+    assert '3 arquivos importam diretamente `src/servico.ts`' in linhas
+    assert linhas.index('src/servico.ts') < linhas.index('src/raro.ts')
+
+
+def test_diz_importa_diretamente_e_nunca_alcanca():
+    """'alcança' se lê como transitivo, e o desenho declara que não é."""
+    # Arrange / Act
+    linhas = '\n'.join(_dependentes(inv_com(
+        [{'de': 'a.ts', 'para': 'b.ts', 'origem': 'relativo'}],
+        {'js': contagem(relativos=1)})))
+    # Assert
+    assert 'alcança' not in linhas
+
+
+def test_abaixo_do_piso_a_linguagem_vira_lacuna_e_nao_ranking():
+    """Ranking construído sobre metade do grafo tem cara de fato — é o erro que a
+    v0.1.1 custou. Não basta publicar a taxa ao lado: ninguém lê uma ressalva e
+    depois duvida de uma lista ordenada."""
+    # Arrange — 4 de 10 resolvidos: 40%
+    # Act
+    linhas = '\n'.join(_dependentes(inv_com(
+        [{'de': 'a.ts', 'para': 'b.ts', 'origem': 'relativo'}],
+        {'js': contagem(relativos=4, ambiguos=3, nao_resolvidos=3)})))
+    # Assert
+    assert 'lacuna' in linhas
+    assert '40%' in linhas
+    assert 'b.ts' not in linhas
+
+
+def test_denominador_zero_e_nao_medido_e_nunca_zero_por_cento():
+    """Linguagem com extrator e nenhum import interno: 0/0 não é 0%."""
+    # Act
+    linhas = '\n'.join(_dependentes(inv_com([], {'js': contagem()})))
+    # Assert
+    assert 'não medido' in linhas
+    assert '0%' not in linhas
+
+
+def test_arquivo_de_puro_reexport_fica_fora_do_ranking():
+    """Com `export … from` no extrator e centenas de imports apelidados, todo
+    `@/utils` resolve no barril — e o topo viraria "9 arquivos importam index.ts":
+    verdadeiro, inútil, e com o arquivo que a pessoa precisa abrir a dois saltos,
+    que o não-objetivo "sem análise transitiva" proíbe seguir."""
+    # Arrange
+    arestas = [{'de': f'src/t{i}.ts', 'para': 'src/index.ts', 'origem': 'relativo'}
+               for i in range(9)]
+    arestas += [{'de': f'src/t{i}.ts', 'para': 'src/servico.ts', 'origem': 'relativo'}
+                for i in range(2)]
+    # Act
+    linhas = '\n'.join(_dependentes(inv_com(arestas, {'js': contagem(relativos=11)},
+                                            barris=['src/index.ts'])))
+    # Assert
+    assert 'src/index.ts' not in linhas
+    assert 'src/servico.ts' in linhas
+
+
+def test_o_texto_gerado_nao_usa_nenhuma_frase_proibida():
+    """O rodapé precisa dizer que a lista não é exaustiva SEM usar as palavras que a
+    skill proíbe. Um rascunho deste texto dizia 'não é afirmação de que nada depende
+    dele' — e `PROIBIDAS[0]` é exatamente `'nada depende'`."""
+    # Act
+    texto = '\n'.join(_dependentes(inv_com(
+        [{'de': 'a.ts', 'para': 'b.ts', 'origem': 'relativo'}],
+        {'js': contagem(relativos=1)}))).lower()
+    # Assert
+    assert not [f for f in PROIBIDAS if f in texto]

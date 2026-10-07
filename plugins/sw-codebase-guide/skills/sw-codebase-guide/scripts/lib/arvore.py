@@ -40,8 +40,12 @@ LINGUAGENS = {
 }
 
 # Sufixo que denuncia arquivo gerado: ele infla a contagem e polui o grafo.
+# `.d.ts` e `.stories.*` não são código que alguém mantém, e são fabricantes de
+# sufixo duplicado: `Botao.d.ts` ao lado de `Botao.ts` cria ambiguidade artificial
+# que derruba a taxa de resolução sem nada estar errado.
 GERADOS = ('.min.js', '.min.css', '.lock', '.map', '-lock.json', '.pyc', '.generated.ts',
-           '.tsbuildinfo', '.snap', '.pb.go', '_pb2.py')
+           '.tsbuildinfo', '.snap', '.pb.go', '_pb2.py', '.d.ts',
+           '.stories.ts', '.stories.tsx', '.stories.js', '.stories.jsx', '.stories.vue')
 
 
 def linguagem_de(caminho: Path) -> str:

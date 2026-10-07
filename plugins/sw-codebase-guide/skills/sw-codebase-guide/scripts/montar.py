@@ -277,61 +277,102 @@ def _como_foi_detectada(componente: dict) -> str:
     return f'sem manifesto; detectada por {componente.get("por", "contagem de arquivos")}'
 
 
+PISO_RESOLUCAO = 0.70     # abaixo disto, ranking vira lacuna
+TETO_RANKING = 15
+
+
+def _taxa(c: dict):
+    """(resolvidos, denominador) — ou (0, 0) quando não houve import interno.
+
+    A fórmula escrita uma vez, porque sem ela dois leitores chegam a números
+    diferentes: `externos` fica FORA dos dois lados de propósito, e é a conta mais
+    delicada daqui — inflar aquele balde inflaria a taxa.
+    """
+    resolvidos = (c['relativos'] + c['sufixo_unico'] + c['base_provada']
+                  + c['config_conferida'])
+    return resolvidos, resolvidos + c['ambiguos'] + c['pendurados'] + c['nao_resolvidos']
+
+
 def _dependentes(inv: dict) -> list:
-    """Uma linha por arquivo: import + menção textual, nunca ausência."""
+    """Quem importa quem, por linguagem — ou a lacuna, quando a medição foi fraca.
+
+    Substitui a lista por símbolo que existia antes: ela vinha de `mencoes` e casava
+    PALAVRA, o que numa base em português devolvia `banco` e `caminho` com centenas
+    de menções. Com aresta real a pergunta tem resposta direta.
+    """
+    from lib.imports import POR_EXTENSAO
+
+    resolucao = inv['imports'].get('resolucao') or {}
+    barris = set(inv['imports'].get('barris') or [])
+    # a entrada é POR LINGUAGEM, pela extensão de quem importa: sem isso o bloco
+    # `js` de um monorepo listava arquivos `.php` no topo do ranking, porque a
+    # contagem era global e o título dizia outra coisa
     entrada = {}
     for aresta in inv['imports']['arestas']:
-        entrada.setdefault(aresta['para'], []).append(aresta['de'])
+        ling = POR_EXTENSAO.get(Path(aresta['de']).suffix.lower())
+        if ling:
+            entrada.setdefault(ling, {}).setdefault(aresta['para'], set()).add(aresta['de'])
 
-    # Sem NENHUMA aresta de import, o que resta é só o grafo textual — e ele casa
-    # PALAVRA, não símbolo de código. Num projeto em português isso devolve `banco`,
-    # `caminho` e `conta` com centenas de "menções", contadas inclusive dentro de
-    # arquivo de documentação. A seção vira 142 linhas de ruído com `import não
-    # medido` em cada uma, e o leitor não tem como separar sinal de palavra comum.
-    #
-    # Lacuna curta com motivo é mais honesta que lista longa que ninguém consegue ler.
-    if not inv['imports']['arestas'] and inv['imports']['indisponivel']:
-        stacks = ', '.join(sorted(i['stack'] for i in inv['imports']['indisponivel']))
-        return [
-            f'O acoplamento por import não foi medido nesta versão para: **{stacks}**.',
-            '',
-            'Resta o grafo textual, que casa o nome como palavra — e isso traz ruído',
-            'demais para virar afirmação: numa base em português, `banco` e `caminho`',
-            'aparecem às centenas sem que haja relação de código. A lista completa está',
-            'em `inventory.json`, na seção `mencoes`, para quem quiser olhar à mão.',
-            '',
-            '*Quem depende de quem, nesta stack, continua por apurar.*  [lacuna]',
-        ]
-
-    # Símbolo citado SÓ em documentação não é acoplamento de código: o nome de um
-    # arquivo de spec aparecia como dependente, inflando a lista com ruído.
-    so_em_doc = 0
-    linhas = []
-    for simbolo, achadas in inv['mencoes'].items():
-        arquivos = sorted({m['caminho'] for m in achadas})
-        if all(a.lower().endswith(DOCUMENTACAO) for a in arquivos):
-            so_em_doc += 1
+    linhas, houve_ranking = [], False
+    # A indisponibilidade sai no preâmbulo da seção — MENOS quando o preâmbulo é
+    # suprimido, que é o caso de não haver aresta nenhuma (ali, cegueiras mais
+    # indisponibilidade mais lacuna dizem a mesma coisa três vezes). Então ela sai
+    # aqui, e só aqui. Imprimir nos dois lugares deu vinte linhas de lacuna repetida
+    # antes de qualquer conteúdo num projeto real: a v0.1.1 por outro caminho.
+    indisponivel = inv['imports'].get('indisponivel') or []
+    if indisponivel and not inv['imports']['arestas']:
+        for item in indisponivel:
+            linhas.append(f'Grafo de import indisponível para **{item["stack"]}**: '
+                          f'{item["motivo"]}  [lacuna]\n')
+    for linguagem, contagem in sorted(resolucao.items()):
+        resolvidos, denominador = _taxa(contagem)
+        linhas.append(f'### {linguagem}\n')
+        if denominador == 0:
+            linhas.append(f'Nenhum import interno em {linguagem} — não medido, que '
+                          f'não é o mesmo que zero.  [lacuna]\n')
             continue
-        por_import = sorted({d for alvo, ds in entrada.items()
-                             if Path(alvo).stem == simbolo for d in ds})
-        # chegou aqui porque HÁ grafo de import; sem ele a seção vira lacuna acima
-        plural = 'menção textual' if len(arquivos) == 1 else 'menções textuais'
-        linhas.append((len(arquivos), simbolo,
-                       f'- **{simbolo}** — {len(por_import)} por import, '
-                       f'{len(arquivos)} {plural}: '
-                       f'{", ".join(arquivos[:6])}'
-                       + (' …' if len(arquivos) > 6 else '')))
-
-    # Ordenado pelo MAIS citado e cortado: sem isto a seção era 85% do documento
-    # (264 de 310 linhas), sem ranking, e ninguém lia.
-    linhas.sort(key=lambda t: (-t[0], t[1]))
-    saida = [texto for _, _, texto in linhas[:TETO_SIMBOLOS]]
-    sobra = len(linhas) - len(saida)
-    if sobra:
-        saida.append(f'\n*Mais {sobra} símbolos com menos menções, no `inventory.json`.*')
-    if so_em_doc:
-        saida.append(f'*{so_em_doc} símbolos citados só em documentação ficaram de fora.*')
-    return saida
+        pct = round(resolvidos * 100 / denominador)
+        if resolvidos / denominador < PISO_RESOLUCAO:
+            linhas.append(
+                f'A resolução de import ficou em **{pct}%** ({resolvidos} de '
+                f'{denominador}), abaixo do piso de {round(PISO_RESOLUCAO * 100)}%. '
+                f'Um ranking sobre esse grafo teria cara de fato.\n')
+            linhas.append(f'*Quem depende de quem em {linguagem} continua por '
+                          f'apurar.*  [lacuna]\n')
+            continue
+        # o barril é um corredor, não um destino: com `export … from` no extrator,
+        # todo `@/utils` resolve nele e o topo viraria "300 arquivos importam
+        # index.ts" — verdadeiro, inútil, e com o arquivo que a pessoa precisa abrir
+        # a dois saltos, que o não-objetivo "sem análise transitiva" proíbe seguir
+        ranking = sorted(((alvo, des) for alvo, des in entrada.get(linguagem, {}).items()
+                          if alvo not in barris),
+                         key=lambda t: (-len(t[1]), t[0]))
+        linhas.append(f'Resolvidos {resolvidos} de {denominador} imports '
+                      f'({pct}%).  [fato]\n')
+        houve_ranking = True
+        for alvo, des in ranking[:TETO_RANKING]:
+            plural = 'arquivo importa' if len(des) == 1 else 'arquivos importam'
+            linhas.append(f'- {len(des)} {plural} diretamente `{alvo}`')
+        if len(ranking) > TETO_RANKING:
+            linhas.append(f'- … e mais {len(ranking) - TETO_RANKING}')
+        linhas.append('')
+    if not linhas:
+        return ['*Quem depende de quem continua por apurar.*  [lacuna]']
+    if not houve_ranking:
+        # sem lista, a ressalva repetiria o que a lacuna acima já disse
+        return linhas
+    # a ressalva precisa dizer que a lista é parcial SEM usar as frases de
+    # `PROIBIDAS` — "nada depende" é a primeira delas, e o teste do documento
+    # montado roda a lista inteira sobre o `guide.md`
+    # as cinco cegueiras já estão no preâmbulo da seção — repeti-las aqui seria a
+    # terceira vez que o documento diz a mesma coisa na mesma página
+    linhas.append('Esta lista diz quem importa **diretamente**: não é transitiva, e um '
+                  'arquivo ausente dela pode ter dependentes que esta medição não '
+                  'enxerga. O grafo textual, que casa o nome como palavra, fica no '
+                  '`inventory.json`, na seção `mencoes`, para quem quiser olhar à mão '
+                  '— ele não entra aqui porque numa base em português devolve `banco` '
+                  'e `caminho` às centenas sem haver relação de código.')
+    return linhas
 
 
 def _escrever(L: list, afirmacoes: list, secao: str) -> None:
