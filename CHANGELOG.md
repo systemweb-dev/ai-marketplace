@@ -8,6 +8,11 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Corrigido
+- `sw-infra-audit` (v0.16.1): **o motivo com dois exporters se lia como um nome de produto.**
+  Visto num relatório real: *"o exporter cadvisor, traefik não expõe o dado desta pergunta"* —
+  correto no conteúdo, e lido como se `cadvisor, traefik` fosse um produto só. Agora o plural
+  concorda e a lista é ligada por "e": *"os exporters cadvisor e traefik não expõem"*.
+
 - `sw-codebase-guide` (v0.5.1): **seis defeitos achados rodando a skill num projeto que ela
   nunca tinha visto** — um monorepo de cinco repositórios git, com PHP, Node e um invólucro
   Android. Todos apareceram na primeira tela ou na leitura do documento; nenhum na suíte.

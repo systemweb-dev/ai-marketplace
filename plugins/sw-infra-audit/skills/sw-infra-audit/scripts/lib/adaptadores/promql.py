@@ -240,9 +240,13 @@ def perguntar(pergunta, componente, contexto):
             # A família FOI reconhecida; ela é que não publica este dado. Dizer "não reconheci
             # a família" aqui manda o dono procurar exporter que já existe — degradação de
             # motivo em escala, que é o que o passe não pode introduzir.
-            nomes = ", ".join(sorted({f["familia"]["familia"]
-                                      for f in resolvido["familias"]}))
-            motivo = f"o exporter {nomes} não expõe o dado desta pergunta"
+            nomes = sorted({f["familia"]["familia"] for f in resolvido["familias"]})
+            # "o exporter cadvisor, traefik não expõe" lê como UM nome. Visto num relatório
+            # real, com dois exporters cobrindo o mesmo componente.
+            motivo = (f"o exporter {nomes[0]} não expõe o dado desta pergunta"
+                      if len(nomes) == 1 else
+                      f"os exporters {', '.join(nomes[:-1])} e {nomes[-1]} não expõem o dado "
+                      f"desta pergunta")
         return _sem_dados(pergunta, motivo or "a fonte respondeu, mas não reconheci a família "
                                               "de métrica deste componente")
 

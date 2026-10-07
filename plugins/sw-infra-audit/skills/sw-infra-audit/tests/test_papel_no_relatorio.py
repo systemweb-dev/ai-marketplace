@@ -85,3 +85,18 @@ def test_cada_camada_do_relatorio_tem_titulo_proprio():
     rotulos = [rotulo for _, rotulo in build_report.CAMADAS]
 
     assert len(rotulos) == len(set(rotulos)), rotulos
+
+
+def test_o_motivo_de_duas_familias_nao_le_como_um_nome_so():
+    """Visto num relatório real: "o exporter cadvisor, traefik não expõe o dado desta
+    pergunta" — correto no conteúdo, e lê como se `cadvisor, traefik` fosse um produto."""
+    import collect
+    from lib.adaptadores import promql
+
+    familias = [{"familia": {"familia": n, "pergunta": []}, "seletor": ""}
+                for n in ("cadvisor", "traefik")]
+    contexto = {"timeout": 2, "cache": {"resolvido": {"x": {"familias": familias}}}}
+
+    r = promql.perguntar("banco.conexoes", {"nome": "x", "metricas_url": "http://f"}, contexto)
+
+    assert r["motivo"] == "os exporters cadvisor e traefik não expõem o dado desta pergunta"
