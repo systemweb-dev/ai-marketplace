@@ -177,6 +177,7 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str) -> str:
     corpo = ''.join(filter(None, [
         pagina.bloco_o_que_e(narrativa),
         pagina.bloco_retrato(inv),
+        pagina.bloco_perigo(inv),
         pagina.bloco_afirmacoes(afirmacoes, 'o-que-faz', 'O que o sistema faz',
                                 'O que mais o código disse sobre o produto.'),
         pagina.bloco_percurso(narrativa),
@@ -186,6 +187,8 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str) -> str:
         pagina.bloco_superficie(inv),
         pagina.bloco_muda_junto(inv),
         pagina.bloco_resolucao(inv),
+        pagina.bloco_risco(inv),
+        pagina.bloco_sem_alcance(inv),
         pagina.bloco_ambiente(inv),
         pagina.bloco_afirmacoes(afirmacoes, 'como-entrar', 'Como entrar',
                                 'O que você precisa saber antes do primeiro comando.',

@@ -8,6 +8,48 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.4.0): **a skill passou a julgar** — e esta é a primeira versão em
+  que ela opina sobre o projeto, não só o descreve. São as quatro perguntas de quem recebe
+  código que ninguém da casa conhece, e cada uma tem uma forma só: **sinal medido, limiar
+  escrito, e a frase do que ele não diz**. Nota não existe; número único vira meta, e meta
+  vira teatro.
+
+  **Onde é mais caro errar** — os três sinais *juntos*: mais de 5 arquivos importando, mais de
+  10 commits de histórico, e nenhum teste de mesmo nome e mesma extensão. Isoladamente nenhum
+  diz nada, e é a coincidência que descreve perigo. Num projeto real isso aponta
+  `constants/index.js` com 55 dependentes e 35 commits, sem teste.
+
+  **Risco visível** — só o que se vê sem rede e sem executar nada: `.env` **versionado** (a
+  diferença entre "existe no disco", que é normal, e "está no git", que é credencial
+  publicada, é uma consulta ao git) e variável com cara de credencial que o `.env.example` não
+  declara. O valor nunca é lido: os achados falam de nome de arquivo e nome de chave.
+
+  **Ninguém parece usar — ainda é usado?** Arquivo que import nenhum alcança e que ninguém
+  toca há mais de um ano. Sai como **pergunta**, nunca como veredito, porque "está morto" é
+  literalmente a frase que a skill promete não dizer. Três travas: só nas linguagens acima do
+  piso de 70% de resolução, só acima de um ano parado, e sem os papéis que o framework
+  instancia por convenção — num projeto real o terceiro candidato era um controller alcançado
+  por rota-em-string, e lista cheia de controller é pior que lista nenhuma. Com as travas, o
+  monorepo de calibração saiu de 14 candidatos para 2, e os dois foram conferidos à mão: um
+  componente Vue que só aparece em comentários, e um arquivo de configuração que ninguém
+  menciona.
+
+  **Vale manter ou reescrever?** A skill **não responde**, e isso é desenho: a resposta depende
+  de quanto custa reescrever e do que o negócio depende, e o código não contém nenhum dos dois.
+  Ela põe a mesa — fator ônibus, idade, tempo parado, cobertura, tamanho, o que foi medido — e
+  diz por escrito qual é o número que falta.
+
+  O `inventory.json` ganhou a seção `julgamento`, calculada por último porque lê todas as
+  outras, e o `historia.py` ganhou `por_arquivo` (data da última mudança e contagem de commits,
+  numa passada só) e `rastreados` (o que o git controla).
+
+### Corrigido
+- `sw-codebase-guide` (v0.4.0): **o extrator de PHP passou a ler `require` e `include`** com
+  caminho literal. Sem isso, todo arquivo carregado assim parecia não ter ninguém apontando
+  para ele — e num projeto real o front controller (`www/index.php`) e o `config/Defines.php`
+  apareciam como candidatos a código morto, que é o falso positivo mais caro que essa lista
+  pode ter.
+
 - `sw-codebase-guide` (v0.3.0): **o grafo de import passou a existir para PHP, JavaScript,
   TypeScript e Vue** — e a seção "o que depende do quê", que era lacuna nessas stacks, agora
   diz quem importa quem. Medido nos projetos de calibração: **98% a 100%** dos imports

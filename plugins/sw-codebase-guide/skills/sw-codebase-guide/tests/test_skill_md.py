@@ -24,11 +24,16 @@ def test_documenta_os_dois_comandos_com_o_caminho_certo():
 
 
 def test_declara_o_que_nao_faz():
+    """O não-objetivo "não avalia qualidade" valeu até a v0.3.0 e saiu na v0.4.0: o
+    dono decidiu que ele vale para o relatório técnico, não para o produto todo.
+    O que entrou no lugar é mais estreito e mais verificável — a skill opina, mas
+    **nota não existe**, porque número único vira meta e meta vira teatro."""
     # Act
     texto = SKILL.read_text('utf-8').lower()
-    # Assert — os não-objetivos do spec precisam estar escritos para o agente
+    # Assert — os não-objetivos precisam estar escritos para o agente
     assert 'não altera' in texto
-    assert 'não avalia qualidade' in texto
+    assert 'nota não existe' in texto
+    assert 'limiar escrito' in texto
 
 
 def test_pergunta_antes_de_gravar_no_repositorio_do_projeto():

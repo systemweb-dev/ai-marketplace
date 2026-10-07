@@ -15,7 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import arvore as mod_arvore          # noqa: E402
-from lib import areas, historia, imports, stacks, superficie, textos, textual, redact  # noqa: E402
+from lib import (areas, historia, imports, julgar, stacks, superficie, textos,  # noqa: E402
+                 textual, redact)
 
 VERSAO = 1
 MAX_SIMBOLOS = 300      # teto para não varrer o repo inteiro por símbolo
@@ -61,7 +62,7 @@ def apurar(projeto: Path, area: str | None = None) -> dict:
             continue
         ambiente[item['caminho']] = redact.chaves_de_env(texto)
 
-    return {
+    inventario = {
         'gerado_em_versao': VERSAO,
         # `caminhos_do_projeto` existe para a guarda de evidência: sem ele, uma
         # orientação citando `fora/b.py` — exatamente a frase que a seção existe
@@ -85,6 +86,19 @@ def apurar(projeto: Path, area: str | None = None) -> dict:
         'ambiente': dict(sorted(ambiente.items())),
         'mencoes': dict(sorted(por_simbolo.items())),
     }
+    # O julgamento vem por último porque LÊ o resto: ele não apura nada por conta
+    # própria, só recorta o que já está medido e aplica limiares declarados. Fica no
+    # inventário, e não no `montar.py`, para o documento continuar sendo função pura
+    # dos dois arquivos — e para o número poder ser conferido sem rodar o emissor.
+    por_arquivo = historia.por_arquivo(projeto)
+    inventario['julgamento'] = {
+        'perigo': julgar.onde_e_perigoso(inventario, por_arquivo),
+        'sem_alcance': julgar.sem_alcance(
+            inventario, {c: v['ultima'] for c, v in por_arquivo.items()}),
+        'risco': julgar.risco_visivel(inventario, historia.rastreados(projeto)),
+        'dossie': julgar.dossie_de_decisao(inventario),
+    }
+    return inventario
 
 
 def apurar_areas(projeto: Path) -> dict:

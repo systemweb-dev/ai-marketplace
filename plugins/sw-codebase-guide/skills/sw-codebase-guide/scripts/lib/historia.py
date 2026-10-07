@@ -242,6 +242,51 @@ def _contar_pastas(raiz, dias: int) -> tuple:
     return por_pasta, commits
 
 
+def por_arquivo(raiz) -> dict:
+    """Caminho -> `{ultima: data ISO, commits: int}` do histórico inteiro.
+
+    Duas perguntas com uma passada só de `git log`, porque a segunda vinha sendo
+    respondida pela co-mudança — que é cortada em 40 pares e deixava sem churn
+    justamente os arquivos mais importados. Num monorepo real isso dava ZERO
+    arquivos perigosos num projeto com arquivo de 38 dependentes.
+
+    Uma passada só de `git log`, e o `git log` vem do mais novo para o mais velho:
+    a PRIMEIRA vez que um caminho aparece é a última vez que ele mudou. Sem isso não
+    dá para perguntar "ninguém encosta nisto há quanto tempo?", que é metade do
+    sinal de código possivelmente morto.
+
+    Desce um nível nos sub-repositórios, como todas as outras consultas deste
+    módulo, e devolve os caminhos já prefixados.
+    """
+    def de_um(base, prefixo=''):
+        topo = _git(base, 'rev-parse', '--show-toplevel')
+        if topo is None or Path(topo.strip()).resolve() != Path(base).resolve():
+            return {}
+        saida = _git(base, 'log', '--name-only', '--pretty=format:\x01%aI')
+        if not saida:
+            return {}
+        achados, atual = {}, None
+        for linha in saida.split('\n'):
+            if linha.startswith('\x01'):
+                atual = linha[1:].strip()
+                continue
+            linha = linha.strip()
+            if linha and atual:
+                caminho = f'{prefixo}/{linha}' if prefixo else linha
+                item = achados.setdefault(caminho, {'ultima': atual, 'commits': 0})
+                item['commits'] += 1   # o primeiro `ultima` fica: log vem do mais novo
+        return achados
+
+    raiz = Path(raiz)
+    proprio = de_um(raiz)
+    if proprio:
+        return proprio
+    juntas = {}
+    for sub in subrepos(raiz):
+        juntas.update(de_um(sub, prefixo=sub.name))
+    return juntas
+
+
 def retrato(raiz) -> dict:
     """Os quatro números que decidem se vale pegar o projeto, e com que cuidado.
 
@@ -315,3 +360,26 @@ def _retrato(autores: set, datas: list, lacuna) -> dict | None:
         'semanas_parado': max(0, (agora - ultimo).days // 7),
         'lacuna': lacuna,
     }
+
+
+def rastreados(raiz) -> set:
+    """Os caminhos que o git controla. Vazio quando não há repositório.
+
+    Serve para a diferença entre "existe um `.env` no disco" e "existe um `.env`
+    **versionado**" — a primeira é normal, a segunda é credencial publicada.
+    """
+    def de_um(base, prefixo=''):
+        saida = _git(base, 'ls-files')
+        if not saida:
+            return set()
+        return {f'{prefixo}/{l}' if prefixo else l
+                for l in saida.split('\n') if l.strip()}
+
+    raiz = Path(raiz)
+    topo = _git(raiz, 'rev-parse', '--show-toplevel')
+    if topo is not None and Path(topo.strip()).resolve() == raiz.resolve():
+        return de_um(raiz)
+    juntos = set()
+    for sub in subrepos(raiz):
+        juntos |= de_um(sub, prefixo=sub.name)
+    return juntos

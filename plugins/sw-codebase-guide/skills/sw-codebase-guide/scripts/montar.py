@@ -19,6 +19,7 @@ import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import julgar  # noqa: E402
 from lib.arvore import eh_codigo  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
@@ -375,6 +376,73 @@ def _dependentes(inv: dict) -> list:
     return linhas
 
 
+def _julgamento(inv: dict) -> list:
+    """As quatro perguntas de quem recebe um projeto.
+
+    É a única seção que OPINA, e por isso cada bloco segue a mesma forma: sinal
+    medido, limiar escrito, e a frase do que ele não diz. Nada de nota — uma nota
+    vira meta, e meta vira teatro.
+    """
+    j = inv.get('julgamento') or {}
+    if not j:
+        return []
+    L = []
+    def A(linha=''):
+        L.append(linha)
+
+    A('## Antes de mexer\n')
+
+    d = j['dossie']
+    A('**Vale manter ou reescrever?** Esta skill não responde, e isso é desenho: a')
+    A('resposta depende de quanto custa reescrever e do que o negócio depende, e o')
+    A('código não contém nenhum dos dois. O que dá para pôr na mesa é isto —\n')
+    pessoas = ('não apurado' if d['autores'] is None else
+               f'{d["autores"]} pessoa' + ('' if d['autores'] == 1 else 's'))
+    A(f'- **{pessoas}** commitaram, em {d["commits"] or "não apurado"} commits')
+    parado = d['semanas_parado'] or 0
+    A(f'- **{d["semanas_de_vida"] or "?"} semanas de vida**, e '
+      + ('**sem nenhuma parada**' if parado == 0 else
+         f'**{parado} semana{"" if parado == 1 else "s"} parado**'))
+    A(f'- **{d["arquivos_de_codigo"]} arquivos de código** em {d["stacks"]} stack(s), '
+      f'**{d["pct_teste"]}% é teste**')
+    A(f'- import medido em: {", ".join(d["linguagens_medidas"]) or "nenhuma linguagem"}')
+    A(f'\n*Falta, e o código não tem: {d["falta"]}.*  [lacuna]\n')
+
+    if j['perigo']:
+        A('### Onde é mais caro errar\n')
+        A(f'Os três sinais **juntos**: mais de {julgar.MIN_DEPENDENTES} arquivos')
+        A(f'importando, mais de {julgar.MIN_COMMITS} commits de histórico, e nenhum')
+        A('teste com o mesmo nome. Isoladamente nenhum diz nada — arquivo muito')
+        A('importado pode estar estável há anos.  [deducao]\n')
+        for a in j['perigo'][:10]:
+            A(f'- `{a["caminho"]}` — {a["dependentes"]} dependentes, '
+              f'{a["mudancas"]} commits, sem teste')
+        if len(j['perigo']) > 10:
+            A(f'- … e mais {len(j["perigo"]) - 10}')
+        A('')
+
+    if j['risco']:
+        A('### Risco visível\n')
+        A('Só o que se vê sem rede e sem executar nada. **O valor de uma variável')
+        A('nunca é lido**: estes achados falam de nome e de arquivo.  [fato]\n')
+        for r in j['risco']:
+            A(f'- `{r["onde"]}` — {r["o_que"]}')
+        A('')
+
+    if j['sem_alcance']:
+        A('### Ninguém parece usar — ainda é usado?\n')
+        A('**São perguntas, não veredito.** Nenhum import alcança estes arquivos e')
+        A(f'ninguém os toca há mais de {julgar.DIAS_PARADO // 365} ano, mas o grafo')
+        A('não vê injeção de dependência, rota como string nem reflexão. Papel que o')
+        A('framework instancia por convenção já ficou de fora desta lista.  [deducao]\n')
+        for a in j['sem_alcance'][:10]:
+            A(f'- `{a["caminho"]}` — {a["dias_parado"]} dias sem mudança')
+        if len(j['sem_alcance']) > 10:
+            A(f'- … e mais {len(j["sem_alcance"]) - 10}')
+        A('')
+    return L
+
+
 def _escrever(L: list, afirmacoes: list, secao: str) -> None:
     """Despeja as afirmações daquela seção. Seção vazia diz que está vazia.
 
@@ -412,6 +480,7 @@ def montar(inv: dict, afirmacoes: list) -> str:
         A(f'> **Recorte:** este documento cobre a área `{area}` '
           f'({escopo["n_arquivos"]} arquivo{plural}), não o projeto inteiro.\n')
 
+    L.extend(_julgamento(inv))
     A('## Como entrar\n')
     for c in inv['stacks']:
         marca = '  *(fora da área, herdado da raiz)*' if c.get('de_fora_da_area') else ''

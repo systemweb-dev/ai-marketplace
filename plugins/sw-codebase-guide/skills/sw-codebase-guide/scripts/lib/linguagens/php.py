@@ -18,6 +18,16 @@ SIMPLES = re.compile(
     re.M | re.I)
 AGRUPADO = re.compile(r'^\s*use\s+\\?([A-Za-z_][\w\\]*)\\\{([^}]+)\}', re.M | re.I)
 
+# `require`/`include` com caminho LITERAL. Sem isto, todo arquivo carregado assim
+# parece não ter ninguém apontando para ele — e num projeto PHP real o front
+# controller (`www/index.php`) e o `config/Defines.php` apareciam como candidatos a
+# código morto, que é o falso positivo mais caro que esta lista pode ter.
+# Caminho montado por concatenação (`__DIR__ . $pasta . 'x.php'`) continua invisível:
+# o valor da variável não está no texto.
+CARREGA = re.compile(
+    r'''\b(?:require|include)(?:_once)?\s*\(?\s*(?:__DIR__\s*\.\s*)?['"]([^'"]+\.php)['"]''',
+    re.I)
+
 
 def extrair(texto: str) -> list[str]:
     """Os nomes importados, com `/` no lugar da barra invertida.
@@ -31,6 +41,12 @@ def extrair(texto: str) -> list[str]:
     pasta.
     """
     achados = [m.group(1) for m in SIMPLES.finditer(texto)]
+    for m in CARREGA.finditer(texto):
+        caminho = m.group(1)
+        # `__DIR__ . '/../x.php'` deixa o caminho começando em `/`: é relativo ao
+        # arquivo, não à raiz
+        achados.append('./' + caminho.lstrip('/') if not caminho.startswith('.')
+                       else caminho)
     for m in AGRUPADO.finditer(texto):
         raiz = m.group(1)
         for item in m.group(2).split(','):
@@ -45,6 +61,9 @@ def extrair(texto: str) -> list[str]:
 def classificar(alvo: str) -> str:
     """`use Exception;` é classe global; com namespace, é qualificado.
 
-    Não existe `relativo` em PHP — `use` é sempre a partir da raiz do namespace.
+    `use` nunca é relativo — é sempre a partir da raiz do namespace. Mas
+    `require './config.php'` é, e por isso a categoria existe aqui também.
     """
+    if alvo.startswith('.'):
+        return 'relativo'
     return 'qualificado' if '/' in alvo else 'nome_puro'

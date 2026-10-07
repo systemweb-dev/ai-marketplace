@@ -34,7 +34,10 @@ o campo **"Other"**. A exceção é o usuário descrevendo livremente o que quer
 ## Garantias
 
 - **Não altera nada do projeto.** Só lê, e só escreve em `docs/project/`.
-- **Não avalia qualidade nem aponta bug.** Ela descreve; quem julga é a `sw-code-review`.
+- **Avalia com limiar escrito, nunca com nota.** A seção "antes de mexer" opina — onde é mais
+  caro errar, que risco se vê, o que parece sem uso — e cada opinião mostra o número que a
+  sustenta e o limiar que a decidiu. **Nota não existe**: número único vira meta, e meta vira
+  teatro. Bug específico continua sendo trabalho da `sw-code-review`.
 - **Nenhum segredo sai.** De cada `.env` o inventário carrega **só os nomes** das variáveis,
   extraídos na origem — não existe caminho pelo qual o valor chegue ao documento.
 - **Nunca afirma ausência de dependentes.** O grafo não enxerga injeção de dependência,
@@ -135,6 +138,15 @@ O que cada seção carrega, e o quanto confiar nela:
   A seção tem **teto** (32 arquivos, 384 KB): o que não coube continua na lista com
   `omitido` e o motivo, para você abrir à mão — e citá-lo no `trecho` é recusado com essa
   mensagem, não com "o trecho não aparece".
+- **`julgamento`** — a única seção que **opina**, e a última a ser calculada, porque lê todas
+  as outras. Quatro recortes do que já foi medido, cada um com limiar escrito: `perigo` (os
+  três sinais juntos — muitos dependentes, muitos commits, nenhum teste de mesmo nome e mesma
+  extensão), `sem_alcance` (arquivo que import nenhum alcança e que ninguém toca há mais de um
+  ano, **só** nas linguagens acima do piso de 70%, e sem os papéis que o framework instancia
+  por convenção), `risco` (o que se vê sem rede: `.env` **versionado**, credencial que o
+  `.env.example` não declara) e `dossie` (os números da decisão "vale manter", **sem o
+  veredito** — ele depende do custo de reescrita e do que o negócio depende, e nenhum dos dois
+  está no código).
 - **`escopo`** e **`caminhos_do_projeto`** — o recorte usado e a lista completa de caminhos do
   projeto **inteiro**. A segunda existe porque percentual de teste e autoria são do projeto,
   não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%.

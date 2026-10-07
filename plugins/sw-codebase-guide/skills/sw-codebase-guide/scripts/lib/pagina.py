@@ -399,3 +399,54 @@ def bloco_resolucao(inv: dict) -> str:
                   classe='n2', largo=True,
                   rodape='O que não resolveu está contado, não escondido: import que o '
                          'resolvedor não casou com arquivo nenhum não vira aresta.')
+
+
+def bloco_perigo(inv: dict) -> str:
+    """Onde é mais caro errar — os três sinais juntos, nunca isolados."""
+    perigo = (inv.get('julgamento') or {}).get('perigo') or []
+    if not perigo:
+        return ''
+    itens = ''.join(
+        f'<li><code>{e(_encurtar(a["caminho"], 44))}</code>'
+        f'<span class="leg">{a["dependentes"]} dependentes · {a["mudancas"]} commits '
+        f'· sem teste</span></li>' for a in perigo[:10])
+    sobra = (f'<p class="leg">… e mais {len(perigo) - 10}.</p>'
+             if len(perigo) > 10 else '')
+    return _bloco('Onde é mais caro errar', 'deducao',
+                  'Muita gente depende, muda com frequência, e não tem rede.',
+                  f'<ul class="saltos">{itens}</ul>{sobra}', classe='n1', largo=True,
+                  rodape='Os três sinais JUNTOS. Isoladamente nenhum diz nada: arquivo '
+                         'muito importado pode estar estável há anos, e arquivo que muda '
+                         'toda semana pode não ter dependente nenhum.')
+
+
+def bloco_risco(inv: dict) -> str:
+    """O que se vê sem rede e sem executar nada."""
+    risco = (inv.get('julgamento') or {}).get('risco') or []
+    if not risco:
+        return ''
+    itens = ''.join(f'<li><code>{e(_encurtar(r["onde"], 36))}</code>'
+                    f'<span class="leg">{e(r["o_que"])}</span></li>' for r in risco)
+    return _bloco('Risco visível', 'fato',
+                  'O que dá para ver sem rede e sem executar nada.',
+                  f'<ul class="saltos">{itens}</ul>', classe='n2', largo=True,
+                  rodape='O valor de uma variável nunca é lido: estes achados falam de '
+                         'nome de arquivo e nome de chave.')
+
+
+def bloco_sem_alcance(inv: dict) -> str:
+    """Candidatos a código sem uso — como PERGUNTA, nunca como veredito."""
+    sem = (inv.get('julgamento') or {}).get('sem_alcance') or []
+    if not sem:
+        return ''
+    itens = ''.join(f'<li><code>{e(_encurtar(a["caminho"], 44))}</code>'
+                    f'<span class="leg">{a["dias_parado"]} dias sem mudança</span></li>'
+                    for a in sem[:10])
+    sobra = f'<p class="leg">… e mais {len(sem) - 10}.</p>' if len(sem) > 10 else ''
+    return _bloco('Ninguém parece usar — ainda é usado?', 'deducao',
+                  'Para levar a quem conhece o sistema, não para apagar.',
+                  f'<ul class="saltos">{itens}</ul>{sobra}', classe='n2', largo=True,
+                  rodape='São PERGUNTAS. Nenhum import alcança estes arquivos e ninguém '
+                         'os toca há mais de um ano — mas o grafo não vê injeção de '
+                         'dependência, rota como string nem reflexão, e o papel que o '
+                         'framework instancia por convenção já ficou de fora da lista.')
