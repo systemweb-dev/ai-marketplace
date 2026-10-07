@@ -326,6 +326,39 @@ por isso vem com trava:
   adivinhar onde a execução começa — e o limite nº 2 do plano anterior continua de pé: a skill
   não detecta entrypoint.
 
+## O `leia-me.md` em HTML e PDF — sob demanda, perguntado no fim
+
+Markdown é bom para versionar e ruim para ler de ponta a ponta: não dá hierarquia visual,
+índice clicável nem quebra de página controlada. E a skill existe para quem **acabou de receber
+um projeto** — a conversa seguinte é com alguém, e Markdown não se manda para um cliente nem se
+imprime para uma reunião.
+
+| Arquivo | Quando sai |
+|---|---|
+| `leia-me.md` | sempre — é o que vai para o git |
+| `leia-me.html` | quando pedido — legível, com índice e hierarquia |
+| `leia-me.pdf` | quando pedido — para enviar ou imprimir |
+
+**A pergunta é no fim, não no começo.** É a regra que a `sw-infra-audit` já aprendeu e escreveu:
+*"O PDF custa alguns segundos de Chromium e nem toda rodada vira documento para enviar;
+perguntar no começo gasta a atenção de quem só queria ver o estado."* A skill gera o Markdown,
+lê as perguntas em aberto, e **só então** oferece.
+
+**O que é reaproveitado da irmã, e o que não é.** A mecânica de impressão dela já resolveu o
+problema: HTML self-contained com as fontes em base64 (o PDF sai **offline**, sem rede), `@page`
+e `print-color-adjust`, dez `break-inside` e cinco `break-before` para a quebra de página não
+cortar bloco no meio, e Chromium headless com queda graciosa — sem navegador, entrega o HTML e
+avisa, sem tratar isso como falha.
+
+O que **não** se reaproveita é o template: o dela é relatório de auditoria, com faixas de
+severidade e gráfico de cascata; documento narrativo tem outra hierarquia. Como a casa usa um
+plugin por skill, não há como compartilhar código — o template nasce aqui, copiando a mecânica
+e as fontes, com a origem citada em comentário.
+
+**O limite, dito antes de alguém se iludir:** isto é embalagem. Com ou sem PDF, o documento diz
+o que a interpretação escreveu. Um PDF bonito de um inventário continua sendo um inventário — e
+é por isso que esta seção vem **depois** do `leia-me.md` no plano, não no lugar dele.
+
 ## Onde grava
 
 A rodada com área **sobrescreve** `guide.md` e `leia-me.md` (decisão do dono). O risco de perder
@@ -341,7 +374,8 @@ o gerou.
   O recorte por área reduz o estrago; a correção é parsing por linguagem.
 - **Não estende o grafo de import** para além de Python.
 - **Não persiste conhecimento humano** entre execuções (`knowledge.toml` segue fora).
-- **Não gera HTML nem PDF.**
+- **Não gera HTML nem PDF do `guide.md`.** O relatório técnico fica só em Markdown: é o que vai
+  para o git e dá diff, e ninguém imprime um inventário. O documento **humano** ganha os dois.
 - **Não detecta entrypoint** — o percurso começa de onde o agente conseguir.
 
 ## Restrição de simplicidade
@@ -417,6 +451,8 @@ do `leia-me.md` apontar a seção correspondente do `guide.md`.
 | **Trecho com quebra de linha casa** | README com a frase quebrada em duas linhas e `trecho` numa linha só: aceito |
 | **Token em README não chega ao inventário** | fixture com `ghp_` no README: o `inventory.json` não contém o token, e a seção `textos` tem o resto do arquivo |
 | **Mesmos fatos, mesmo documento** | duas montagens sobre o mesmo par de arquivos: `leia-me.md` e `guide.md` byte a byte iguais, sem carimbo de tempo |
+| **Sem Chromium, entrega o HTML e avisa** | instrumentar a busca do executável para não achar nenhum: o `leia-me.html` é escrito, o PDF não, a saída diz por quê, e o processo termina com **sucesso** |
+| **O PDF não depende de rede** | gerar com as variáveis de proxy apontando para porta morta: o PDF sai igual, porque fonte e estilo estão embutidos |
 | **A fase de áreas só abre o que `textos` declara** | instrumentar `open`/`read_text` na fixture: qualquer leitura de arquivo que não case a lista de padrões do `textos` reprova. A primeira redação dizia "não lê conteúdo", o que contradizia a própria seção `textos` — e "arquivo de código" não tem definição única no código (há três listas diferentes) |
 
 ## Suposições
@@ -432,9 +468,40 @@ do `leia-me.md` apontar a seção correspondente do `guide.md`.
 A primeira é a de maior risco e **vira o primeiro spike do plano**: se a prosa não se sustentar,
 o documento humano encolhe para mapa + orientações, e a parte 1 vira só a citação literal.
 
+## Revisões do spec
+
+- **2026-10-06 (depois de ver a saída rodando)** — o dono apontou que o documento não está num
+  formato bom de ler e pediu PDF, perguntado no fim. O Markdown já existia; o que faltava era a
+  embalagem. Entrou a seção "O `leia-me.md` em HTML e PDF", e o não-objetivo passou a valer só
+  para o `guide.md` técnico.
+  **A ordem foi decidida de propósito: o PDF vem depois do `leia-me.md`.** Embalar o `guide.md`
+  de hoje seria investir hierarquia visual num conteúdo que esta mesma versão vai reescrever.
+
 ## Rollout e reversibilidade
 
 Skill já publicada (v0.1.0). Esta é a v0.2.0: `make sync` com `BUMP=minor`, entrada no
 `CHANGELOG.md`, `make check` antes de commitar. Não há migração de dado — o `inventory.json` é
 regenerável por desenho, e `interpretation.toml` sem blocos `[[narrativa]]` continua válido,
 gerando um `leia-me.md` que diz que as partes não foram interpretadas.
+
+## O que vem depois desta versão
+
+Rodar a v0.1.0 num projeto real levantou três frentes que **não cabem aqui** — cada uma é um
+spec próprio, e empilhá-las nesta versão faria uma que não fecha. A ordem foi acordada com o
+dono, e a dependência entre elas é real:
+
+| | O que resolve | Por que nesta posição |
+|---|---|---|
+| **A** *(este spec)* | documento humano, escopo na entrada, HTML e PDF | já planejado e revisado; é o que ele apontou como falta hoje |
+| **D** | grafo de import **real** para PHP e TypeScript | é a lacuna mais cara: nas stacks da casa o grafo é vazio, e "o que quebra se eu mexer aqui" fica no palpite |
+| **B** | julgamento — vale manter ou reescrever · onde é perigoso mexer · o que está morto · risco de segurança visível | **depende de D**: não dá para dizer "mexer aqui é arriscado" sem saber quem depende do quê, e julgar sobre grafo vazio seria palpite com cara de medida |
+| **C** | `knowledge.toml` com âncora: o que alguém confirmou sobrevive à regeração | independente; só se justifica porque o dono confirmou que o documento **vive e é atualizado** |
+
+**Duas restrições do dono que mudam o que era assumido:**
+
+- **O não-objetivo "não avalia qualidade" vale para o relatório técnico, não para o produto.**
+  Quando se recebe um projeto, a pergunta real é *"vale manter ou reescrever?"*, e a skill tem
+  os dados para responder — hoje ela mostra e cala.
+- **Até 5 minutos de varredura é aceitável.** Era o orçamento de tempo que mantinha o grafo de
+  import só em Python; com ele folgado, `tsc --listFiles` e um analisador de `use`/`namespace`
+  cabem, e D deixa de ser caro demais.

@@ -7,6 +7,26 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-codebase-guide` (v0.1.1): **a seção "O que depende do quê" virava ruído ilegível quando
+  não havia grafo de import.** Num projeto Next.js real ela saía com 142 linhas assim:
+  `export — import não medido, 266 menções textuais`, `banco — 205 menções`,
+  `caminho — 159 menções`. Nenhum desses é símbolo: são nomes de arquivo (`export.ts`,
+  `banco.tsx`) que o grafo textual casa como PALAVRA — e numa base em português `banco` e
+  `caminho` aparecem às centenas sem haver relação de código, inclusive dentro de arquivos
+  de documentação.
+
+  Sem aresta de import, a seção passa a ser uma **lacuna com motivo** em seis linhas: diz que
+  o acoplamento não foi medido para aquela stack, explica por que o grafo textual sozinho não
+  vira afirmação, e aponta o `inventory.json` para quem quiser olhar à mão. O documento do
+  projeto real caiu de 336 para 116 linhas.
+
+  A regra por trás, que vale para o resto da skill: **quando a medição não existe, o lugar
+  dela é uma lacuna com motivo — não uma aproximação ruidosa com um aviso em cima.** O aviso
+  já estava lá, correto, e perdia: ninguém lê uma ressalva e depois duvida de 142 linhas, uma
+  a uma. De quebra, a mesma coisa estava sendo dita três vezes — as cinco cegueiras do grafo,
+  a indisponibilidade da stack e a lacuna —, e três avisos empilhados comunicam menos que um.
+
 ### Adicionado
 - `sw-codebase-guide` (v0.1.0): **lê um projeto que você acabou de receber e escreve a
   documentação dele** em `docs/project/` — como entrar, o que depende do quê e o que o sistema

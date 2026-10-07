@@ -199,3 +199,59 @@ def test_simbolo_so_citado_em_documentacao_fica_de_fora(tmp_path):
     # Assert
     assert '**PlanoDeMigracao**' not in guia
     assert 'só em documentação' in guia
+
+
+def test_sem_grafo_de_import_a_secao_vira_lacuna(tmp_path):
+    # Arrange — sem arestas, o que resta é grafo textual casando PALAVRA: num
+    # projeto em português devolvia `banco` e `caminho` com centenas de "menções"
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['imports'] = {'arestas': [],
+                      'indisponivel': [{'stack': 'node', 'motivo': 'sem resolvedor'}]}
+    inv['mencoes'] = {'banco': [{'caminho': 'a.ts', 'linha': 1},
+                                {'caminho': 'b.ts', 'linha': 2}],
+                      'caminho': [{'caminho': 'c.ts', 'linha': 3},
+                                  {'caminho': 'd.ts', 'linha': 4}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert — a lacuna aparece com motivo, e o ruído não
+    assert 'não foi medido nesta versão' in guia
+    assert '[lacuna]' in guia
+    assert '**banco**' not in guia and 'import não medido' not in guia
+    # e a garantia mais forte continua de pé
+    for frase in PROIBIDAS:
+        assert frase not in guia.lower(), frase
+
+
+def test_com_grafo_de_import_a_lista_continua(tmp_path):
+    # Arrange — o par positivo: havendo aresta, a seção não some
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['imports'] = {'arestas': [{'de': 'rotas.py', 'para': 'app/UserController.py'}],
+                      'indisponivel': []}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'por import' in guia
+    assert 'não foi medido nesta versão' not in guia
+
+
+def test_sem_lista_o_aviso_nao_se_repete(tmp_path):
+    # Arrange — o preâmbulo das cegueiras qualifica uma lista; sem lista, ele mais a
+    # indisponibilidade mais a lacuna dizem a mesma coisa três vezes
+    varrer(FIXTURES / 'acoplamento_invisivel', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['imports'] = {'arestas': [],
+                      'indisponivel': [{'stack': 'node', 'motivo': 'sem resolvedor'}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'injeção de dependência' not in guia
+    assert guia.count('[lacuna]') >= 1
+    assert 'não foi medido nesta versão' in guia

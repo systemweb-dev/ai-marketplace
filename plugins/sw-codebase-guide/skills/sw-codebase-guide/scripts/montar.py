@@ -67,10 +67,25 @@ def _dependentes(inv: dict) -> list:
     for aresta in inv['imports']['arestas']:
         entrada.setdefault(aresta['para'], []).append(aresta['de'])
 
-    # Sem NENHUMA aresta e com indisponibilidade declarada, repetir "0 por import" em
-    # cada símbolo trabalha contra a própria ressalva: num projeto real o documento
-    # dizia "0" 230 vezes, e quem lê conclui ausência apesar do aviso no topo.
-    sem_grafo = not inv['imports']['arestas'] and inv['imports']['indisponivel']
+    # Sem NENHUMA aresta de import, o que resta é só o grafo textual — e ele casa
+    # PALAVRA, não símbolo de código. Num projeto em português isso devolve `banco`,
+    # `caminho` e `conta` com centenas de "menções", contadas inclusive dentro de
+    # arquivo de documentação. A seção vira 142 linhas de ruído com `import não
+    # medido` em cada uma, e o leitor não tem como separar sinal de palavra comum.
+    #
+    # Lacuna curta com motivo é mais honesta que lista longa que ninguém consegue ler.
+    if not inv['imports']['arestas'] and inv['imports']['indisponivel']:
+        stacks = ', '.join(sorted(i['stack'] for i in inv['imports']['indisponivel']))
+        return [
+            f'O acoplamento por import não foi medido nesta versão para: **{stacks}**.',
+            '',
+            'Resta o grafo textual, que casa o nome como palavra — e isso traz ruído',
+            'demais para virar afirmação: numa base em português, `banco` e `caminho`',
+            'aparecem às centenas sem que haja relação de código. A lista completa está',
+            'em `inventory.json`, na seção `mencoes`, para quem quiser olhar à mão.',
+            '',
+            '*Quem depende de quem, nesta stack, continua por apurar.*  [lacuna]',
+        ]
 
     # Símbolo citado SÓ em documentação não é acoplamento de código: o nome de um
     # arquivo de spec aparecia como dependente, inflando a lista com ruído.
@@ -83,10 +98,11 @@ def _dependentes(inv: dict) -> list:
             continue
         por_import = sorted({d for alvo, ds in entrada.items()
                              if Path(alvo).stem == simbolo for d in ds})
-        quantos = 'import não medido' if sem_grafo else f'{len(por_import)} por import'
+        # chegou aqui porque HÁ grafo de import; sem ele a seção vira lacuna acima
         plural = 'menção textual' if len(arquivos) == 1 else 'menções textuais'
         linhas.append((len(arquivos), simbolo,
-                       f'- **{simbolo}** — {quantos}, {len(arquivos)} {plural}: '
+                       f'- **{simbolo}** — {len(por_import)} por import, '
+                       f'{len(arquivos)} {plural}: '
                        f'{", ".join(arquivos[:6])}'
                        + (' …' if len(arquivos) > 6 else '')))
 
@@ -150,18 +166,21 @@ def montar(inv: dict, afirmacoes: list) -> str:
     _escrever(L, afirmacoes, 'como-entrar')
 
     A('## O que depende do quê\n')
-    # A frase-guarda NÃO pode conter nenhuma das frases proibidas — a primeira
-    # versão dizia «não existe "nada depende disso" aqui» e reprovava o próprio teste.
-    A('Duas leituras cruzadas. **Ausência de dependentes nunca é afirmada neste**')
-    A('**documento**: o grafo de import não enxerga o seguinte —\n')
-    for cegueira in CEGUEIRAS:
-        A(f'- {cegueira}')
-    A('')
-    indisponivel = inv['imports']['indisponivel']
-    for item in indisponivel:
-        A(f'> Grafo de import indisponível para **{item["stack"]}**: {item["motivo"]}  [lacuna]')
-    if indisponivel:
+    # O preâmbulo das cegueiras serve para qualificar uma LISTA. Quando não há lista
+    # — a seção inteira virou lacuna —, imprimir as cinco cegueiras, mais a
+    # indisponibilidade, mais a lacuna é dizer a mesma coisa três vezes.
+    if not (not inv['imports']['arestas'] and inv['imports']['indisponivel']):
+        # A frase-guarda NÃO pode conter nenhuma das frases proibidas — a primeira
+        # versão dizia «não existe "nada depende disso" aqui» e reprovava o próprio teste.
+        A('Duas leituras cruzadas. **Ausência de dependentes nunca é afirmada neste**')
+        A('**documento**: o grafo de import não enxerga o seguinte —\n')
+        for cegueira in CEGUEIRAS:
+            A(f'- {cegueira}')
         A('')
+        for item in inv['imports']['indisponivel']:
+            A(f'> Grafo de import indisponível para **{item["stack"]}**: '
+              f'{item["motivo"]}  [lacuna]')
+            A('')
     L.extend(_dependentes(inv))
     A('')
     _escrever(L, afirmacoes, 'depende-de')

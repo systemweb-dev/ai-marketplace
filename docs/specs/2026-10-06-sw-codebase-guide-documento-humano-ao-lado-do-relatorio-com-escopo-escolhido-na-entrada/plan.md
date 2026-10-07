@@ -39,6 +39,8 @@ fonte.
 | A fase de áreas só abre o que `textos` declara | Task 4, step 4 — `test_fase_de_areas_nao_abre_codigo` |
 | Mesmos fatos, mesmo documento | Task 10, step 5 — `test_dois_documentos_identicos_em_duas_montagens` |
 | A fase de áreas não grava arquivo | Task 4, step 4 — `test_fase_de_areas_nao_grava_nada` |
+| Sem Chromium, entrega o HTML e avisa | Task 13, step 5 — `test_sem_chromium_entrega_o_html_e_avisa` |
+| O PDF não depende de rede | Task 13, step 5 — `test_html_e_self_contained` |
 
 **Estrutura de arquivos:**
 
@@ -1918,7 +1920,292 @@ os defeitos caros apareceram nas duas rodadas anteriores.
 
 ---
 
-### Task 13: publicar a v0.2.0
+### Task 13: `leia-me.html` e `leia-me.pdf` — sob demanda
+
+**Arquivos:**
+- Criar: `~/.claude/skills/sw-codebase-guide/scripts/imprimir.py`
+- Criar: `~/.claude/skills/sw-codebase-guide/assets/leia-me.html`
+- Teste: `~/.claude/skills/sw-codebase-guide/tests/test_imprimir.py`
+- Alterar: `~/.claude/skills/sw-codebase-guide/SKILL.md`
+
+**Depende de:** Task 12
+
+**Contrato que esta task publica:** CLI
+`python3 scripts/imprimir.py --dir <docs/project>` → grava `leia-me.html` e, havendo Chromium,
+`leia-me.pdf`
+
+**Por que vem depois do `leia-me.md` e não antes:** embalar o `guide.md` de hoje seria investir
+hierarquia visual num conteúdo que esta mesma versão reescreve. Um PDF bonito de um inventário
+continua sendo um inventário.
+
+**As fontes:** copie os três `.woff2` de
+`~/.claude/skills/sw-infra-audit/assets/report-template/fontes/` junto com o `LICENCAS.md`, e
+embuta em base64 no template. É o que faz o PDF sair offline.
+
+- [ ] **Step 1: escrever os testes que falham**
+
+```python
+# tests/test_imprimir.py
+import subprocess
+import sys
+from pathlib import Path
+
+RAIZ_SKILL = Path(__file__).resolve().parent.parent
+
+
+def preparar(tmp_path, markdown='# Guia\n\n## O que o produto faz\n\nUm sistema de pedidos.\n'):
+    (tmp_path / 'leia-me.md').write_text(markdown)
+    return tmp_path
+
+
+def imprimir(dir_saida, env=None):
+    return subprocess.run(
+        [sys.executable, str(RAIZ_SKILL / 'scripts' / 'imprimir.py'), '--dir', str(dir_saida)],
+        capture_output=True, text=True, env=env)
+
+
+def test_gera_o_html_a_partir_do_markdown(tmp_path):
+    # Arrange
+    preparar(tmp_path)
+    # Act
+    r = imprimir(tmp_path)
+    # Assert
+    assert r.returncode == 0, r.stderr
+    html = (tmp_path / 'leia-me.html').read_text()
+    assert 'Um sistema de pedidos' in html
+    assert '<h2' in html and 'O que o produto faz' in html
+
+
+def test_html_e_self_contained(tmp_path):
+    # Arrange — o PDF é gerado offline; nada pode vir da rede
+    preparar(tmp_path)
+    # Act
+    imprimir(tmp_path)
+    html = (tmp_path / 'leia-me.html').read_text()
+    # Assert
+    assert 'base64' in html, 'as fontes precisam estar embutidas'
+    for proibido in ('https://fonts.', 'cdn.', '<script src="http'):
+        assert proibido not in html, proibido
+
+
+def test_tem_a_mecanica_de_impressao(tmp_path):
+    # Arrange
+    preparar(tmp_path)
+    # Act
+    imprimir(tmp_path)
+    html = (tmp_path / 'leia-me.html').read_text()
+    # Assert — sem isto a quebra de página corta bloco no meio e a cor some na impressão
+    assert '@page' in html
+    assert 'print-color-adjust' in html
+    assert 'break-inside' in html
+
+
+def test_sem_chromium_entrega_o_html_e_avisa(tmp_path, monkeypatch):
+    # Arrange — não achar navegador não é falha da skill
+    preparar(tmp_path)
+    import os
+    env = dict(os.environ, PATH='/nao/existe')
+    # Act
+    r = imprimir(tmp_path, env=env)
+    # Assert
+    assert r.returncode == 0, 'sem Chromium o processo termina com SUCESSO'
+    assert (tmp_path / 'leia-me.html').exists()
+    assert not (tmp_path / 'leia-me.pdf').exists()
+    assert 'chrom' in (r.stdout + r.stderr).lower()
+
+
+def test_sem_leia_me_md_para_com_motivo(tmp_path):
+    # Act
+    r = imprimir(tmp_path)
+    # Assert
+    assert r.returncode == 2
+    assert 'leia-me.md' in (r.stdout + r.stderr)
+    assert 'Traceback' not in r.stderr
+```
+
+- [ ] **Step 2: rodar e confirmar que falha**
+
+Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_imprimir.py -v`
+Esperado: FALHA — `imprimir.py` não existe (`returncode != 0`)
+
+- [ ] **Step 3: escrever o template `assets/leia-me.html`**
+
+Um arquivo só, com `%%TITULO%%` e `%%CORPO%%` como marcadores, as três fontes em base64, e a
+mecânica de impressão. O miolo do `<style>`:
+
+```python
+# o executor escreve o template; este bloco documenta o que ele PRECISA conter,
+# e é o que os testes do step 1 verificam
+ESSENCIAL = """
+@font-face { font-family: Figtree; src: url(data:font/woff2;base64,...) format('woff2'); }
+@page { size: A4; margin: 18mm 16mm; }
+@media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+h2, h3 { break-after: avoid; }
+blockquote, pre, table { break-inside: avoid; }
+"""
+```
+
+> As fontes vêm de `sw-infra-audit/assets/report-template/fontes/`, com o `LICENCAS.md` junto.
+> A casa usa um plugin por skill, então não há como compartilhar — copiar é o caminho, com a
+> origem citada em comentário no topo do template.
+
+- [ ] **Step 4: escrever o `imprimir.py`**
+
+```python
+#!/usr/bin/env python3
+"""Transforma o `leia-me.md` em HTML legível e, havendo Chromium, em PDF.
+
+Markdown versiona bem e lê mal de ponta a ponta: não dá hierarquia visual, índice
+nem quebra de página. Esta skill existe para quem acabou de receber um projeto — a
+conversa seguinte é com alguém, e Markdown não se manda nem se imprime.
+
+Self-contained de propósito: fontes em base64, zero rede. O PDF é gerado offline.
+A mecânica de impressão (`@page`, `print-color-adjust`, `break-inside`) vem da
+`sw-infra-audit`, que já resolveu o mesmo problema.
+
+Sem Chromium na máquina, entrega o HTML e avisa — não é falha da skill.
+"""
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+CHROMIUM = ('google-chrome', 'google-chrome-stable', 'chromium',
+            'chromium-browser', 'chrome')
+
+
+def achar_chromium():
+    for nome in CHROMIUM:
+        caminho = shutil.which(nome)
+        if caminho:
+            return caminho
+    return None
+
+
+def markdown_para_html(texto: str) -> str:
+    """Conversão suficiente para o que o `montar.py` gera — não é um parser geral.
+
+    O `leia-me.md` é escrito por nós, com um subconjunto conhecido: título, lista,
+    citação, código inline e negrito. Trazer uma biblioteca de Markdown violaria a
+    restrição de só-stdlib, e um parser geral resolveria um problema que não temos.
+    """
+    saida, em_lista = [], False
+    for linha in texto.split('\n'):
+        if linha.startswith('> '):
+            saida.append(f'<blockquote>{_inline(linha[2:])}</blockquote>')
+            continue
+        if linha.startswith('- '):
+            if not em_lista:
+                saida.append('<ul>')
+                em_lista = True
+            saida.append(f'<li>{_inline(linha[2:])}</li>')
+            continue
+        if em_lista:
+            saida.append('</ul>')
+            em_lista = False
+        if linha.startswith('#'):
+            nivel = len(linha) - len(linha.lstrip('#'))
+            saida.append(f'<h{nivel}>{_inline(linha[nivel:].strip())}</h{nivel}>')
+        elif linha.strip():
+            saida.append(f'<p>{_inline(linha)}</p>')
+    if em_lista:
+        saida.append('</ul>')
+    return '\n'.join(saida)
+
+
+def _inline(t: str) -> str:
+    t = (t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+    t = re.sub(r'`([^`]+)`', r'<code>\1</code>', t)
+    t = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', t)
+    t = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', t)
+    return re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', t)
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description='Gera o leia-me em HTML e PDF.')
+    p.add_argument('--dir', required=True)
+    args = p.parse_args()
+
+    base = Path(args.dir).resolve()
+    origem = base / 'leia-me.md'
+    if not origem.exists():
+        print(f'não achei {origem} — rode montar.py antes', file=sys.stderr)
+        return 2
+
+    modelo = (Path(__file__).resolve().parent.parent / 'assets' / 'leia-me.html').read_text()
+    corpo = markdown_para_html(origem.read_text('utf-8'))
+    destino = base / 'leia-me.html'
+    destino.write_text(modelo.replace('%%TITULO%%', 'Guia do projeto')
+                             .replace('%%CORPO%%', corpo), encoding='utf-8')
+    print(destino)
+
+    navegador = achar_chromium()
+    if not navegador:
+        print('sem Chromium na máquina: o PDF não foi gerado, o HTML está pronto '
+              'e abre em qualquer navegador')
+        return 0
+
+    pdf = base / 'leia-me.pdf'
+    subprocess.run([navegador, '--headless', '--disable-gpu', '--no-sandbox',
+                    f'--print-to-pdf={pdf}', '--no-pdf-header-footer',
+                    destino.as_uri()],
+                   capture_output=True, timeout=120)
+    if pdf.exists():
+        print(pdf)
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+```
+
+- [ ] **Step 5: rodar e confirmar que passa**
+
+Rode: `cd ~/.claude/skills/sw-codebase-guide && .venv/bin/pytest tests/test_imprimir.py -v`
+Esperado: 5 passed
+
+As duas restrições verificáveis desta task são `test_sem_chromium_entrega_o_html_e_avisa` e
+`test_html_e_self_contained`.
+
+- [ ] **Step 6: prova por mutação na queda graciosa**
+
+Troque `if not navegador:` por `if False:` e rode com `PATH` vazio.
+Esperado: `test_sem_chromium_entrega_o_html_e_avisa` **FALHA** (o processo quebra em vez de
+terminar com sucesso). Desfaça e confirme o verde.
+
+- [ ] **Step 7: escrever a oferta no `SKILL.md`, no passo 4**
+
+```markdown
+### 5. Oferecer o HTML e o PDF — no fim, não antes
+
+Com o documento pronto e as perguntas em aberto lidas, **ofereça via `AskUserQuestion`**:
+*"Gerar também o HTML e o PDF do leia-me?"*
+
+```bash
+python3 <skill-dir>/scripts/imprimir.py --dir docs/project
+```
+
+O PDF custa alguns segundos de Chromium, e nem toda rodada vira documento para enviar —
+perguntar no começo gasta a atenção de quem só queria entender o projeto. Sem Chromium na
+máquina, diga isso e entregue o HTML: não é falha da skill.
+```
+
+- [ ] **Step 8: gerar o PDF de um projeto real e ABRIR**
+
+```bash
+cd ~/.claude/skills/sw-codebase-guide
+.venv/bin/python scripts/imprimir.py --dir /tmp/e2e
+```
+
+**Abra o PDF e olhe.** A quebra de página corta bloco no meio? O índice ajuda? Dá para mandar
+para alguém sem vergonha? Suíte verde prova que o arquivo foi gerado, não que ele serve — e
+nesta skill a leitura da saída achou mais defeito que todos os testes somados.
+
+---
+
+### Task 14: publicar a v0.2.0
 
 **Arquivos:**
 - Alterar: `/var/www/ai-marketplace/CHANGELOG.md`
