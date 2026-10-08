@@ -214,3 +214,97 @@ def test_a_camada_de_cada_passo_aparece_no_markdown(tmp_path):
     assert '**1 · navegador**' in leia_me
     assert '**2 · fila**' in leia_me
     assert 'navegador → fila' in leia_me
+
+
+# ───────────────────── escolher QUAL percurso seguir ────────────────────────
+# O SKILL.md declarava "a skill não detecta entrypoint" enquanto a `superficie`
+# já os listava. O que faltava era usá-los para PROPOR.
+
+def _inv(superficie, arestas):
+    return {'superficie': superficie, 'imports': {'arestas': arestas}}
+
+
+def test_a_entrada_que_alcanca_mais_papeis_vem_primeiro():
+    """Ordena por PAPÉIS, não por arquivos: uma entrada que toca request,
+    service e model é fatia vertical; uma que toca trinta modelos é listagem."""
+    # Arrange — `fundo` alcança 3 modelos; `raso` alcança 2 papéis diferentes
+    sup = [{'caminho': 'app/Controllers/RasoController.php', 'tipo': 'rota'},
+           {'caminho': 'app/Controllers/FundoController.php', 'tipo': 'rota'}]
+    arestas = (
+        [{'de': 'app/Controllers/FundoController.php', 'para': f'app/Models/M{i}.php'}
+         for i in range(3)]
+        + [{'de': 'app/Controllers/RasoController.php', 'para': 'app/Services/S.php'},
+           {'de': 'app/Services/S.php', 'para': 'app/Models/M9.php'}])
+    # Act
+    r = percurso.candidatos(_inv(sup, arestas))
+    # Assert
+    assert [c['entrada'] for c in r['candidatos']] == [
+        'app/Controllers/RasoController.php', 'app/Controllers/FundoController.php']
+
+
+def test_entrada_que_nao_alcanca_ninguem_e_contada_e_nao_listada():
+    """Num projeto real eram 17 de 49, e a contagem mede o ponto cego: quem
+    despacha por string não aparece no grafo."""
+    # Arrange
+    sup = [{'caminho': 'app/Controllers/MudoController.php', 'tipo': 'rota'},
+           {'caminho': 'app/Controllers/VivoController.php', 'tipo': 'rota'}]
+    arestas = [{'de': 'app/Controllers/VivoController.php', 'para': 'app/Models/M.php'}]
+    # Act
+    r = percurso.candidatos(_inv(sup, arestas))
+    # Assert
+    assert r['entradas'] == 2
+    assert r['entradas_sem_alcance'] == 1
+    assert [c['entrada'] for c in r['candidatos']] == ['app/Controllers/VivoController.php']
+
+
+def test_o_candidato_leva_o_termo_da_funcionalidade():
+    """Liga os dois eixos: a entrada que mais exercita o sistema costuma levar o
+    nome de uma das funcionalidades do menu."""
+    # Act
+    r = percurso.candidatos(_inv(
+        [{'caminho': 'app/Controllers/PedidoController.php', 'tipo': 'rota'}],
+        [{'de': 'app/Controllers/PedidoController.php', 'para': 'app/Models/M.php'}]))
+    # Assert
+    assert r['candidatos'][0]['termo'] == 'pedido'
+
+
+def test_a_lista_de_candidatos_tem_teto():
+    # Arrange
+    sup = [{'caminho': f'app/Controllers/C{i}Controller.php', 'tipo': 'rota'}
+           for i in range(9)]
+    arestas = [{'de': s['caminho'], 'para': f'app/Models/M{i}.php'}
+               for i, s in enumerate(sup)]
+    # Act / Assert
+    assert len(percurso.candidatos(_inv(sup, arestas))['candidatos']) == \
+        percurso.TETO_CANDIDATOS
+
+
+def test_sem_superficie_nao_ha_candidato_e_o_motivo_vem_junto():
+    # Act
+    r = percurso.candidatos(_inv([], []))
+    # Assert
+    assert r['candidatos'] == []
+    assert 'convenção' in r['limite']
+
+
+def test_o_limite_do_grafo_sai_sempre_que_ha_candidato():
+    """Sem ele o leitor conclui que o caminho acaba ali: num monorepo real
+    nenhuma das 49 entradas atravessava para outro repositório, porque a
+    travessia é por HTTP."""
+    # Act
+    r = percurso.candidatos(_inv(
+        [{'caminho': 'app/Controllers/PedidoController.php', 'tipo': 'rota'}],
+        [{'de': 'app/Controllers/PedidoController.php', 'para': 'app/Models/M.php'}]))
+    # Assert
+    assert 'HTTP' in r['limite']
+
+
+def test_o_alcance_nao_entra_em_laco_com_ciclo():
+    """Import circular existe, e a busca não pode rodar para sempre."""
+    # Act
+    r = percurso.candidatos(_inv(
+        [{'caminho': 'app/Controllers/AController.php', 'tipo': 'rota'}],
+        [{'de': 'app/Controllers/AController.php', 'para': 'app/Models/B.php'},
+         {'de': 'app/Models/B.php', 'para': 'app/Controllers/AController.php'}]))
+    # Assert
+    assert r['candidatos'][0]['alcanca'] == 2

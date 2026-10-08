@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import arvore as mod_arvore          # noqa: E402
 from lib import (areas, funcionalidades, historia, imports, julgar,  # noqa: E402
+                 percurso as mod_percurso,
                  recorte as mod_recorte, stacks, superficie, textos,
                  textual, redact)
 
@@ -101,6 +102,11 @@ def apurar(projeto: Path, recorte=None) -> dict:
     # própria, só recorta o que já está medido e aplica limiares declarados. Fica no
     # inventário, e não no `montar.py`, para o documento continuar sendo função pura
     # dos dois arquivos — e para o número poder ser conferido sem rodar o emissor.
+    # Os candidatos a percurso vêm DEPOIS do inventário montado porque leem
+    # `superficie` e `imports` — e vão para o inventário, não para o emissor,
+    # porque quem precisa deles é o agente ao escrever a interpretação.
+    inventario['percursos'] = mod_percurso.candidatos(inventario)
+
     por_arquivo = historia.por_arquivo(projeto)
     inventario['julgamento'] = {
         'perigo': julgar.onde_e_perigoso(inventario, por_arquivo),

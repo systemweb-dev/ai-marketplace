@@ -264,10 +264,38 @@ def bloco_superficie(inv: dict) -> str:
         resto = f' <em>e mais {n - len(exemplos)}</em>' if n > len(exemplos) else ''
         partes.append(f'<dt>{e(n)} {e(tipo)}</dt><dd>{amostra}{resto}</dd>')
     itens = ''.join(partes)
+    corpo = f'<dl class="superficie">{itens}</dl>' + _por_onde_comecar(inv)
     return _bloco('Superfície pública', 'deducao', 'Por onde o mundo de fora entra.',
-                  f'<dl class="superficie">{itens}</dl>',
+                  corpo,
                   rodape='Reconhecida por <b>convenção de caminho</b>: é indício, não '
                          'prova. O que a convenção não nomeia não aparece aqui.')
+
+
+def _por_onde_comecar(inv: dict) -> str:
+    """Os candidatos a percurso, no documento humano.
+
+    Gêmeo do `_candidatos_a_percurso` do `montar.py`. A contagem das entradas
+    que não alcançam nada entra junto: quem lê a lista precisa saber de quanto
+    do sistema ela NÃO fala antes de confiar nela para rastrear.
+    """
+    p = inv.get('percursos') or {}
+    candidatos = p.get('candidatos') or []
+    if not candidatos:
+        return ''
+    linhas = ''.join(
+        f'<li><code>{e(c["entrada"])}</code>'
+        + (f' <b>{e(c["termo"])}</b>' if c.get('termo') else '')
+        + f' — alcança {c["alcanca"]} arquivos em {len(c["papeis"])} papéis'
+        + f'<span class="fonte">{e(" · ".join(c["papeis"]))}</span></li>'
+        for c in candidatos)
+    cego = ''
+    if p.get('entradas_sem_alcance'):
+        cego = (f'<p class="aviso">{p["entradas_sem_alcance"]} das {p["entradas"]} '
+                f'entradas não alcançam nenhum arquivo pelo import — quem as liga ao '
+                f'resto faz por um caminho que o grafo não vê.</p>')
+    return (f'<p class="leg"><b>Por onde começar a rastrear:</b> as entradas que mais '
+            f'exercitam o sistema.</p><ul class="regras">{linhas}</ul>{cego}'
+            f'<p class="leg">{e(p["limite"])}.</p>')
 
 
 def bloco_afirmacoes(afirmacoes: list, secao: str, titulo: str, pergunta: str,

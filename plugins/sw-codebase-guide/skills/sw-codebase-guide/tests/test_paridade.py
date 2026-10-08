@@ -90,6 +90,11 @@ def _projeto(tmp_path) -> Path:
     (raiz / 'README.md').write_text('# Loja\n\nSistema de pedidos para padarias.\n')
     (raiz / 'pyproject.toml').write_text('[project]\nname = "loja"')
     (raiz / 'rotas.py').write_text('from app import servico\n')
+    # uma entrada reconhecida por convenção de caminho, que alcança alguém:
+    # sem ela não há candidato a percurso e o teste de paridade mede o nada
+    (raiz / 'app' / 'controllers').mkdir()
+    (raiz / 'app' / 'controllers' / 'PedidoController.py').write_text(
+        'from app import servico\n')
     (raiz / 'container.py').write_text('import rotas\n')
     (raiz / 'app' / 'servico.py').write_text('x = 1\n')
     (raiz / 'app' / 'user.py').write_text('y = 2\n')
@@ -195,6 +200,18 @@ def test_a_travessia_de_fronteira_sai_nos_dois(tmp_path):
     # Assert
     assert 'navegador → banco' in md
     assert 'navegador → banco' in texto
+
+
+def test_os_candidatos_a_percurso_saem_nos_dois(tmp_path):
+    """Por onde começar a rastrear é a primeira pergunta de quem vai escrever o
+    percurso — e quem lê o documento humano é justamente quem vai escrevê-lo."""
+    # Act
+    md_guia_html = _gerar(tmp_path, COMPLETA)
+    guia = (tmp_path / 'out' / 'guide.md').read_text()
+    texto = _sem_marcacao(md_guia_html[1])
+    # Assert — a fixture tem rota e import, então há candidato
+    assert 'Por onde começar a rastrear' in guia
+    assert 'Por onde começar a rastrear' in texto
 
 
 def test_a_frase_do_recorte_sai_nos_dois(tmp_path):

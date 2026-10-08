@@ -8,6 +8,35 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.9.0): **a skill deixou de depender do agente adivinhar por onde
+  começar a rastrear.** O `SKILL.md` declarava *"a skill não detecta entrypoint"* enquanto a
+  seção `superficie` já listava rota, job, comando e migration. O que faltava era usá-los
+  para **propor** — e escolher errado é caro, porque o percurso é a parte do documento que
+  mais custa a escrever.
+
+  - A nova seção `percursos` do inventário ordena as entradas pelo número de **papéis
+    distintos** que alcançam, não pelo número de arquivos: uma entrada que toca
+    `request · service · model · enum` é fatia vertical; uma que toca trinta modelos é
+    listagem. Cada candidato vem com o `termo` da funcionalidade, ligando os dois eixos de
+    recorte.
+  - **Ranquear por "aplicações atravessadas" seria inútil, e isso foi medido antes de
+    escrever o módulo:** nenhuma das 49 entradas de um monorepo real atravessava aplicação
+    pelo import, porque a travessia é por HTTP. O limite sai impresso junto da lista, para o
+    leitor não concluir que o caminho acaba ali.
+  - **17 das 49 entradas não alcançam arquivo nenhum pelo import**, e esse número agora vai
+    para o documento: é o tamanho do ponto cego, e quem lê precisa saber disso antes de
+    confiar no grafo para rastrear.
+
+### Corrigido
+- **O harness de provas de mutação mentiu uma segunda vez, por outro motivo.** Dois arquivos
+  de teste passados como uma string só viraram um caminho inexistente; o pytest saiu com
+  erro de uso, a saída continha a palavra "error", e as oito mutações foram marcadas como
+  pegas sem que um único teste tivesse rodado. Agora só o código de saída **1** (um teste
+  falhou) ou um timeout contam como prova — erro de uso, erro de coleta e "nenhum teste
+  coletado" saem como `INCONCLUSIVO`. As oito provas foram refeitas: 8/8, com a mutação do
+  ciclo de import saindo em timeout, que é a prova certa.
+
+### Adicionado
 - `sw-codebase-guide` (v0.8.0): **as perguntas em aberto passam a sair do que foi medido.**
   A skill declara essa seção como o entregável de maior valor — é a pauta da conversa com
   quem conhece o sistema —, e ela eram **três strings fixas** mais as `lacuna` do agente,

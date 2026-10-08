@@ -255,6 +255,34 @@ def montar_leia_me(inv: dict, narrativa: list) -> str:
     return '\n'.join(L)
 
 
+def _candidatos_a_percurso(inv: dict) -> list:
+    """Por onde começar a rastrear, e o tamanho do ponto cego.
+
+    A skill dizia não detectar entrypoint, enquanto a `superficie` já os listava:
+    o que faltava era usá-los para PROPOR. E a contagem das entradas que não
+    alcançam nada pelo import é dado, não rodapé — num projeto real eram 17 de
+    49, e o leitor precisa saber disso antes de confiar no grafo para rastrear.
+    """
+    p = inv.get('percursos') or {}
+    candidatos = p.get('candidatos') or []
+    if not candidatos:
+        return []
+    L, A = [], (lambda s: L.append(s))
+    A('Por onde começar a rastrear — as entradas que mais exercitam o sistema, '
+      'por número de papéis distintos que alcançam:\n')
+    for c in candidatos:
+        termo = f' (`{c["termo"]}`)' if c.get('termo') else ''
+        A(f'- `{c["entrada"]}`{termo} — alcança {c["alcanca"]} arquivos em '
+          f'{len(c["papeis"])} papéis: {" · ".join(c["papeis"])}  [fato]')
+    A('')
+    if p.get('entradas_sem_alcance'):
+        A(f'**{p["entradas_sem_alcance"]} das {p["entradas"]} entradas não alcançam '
+          f'nenhum arquivo pelo import.** Quem as liga ao resto faz por um caminho '
+          f'que o grafo não vê.  [fato]\n')
+    A(f'> {p["limite"]}.\n')
+    return L
+
+
 def _fatia(escopo: dict) -> list:
     """O que é só desta funcionalidade, e o que é de todo mundo.
 
@@ -701,6 +729,7 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
         A('  [lacuna: o projeto não segue convenção de caminho reconhecida]\n')
     else:
         A('Reconhecida por **convenção de caminho** — é indício, não prova.  [dedução]\n')
+        L.extend(_candidatos_a_percurso(inv))
         for tipo in ('rota', 'comando', 'job', 'migration'):
             itens = [i for i in sup if i['tipo'] == tipo]
             if not itens:

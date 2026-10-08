@@ -135,7 +135,8 @@ python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project \
 
 Grava `docs/project/inventory.json` com estas chaves de primeiro nível: `stacks`, `arvore`,
 `historia`, `retrato`, `imports` (que carrega `arestas`, `indisponivel`, `resolucao` e
-`barris` **dentro** dela), `superficie`, `ambiente`, `mencoes`, `textos`, `julgamento`,
+`barris` **dentro** dela), `superficie`, `percursos`, `ambiente`, `mencoes`, `textos`,
+`julgamento`,
 `escopo`, `caminhos_do_projeto`, `mudanca_por_arquivo` e `gerado_em_versao`. É determinístico — sem carimbo de tempo, ordem estável — para o documento
 dar diff.
 
@@ -157,6 +158,8 @@ O que cada seção carrega, e o quanto confiar nela:
   medido"** em vez de "0 por import" — repetir zero por símbolo trabalha contra a ressalva.
 - **`superficie`** — rota, comando, job e migration reconhecidos por **convenção de caminho**.
   É indício, não prova: no documento a seção inteira sai marcada como **dedução**.
+- **`percursos`** — por onde começar a rastrear: as entradas que mais exercitam o sistema,
+  quantas não alcançam nada pelo import, e até onde o grafo vai. Ver o passo 2.
 - **`ambiente`** — por arquivo `.env`, **os nomes das variáveis e nada mais**. Saber que o
   projeto usa `STRIPE_SECRET_KEY` e `REDIS_URL` é uma das informações mais úteis do documento
   para quem vai subir o ambiente pela primeira vez; o valor nunca é lido para dentro.
@@ -270,8 +273,20 @@ acima: obedecer gerava no documento a frase *"a interpretação não escreveu es
 o defeito que esta skill existe para evitar. O que muda sem recorte é a AMBIÇÃO: escolha **uma**
 funcionalidade representativa e diga qual é, em vez de tentar cobrir o sistema.
 
-**Cuidado com o orçamento.** Em "o projeto todo" de um legado, rastrear é
-adivinhar onde a execução começa — e a skill não detecta entrypoint.
+**Não adivinhe por onde começar: o inventário propõe.** A seção `percursos` traz as entradas
+que mais exercitam o sistema, ordenadas pelo número de **papéis distintos** que alcançam —
+uma entrada que toca `request · service · model · enum` é fatia vertical; uma que toca trinta
+modelos é listagem. Cada candidato vem com o `termo` da funcionalidade, ligando os dois eixos
+de recorte.
+
+Leia o que vem junto antes de confiar na lista:
+
+- **`entradas_sem_alcance`** — quantas entradas não alcançam arquivo nenhum pelo import. Num
+  projeto real eram **17 de 49**: quem as liga ao resto faz por um caminho que o grafo não vê,
+  e isso mede o tamanho do ponto cego antes de você rastrear qualquer coisa.
+- **`limite`** — o grafo para na fronteira da aplicação. Num monorepo, a travessia entre
+  repositórios é por HTTP, e import nenhum a enxerga: essa parte do percurso você segue lendo
+  o código do cliente e do servidor, ou vira `salto`.
 
 #### O bloco `[[narrativa]]` — o documento humano
 

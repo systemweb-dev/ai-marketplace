@@ -72,3 +72,85 @@ def camadas_usadas(passos: list) -> list:
     """
     vistas = {p['onde'] for p in passos if p['onde']}
     return [c for c in CAMADAS if c in vistas]
+
+
+# ───────────────────── escolher QUAL percurso seguir ─────────────────────
+#
+# O SKILL.md declarava: *"em 'o projeto todo' de um legado, rastrear é adivinhar
+# onde a execução começa — e a skill não detecta entrypoint"*. Ela detecta: a
+# seção `superficie` já lista rota, job, comando e migration por convenção de
+# caminho. O que faltava era usar isso para PROPOR, em vez de deixar o agente
+# escolher no escuro — e escolher errado é caro, porque o percurso é a parte do
+# documento que mais custa a escrever.
+
+TETO_CANDIDATOS = 5
+# A busca para aqui: é candidato, não inventário. Num projeto real a entrada que
+# mais alcança chegava a 55 arquivos, bem abaixo do teto.
+TETO_ALCANCE = 400
+# Entrada que não alcança NINGUÉM pelo import não é candidata — mas é contada, e
+# a contagem é dado: num projeto real eram 17 de 49, e isso mede o tamanho do
+# ponto cego (quem despacha por string não aparece no grafo).
+
+
+def _alcance(inicio: str, sai_de: dict) -> set:
+    vistos, fila = {inicio}, [inicio]
+    while fila and len(vistos) < TETO_ALCANCE:
+        atual = fila.pop(0)
+        for alvo in sorted(sai_de.get(atual, ())):
+            if alvo not in vistos:
+                vistos.add(alvo)
+                fila.append(alvo)
+    return vistos
+
+
+def candidatos(inv: dict) -> dict:
+    """As entradas que mais exercitam o sistema, para escolher o percurso.
+
+    Ordena pelo número de PAPÉIS distintos que a entrada alcança, não pelo número
+    de arquivos: uma entrada que toca `request · service · model · enum · helper`
+    é fatia vertical; uma que toca trinta modelos é uma listagem. Empate vai para
+    o alcance, e depois para o caminho — mesma entrada, mesma ordem, sempre.
+
+    **O limite é declarado junto com a lista**, porque sem ele o leitor conclui
+    que o caminho acaba ali: o grafo para na fronteira da aplicação. Num monorepo
+    real, nenhuma das 49 entradas atravessava para outro repositório — a
+    travessia é por HTTP, e import nenhum a enxerga.
+    """
+    from lib.funcionalidades import termo_e_papel
+
+    superficie = inv.get('superficie') or []
+    if not superficie:
+        return {'candidatos': [], 'entradas': 0, 'entradas_sem_alcance': 0,
+                'limite': 'nenhuma entrada foi reconhecida por convenção de caminho'}
+
+    sai_de = {}
+    for a in (inv.get('imports') or {}).get('arestas') or []:
+        sai_de.setdefault(a['de'], set()).add(a['para'])
+
+    achados, sem_alcance = [], 0
+    for item in superficie:
+        entrada = item['caminho']
+        alcancados = _alcance(entrada, sai_de)
+        if len(alcancados) <= 1:
+            sem_alcance += 1
+            continue
+        papeis = sorted({p for c in alcancados
+                         if (p := (termo_e_papel(c) or (None, None))[1])})
+        achados.append({
+            'entrada': entrada,
+            'tipo': item.get('tipo'),
+            # liga os dois eixos: a entrada que mais exercita o sistema costuma
+            # levar o nome de uma das funcionalidades do menu
+            'termo': (termo_e_papel(entrada) or (None, None))[0],
+            'alcanca': len(alcancados),
+            'papeis': papeis,
+            'primeiros_passos': sorted(sai_de.get(entrada, ()))[:3],
+        })
+    achados.sort(key=lambda a: (-len(a['papeis']), -a['alcanca'], a['entrada']))
+    return {
+        'candidatos': achados[:TETO_CANDIDATOS],
+        'entradas': len(superficie),
+        'entradas_sem_alcance': sem_alcance,
+        'limite': ('o grafo para na fronteira da aplicação: travessia entre '
+                   'repositórios é por HTTP, e import nenhum a enxerga'),
+    }
