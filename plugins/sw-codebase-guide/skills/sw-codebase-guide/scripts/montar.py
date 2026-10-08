@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import conhecimento, julgar, percurso  # noqa: E402
+from lib import conhecimento, julgar, percurso, perguntas  # noqa: E402
 from lib import recorte as mod_recorte  # noqa: E402
 from lib.arvore import eh_codigo, linguagem_de  # noqa: E402
 
@@ -729,6 +729,13 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     # textual — regra que caiu no spike da v0.2.0. Hoje a resposta mais comum é uma
     # dedução de evidências convergentes, e o documento perguntava de novo três
     # parágrafos depois de responder.
+    # As derivadas vêm DEPOIS das lacunas do agente e ANTES das genéricas: elas
+    # chegam com o número na mão, que é o que transforma a seção em pauta de
+    # reunião em vez de formulário.
+    derivadas = perguntas.derivar(inv, julgar.linguagens_confiaveis(inv))
+    for d in derivadas:
+        A(f'- {d["pergunta"]} — *{d["porque"]}*')
+
     respondido = {a['secao'] for a in afirmacoes if a['nivel'] != 'lacuna'}
     if any(b['parte'] == 'o-que-e' for b in (narrativa or [])):
         respondido.add('o-que-faz')     # a narrativa responde, com trecho literal
@@ -741,7 +748,12 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     # A pergunta não pode CONTER a forma de uma afirmação de ausência: quem lê
     # de relance guarda "a pasta não é usada" e esquece o ponto de interrogação.
     # A própria guarda `PROIBIDAS` pegava esta linha, e estava certa.
-    A('- Estas pastas ainda são usadas? Alguma pode ser apagada?')
+    #
+    # E ela só sai quando NÃO houve pergunta derivada sobre arquivo parado: a
+    # genérica logo abaixo de três perguntas que nomeiam arquivo e dias parados
+    # faz a seção inteira parecer formulário.
+    if not any('parado há' in d['pergunta'] for d in derivadas):
+        A('- Estas pastas ainda são usadas? Alguma pode ser apagada?')
     A('')
     return '\n'.join(L)
 

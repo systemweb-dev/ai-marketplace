@@ -8,6 +8,45 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.8.0): **as perguntas em aberto passam a sair do que foi medido.**
+  A skill declara essa seção como o entregável de maior valor — é a pauta da conversa com
+  quem conhece o sistema —, e ela eram **três strings fixas** mais as `lacuna` do agente,
+  enquanto o `julgamento` já tinha medido um arquivo com 55 dependentes e nenhum teste, um
+  `.env` versionado e um par que muda junto 38 vezes. Nenhum desses fatos virava pergunta.
+
+  - *"`constants/index.js` tem 55 dependentes e mudou 35 vezes: quem mexe nele hoje, e como
+    essa pessoa sabe que não quebrou nada?"* é pauta de reunião. *"Estas pastas ainda são
+    usadas?"* é formulário — e esta agora só sai quando não há pergunta específica.
+  - **O par que muda junto e não se importa.** Dois arquivos que o histórico mostra mudando
+    no mesmo commit, acima de um piso, e sem nenhuma aresta de import entre eles: é o
+    acoplamento que o grafo não vê — rota em string, injeção de dependência, reflexão,
+    template. Num projeto real ele achou sozinho o par mais acoplado do projeto. A pergunta
+    só nasce nas linguagens cuja resolução passou do piso: num grafo pela metade, "não há
+    aresta" quer dizer "não medi", e a pergunta viria de uma cegueira da skill.
+  - **Nenhuma pergunta afirma.** Há teste rodando a lista `PROIBIDAS` do `montar.py` contra
+    toda pergunta derivada: quem lê de relance guarda a frase e esquece o ponto de
+    interrogação, e a pergunta sobre arquivo parado é a mais fácil de errar.
+  - As perguntas saem **nos dois documentos**. O bloco do HTML já se anunciava como "a pauta
+    da conversa com quem conhece o sistema" e entregava metade dela.
+
+- `sw-codebase-guide`: **guarda de paridade entre os dois emissores.** `leia-me.md` e
+  `leia-me.html` nascem do mesmo material e nenhum é conversão do outro — é decisão de
+  desenho, e o preço é que nada impedia os dois de contarem histórias diferentes. Já tinha
+  acontecido duas vezes, as duas achadas por olho humano. Agora um registro declara, para
+  cada um dos 19 blocos do HTML, onde está o gêmeo — ou `None` **com o motivo**. Bloco novo
+  falha o teste até alguém declarar a decisão, e seis testes de comportamento comparam o
+  conteúdo dos documentos gerados, com a divergência histórica reencenada como prova.
+
+### Corrigido
+- **O harness de provas de mutação podia marcar "pega" uma mutação que sobreviveu.** Python
+  valida bytecode por (mtime em segundos, tamanho do fonte); duas mutações que removem a
+  mesma substring produzem arquivos do mesmo tamanho, e rodando no mesmo segundo a segunda
+  reusava o `.pyc` da primeira. O defeito escondia uma lacuna real de teste. O harness agora
+  roda com `PYTHONDONTWRITEBYTECODE` **e** apaga os `__pycache__` antes de cada rodada, exige
+  que o padrão da mutação seja único no arquivo, e restaura em `finally`. Todas as provas
+  desta sessão foram refeitas com ele: 13/13, 6/6 e 4/4.
+
+### Adicionado
 - `sw-codebase-guide` (v0.7.0): **recorte por funcionalidade — dizer o *quê*, não o *onde*.**
   O `--area` recorta por caminho, e quem acabou de receber um projeto não pergunta por
   `src/app/(app)`: pergunta pelo cadastro, pelo faturamento, pelo funil. O nome dessas coisas

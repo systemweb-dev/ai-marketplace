@@ -283,11 +283,20 @@ def bloco_afirmacoes(afirmacoes: list, secao: str, titulo: str, pergunta: str,
                   f'<ul class="regras">{"".join(itens)}</ul>', classe=classe, largo=True)
 
 
-def bloco_lacunas(afirmacoes: list) -> str:
+def bloco_lacunas(afirmacoes: list, derivadas: list | None = None) -> str:
+    """A pauta da conversa — a do agente e a que os números sustentam.
+
+    As derivadas precisam sair AQUI também, e não só no relatório técnico: este
+    bloco já se anunciava como "a pauta da conversa com quem conhece o sistema",
+    e entregava metade dela. Quem lê o documento humano é justamente quem vai
+    levar as perguntas para a reunião.
+    """
     lacunas = [a for a in afirmacoes if a.get('nivel') == 'lacuna']
-    corpo = ''.join(
-        f'<li><b>{citacao(a["texto"])}</b> — <em>{citacao(a.get("motivo", ""))}</em></li>'
-        for a in lacunas) or '<li>Nenhuma lacuna foi registrada na interpretação.</li>'
+    itens = [f'<li><b>{citacao(a["texto"])}</b> — <em>{citacao(a.get("motivo", ""))}</em></li>'
+             for a in lacunas]
+    itens += [f'<li><b>{citacao(d["pergunta"])}</b> — <em>{citacao(d["porque"])}</em></li>'
+              for d in (derivadas or [])]
+    corpo = ''.join(itens) or '<li>Nenhuma lacuna foi registrada na interpretação.</li>'
     return _bloco('O que ficou sem resposta', 'lacuna',
                   'O que o código não respondeu. É a pauta da conversa com quem '
                   'conhece o sistema.',

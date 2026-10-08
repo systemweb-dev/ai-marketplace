@@ -369,6 +369,23 @@ isso o PDF é gerado offline. **Ofereça o PDF no fim, via `AskUserQuestion`** �
 segundos de Chromium e nem toda rodada vira documento para enviar. Sem Chromium na máquina, a
 skill entrega o HTML e avisa: não é falha dela.
 
+### 4b. As perguntas em aberto não são só as suas
+
+O documento deriva perguntas **dos números já medidos** e as imprime junto com as suas
+`lacuna`, nos dois documentos. Elas chegam com o fato na mão — *"`X` tem 55 dependentes e
+mudou 35 vezes: quem mexe nele hoje, e como sabe que não quebrou nada?"* — e é isso que
+transforma a seção em pauta de reunião em vez de formulário.
+
+Uma delas merece atenção na leitura: **o par que muda junto e não se importa**. Dois arquivos
+que o histórico mostra mudando no mesmo commit, muitas vezes, e sem nenhuma aresta de import
+entre eles — é o acoplamento que o grafo não vê (rota em string, injeção de dependência,
+reflexão, template). Ela só nasce nas linguagens cuja resolução passou do piso: num grafo pela
+metade, "não há aresta" quer dizer "não medi", e a pergunta viria de uma cegueira da skill em
+vez de um fato do projeto.
+
+**Você não precisa escrevê-las** — elas saem sozinhas. O que você escreve são as `lacuna`: o
+que *você* tentou apurar e não conseguiu.
+
 ### 5. Informar
 
 Diga onde ficou o arquivo, quantos arquivos foram lidos, quais stacks apareceram, e **leia em

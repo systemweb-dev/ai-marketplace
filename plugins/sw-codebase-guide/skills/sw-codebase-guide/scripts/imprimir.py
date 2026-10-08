@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import montar
-from lib import conhecimento, pagina  # noqa: E402
+from lib import conhecimento, julgar, pagina, perguntas  # noqa: E402
 from lib import recorte as mod_recorte  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent.parent / 'assets'
@@ -201,7 +201,9 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str,
                                 classe='n2'),
         pagina.bloco_do_que_e_feito(inv),
         pagina.bloco_arquivos_maiores(inv),
-        pagina.bloco_lacunas(afirmacoes),
+        pagina.bloco_lacunas(
+            afirmacoes,
+            perguntas.derivar(inv, julgar.linguagens_confiaveis(inv))),
     ]))
     css = (ASSETS / 'estilo.css').read_text('utf-8')
     return f'''<!doctype html>
