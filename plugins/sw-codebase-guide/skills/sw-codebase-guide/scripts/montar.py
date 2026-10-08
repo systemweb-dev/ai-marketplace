@@ -41,22 +41,40 @@ CEGUEIRAS = [
 NAO_CAMINHO = ('commit ', 'http://', 'https://')
 
 
-def evidencia_valida(ev: str, caminhos: set) -> bool:
-    """A evidência aponta para algo que existe? Quatro formas são legítimas.
+def conferir_evidencia(ev: str, caminhos: set, linhas: dict | None = None) -> str | None:
+    """O que está errado nesta citação? `None` quando nada está.
+
+    Devolve o MOTIVO, não um booleano: "não existe no projeto" sobre um arquivo que
+    existe e uma linha que não — a primeira versão desta guarda — manda quem corrige
+    procurar o problema no lugar errado.
 
     O `SKILL.md` documenta `app/Pedido.php:88` e os testes usam `commit 3c5aabb`.
     Uma conferência ingênua recusaria a evidência CORRETA e derrubaria três testes
     que já passam — por isso a guarda nasce conhecendo as quatro formas:
     caminho, caminho com `:linha`, diretório com barra no fim, e não-caminho.
+
+    **A linha é conferida quando há número medido para aquele arquivo.** Sem ele —
+    binário, arquivo acima do teto, fonte textual podada da árvore — a guarda
+    aceita: "não apurado ≠ não existe" vale para a própria guarda, e recusar aqui
+    seria inventar a medida que o inventário declarou não ter.
     """
     if ev.startswith(NAO_CAMINHO):
-        return True
-    alvo = ev.rsplit(':', 1)[0] if re.search(r':\d+$', ev) else ev
-    if alvo in caminhos:
-        return True
-    if alvo.endswith('/'):
-        return any(c.startswith(alvo) for c in caminhos)
-    return False
+        return None
+    numero = re.search(r':(\d+)$', ev)
+    alvo = ev[:numero.start()] if numero else ev
+    if alvo not in caminhos:
+        if alvo.endswith('/') and any(c.startswith(alvo) for c in caminhos):
+            return None
+        return 'não existe no projeto'
+    total = (linhas or {}).get(alvo)
+    if not numero or total is None:
+        return None
+    pedida = int(numero.group(1))
+    if 1 <= pedida <= total:
+        return None
+    # o número real na mensagem: sem ele quem corrige chuta outra linha
+    return (f'aponta a linha {pedida}, e o arquivo tem {total} '
+            f'{"linha" if total == 1 else "linhas"}')
 
 
 # Frases que a skill NUNCA emite: o grafo não sabe o bastante para afirmar
@@ -157,7 +175,8 @@ def limpar_salto(salto: str) -> str:
     return ROTULO_DO_SALTO.sub('', salto).strip()
 
 
-def _ler_narrativa(dados: dict, caminhos: set, textos: dict) -> list:
+def _ler_narrativa(dados: dict, caminhos: set, textos: dict,
+                   linhas: dict | None = None) -> list:
     blocos = dados.get('narrativa', [])
     for b in blocos:
         parte = b.get('parte')
@@ -197,8 +216,8 @@ def _ler_narrativa(dados: dict, caminhos: set, textos: dict) -> list:
                 raise ValueError('o-que-e: bloco com `trecho` precisa de `fonte`')
             _conferir_trecho(b, textos)
         for ev in b['evidencia']:
-            if not evidencia_valida(ev, caminhos):
-                raise ValueError(f'evidência não existe no projeto: {ev!r}')
+            if erro := conferir_evidencia(ev, caminhos, linhas):
+                raise ValueError(f'evidência {erro}: {ev!r}')
     # a parte "o que o produto faz" continua ancorada: sem nenhuma citação ela vira
     # prosa fluente sem lastro, que é o modo de falha que a guarda existe para pegar
     o_que_e = sorted((b for b in blocos if b['parte'] == 'o-que-e'),
@@ -362,7 +381,8 @@ def _percurso_md(A, blocos: list) -> None:
             A('')
 
 
-def _ler_interpretacao(caminho: Path, caminhos: set | None = None) -> list:
+def _ler_interpretacao(caminho: Path, caminhos: set | None = None,
+                       linhas: dict | None = None) -> list:
     if not caminho.exists():
         return []
     dados = tomllib.loads(caminho.read_text('utf-8'))
@@ -381,8 +401,10 @@ def _ler_interpretacao(caminho: Path, caminhos: set | None = None) -> list:
         # inventada — o modo de falha mais caro, porque quem recebe o documento
         # leva a frase ao cliente como se fosse apurada
         for ev in a.get('evidencia', []):
-            if caminhos is not None and not evidencia_valida(ev, caminhos):
-                raise ValueError(f'evidência não existe no projeto: {ev!r}')
+            if caminhos is None:
+                continue
+            if erro := conferir_evidencia(ev, caminhos, linhas):
+                raise ValueError(f'evidência {erro}: {ev!r}')
     return afirmacoes
 
 
@@ -809,10 +831,11 @@ def main() -> int:
         # no projeto", um arquivo que o próprio inventário tinha acabado de ler
         caminhos = set(inv.get('textos') or {}) | set(inv.get('caminhos_do_projeto')
                        or [a['caminho'] for a in inv.get('arvore', [])])
-        afirmacoes = _ler_interpretacao(base / 'interpretation.toml', caminhos)
+        linhas = inv.get('linhas_por_arquivo') or {}
+        afirmacoes = _ler_interpretacao(base / 'interpretation.toml', caminhos, linhas)
         arquivo = base / 'interpretation.toml'
         dados = tomllib.loads(arquivo.read_text('utf-8')) if arquivo.exists() else {}
-        narrativa = _ler_narrativa(dados, caminhos, inv.get('textos') or {})
+        narrativa = _ler_narrativa(dados, caminhos, inv.get('textos') or {}, linhas)
     except ValueError as erro:
         print(f'interpretation.toml inválido: {erro}', file=sys.stderr)
         return 2

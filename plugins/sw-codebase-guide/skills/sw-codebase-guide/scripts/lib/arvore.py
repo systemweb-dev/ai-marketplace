@@ -21,6 +21,18 @@ NAO_E_CODIGO = {'markdown', 'text', 'rst', 'adoc', 'json', 'yaml', 'yml',
                 'toml', 'xml', 'csv', 'ini', 'tsbuildinfo', 'lock'}
 
 
+# Para CONTAR linha a pergunta é outra: o arquivo é texto? `ATIVOS` responde "isto
+# é código?", e as duas divergem em dois pontos medidos num projeto real de 1.938
+# arquivos — onde 534 arquivos de texto ficaram sem contagem por esta confusão:
+#   `config` é texto: `.env.example:12` é citação legítima, e a seção `ambiente` do
+#   inventário existe justamente para o `.env`;
+#   `svg` é XML: contar nele devolve número verdadeiro, e deixá-lo fora faria a
+#   guarda aceitar sem conferir 509 arquivos num projeto só.
+# Derivado, e não escrito à mão, porque extensão binária nova acrescentada a
+# `ATIVOS` precisa cair fora daqui por padrão.
+NAO_E_TEXTO = ATIVOS - {'config', 'svg'}
+
+
 def eh_codigo(linguagem: str) -> bool:
     """Uma definição de código, para o documento inteiro.
 
@@ -81,3 +93,47 @@ def varrer(raiz, teto_bytes: int = 1_000_000) -> list:
             'acima_do_teto': tamanho > teto_bytes,
         })
     return sorted(itens, key=lambda i: i['caminho'])
+
+
+def linhas_por_arquivo(raiz, itens: list, bloco: int = 1 << 16) -> dict:
+    """Quantas linhas tem cada arquivo — só onde o número quer dizer algo.
+
+    Existe para a guarda de evidência do `montar.py`, que confere o arquivo citado
+    desde sempre e a LINHA nunca: `app/Pedido.php:999999` atravessava intacto, e é
+    o erro que o leitor não tem como pegar — ele abre o arquivo, não acha a frase e
+    conclui que entendeu errado. O número precisa vir daqui porque o `montar.py` só
+    recebe `--dir`: ele nunca vê o projeto em disco, e é essa ignorância que o faz
+    reprodutível.
+
+    Três decisões, nesta ordem de importância:
+
+    1. **Binário fica de fora** — e só ele. Contar `\n` num PNG devolve um número, e número
+       que não quer dizer nada é pior que ausência: a guarda o usaria para recusar
+       uma citação legítima. Ausente significa "não apurado", e a guarda aceita.
+    2. **A última linha conta mesmo sem quebra no fim.** `count(b'\n')` subestima
+       em um o arquivo que não termina em `\n`, e o erro cai justamente na última
+       linha — a mais citada quando alguém aponta o fim de uma função. Recusar a
+       citação CORRETA é pior que não conferir.
+    3. **Acima do teto não é lido.** O teto existe para a varredura não ler um dump
+       de 40 MB; contar linha dele desfaria a economia.
+
+    Medido em quatro projetos reais: 0,26 s para 1.938 arquivos com cache frio,
+    0,05 s com cache quente. Lê em blocos e não decodifica — o custo é de I/O, não
+    de CPU, e o pico de memória não se move.
+    """
+    raiz = Path(raiz)
+    contagem = {}
+    for item in itens:
+        if item['acima_do_teto'] or item['linguagem'] in NAO_E_TEXTO:
+            continue
+        caminho = raiz / item['caminho']
+        try:
+            with caminho.open('rb') as f:
+                total, fim = 0, b''
+                while pedaco := f.read(bloco):
+                    total += pedaco.count(b'\n')
+                    fim = pedaco[-1:]
+            contagem[item['caminho']] = total + (1 if fim and fim != b'\n' else 0)
+        except OSError:
+            continue        # ilegível é não apurado, nunca zero
+    return contagem

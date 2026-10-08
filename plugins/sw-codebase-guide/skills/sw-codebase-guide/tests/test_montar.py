@@ -127,7 +127,7 @@ def test_duas_montagens_identicas(tmp_path):
         'secao = "o-que-faz"\n'
         'texto = "Expõe um endpoint de usuário"\n'
         'nivel = "deducao"\n'
-        'evidencia = ["rotas.py:3"]\n'
+        'evidencia = ["rotas.py:2"]\n'
         'motivo = ""\n')
     # Act
     montar(tmp_path)
@@ -376,7 +376,10 @@ def test_quatro_formas_de_evidencia(tmp_path):
     # Arrange / Act — caminho, caminho:linha, diretório e não-caminho.
     # O SKILL.md documenta `app/Pedido.php:88` e os testes usam `commit 3c5aabb`:
     # uma conferência ingênua recusaria a evidência CORRETA.
-    r = _com_evidencia(tmp_path, ['rotas.py', 'rotas.py:3', 'app/', 'commit 3c5aabb'])
+    # `rotas.py:2` é a ÚLTIMA linha do arquivo. Este teste dizia `:3` num arquivo de
+    # duas linhas e passava — a própria suíte citava linha que não existe, e foi a
+    # guarda de faixa que a pegou. Citação que não dá para conferir não prova nada.
+    r = _com_evidencia(tmp_path, ['rotas.py', 'rotas.py:2', 'app/', 'commit 3c5aabb'])
     # Assert
     assert r.returncode == 0, r.stderr + r.stdout
 
@@ -632,3 +635,65 @@ def test_as_afirmacoes_saem_na_ORDEM_EM_QUE_FORAM_ESCRITAS(tmp_path):
     guia = (tmp_path / 'guide.md').read_text()
     # Assert
     assert guia.index('Zebra') < guia.index('Abacate')
+
+
+# ──────────────── a linha citada existe no arquivo citado? ───────────────────
+
+
+def test_linha_fora_do_arquivo_e_recusada(tmp_path):
+    """`rotas.py` tem 2 linhas. A citação da linha 999 atravessava a guarda inteira
+    — e é o erro que o leitor não tem como pegar: ele abre o arquivo, não acha a
+    frase e conclui que entendeu errado."""
+    # Arrange / Act
+    r = _com_evidencia(tmp_path, ['rotas.py:999'])
+    # Assert — a mensagem diz o número real, senão quem corrige chuta
+    saida = r.stderr + r.stdout
+    assert r.returncode == 2
+    assert 'rotas.py:999' in saida and 'tem 2 linha' in saida
+    assert 'Traceback' not in r.stderr
+
+
+def test_linha_que_existe_passa(tmp_path):
+    # Arrange / Act — a última linha do arquivo, que é onde o erro de contagem bate
+    r = _com_evidencia(tmp_path, ['rotas.py:2'])
+    # Assert
+    assert r.returncode == 0, r.stderr + r.stdout
+
+
+def test_a_linha_seguinte_a_ultima_e_recusada(tmp_path):
+    """O limite exato, não o absurdo: `:999` cai em qualquer comparação torta, e
+    `total + 1` passaria. Errar por um é o erro de contagem que de fato acontece."""
+    # Arrange / Act — `rotas.py` tem 2 linhas
+    r = _com_evidencia(tmp_path, ['rotas.py:3'])
+    # Assert
+    assert r.returncode == 2
+    assert 'Traceback' not in r.stderr
+
+
+def test_linha_zero_nao_existe_em_editor_nenhum(tmp_path):
+    # Arrange / Act
+    r = _com_evidencia(tmp_path, ['rotas.py:0'])
+    # Assert
+    assert r.returncode == 2
+    assert 'Traceback' not in r.stderr
+
+
+def test_arquivo_sem_contagem_aceita_a_linha(tmp_path):
+    """Binário não tem contagem, e a invariante da skill é "não apurado ≠ não
+    existe": sem o número medido a guarda não pode recusar. Recusar aqui seria
+    inventar a medida que ela declarou não ter."""
+    # Arrange
+    projeto = tmp_path / 'proj'
+    projeto.mkdir()
+    (projeto / 'logo.png').write_bytes(b'\x89PNG\r\n\x1a\n')
+    (projeto / 'app.py').write_text('x = 1\n')
+    (projeto / 'pyproject.toml').write_text('[project]\nname = "x"')
+    saida = tmp_path / 'out'
+    varrer(projeto, saida)
+    (saida / 'interpretation.toml').write_text(
+        '[[afirmacao]]\nsecao = "o-que-faz"\ntexto = "t"\nnivel = "deducao"\n'
+        'evidencia = ["logo.png:5"]\nmotivo = ""\n')
+    # Act
+    r = montar(saida)
+    # Assert
+    assert r.returncode == 0, r.stderr + r.stdout

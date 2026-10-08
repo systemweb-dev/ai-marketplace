@@ -1,5 +1,5 @@
 # tests/test_arvore.py
-from lib.arvore import varrer
+from lib.arvore import linhas_por_arquivo, varrer
 
 
 def test_pula_vendor_e_node_modules(tmp_path):
@@ -93,3 +93,87 @@ def test_declaracao_de_tipo_e_historia_contam_como_gerados(tmp_path):
     assert por_caminho['Botao.ts'] is False
     assert por_caminho['Botao.d.ts'] is True
     assert por_caminho['Lista.stories.tsx'] is True
+
+
+# ───────────────────── quantas linhas tem cada arquivo ───────────────────────
+# A guarda de evidência confere o ARQUIVO citado desde sempre, e a LINHA nunca:
+# `app/Pedido.php:999999` atravessava intacto. Conferir a linha exige o número no
+# inventário, porque o `montar.py` só recebe `--dir` — ele nunca vê o projeto em
+# disco, e é essa ignorância que o torna reprodutível.
+
+
+def test_conta_a_ultima_linha_mesmo_sem_quebra_no_fim(tmp_path):
+    """Contar `\\n` subestima em um o arquivo que não termina em quebra — e o erro
+    cai justamente na ÚLTIMA linha, a mais citada quando alguém aponta o fim de uma
+    função. Recusar a citação correta é pior que não conferir."""
+    # Arrange
+    (tmp_path / 'com.py').write_text('a = 1\nb = 2\n')
+    (tmp_path / 'sem.py').write_text('a = 1\nb = 2')
+    # Act
+    linhas = linhas_por_arquivo(tmp_path, varrer(tmp_path))
+    # Assert
+    assert linhas['com.py'] == 2
+    assert linhas['sem.py'] == 2
+
+
+def test_arquivo_vazio_nao_tem_linha_nenhuma(tmp_path):
+    # Arrange
+    (tmp_path / 'vazio.py').write_text('')
+    # Act
+    linhas = linhas_por_arquivo(tmp_path, varrer(tmp_path))
+    # Assert — zero é a medida certa aqui: o arquivo existe e não tem linha
+    assert linhas['vazio.py'] == 0
+
+
+def test_binario_fica_sem_contagem(tmp_path):
+    """Contar `\\n` num PNG dá um número, e número que não quer dizer nada é pior
+    que ausência: a guarda o usaria para recusar uma citação."""
+    # Arrange
+    (tmp_path / 'logo.png').write_bytes(b'\x89PNG\r\n\x1a\n' + b'\n' * 40)
+    (tmp_path / 'app.py').write_text('x = 1\n')
+    # Act
+    linhas = linhas_por_arquivo(tmp_path, varrer(tmp_path))
+    # Assert
+    assert 'logo.png' not in linhas
+    assert linhas['app.py'] == 1
+
+
+def test_arquivo_acima_do_teto_nao_e_lido(tmp_path):
+    """O teto existe para a varredura não ler um dump de 40 MB. Contar linha dele
+    desfaria a economia — e a ausência é honesta: não foi apurado."""
+    # Arrange
+    (tmp_path / 'dump.sql').write_text('insert\n' * 100)
+    # Act
+    itens = varrer(tmp_path, teto_bytes=10)
+    linhas = linhas_por_arquivo(tmp_path, itens)
+    # Assert
+    assert itens[0]['acima_do_teto'] is True
+    assert linhas == {}
+
+
+def test_a_prosa_conta_porque_e_o_que_mais_se_cita(tmp_path):
+    """`README.md:12` é a citação mais comum do documento inteiro — markdown não é
+    código para o bloco de "arquivos maiores", mas é fonte de evidência."""
+    # Arrange
+    (tmp_path / 'README.md').write_text('# T\n\numa linha\n')
+    # Act
+    linhas = linhas_por_arquivo(tmp_path, varrer(tmp_path))
+    # Assert
+    assert linhas['README.md'] == 3
+
+
+def test_dotfile_de_configuracao_conta(tmp_path):
+    """`config` está em `ATIVOS` porque dotfile não é CÓDIGO — e a primeira versão
+    da contagem reusou esse conjunto, deixando `.env.example` e 508 SVGs sem
+    contagem num projeto real. "Não é código" e "não é texto" são perguntas
+    diferentes, e `.env.example:12` é citação legítima."""
+    # Arrange
+    (tmp_path / '.env.example').write_text('A=1\nB=2\nC=3\n')
+    (tmp_path / 'icone.svg').write_text('<svg>\n</svg>\n')
+    (tmp_path / 'foto.png').write_bytes(b'\x89PNG\n\n')
+    # Act
+    linhas = linhas_por_arquivo(tmp_path, varrer(tmp_path))
+    # Assert
+    assert linhas['.env.example'] == 3
+    assert linhas['icone.svg'] == 2
+    assert 'foto.png' not in linhas

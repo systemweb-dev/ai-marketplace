@@ -81,6 +81,12 @@ def apurar(projeto: Path, recorte=None) -> dict:
         # orientação citando `fora/b.py` — exatamente a frase que a seção existe
         # para dizer — era recusada, porque a árvore recortada não a contém.
         'caminhos_do_projeto': sorted(a['caminho'] for a in todos),
+        # e quantas linhas cada um tem, para a guarda de evidência conferir a LINHA
+        # citada e não só o arquivo. Mapa separado, e não um campo na `arvore`,
+        # porque a árvore vem RECORTADA e a guarda precisa do projeto inteiro —
+        # dois lugares com o mesmo número divergiriam na primeira mudança.
+        'linhas_por_arquivo': dict(sorted(
+            mod_arvore.linhas_por_arquivo(projeto, todos).items())),
         'escopo': recorte.como_escopo(len(arquivos)),
         'stacks': componentes,
         'arvore': arquivos,

@@ -7,6 +7,31 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-codebase-guide` (v0.10.0): **a guarda de evidência conferia o arquivo citado e nunca a
+  linha.** `app/Pedido.php:999999` num arquivo de 120 linhas atravessava intacto — e é o erro
+  que o leitor não tem como pegar: ele abre o arquivo, não acha a frase e conclui que entendeu
+  errado. A prova de que isso acontece estava na própria suíte da skill, que citava
+  `rotas.py:3` num arquivo de **duas** linhas, em dois testes, verdes desde sempre.
+
+  - A guarda passou a devolver o **motivo**, não um booleano: dizer "não existe no projeto"
+    sobre um arquivo que existe e uma linha que não manda quem corrige procurar no lugar
+    errado. A mensagem agora traz o total real de linhas.
+  - A nova seção `linhas_por_arquivo` do inventário carrega a contagem. Mapa separado, e não um
+    campo na `arvore`, porque a árvore vem **recortada** e a guarda precisa do projeto inteiro;
+    dois lugares com o mesmo número divergiriam na primeira mudança.
+  - **Onde o inventário não mediu, a linha passa sem conferência** — binário, arquivo acima do
+    teto, fonte textual podada da árvore. "Não apurado ≠ não existe" vale para a própria
+    guarda: recusar ali seria inventar a medida que o inventário declarou não ter.
+  - Dois detalhes que só a medição decidiu. A contagem de `\n` **subestima em um** o arquivo
+    que não termina em quebra, e o erro cai justamente na última linha, a mais citada quando
+    alguém aponta o fim de uma função — recusar a citação correta é pior que não conferir. E o
+    critério de exclusão não é "não é código", é "não é texto": reusar o conjunto `ATIVOS`
+    deixava `.env.example` e 509 SVGs sem contagem num projeto real de 1.938 arquivos.
+  - Custo medido em quatro projetos: 0,26 s para 1.938 arquivos com cache frio (0,05 s quente),
+    e 4% a mais de `inventory.json`. Lê em blocos, não decodifica, e o pico de memória não se
+    move.
+
 ### Adicionado
 - `sw-codebase-guide` (v0.9.0): **a skill deixou de depender do agente adivinhar por onde
   começar a rastrear.** O `SKILL.md` declarava *"a skill não detecta entrypoint"* enquanto a

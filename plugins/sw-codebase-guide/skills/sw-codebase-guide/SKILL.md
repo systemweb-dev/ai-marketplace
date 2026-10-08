@@ -194,6 +194,10 @@ O que cada seção carrega, e o quanto confiar nela:
 - **`mudanca_por_arquivo`** — a data da última alteração de cada arquivo. Existe para
   envelhecer resposta humana: respondida em outubro, arquivo mexido em dezembro, a pergunta
   pode ter voltado a valer. Invalidação por **evidência**, não por cronômetro.
+- **`linhas_por_arquivo`** — quantas linhas tem cada arquivo, para a guarda de evidência
+  conferir a **linha** citada e não só o arquivo. Binário, arquivo acima do teto e o que não
+  deu para ler ficam **fora** do mapa: ausência significa "não apurado", e nesse caso a guarda
+  aceita a linha — recusar seria inventar a medida que o inventário declarou não ter.
 - **`escopo`** e **`caminhos_do_projeto`** — o recorte usado e a lista completa de caminhos do
   projeto **inteiro**. A segunda existe porque percentual de teste e autoria são do projeto,
   não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%.
@@ -328,6 +332,11 @@ evidencia = ["CLAUDE.md"]
    sustenta.
 3. **Caminho inventado.** Toda `evidencia` tem que existir. Quatro formas valem: `app/x.py`,
    `app/x.py:88`, `app/` e `commit 3c5aabb`.
+4. **Linha que não existe.** Com `:linha`, o número é conferido contra o tamanho do arquivo —
+   `app/Pedido.php:999` num arquivo de 120 linhas para o processo, e a mensagem diz o total
+   real. É o erro que o leitor não tem como pegar: ele abre o arquivo, não acha a frase e
+   conclui que entendeu errado. **Cite a linha onde a coisa está**, não a vizinhança. Onde o
+   inventário não mediu (binário, arquivo acima do teto), a linha passa sem conferência.
 
 **README é `declarado`, nunca `fato`.** Se o README discorda do `docker-compose`, mostre os
 dois — a divergência é um dos achados mais úteis para quem acabou de receber o projeto.
