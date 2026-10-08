@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import montar
 from lib import conhecimento, pagina  # noqa: E402
+from lib import recorte as mod_recorte  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent.parent / 'assets'
 ESTILOS = ('escuro', 'brutalista')
@@ -131,11 +132,13 @@ def _abertura(inv: dict, narrativa: list | None = None) -> str:
                          for n, r in numeros)
 
     recorte = ''
-    if escopo.get('area'):
-        plural = '' if escopo['n_arquivos'] == 1 else 's'
-        recorte = (f'<p class="recorte"><b>Recorte:</b> este documento cobre a área '
-                   f'<code>{e(escopo["area"])}</code> ({escopo["n_arquivos"]} '
-                   f'arquivo{plural}), não o projeto inteiro.</p>')
+    dito = mod_recorte.frase(escopo)
+    if dito:
+        rotulo, o_que, n = dito
+        plural = '' if n == 1 else 's'
+        recorte = (f'<p class="recorte"><b>Recorte:</b> este documento cobre {o_que} '
+                   f'<code>{e(rotulo)}</code> ({n} arquivo{plural}), não o projeto '
+                   f'inteiro.</p>')
 
     # mapa de leitura POR INTENÇÃO, não sumário: é o que orienta quem abre o
     # documento sem saber o que está procurando
@@ -183,6 +186,7 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str,
                                 'O que mais o código disse sobre o produto.'),
         pagina.bloco_percurso(narrativa),
         pagina.bloco_mapa(narrativa),
+        pagina.bloco_fatia(inv),
         pagina.bloco_orientacoes(narrativa),
         pagina.bloco_onde_mora(inv),
         pagina.bloco_superficie(inv),

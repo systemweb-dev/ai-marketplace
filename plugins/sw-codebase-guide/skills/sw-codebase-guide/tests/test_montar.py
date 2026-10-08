@@ -298,6 +298,14 @@ def _com_escopo(tmp_path, **ajustes):
     citados = {a for c in (inv.get('historia') or {}).get('co_mudanca') or []
                for a in c['arquivos']}
     inv['caminhos_do_projeto'] = sorted(set(inv.get('caminhos_do_projeto') or []) | citados)
+    # a árvore do inventário É o recorte, e o `varrer.py` põe nela todo arquivo do
+    # projeto que cai dentro. A fixture precisa fazer o mesmo, senão a ponta de
+    # DENTRO sai marcada como fora e o teste mede a própria fixture.
+    area = inv['escopo']['area']
+    dentro = sorted(c for c in citados if c == area or c.startswith(f'{area}/'))
+    ja = {a['caminho'] for a in inv['arvore']}
+    inv['arvore'] += [{'caminho': c, 'bytes': 1, 'linguagem': 'Python', 'gerado': False}
+                      for c in dentro if c not in ja]
     (tmp_path / 'inventory.json').write_text(json.dumps(inv))
     r = montar(tmp_path)
     assert r.returncode == 0, r.stderr

@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import conhecimento, julgar, percurso  # noqa: E402
+from lib import recorte as mod_recorte  # noqa: E402
 from lib.arvore import eh_codigo, linguagem_de  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
@@ -219,9 +220,9 @@ def montar_leia_me(inv: dict, narrativa: list) -> str:
     L = []
     A = L.append
     A('# Guia para quem vai mexer\n')
-    escopo = inv.get('escopo') or {}
-    if escopo.get('area'):
-        A(f'> Cobre a área `{escopo["area"]}`, não o projeto inteiro.\n')
+    dito = mod_recorte.frase(inv.get('escopo') or {})
+    if dito:
+        A(f'> Cobre {dito[1]} `{dito[0]}`, não o projeto inteiro.\n')
     A('> Documento escrito a partir do código. O relatório técnico, com a evidência')
     A('> de cada afirmação, está em [`guide.md`](guide.md).\n')
 
@@ -252,6 +253,43 @@ def montar_leia_me(inv: dict, narrativa: list) -> str:
             if b.get('saltos'):
                 A('')
     return '\n'.join(L)
+
+
+def _fatia(escopo: dict) -> list:
+    """O que é só desta funcionalidade, e o que é de todo mundo.
+
+    É o que paga o recorte por funcionalidade. Medindo um projeto real, o
+    arquivo mais importante da fatia era também o mais compartilhado — o helper
+    onde mora a regra do formulário, com 29 importadores de fora. Esconder a
+    conta faria o leitor mudar esse arquivo achando que mexia só na fatia.
+    """
+    if escopo.get('tipo') != 'funcionalidade':
+        return []
+    L, A = [], (lambda s: L.append(s))
+    A('### O que é desta funcionalidade\n')
+    if escopo.get('eh_area'):
+        A(f'> **Isto é uma área, não uma funcionalidade.** O termo '
+          f'`{escopo["funcionalidade"]}` leva {escopo["nucleo"]} arquivos no nome: '
+          f'é como o projeto chama uma parte inteira dele. Recorte mais fino, ou '
+          f'use `--area`.  [fato]\n')
+    A(f'- **{escopo["nucleo"]}** arquivos levam o nome no caminho — é o núcleo.  [fato]')
+    A(f'- **{escopo["alcance"]}** arquivos a mais o núcleo importa, e quase ninguém '
+      f'de fora usa.  [fato]')
+    A(f'- **{escopo["usada_por"]}** arquivos de fora importam a fatia: é o que quebra '
+      f'se a interface dela mudar.  [fato]\n')
+    compartilhado = escopo.get('compartilhado') or []
+    if not compartilhado:
+        A('A fatia não depende de nenhum arquivo compartilhado com o resto do '
+          'sistema.  [fato]\n')
+        return L
+    A('Estes a funcionalidade usa, mas são **de todo mundo** — mexer neles sai do '
+      'recorte:\n')
+    for c in compartilhado[:10]:
+        A(f'- `{c["caminho"]}` — {c["importadores"]} arquivos de fora o importam')
+    if len(compartilhado) > 10:
+        A(f'- … e mais {len(compartilhado) - 10}')
+    A('')
+    return L
 
 
 def _percurso_md(A, blocos: list) -> None:
@@ -536,8 +574,15 @@ def _escrever(L: list, afirmacoes: list, secao: str) -> None:
     L.append('')
 
 
-def _dentro_da_area(caminho: str, area: str) -> bool:
-    return caminho == area or caminho.startswith(f'{area}/')
+def _no_recorte(inv: dict) -> set:
+    """Os arquivos desta rodada, para marcar a ponta que está FORA.
+
+    Era um teste de prefixo (`caminho.startswith(area + '/')`), e prefixo só
+    descreve área: uma funcionalidade é um conjunto espalhado — o cadastro mora
+    em duas aplicações — e toda ponta dela sairia marcada como "fora". A árvore
+    do inventário JÁ é o recorte, e serve aos dois casos.
+    """
+    return {a['caminho'] for a in inv.get('arvore') or []}
 
 
 def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
@@ -552,11 +597,13 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     A('> · **confirmado** (alguém respondeu, e o nome está junto).\n')
 
     escopo = inv.get('escopo') or {}
-    area = escopo.get('area')
-    if area:
-        plural = '' if escopo['n_arquivos'] == 1 else 's'
-        A(f'> **Recorte:** este documento cobre a área `{area}` '
-          f'({escopo["n_arquivos"]} arquivo{plural}), não o projeto inteiro.\n')
+    dito = mod_recorte.frase(escopo)
+    if dito:
+        rotulo, o_que, n = dito
+        plural = '' if n == 1 else 's'
+        A(f'> **Recorte:** este documento cobre {o_que} `{rotulo}` '
+          f'({n} arquivo{plural}), não o projeto inteiro.\n')
+    L.extend(_fatia(escopo))
 
     L.extend(_julgamento(inv, respostas))
     A('## Como entrar\n')
@@ -602,6 +649,8 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     _escrever(L, afirmacoes, 'depende-de')
 
     A('### O que muda junto\n')
+    dentro = _no_recorte(inv)
+    parcial = mod_recorte.frase(inv.get('escopo') or {}) is not None
     h = dict(inv['historia'])
     # O `git log` devolve caminho HISTÓRICO: arquivo apagado ou renomeado continua
     # na lista. Num projeto real eram 16 caminhos que não existem hoje, e o leitor
@@ -624,7 +673,7 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     else:
         if h['lacuna']:
             A(f'> Ressalva: {h["lacuna"]}.  [lacuna parcial]\n')
-        de_onde = ' do projeto todo' if area else ''
+        de_onde = ' do projeto todo' if parcial else ''
         fora = (f'; {sumidos} par(es) ficaram de fora por citarem arquivo que não '
                 f'existe mais' if sumidos else '')
         A(f'De {h["commits"]} commits{de_onde} '
@@ -633,7 +682,7 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
         for c in h['co_mudanca'][:20]:
             # a ponta que está FORA da área sai marcada: "mexer aqui mexe lá fora"
             # só ensina alguma coisa se o leitor souber qual é o lá fora
-            marcas = [f'`{a}`' + ('' if not area or _dentro_da_area(a, area) else ' *(fora)*')
+            marcas = [f'`{a}`' + ('' if not parcial or a in dentro else ' *(fora)*')
                       for a in c['arquivos']]
             A(f'- {marcas[0]} + {marcas[1]} — {c["vezes"]}x')
         A('')

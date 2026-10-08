@@ -105,7 +105,7 @@ def _de_fora(alvo, prefixo, indice, vocab, modulo, classe) -> bool:
     return not achados
 
 
-def grafo(raiz, stacks: list, arvore: list, area: str | None = None) -> dict:
+def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
     """Arestas de import do que deu para resolver, e a contagem do que não deu.
 
     `stacks` continua na assinatura para não quebrar quem chama, e não é usado: o
@@ -237,13 +237,11 @@ def grafo(raiz, stacks: list, arvore: list, area: str | None = None) -> dict:
         cont['exemplos_nao_resolvidos'] = sorted(nao_resolvidos)[:TETO_EXEMPLOS]
         contagem[nome] = cont
 
-    if area:
-        # UMA ponta dentro, não as duas: o par que cruza a fronteira é o valor da
-        # seção — "para mexer aqui você mexe lá fora".
-        prefixo_da_area = area.rstrip('/') + '/'
+    if recorte is not None and recorte.parcial:
+        # UMA ponta dentro, não as duas: a aresta que cruza a fronteira é o valor
+        # da seção — "para mexer aqui você mexe lá fora".
         arestas = [a for a in arestas
-                   if a['de'].startswith(prefixo_da_area)
-                   or a['para'].startswith(prefixo_da_area)]
+                   if a['de'] in recorte or a['para'] in recorte]
 
     if not arestas and not indisponivel and not contagem:
         indisponivel.append({

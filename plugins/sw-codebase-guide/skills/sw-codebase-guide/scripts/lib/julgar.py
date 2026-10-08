@@ -90,8 +90,8 @@ def onde_e_perigoso(inv: dict, por_arquivo: dict) -> list:
     for aresta in inv['imports']['arestas']:
         dependentes.setdefault(aresta['para'], set()).add(aresta['de'])
 
-    # o nome do teste conta junto com a EXTENSÃO: sem isso, um `creator.test.js` do
-    # painel Vue dava "tem teste" para o `Creator.php` da API, e num monorepo isso
+    # o nome do teste conta junto com a EXTENSÃO: sem isso, um `pedido.test.js` do
+    # painel Vue dava "tem teste" para o `Pedido.php` da API, e num monorepo isso
     # zerava a lista inteira
     universo = inv.get('caminhos_do_projeto') or []
     nomes_de_teste = set()

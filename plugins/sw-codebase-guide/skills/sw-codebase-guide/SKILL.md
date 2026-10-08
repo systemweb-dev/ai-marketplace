@@ -61,9 +61,12 @@ com a de três meses atrás costuma valer mais que a versão nova sozinha.
 
 ### 0b. Perguntar o escopo — antes de varrer
 
-A primeira pergunta é **o que documentar**: o projeto inteiro, ou uma área dele. Num projeto de
-630 arquivos as duas respostas são documentos diferentes, e descobrir isso depois custa a
-varredura toda.
+A primeira pergunta é **o que documentar**: o projeto inteiro, uma **área** dele (*onde*) ou
+uma **funcionalidade** (*o quê*). Num projeto de 630 arquivos as três respostas são documentos
+diferentes, e descobrir isso depois custa a varredura toda.
+
+Quem acabou de receber um projeto raramente pergunta por `src/app/(app)` — pergunta pelo
+cadastro, pelo faturamento, pelo funil. Ofereça os dois eixos no mesmo menu.
 
 ```bash
 python3 <skill-dir>/scripts/varrer.py --projeto . --areas
@@ -87,10 +90,47 @@ skill não consegue provar — e aqui ela decidiria o escopo dos dois documentos
 **Esta pergunta absorve a de sub-repositórios**: é a mesma pergunta. Junte-a com a do destino de
 gravação, na mesma chamada.
 
+#### O outro eixo: por funcionalidade
+
+```bash
+python3 <skill-dir>/scripts/varrer.py --projeto . --funcionalidades
+```
+
+Também não grava nada. Devolve os nomes que **o próprio código usa** para mais de uma camada —
+`cobranca [controller model service view]`, `funil [action card page]`, `relatorio
+[controller middleware]`. A regra é essa: *uma funcionalidade é um nome que aparece em mais de
+um papel*. Um mesmo nome em `middleware/`, `services/` e `store/` é fatia vertical; um nome que
+aparece num componente e no teste dele é um arquivo com o teste dele — por isso **teste e barril não contam
+como papel**, e papel que sozinho só declara área (`middleware` + `rotas`) também não.
+
+Use o `termo` no `--funcionalidade`. O recorte sai em três grupos, e o documento diz quanto é
+de cada um:
+
+| Grupo | O que é |
+|---|---|
+| **núcleo** | os arquivos que levam o nome no caminho |
+| **alcance** | o que o núcleo importa e quase ninguém de fora usa |
+| **compartilhado** | o que o núcleo importa **e o resto do sistema também** — entra no recorte, com a contagem de quem o importa ao lado |
+
+O terceiro grupo é o que paga o recorte. Medindo um cadastro real, o arquivo mais importante da
+fatia era também o mais compartilhado: o helper onde mora a regra do formulário, com **29
+importadores de fora**. Deixá-lo de fora perderia a regra; chamá-lo de "parte da funcionalidade"
+seria mentira. Ele entra, e o documento diz a conta.
+
+**Termo que pega o projeto inteiro é área, e a skill diz isso.** Núcleo acima de
+`TETO_NUCLEO` arquivos sai com o aviso no documento, em vez de entregar 197 arquivos chamando-os
+de uma funcionalidade — foi o que o termo mais largo fez no projeto medido: 148 de 760.
+
+**Limite declarado:** a superfície pública de uma funcionalidade só aparece quando o arquivo que
+a declara leva o nome dela. Rota declarada num `Rotas.php` de área **não entra** — se
+ela importa para o que você está documentando, cite-a como evidência (o `caminhos_do_projeto`
+tem o projeto inteiro) e registre o que faltou como `lacuna`.
+
 ### 1. Apurar os fatos
 
 ```bash
-python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project [--area <caminho>]
+python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project \
+    [--area <caminho> | --funcionalidade <termo>]
 ```
 
 Grava `docs/project/inventory.json` com estas chaves de primeiro nível: `stacks`, `arvore`,
@@ -358,6 +398,12 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
   --resposta "…" --quem <nome>`. O que foi respondido **sai** da lista de perguntas e passa a
   constar em "já perguntamos", com nome e data — e volta a ser destacado se o arquivo mudar
   depois da resposta.
+- **O recorte tem dois eixos: `--area` (onde) e `--funcionalidade` (o quê).** O segundo acha a
+  funcionalidade pelo vocabulário que o próprio código usa, e por isso **ele só enxerga o que
+  tem nome**: funcionalidade cujos arquivos não compartilham palavra nenhuma no caminho não
+  aparece no menu e não se recorta. O menu sai curto num projeto que nomeia por área em vez de
+  por fatia — isso é retrato do código, não falha da varredura, e dizer isso vale mais que
+  encher o menu.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os
   que estão no código dos módulos; stack de nicho não é reconhecida.
 - **Sem extração de regra de negócio** — só propósito com fonte textual citada.

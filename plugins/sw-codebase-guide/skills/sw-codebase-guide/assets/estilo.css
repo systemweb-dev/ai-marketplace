@@ -273,3 +273,6 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .brutalista .pc-fronteira { border: 2px solid var(--tinta); border-radius: 0;
   background: var(--campo); }
 .brutalista .pc-f-marca { color: var(--acento); }
+
+/* o rótulo do compartilhado vinha colado nos números */
+.bloco .numeros + p { margin-top: 0.9rem; }

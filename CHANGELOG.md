@@ -8,6 +8,44 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.7.0): **recorte por funcionalidade — dizer o *quê*, não o *onde*.**
+  O `--area` recorta por caminho, e quem acabou de receber um projeto não pergunta por
+  `src/app/(app)`: pergunta pelo cadastro, pelo faturamento, pelo funil. O nome dessas coisas
+  já está escrito no código, só não estava reunido em lugar nenhum.
+
+  - **A hipótese foi medida antes de virar código**, em quatro projetos reais (um monorepo
+    PHP+Vue, um portal de notícias, um CRM Next.js e uma API PHP): *uma funcionalidade é um
+    nome que aparece em mais de um papel*. A extração devolveu nomes que alguém reconhece —
+    `cadastro`, `cobranca`, `funil`, `leads`, `relatorio` — e quatro defeitos, cada um virou
+    uma regra: `[id]` de
+    roteador não é nome; **teste não conta como papel** (é o espelho do arquivo, não uma
+    segunda camada); `middleware` + `rotas` sozinhos declaram **área**, não funcionalidade; e
+    `index` é barril.
+  - **O recorte sai em três grupos** — núcleo (leva o nome), alcance (o núcleo importa e
+    quase ninguém de fora usa) e **compartilhado** (o núcleo importa e o resto do sistema
+    também). O terceiro é o que paga o recorte: medindo um cadastro real, o arquivo mais
+    importante da fatia era o mais compartilhado — o helper onde mora a regra do formulário,
+    com 29 importadores de fora. Deixá-lo de fora perderia a regra; chamá-lo de "parte da
+    funcionalidade" seria mentira. Ele entra, e o documento imprime a conta.
+  - **Termo que pega o projeto inteiro é declarado área.** O termo mais largo do projeto
+    medido levava 148 de 760 arquivos; o documento diz isso em vez de entregar 197 arquivos
+    chamando-os de uma funcionalidade.
+  - **Os quatro filtros de recorte viraram um objeto só** (`lib/recorte.py`). Eram quatro
+    comparações de prefixo escritas quatro vezes — uma delas comparava `area='api'` com
+    `app/X.php` e zerava a co-mudança sem avisar —, e três das quatro só sabiam dizer "área",
+    de modo que uma rodada por funcionalidade sairia anunciando o projeto inteiro.
+
+### Corrigido
+- `sw-codebase-guide`: **um teste que podia travar a máquina.** Os testes dos limiares
+  dimensionavam a fixture pela constante de produção (`range(TETO_COMPARTILHADO + 1)`). Numa
+  prova de mutação que levou o teto a `10**9`, o teste tentou alocar um bilhão de strings e
+  derrubou a sessão duas vezes. Os limiares agora são parâmetro do `recortar`, com o padrão
+  declarado no módulo: o limiar se prova com teto 2 e três arquivos. Dois testes continuam
+  usando o teto real — é assim que provam que o padrão segue ligado — e uma guarda no módulo
+  de teste falha em uma linha, em 0,05s, se alguém puser ali um número grande demais para
+  dimensionar fixture.
+
+### Adicionado
 - `sw-codebase-guide` (v0.6.0): **o percurso virou trilha, e o arquivo de cada passo aparece
   na página.** O defeito era quieto: a `evidencia` do percurso era validada contra o projeto,
   caminho por caminho, e nenhum dos dois emissores a imprimia. Quem lia recebia a história de

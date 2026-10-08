@@ -324,6 +324,46 @@ def bloco_o_que_e(narrativa: list) -> str:
                   ''.join(partes), classe='n1', largo=True)
 
 
+def bloco_fatia(inv: dict) -> str:
+    """O que é só desta funcionalidade, e o que é de todo mundo.
+
+    Irmão do `_fatia` do `montar.py`: mesmos números, documento diferente. É o
+    que paga o recorte — medindo um cadastro real, o arquivo mais importante da
+    fatia era também o mais compartilhado (o helper onde mora a regra, com 29
+    importadores de fora), e esconder a conta faria o leitor mudá-lo achando que
+    mexia só na fatia.
+    """
+    escopo = inv.get('escopo') or {}
+    if escopo.get('tipo') != 'funcionalidade':
+        return ''
+    numeros = [(escopo['nucleo'], 'levam o nome'),
+               (escopo['alcance'], 'o núcleo importa'),
+               (escopo['usada_por'], 'de fora usam a fatia')]
+    corpo = ('<div class="numeros">'
+             + ''.join(f'<div><b>{n}</b><span>{e(r)}</span></div>' for n, r in numeros)
+             + '</div>')
+    if escopo.get('eh_area'):
+        corpo += (f'<p class="aviso">Isto é uma área, não uma funcionalidade: o termo '
+                  f'<code>{e(escopo["funcionalidade"])}</code> leva '
+                  f'{escopo["nucleo"]} arquivos no nome. Recorte mais fino.</p>')
+    compartilhado = escopo.get('compartilhado') or []
+    if compartilhado:
+        linhas = ''.join(
+            f'<li><code>{e(c["caminho"])}</code> '
+            f'<b>{c["importadores"]}</b> de fora o importam</li>'
+            for c in compartilhado[:10])
+        resto = (f'<p class="leg">… e mais {len(compartilhado) - 10}.</p>'
+                 if len(compartilhado) > 10 else '')
+        corpo += (f'<p>Estes a funcionalidade usa, mas são <b>de todo mundo</b> — '
+                  f'mexer neles sai do recorte:</p><ul class="regras">{linhas}</ul>{resto}')
+    else:
+        corpo += ('<p class="leg">A fatia não depende de nenhum arquivo '
+                  'compartilhado com o resto do sistema.</p>')
+    return _bloco('O que é desta funcionalidade', 'fato',
+                  'O que muda só aqui, e o que mexer alcança o sistema todo.',
+                  corpo, classe='n1', largo=True)
+
+
 def bloco_percurso(narrativa: list) -> str:
     """A trilha: um passo por nó, a camada no chip, o arquivo em mono embaixo.
 

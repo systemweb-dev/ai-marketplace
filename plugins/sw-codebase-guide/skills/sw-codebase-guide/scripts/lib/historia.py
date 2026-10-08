@@ -36,17 +36,16 @@ def _git(raiz, *args, segundos: int = 20):
     return r.stdout
 
 
-def _cruza_ou_entra(par, area: str) -> bool:
-    """O par tem pelo menos UMA ponta dentro da área?
+def _cruza_ou_entra(par, recorte) -> bool:
+    """O par tem pelo menos UMA ponta dentro do recorte?
 
     Uma ponta, não as duas: o valor da seção está justamente no par que CRUZA a
-    fronteira — é ele que vira "para mexer nesta área você mexe lá fora".
+    fronteira — é ele que vira "para mexer nisto você mexe lá fora".
     """
-    prefixo = f'{area}/'
-    return any(a == area or a.startswith(prefixo) for a in par)
+    return any(a in recorte for a in par)
 
 
-def _de_um_repo(raiz, prefixo: str = '', area: str | None = None) -> dict:
+def _de_um_repo(raiz, prefixo: str = '', recorte=None) -> dict:
     """Co-mudança de UM repositório, ou a lacuna com o motivo.
 
     `prefixo` é o nome do sub-repositório quando a chamada vem do monorepo por
@@ -101,9 +100,9 @@ def _de_um_repo(raiz, prefixo: str = '', area: str | None = None) -> dict:
 
     completo = (lambda a: f'{prefixo}/{a}' if prefixo else a)
     ordenados = sorted(pares.items(), key=lambda x: (-x[1], x[0]))
-    if area:
+    if recorte is not None and recorte.parcial:
         ordenados = [(par, n) for par, n in ordenados
-                     if _cruza_ou_entra([completo(a) for a in par], area)]
+                     if _cruza_ou_entra([completo(a) for a in par], recorte)]
 
     return {
         'commits': len(commits),
@@ -114,7 +113,7 @@ def _de_um_repo(raiz, prefixo: str = '', area: str | None = None) -> dict:
     }
 
 
-def historico(raiz, area: str | None = None) -> dict:
+def historico(raiz, recorte=None) -> dict:
     """Co-mudança do projeto, olhando um nível abaixo quando a raiz não tem git.
 
     **Monorepo por justaposição** é o formato normal de projeto recebido: `/projeto`
@@ -124,7 +123,7 @@ def historico(raiz, area: str | None = None) -> dict:
     falsidade com o fato a um nível de profundidade.
     """
     raiz = Path(raiz)
-    proprio = _de_um_repo(raiz, area=area)
+    proprio = _de_um_repo(raiz, recorte=recorte)
     if proprio['lacuna'] is None:
         return proprio
 
@@ -136,7 +135,7 @@ def historico(raiz, area: str | None = None) -> dict:
     for filho in filhos:
         if not (filho / '.git').exists():
             continue
-        h = _de_um_repo(filho, prefixo=filho.name, area=area)
+        h = _de_um_repo(filho, prefixo=filho.name, recorte=recorte)
         if h['commits']:
             subs.append((filho.name, h))
 
