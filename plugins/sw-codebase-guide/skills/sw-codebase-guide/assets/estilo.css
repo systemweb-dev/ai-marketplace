@@ -226,3 +226,50 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .brutalista .saltos li { border-top: 2px solid var(--tinta); }
 .brutalista .saltos li::before { background: var(--acento); color: #fff;
   padding: 0.1rem 0.3rem; }
+
+/* ---------- o percurso, em trilha (mockup aprovado em 07/10) ---------- */
+/* O fio vertical é a ordem; a fronteira o INTERROMPE, porque atravessar
+   aplicação é o evento mais caro para quem acabou de receber o projeto. */
+.percurso { list-style: none; margin: 1rem 0 0; padding: 0; position: relative; }
+.percurso::before { content: ''; position: absolute; left: 15px; top: 16px; bottom: 16px;
+  width: 1px; background: var(--fio); }
+.pc-passo { position: relative; display: flex; gap: 1.1rem; padding: 0 0 1.4rem; }
+.pc-passo:last-child { padding-bottom: 0; }
+.pc-no { flex: 0 0 32px; height: 32px; display: grid; place-items: center;
+  border: 1px solid var(--fio); border-radius: 50%; background: var(--papel);
+  color: var(--fraco); font-size: 0.8rem; position: relative; z-index: 1; }
+.pc-corpo { flex: 1 1 auto; min-width: 0; padding-top: 0.2rem; }
+.pc-topo { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.3rem;
+  flex-wrap: wrap; }
+.pc-chip { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.09em;
+  text-transform: uppercase; padding: 2px 7px; border: 1px solid var(--fio);
+  color: var(--fraco); border-radius: 4px; white-space: nowrap; }
+.pc-ord { font-family: var(--mono); font-size: 0.68rem; color: var(--fraco); opacity: 0.75; }
+.percurso .pc-corpo > p { font-size: 0.93rem; line-height: 1.6; max-width: 70ch; margin: 0; }
+/* o arquivo é o que a prosa escondia: ele aparece sob TODO passo, em mono */
+.pc-evs { margin-top: 0.3rem; }
+.pc-ev { display: inline-block; font-family: var(--mono); font-size: 0.72rem;
+  color: var(--fraco); padding: 2px 7px; margin: 3px 6px 0 0; word-break: break-all; }
+.pc-fronteira { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+  margin: 0 0 1.4rem 3.1rem; padding: 0.5rem 0.75rem; border-radius: 6px; }
+.pc-f-marca { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+  text-transform: uppercase; font-weight: 700; color: var(--alerta); }
+.pc-f-txt { font-size: 0.85rem; color: var(--fraco); }
+.percurso .saltos { margin-top: 0.7rem; }
+
+.escuro .pc-passo[data-onde="servidor"] .pc-no,
+.escuro .pc-passo[data-onde="banco"] .pc-no { border-color: var(--acento); color: var(--acento); }
+.escuro .pc-passo[data-onde="externo"] .pc-no { border-color: var(--alerta); color: var(--alerta); }
+.escuro .pc-ev { background: #1c1c21; border-left: 1px solid var(--acento); }
+.escuro .pc-fronteira { background: rgba(240, 168, 104, 0.09); border: 1px solid #4a3a2a; }
+
+/* No brutalista `--acento` e `--alerta` são a MESMA tinta: a camada marcada com
+   ela se lia igual ao alerta. Lá a camada marca com o preto do fio, e o
+   vermelho fica reservado para fronteira e lacuna. */
+.brutalista .pc-no { border: 2px solid var(--tinta); border-radius: 0; color: var(--tinta); }
+.brutalista .percurso::before { width: 2px; background: var(--tinta); }
+.brutalista .pc-chip { border: 2px solid var(--tinta); border-radius: 0; color: var(--tinta); }
+.brutalista .pc-ev { background: var(--apoio); color: var(--tinta); }
+.brutalista .pc-fronteira { border: 2px solid var(--tinta); border-radius: 0;
+  background: var(--campo); }
+.brutalista .pc-f-marca { color: var(--acento); }

@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import conhecimento, julgar  # noqa: E402
+from lib import conhecimento, julgar, percurso  # noqa: E402
 from lib.arvore import eh_codigo, linguagem_de  # noqa: E402
 
 NIVEIS = {'fato', 'declarado', 'deducao', 'lacuna'}
@@ -78,7 +78,12 @@ PARTES = {'o-que-e', 'percurso', 'mapa', 'orientacoes'}
 # mais exigência, se resolve tirando o incentivo.
 OBRIGATORIOS = {
     'o-que-e': ('texto', 'evidencia'),
-    'percurso': ('texto', 'evidencia'),
+    # `onde` entra como obrigatório no percurso porque o bloco deixou de ser
+    # parágrafo e virou PASSO: sem a camada não há onde pôr o passo na trilha, e
+    # a travessia de fronteira — derivada de `onde` mudar — simplesmente não
+    # nasceria. Um percurso sem camada voltaria a ser a prosa que escondia os
+    # arquivos.
+    'percurso': ('texto', 'evidencia', 'onde'),
     'mapa': ('texto', 'evidencia'),
     'orientacoes': ('texto', 'evidencia'),
 }
@@ -169,6 +174,10 @@ def _ler_narrativa(dados: dict, caminhos: set, textos: dict) -> list:
         # `saltos` é obrigatório no percurso MESMO VAZIO: a lista vazia afirma
         # "segui do clique até o banco sem buraco nenhum", que é afirmação forte.
         # Omitir o campo deixaria "não tentei" indistinguível de "segui inteiro".
+        if parte == 'percurso' and b['onde'] not in percurso.CAMADAS:
+            raise ValueError(
+                f'percurso: camada inválida em `onde`: {b["onde"]!r} — use uma de '
+                + ' · '.join(percurso.CAMADAS))
         if parte == 'percurso' and 'saltos' not in b:
             raise ValueError(
                 'percurso: o campo `saltos` é obrigatório, mesmo vazio — lista vazia '
@@ -229,6 +238,9 @@ def montar_leia_me(inv: dict, narrativa: list) -> str:
         if not blocos:
             A('*A interpretação não escreveu esta parte.*\n')
             continue
+        if parte == 'percurso':
+            _percurso_md(A, blocos)
+            continue
         for b in blocos:
             A(b['texto'] + '\n')
             if b.get('trecho'):
@@ -240,6 +252,41 @@ def montar_leia_me(inv: dict, narrativa: list) -> str:
             if b.get('saltos'):
                 A('')
     return '\n'.join(L)
+
+
+def _percurso_md(A, blocos: list) -> None:
+    """O percurso em passos, com o arquivo de cada um impresso.
+
+    O que mudou e por quê: antes isto era `A(b['texto'])` como qualquer outra
+    parte, e a `evidencia` — validada contra o projeto, linha por linha — nunca
+    chegava à página. Quem lia a história tinha que ir caçar os arquivos no
+    relatório técnico, que é exatamente o trabalho que o documento existe para
+    poupar.
+    """
+    passos = percurso.em_passos(blocos)
+    quantas = percurso.travessias(passos)
+    camadas = percurso.camadas_usadas(passos)
+    A(f'> {len(passos)} passos · {len(camadas)} camadas '
+      f'({" · ".join(camadas)}) · {quantas} '
+      f'{"fronteira" if quantas == 1 else "fronteiras"}\n')
+    for i, p in enumerate(passos, 1):
+        if p['atravessa']:
+            de, para = p['atravessa']
+            A(f'↳ **Atravessa:** {de} → {para}\n')
+        linha = f'**{i} · {p["onde"]}** — {p["texto"]}'
+        if p['evidencia']:
+            # os dois espaços no FIM da linha são a quebra dura do Markdown; numa
+            # linha só deles seriam espaço em branco solto, que o lint acusa e o
+            # renderizador ignora
+            A(linha + '  ')
+            A(' · '.join(f'`{ev}`' for ev in p['evidencia']))
+        else:
+            A(linha)
+        A('')
+        for salto in p['saltos']:
+            A(f'- **Não rastreado:** {salto}')
+        if p['saltos']:
+            A('')
 
 
 def _ler_interpretacao(caminho: Path, caminhos: set | None = None) -> list:

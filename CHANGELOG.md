@@ -7,6 +7,37 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-codebase-guide` (v0.6.0): **o percurso virou trilha, e o arquivo de cada passo aparece
+  na página.** O defeito era quieto: a `evidencia` do percurso era validada contra o projeto,
+  caminho por caminho, e nenhum dos dois emissores a imprimia. Quem lia recebia a história de
+  ponta a ponta e tinha que ir caçar os arquivos no relatório técnico — que é exatamente o
+  trabalho que o documento existe para poupar.
+
+  - **Um bloco de `percurso` deixou de ser parágrafo e virou PASSO.** Ele declara `onde` roda,
+    numa lista fechada de cinco camadas — `navegador · servidor · fila · banco · externo`.
+    Camada inventada é recusada com a lista na mensagem: camada livre reabriria a prosa pela
+    porta dos fundos, e a trilha não teria onde pôr o passo.
+  - **A travessia de fronteira não se declara: ela é derivada** de `onde` mudar entre dois
+    passos consecutivos, e o documento imprime `navegador → servidor` entre eles. Declarar
+    abriria a porta para afirmar uma travessia que os dados não mostram. Atravessar aplicação
+    é o evento mais caro para quem acabou de receber o projeto, e era o que a prosa corrida
+    escondia melhor — ficava numa oração subordinada no meio do parágrafo.
+  - **O desenho foi escolhido vendo**, em preview com três variações que diferiam de verdade
+    (trilha · camadas agrupadas · tabela densa). A trilha venceu porque é a única em que a
+    fronteira *interrompe* o fio em vez de ser mais uma linha. Dois achados saíram do preview
+    e não sairiam da descrição: a borda lateral grossa que eu usava para marcar fronteira é
+    enfeite padrão de aviso (virou fio inteiro com fundo tingido), e no tema brutalista
+    `--acento` e `--alerta` são a **mesma** tinta — lá a camada marca com o preto do fio, e o
+    vermelho fica reservado para fronteira e lacuna, senão "servidor" e "externo" se liam
+    igual.
+  - **O salto continua no passo a que pertence.** A regra é velha e a mudança de layout não
+    podia derrubá-la: salto escondido numa nota de rodapé é o erro mais caro que este
+    documento pode cometer.
+  - 13 testes novos em `tests/test_percurso.py`, com cinco provas de mutação — tirar a
+    validação da camada, nunca derivar fronteira, marcá-la no primeiro passo, parar de
+    imprimir o arquivo e ordenar as camadas por alfabeto. As cinco foram pegas.
+
 ### Corrigido
 - `sw-codebase-guide` (v0.5.2): **oito defeitos achados por um agente que usou a skill lendo
   só o `SKILL.md`.** Era o teste que faltava: todas as execuções anteriores foram feitas por

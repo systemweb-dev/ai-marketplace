@@ -191,10 +191,38 @@ texto de tela dizendo para que o sistema serve, **não afirme** — escreva como
 vira pergunta em aberto. Deduzir propósito de rotas e modelos produz prosa plausível e vazia,
 que quem recebe leva ao cliente como se fosse apurada.
 
+**Um bloco de `percurso` é um PASSO, não um parágrafo.** Cada bloco declara em que camada
+ele roda, e o documento desenha a trilha:
+
+```toml
+[[narrativa]]
+parte = "percurso"
+ordem = 3
+onde = "servidor"       # navegador · servidor · fila · banco · externo
+texto = "Antes do controller, o middleware do pedido decide a regra do desconto"
+evidencia = ["api/middleware/Pedidos/PedidoMiddleware.php:118"]
+saltos = []
+```
+
+A camada é **fechada** nessas cinco: `onde = "na regra de negócio"` é recusado, com a lista na
+mensagem. Camada livre reabriria a prosa pela porta dos fundos, e a trilha não teria onde pôr
+o passo.
+
+**A fronteira não se declara — ela é derivada de `onde` mudar entre dois passos.** O documento
+imprime `navegador → servidor` entre eles, e nada mais: declarar abriria a porta para afirmar
+uma travessia que os dados não mostram. Atravessar aplicação é o evento mais caro para quem
+acabou de receber o projeto, e era o que a prosa corrida escondia melhor — ficava numa oração
+subordinada no meio do parágrafo.
+
+**O arquivo de cada passo aparece na página.** A `evidencia` do percurso era conferida contra
+o projeto, linha por linha, e nunca impressa: quem lia recebia a história e ia caçar os
+arquivos no relatório técnico. Escreva o caminho mais preciso que tiver — `arquivo.php:118`
+vale muito mais que `arquivo.php`, porque é o que o leitor vai abrir.
+
 **O percurso tem orçamento: no máximo 10 arquivos abertos.** O que não resolver vira
 `saltos`, e `saltos = []` é afirmação forte — significa "segui do clique até o banco sem
 buraco". O campo é obrigatório justamente para "não tentei" não se confundir com "segui
-inteiro".
+inteiro". O salto sai **no passo a que pertence**, nunca numa nota de rodapé.
 
 **O percurso é obrigatório como as outras três partes — inclusive em "o projeto todo".** A
 regra anterior dizia para só escrevê-lo com escopo recortado, e isso brigava com a tabela
@@ -223,7 +251,7 @@ evidencia = ["CLAUDE.md"]
 | Parte | Título no documento | Campos obrigatórios |
 |---|---|---|
 | `o-que-e` | O que o produto faz | `texto` · `evidencia` — e o **primeiro** bloco também `trecho` · `fonte` |
-| `percurso` | O percurso de uma funcionalidade | `texto` · `evidencia` · **`saltos`** |
+| `percurso` | O percurso de uma funcionalidade | `texto` · `evidencia` · **`saltos`** · **`onde`** |
 | `mapa` | Onde ficam as coisas | `texto` · `evidencia` |
 | `orientacoes` | Para mexer | `texto` · `evidencia` |
 

@@ -412,7 +412,7 @@ def test_salto_no_html_tambem_perde_o_rotulo_repetido(tmp_path):
     # Arrange
     preparar(tmp_path)
     (tmp_path / 'interpretation.toml').write_text(
-        '[[narrativa]]\nparte = "percurso"\ntexto = "O pedido entra pela tela"\n'
+        '[[narrativa]]\nparte = "percurso"\nonde = "navegador"\ntexto = "O pedido entra pela tela"\n'
         'saltos = ["Não rastreado: o que o banco faz depois"]\nevidencia = []\n')
     # Act
     imprimir(tmp_path)
@@ -429,9 +429,9 @@ def test_sem_saltos_e_dito_uma_vez_e_so_quando_nao_ha_nenhum(tmp_path):
     # Arrange
     preparar(tmp_path)
     (tmp_path / 'interpretation.toml').write_text(
-        '[[narrativa]]\nparte = "percurso"\nordem = 1\ntexto = "A tela chama"\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 1\nonde = "navegador"\ntexto = "A tela chama"\n'
         'saltos = []\nevidencia = []\n\n'
-        '[[narrativa]]\nparte = "percurso"\nordem = 2\ntexto = "O serviço grava"\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 2\nonde = "banco"\ntexto = "O serviço grava"\n'
         'saltos = ["o que o banco faz depois"]\nevidencia = []\n')
     # Act
     imprimir(tmp_path)
@@ -444,9 +444,9 @@ def test_percurso_inteiro_sem_salto_diz_isso_uma_vez(tmp_path):
     # Arrange
     preparar(tmp_path)
     (tmp_path / 'interpretation.toml').write_text(
-        '[[narrativa]]\nparte = "percurso"\nordem = 1\ntexto = "A tela chama"\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 1\nonde = "navegador"\ntexto = "A tela chama"\n'
         'saltos = []\nevidencia = []\n\n'
-        '[[narrativa]]\nparte = "percurso"\nordem = 2\ntexto = "O serviço grava"\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 2\nonde = "banco"\ntexto = "O serviço grava"\n'
         'saltos = []\nevidencia = []\n')
     # Act
     imprimir(tmp_path)

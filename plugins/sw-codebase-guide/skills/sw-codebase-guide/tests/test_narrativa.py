@@ -129,7 +129,7 @@ QUATRO_PARTES = (
     'texto = "É um sistema de pedidos para padarias"\n'
     'trecho = "Sistema de pedidos para padarias"\nfonte = "README.md"\n'
     'evidencia = ["README.md"]\n\n'
-    '[[narrativa]]\nparte = "percurso"\nordem = 1\n'
+    '[[narrativa]]\nparte = "percurso"\nordem = 1\nonde = "servidor"\n'
     'texto = "O pedido entra pela rota e grava direto"\n'
     'evidencia = ["app.py"]\nsaltos = ["o ORM resolve a tabela — não rastreado"]\n\n'
     '[[narrativa]]\nparte = "mapa"\nordem = 1\n'
@@ -243,7 +243,7 @@ def test_percurso_sem_saltos_exige_o_campo_declarado(tmp_path):
     # Sem o campo obrigatório, "não tentei" e "segui inteiro" ficam indistinguíveis.
     r, _ = com_readme(
         tmp_path, README,
-        '[[narrativa]]\nparte = "percurso"\nordem = 1\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 1\nonde = "servidor"\n'
         'texto = "O pedido entra e grava"\nevidencia = ["app.py"]\n')
     # Assert
     assert r.returncode == 2
@@ -256,7 +256,7 @@ def test_percurso_com_saltos_vazio_e_aceito(tmp_path):
     # sido implementado como "exigir que a lista tenha item", que é outra coisa.
     r, saida = com_readme(
         tmp_path, README,
-        '[[narrativa]]\nparte = "percurso"\nordem = 1\n'
+        '[[narrativa]]\nparte = "percurso"\nordem = 1\nonde = "servidor"\n'
         'texto = "O pedido entra e grava"\nevidencia = ["app.py"]\nsaltos = []\n')
     # Assert
     assert r.returncode == 0, r.stderr + r.stdout
@@ -340,7 +340,7 @@ def test_salto_nao_repete_o_rotulo_do_documento(tmp_path):
         '[[narrativa]]\nparte = "o-que-e"\ntexto = "É um sistema de pedidos"\n'
         'trecho = "Sistema de pedidos para padarias"\nfonte = "README.md"\n'
         'evidencia = ["README.md"]\n\n'
-        '[[narrativa]]\nparte = "percurso"\ntexto = "O pedido entra pela tela"\n'
+        '[[narrativa]]\nparte = "percurso"\nonde = "navegador"\ntexto = "O pedido entra pela tela"\n'
         'saltos = ["Não rastreado: o que o banco faz depois", "nao rastreado: quem lê a fila"]\n'
         'evidencia = ["app.py"]\n')
     # Assert

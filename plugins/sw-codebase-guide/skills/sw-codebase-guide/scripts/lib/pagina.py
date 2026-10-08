@@ -26,6 +26,7 @@ ambiente, extraídas na origem.
 import html as _html
 import re
 
+from lib import percurso as _percurso
 from lib.arvore import ATIVOS, NAO_E_CODIGO, eh_codigo  # noqa: F401
 from collections import Counter
 from pathlib import Path
@@ -324,6 +325,18 @@ def bloco_o_que_e(narrativa: list) -> str:
 
 
 def bloco_percurso(narrativa: list) -> str:
+    """A trilha: um passo por nó, a camada no chip, o arquivo em mono embaixo.
+
+    Desenho escolhido vendo (mockup de 07/10, variação "Trilha"). Duas decisões
+    que o preview decidiu e a prosa não decidiria:
+
+    - **a fronteira interrompe o fio.** Atravessar aplicação é o evento mais caro
+      para quem acabou de receber o projeto, e era justamente o que a prosa
+      escondia melhor — ficava numa oração subordinada no meio do parágrafo.
+    - **o salto fica NO passo**, não numa nota de rodapé. É a mesma regra de
+      antes, e continua valendo: salto escondido é o erro mais caro que este
+      documento pode cometer.
+    """
     blocos = _por_parte(narrativa, 'percurso')
     if not blocos:
         # o markdown imprime "a interpretação não escreveu esta parte" e o HTML
@@ -332,24 +345,43 @@ def bloco_percurso(narrativa: list) -> str:
                       'Esta parte não foi escrita.',
                       '<p class="aviso">A interpretação não escreveu esta parte.</p>',
                       classe='n3')
-    partes = []
-    for b in blocos:
-        partes.append(f'<p>{citacao(b["texto"])}</p>')
-        saltos = b.get('saltos') or []
+    passos = _percurso.em_passos(blocos)
+    itens = []
+    for i, p in enumerate(passos, 1):
+        if p['atravessa']:
+            de, para = p['atravessa']
+            itens.append(
+                f'<li class="pc-fronteira"><span class="pc-f-marca">↳ fronteira</span>'
+                f'<span class="pc-f-txt">{e(de)} → {e(para)}</span></li>')
+        ev = ''.join(f'<span class="pc-ev">{e(x)}</span>' for x in p['evidencia'])
+        saltos = ''.join(f'<li>{citacao(s)}</li>' for s in p['saltos'])
+        corpo = (f'<div class="pc-topo"><span class="pc-chip">{e(p["onde"])}</span>'
+                 f'<span class="pc-ord">passo {i}</span></div>'
+                 f'<p>{citacao(p["texto"])}</p>'
+                 f'<div class="pc-evs">{ev}</div>')
         if saltos:
-            # o salto aparece ONDE acontece, não numa nota de rodapé: salto
-            # escondido é o erro mais caro que este documento pode cometer
-            itens = ''.join(f'<li>{citacao(s)}</li>' for s in saltos)
-            partes.append(f'<ul class="saltos">{itens}</ul>')
-    # "sem buraco" é afirmação sobre a JORNADA, não sobre o parágrafo: saía sob cada
+            corpo += f'<ul class="saltos">{saltos}</ul>'
+        glifo = _percurso.GLIFO.get(p['onde'], '•')
+        itens.append(
+            f'<li class="pc-passo" data-onde="{e(p["onde"])}">'
+            f'<span class="pc-no" aria-hidden="true">{glifo}</span>'
+            f'<div class="pc-corpo">{corpo}</div></li>')
+    corpo = f'<ol class="percurso">{"".join(itens)}</ol>'
+    # "sem buraco" é afirmação sobre a JORNADA, não sobre o passo: saía sob cada
     # bloco, e num percurso de três a página negava buraco duas vezes antes de
     # mostrar dois.
-    if not any(b.get('saltos') for b in blocos):
-        partes.append('<p class="leg"><b>Sem saltos:</b> o percurso foi seguido '
-                      'do começo ao fim, sem buraco.</p>')
-    return _bloco('O percurso de uma funcionalidade', 'deducao',
-                  'O que acontece de ponta a ponta, e onde a leitura parou.',
-                  ''.join(partes), classe='n1', largo=True)
+    rodape = ''
+    if not any(p['saltos'] for p in passos):
+        rodape = ('<b>Sem saltos:</b> o percurso foi seguido do começo ao fim, '
+                  'sem buraco.')
+    quantas = _percurso.travessias(passos)
+    camadas = _percurso.camadas_usadas(passos)
+    pergunta = (f'O que acontece de ponta a ponta — {len(passos)} passos, '
+                f'{len(camadas)} camadas, {quantas} '
+                f'{"fronteira" if quantas == 1 else "fronteiras"} — '
+                f'e onde a leitura parou.')
+    return _bloco('O percurso de uma funcionalidade', 'deducao', pergunta,
+                  corpo, classe='n1', largo=True, rodape=rodape)
 
 
 def bloco_mapa(narrativa: list) -> str:
