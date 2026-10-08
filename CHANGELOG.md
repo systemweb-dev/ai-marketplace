@@ -36,6 +36,16 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
     de modo que uma rodada por funcionalidade sairia anunciando o projeto inteiro.
 
 ### Corrigido
+- `sw-codebase-guide` (v0.7.1): **a frase do recorte foi escrita supondo número positivo.**
+  Rodando o recorte novo num framework de 46 arquivos que eu nunca tinha visto — com a suíte
+  verde —, o bloco saiu dizendo *"**0** arquivos a mais o núcleo importa, e quase ninguém de
+  fora usa"*. Além de absurdo, escondia o fato maior: zero nos dois grupos significa que o
+  núcleo **não importa nada fora de si**, que é uma coisa a dizer, não uma a calar. Os três
+  ramos agora têm frase própria e teste, com prova de mutação em cada um.
+
+  Vale registrar o que o teste provou de passagem: num framework o menu saiu com **um**
+  candidato, e é o certo — framework não tem funcionalidade de produto. O critério não
+  enche a lista para parecer útil.
 - `sw-codebase-guide`: **um teste que podia travar a máquina.** Os testes dos limiares
   dimensionavam a fixture pela constante de produção (`range(TETO_COMPARTILHADO + 1)`). Numa
   prova de mutação que levou o teto a `10**9`, o teste tentou alocar um bilhão de strings e

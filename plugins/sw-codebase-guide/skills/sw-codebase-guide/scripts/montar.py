@@ -272,15 +272,22 @@ def _fatia(escopo: dict) -> list:
           f'`{escopo["funcionalidade"]}` leva {escopo["nucleo"]} arquivos no nome: '
           f'é como o projeto chama uma parte inteira dele. Recorte mais fino, ou '
           f'use `--area`.  [fato]\n')
+    compartilhado = escopo.get('compartilhado') or []
     A(f'- **{escopo["nucleo"]}** arquivos levam o nome no caminho — é o núcleo.  [fato]')
-    A(f'- **{escopo["alcance"]}** arquivos a mais o núcleo importa, e quase ninguém '
-      f'de fora usa.  [fato]')
+    if escopo['alcance']:
+        A(f'- **{escopo["alcance"]}** arquivos a mais o núcleo importa, e quase ninguém '
+          f'de fora usa.  [fato]')
+    elif not compartilhado:
+        # com zero nos dois, "0 arquivos a mais, e quase ninguém de fora usa" vira
+        # absurdo — e esconde o fato maior, que é o núcleo não importar nada fora
+        # de si. Achado rodando num projeto nunca visto, com a suíte verde.
+        A('- O núcleo **não importa nada** fora de si.  [fato]')
+    else:
+        A('- Fora do núcleo, tudo que ele importa é **compartilhado** com o resto do '
+          'sistema.  [fato]')
     A(f'- **{escopo["usada_por"]}** arquivos de fora importam a fatia: é o que quebra '
       f'se a interface dela mudar.  [fato]\n')
-    compartilhado = escopo.get('compartilhado') or []
     if not compartilhado:
-        A('A fatia não depende de nenhum arquivo compartilhado com o resto do '
-          'sistema.  [fato]\n')
         return L
     A('Estes a funcionalidade usa, mas são **de todo mundo** — mexer neles sai do '
       'recorte:\n')

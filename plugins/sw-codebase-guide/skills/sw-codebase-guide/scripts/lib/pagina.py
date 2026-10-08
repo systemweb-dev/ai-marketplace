@@ -337,7 +337,7 @@ def bloco_fatia(inv: dict) -> str:
     if escopo.get('tipo') != 'funcionalidade':
         return ''
     numeros = [(escopo['nucleo'], 'levam o nome'),
-               (escopo['alcance'], 'o núcleo importa'),
+               (escopo['alcance'], 'só o núcleo importa'),
                (escopo['usada_por'], 'de fora usam a fatia')]
     corpo = ('<div class="numeros">'
              + ''.join(f'<div><b>{n}</b><span>{e(r)}</span></div>' for n, r in numeros)
@@ -356,9 +356,13 @@ def bloco_fatia(inv: dict) -> str:
                  if len(compartilhado) > 10 else '')
         corpo += (f'<p>Estes a funcionalidade usa, mas são <b>de todo mundo</b> — '
                   f'mexer neles sai do recorte:</p><ul class="regras">{linhas}</ul>{resto}')
+    elif escopo['alcance']:
+        corpo += ('<p class="leg">Nada do que a fatia importa é compartilhado com o '
+                  'resto do sistema.</p>')
     else:
-        corpo += ('<p class="leg">A fatia não depende de nenhum arquivo '
-                  'compartilhado com o resto do sistema.</p>')
+        # zero nos dois é um fato maior que "nada compartilhado": o núcleo não
+        # importa nada fora de si
+        corpo += '<p class="leg">O núcleo não importa nada fora de si.</p>'
     return _bloco('O que é desta funcionalidade', 'fato',
                   'O que muda só aqui, e o que mexer alcança o sistema todo.',
                   corpo, classe='n1', largo=True)

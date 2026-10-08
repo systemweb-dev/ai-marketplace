@@ -348,3 +348,49 @@ def test_o_inventario_declara_a_fatia(tmp_path):
     assert escopo['funcionalidade'] == 'user'
     assert escopo['area'] is None
     assert escopo['nucleo'] >= 1
+
+
+# ───────────────────────── os três ramos do bloco da fatia ──────────────────
+# Achados rodando num framework de 46 arquivos nunca visto, com a suíte verde:
+# a frase do bloco foi escrita supondo número positivo, e com zero ela dizia
+# "**0** arquivos a mais o núcleo importa, e quase ninguém de fora usa".
+
+from lib.pagina import bloco_fatia  # noqa: E402
+
+
+def _escopo(alcance=0, compartilhado=(), nucleo=3, usada_por=0, eh_area=False):
+    return {'escopo': {'tipo': 'funcionalidade', 'funcionalidade': 'cadastro',
+                       'nucleo': nucleo, 'alcance': alcance, 'usada_por': usada_por,
+                       'compartilhado': list(compartilhado), 'eh_area': eh_area,
+                       'n_arquivos': nucleo + alcance}}
+
+
+def test_nucleo_que_nao_importa_nada_diz_isso_em_vez_de_zero():
+    # Act
+    html = bloco_fatia(_escopo(alcance=0, compartilhado=[]))
+    # Assert
+    assert 'não importa nada fora de si' in html
+    assert 'compartilhado com o resto' not in html
+
+
+def test_quando_tudo_que_a_fatia_importa_e_compartilhado_o_bloco_diz():
+    # Act
+    html = bloco_fatia(_escopo(alcance=0, compartilhado=[
+        {'caminho': 'app/Helper.php', 'importadores': 30}]))
+    # Assert
+    assert 'não importa nada fora de si' not in html
+    assert 'app/Helper.php' in html
+
+
+def test_fatia_com_alcance_e_sem_compartilhado_nega_o_compartilhamento():
+    # Act
+    html = bloco_fatia(_escopo(alcance=4, compartilhado=[]))
+    # Assert
+    assert 'Nada do que a fatia importa é compartilhado' in html
+    assert 'não importa nada fora de si' not in html
+
+
+def test_o_bloco_nao_sai_fora_de_uma_rodada_por_funcionalidade():
+    # Act / Assert
+    assert bloco_fatia({'escopo': {'tipo': 'area', 'area': 'src/app'}}) == ''
+    assert bloco_fatia({}) == ''
