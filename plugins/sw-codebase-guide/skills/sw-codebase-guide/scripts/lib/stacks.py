@@ -1,6 +1,6 @@
 """Detecta as stacks do projeto.
 
-Projeto poliglota é o caso normal: `/web` com package.json e `/api` com
+Projeto polyglot é o caso normal: `/web` com package.json e `/api` com
 composer.json são DOIS componentes, e a fronteira entre eles é onde mais se
 quebra coisa sem perceber.
 

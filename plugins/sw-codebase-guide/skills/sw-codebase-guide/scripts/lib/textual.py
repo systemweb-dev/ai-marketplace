@@ -10,7 +10,7 @@ falso negativo, e falso negativo vira "nada depende disso".
 import re
 from pathlib import Path
 
-from lib.arvore import varrer
+from lib.tree import varrer
 
 
 def simbolos_de(arvore: list) -> list:

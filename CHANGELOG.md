@@ -7,6 +7,34 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Alterado
+- `sw-codebase-guide` (v0.11.0): **todo arquivo da skill passou a ter nome em inglês.**
+  `varrer.py` → `scan.py`, `montar.py` → `build.py`, `imprimir.py` → `render.py`,
+  `gravar.py` → `record.py`, e os treze módulos de `lib/` na mesma linha (`arvore` → `tree`,
+  `percurso` → `trail`, `recorte` → `scope`, `julgar` → `judge`…). Os documentos gerados
+  acompanham: `leia-me.md` e `leia-me.html` agora são `readme.md` e `readme.html` — ao lado de
+  `guide.md`, `inventory.json`, `interpretation.toml` e `knowledge.toml`, que já eram inglês.
+
+  - **Só o nome dos arquivos.** As chaves do `inventory.json` (`arvore`, `historia`,
+    `superficie`, `textos`, `percursos`) e as flags (`--area`, `--funcionalidade`) continuam
+    como estavam: trocá-las mudaria o **dado** e invalidaria todo inventário já gravado. A
+    prosa, os comentários e os nomes de teste seguem em português, que é a língua do projeto.
+  - **O conteúdo das fixtures também fica.** Elas simulam projeto de cliente — e projeto de
+    cliente tem arquivo chamado `rotas.py` e pasta chamada `caixas/`. Três testes dependem
+    disso: é o dado deles, não a nomenclatura da skill. Só o nome das três pastas de fixture
+    virou inglês.
+  - **Substituição cega de palavra era o jeito errado**, e isso não é teoria: `historia`,
+    `resolucao` e `textos` são ao mesmo tempo nome de módulo, nome de variável local e chave do
+    inventário. O renomeador por regra ancorada ainda assim quebrou três lugares, achados por
+    uma conferência de AST — nome usado como módulo em arquivo que não o importa — antes de
+    rodar teste nenhum.
+  - **Um teste verde escondia um nome morto:** `leia-me.pdf` estava escrito à mão no
+    `render.py`, e o teste que vigia "sem `--pdf` não há PDF" passava igual, porque passa tanto
+    quando o PDF não é gerado quanto quando ele é gerado com outro nome. Encontrado lendo o
+    código, não rodando a suíte.
+  - Conferido ponta a ponta num monorepo real de 1.938 arquivos: `scan` → `build` → `render`
+    com `--pdf`, os quatro arquivos no lugar e o CSS embutido. 393 testes.
+
 ### Corrigido
 - `sw-codebase-guide` (v0.10.0): **a guarda de evidência conferia o arquivo citado e nunca a
   linha.** `app/Pedido.php:999999` num arquivo de 120 linhas atravessava intacto — e é o erro

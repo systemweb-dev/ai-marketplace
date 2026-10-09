@@ -1,7 +1,7 @@
 import subprocess
 
 from lib.areas import detectar
-from lib.historia import commits_por_pasta
+from lib.history import commits_por_pasta
 
 
 def arvore_de(caminhos):
@@ -97,7 +97,7 @@ def test_commits_por_pasta_conta_commit_e_nao_toque(tmp_path):
 
 def test_commits_por_pasta_ignora_repo_acima(tmp_path):
     # Arrange — projeto dentro de repositório maior: é o caso das próprias fixtures
-    # depois do `make sync`, e o `historia.py` já registra isso num comentário
+    # depois do `make sync`, e o `history.py` já registra isso num comentário
     def git(raiz, *args):
         subprocess.run(['git', *args], cwd=raiz, check=True,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -135,12 +135,12 @@ def test_commits_por_pasta_conta_o_periodo(tmp_path):
 
 def test_git_lento_cai_para_contagem_de_arquivos(tmp_path, monkeypatch):
     # Arrange
-    import lib.historia as historia
-    monkeypatch.setattr(historia, '_git', lambda *a, **k: None)
+    import lib.history as history
+    monkeypatch.setattr(history, '_git', lambda *a, **k: None)
     arvore = arvore_de(['a/1.py', 'a/2.py', 'a/3.py',
                         'b/1.py', 'b/2.py', 'b/3.py', 'b/4.py'])
     # Act
-    recentes = historia.commits_por_pasta(tmp_path)
+    recentes = history.commits_por_pasta(tmp_path)
     ordem = [x['caminho'] for x in detectar(arvore, recentes or None)]
     # Assert — sem git útil, ordena por tamanho e o menu diz isso
     assert recentes == {}

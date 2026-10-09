@@ -18,8 +18,8 @@ def test_documenta_os_dois_comandos_com_o_caminho_certo():
     # Act
     texto = SKILL.read_text('utf-8')
     # Assert
-    assert 'scripts/varrer.py' in texto
-    assert 'scripts/montar.py' in texto
+    assert 'scripts/scan.py' in texto
+    assert 'scripts/build.py' in texto
     assert 'docs/project/' in texto
 
 
@@ -67,7 +67,7 @@ def test_documenta_os_dois_documentos():
     # Act
     texto = SKILL.read_text('utf-8')
     # Assert
-    assert 'leia-me.md' in texto
+    assert 'readme.md' in texto
     assert 'guide.md' in texto
 
 
@@ -101,8 +101,8 @@ def test_a_lista_de_secoes_bate_com_o_que_o_varrer_grava():
     texto = SKILL.read_text('utf-8')
     # Act — varre a própria fixture e compara com o que está escrito
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run([sys.executable, str(raiz / 'scripts' / 'varrer.py'),
-                        '--projeto', str(raiz / 'tests' / 'fixtures' / 'acoplamento_invisivel'),
+        subprocess.run([sys.executable, str(raiz / 'scripts' / 'scan.py'),
+                        '--projeto', str(raiz / 'tests' / 'fixtures' / 'invisible_coupling'),
                         '--out', tmp], check=True, capture_output=True)
         secoes = set(json.loads(Path(tmp, 'inventory.json').read_text()))
     # Assert

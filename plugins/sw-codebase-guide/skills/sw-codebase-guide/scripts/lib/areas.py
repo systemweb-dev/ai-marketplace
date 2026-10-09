@@ -1,6 +1,6 @@
 """As áreas do projeto, por agrupamento de diretórios da árvore.
 
-NÃO usa a detecção por convenção de caminho (`superficie.py`): ela marcou 29
+NÃO usa a detecção por convenção de caminho (`surface.py`): ela marcou 29
 "rotas" que eram controllers num projeto PHP e não achou as 20 áreas do App Router
 num Next.js. Ela continua valendo para a seção "Superfície pública", onde sai
 marcada como dedução — mas não pode decidir o escopo, que é a primeira tela.
@@ -26,7 +26,7 @@ e cada um nasceu de um menu que não servia:
 from collections import Counter
 from pathlib import Path
 
-from lib.arvore import eh_codigo, linguagem_de
+from lib.tree import eh_codigo, linguagem_de
 
 DOMINANTE = 0.80        # um filho com ≥ 80% dos arquivos: desce mais
 MIN_FILHOS = 3          # a partir de 3 filhos acima do piso, corta aqui

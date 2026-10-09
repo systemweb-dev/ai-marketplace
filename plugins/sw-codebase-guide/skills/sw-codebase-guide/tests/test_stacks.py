@@ -7,7 +7,7 @@ FIXTURES = Path(__file__).parent / 'fixtures'
 
 def test_acha_as_duas_stacks_de_um_projeto_poliglota():
     # Arrange
-    raiz = FIXTURES / 'poliglota'
+    raiz = FIXTURES / 'polyglot'
     # Act
     achadas = detectar(raiz)
     # Assert
@@ -17,7 +17,7 @@ def test_acha_as_duas_stacks_de_um_projeto_poliglota():
 
 def test_informa_onde_cada_stack_mora():
     # Arrange
-    raiz = FIXTURES / 'poliglota'
+    raiz = FIXTURES / 'polyglot'
     # Act
     por_stack = {c['stack']: c for c in detectar(raiz)}
     # Assert

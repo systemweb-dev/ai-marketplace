@@ -69,7 +69,7 @@ Quem acabou de receber um projeto raramente pergunta por `src/app/(app)` — per
 cadastro, pelo faturamento, pelo funil. Ofereça os dois eixos no mesmo menu.
 
 ```bash
-python3 <skill-dir>/scripts/varrer.py --projeto . --areas
+python3 <skill-dir>/scripts/scan.py --projeto . --areas
 ```
 
 Imprime as áreas em stdout e **não grava nada** — é a fase barata: `os.walk` com poda, uma
@@ -93,7 +93,7 @@ gravação, na mesma chamada.
 #### O outro eixo: por funcionalidade
 
 ```bash
-python3 <skill-dir>/scripts/varrer.py --projeto . --funcionalidades
+python3 <skill-dir>/scripts/scan.py --projeto . --funcionalidades
 ```
 
 Também não grava nada. Devolve os nomes que **o próprio código usa** para mais de uma camada —
@@ -129,7 +129,7 @@ tem o projeto inteiro) e registre o que faltou como `lacuna`.
 ### 1. Apurar os fatos
 
 ```bash
-python3 <skill-dir>/scripts/varrer.py --projeto . --out docs/project \
+python3 <skill-dir>/scripts/scan.py --projeto . --out docs/project \
     [--area <caminho> | --funcionalidade <termo>]
 ```
 
@@ -226,7 +226,7 @@ evidencia = ["app/Pedido.php:88"]
 motivo = ""                  # obrigatório quando nivel = "lacuna"
 ```
 
-**Afirmação sem evidência e sem ser lacuna é recusada** pelo `montar.py`. Isso é proposital: é
+**Afirmação sem evidência e sem ser lacuna é recusada** pelo `build.py`. Isso é proposital: é
 a guarda que impede prosa plausível de entrar sem lastro. Lacuna sem motivo também é recusada,
 e seção ou nível fora da lista fecha o processo com erro.
 
@@ -294,7 +294,7 @@ Leia o que vem junto antes de confiar na lista:
 
 #### O bloco `[[narrativa]]` — o documento humano
 
-As `[[afirmacao]]` alimentam o relatório técnico. O `leia-me.md` e o `leia-me.html` vêm de
+As `[[afirmacao]]` alimentam o relatório técnico. O `readme.md` e o `readme.html` vêm de
 outro bloco, em **prosa**, dividido em quatro partes:
 
 ```toml
@@ -314,7 +314,7 @@ evidencia = ["CLAUDE.md"]
 | `mapa` | Onde ficam as coisas | `texto` · `evidencia` |
 | `orientacoes` | Para mexer | `texto` · `evidencia` |
 
-**Três guardas recusam o `montar.py` inteiro**, e nenhum dos dois documentos é escrito:
+**Três guardas recusam o `build.py` inteiro**, e nenhum dos dois documentos é escrito:
 
 1. **Frase de ausência.** Prosa livre expõe pela primeira vez a garantia mais forte da skill, e
    o teste de saída não bastava: a recusa é do parser. "a pasta não é usada" para o processo.
@@ -344,11 +344,11 @@ dois — a divergência é um dos achados mais úteis para quem acabou de recebe
 ### 3. Montar o documento
 
 ```bash
-python3 <skill-dir>/scripts/montar.py --dir docs/project
+python3 <skill-dir>/scripts/build.py --dir docs/project
 ```
 
 Grava **dois** arquivos: `guide.md`, o relatório técnico com a evidência de cada afirmação, e
-`leia-me.md`, o documento humano em quatro partes. Os dois são função pura das mesmas entradas:
+`readme.md`, o documento humano em quatro partes. Os dois são função pura das mesmas entradas:
 mesmos fatos, mesmo documento, byte a byte — e a recusa de qualquer guarda não escreve nenhum
 dos dois, para não deixar um novo ao lado de um velho.
 
@@ -367,10 +367,10 @@ duas vezes a mesma coisa num terço dos projetos.
 ### 4. Gerar o documento humano — HTML e, se pedirem, PDF
 
 ```bash
-python3 <skill-dir>/scripts/imprimir.py --dir docs/project [--estilo escuro|brutalista] [--pdf]
+python3 <skill-dir>/scripts/render.py --dir docs/project [--estilo escuro|brutalista] [--pdf]
 ```
 
-Grava `leia-me.html`: o mesmo material do `guide.md`, em forma de ler e de mandar. **Não é
+Grava `readme.html`: o mesmo material do `guide.md`, em forma de ler e de mandar. **Não é
 conversão do Markdown** — é um emissor irmão, sobre o mesmo inventário, porque hierarquia de
 três níveis, barras, cartões de retrato e etiqueta de confiança não cabem em Markdown.
 
@@ -435,7 +435,7 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
 - **O conhecimento humano sobrevive à regeração.** O `knowledge.toml` é o **único** arquivo
   que não se regenera: inventário, interpretação e documento se refazem, mas o que está ali só
   existe porque alguém respondeu. Grave com
-  `python3 <skill-dir>/scripts/gravar.py --dir docs/project --sobre <caminho> --pergunta "…"
+  `python3 <skill-dir>/scripts/record.py --dir docs/project --sobre <caminho> --pergunta "…"
   --resposta "…" --quem <nome>`. O que foi respondido **sai** da lista de perguntas e passa a
   constar em "já perguntamos", com nome e data — e volta a ser destacado se o arquivo mudar
   depois da resposta.

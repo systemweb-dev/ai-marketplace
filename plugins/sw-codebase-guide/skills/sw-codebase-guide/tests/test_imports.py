@@ -1,10 +1,10 @@
 # tests/test_imports.py
-from lib.arvore import varrer as varrer_arvore
+from lib.tree import varrer as varrer_tree
 from lib.imports import grafo
 
 
 def arvore_de(raiz):
-    return varrer_arvore(raiz)
+    return varrer_tree(raiz)
 
 
 def test_resolve_import_de_modulo_local(tmp_path):

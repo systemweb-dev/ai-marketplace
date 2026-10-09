@@ -6,15 +6,15 @@ num `vue.config.js` — JavaScript executando, não dado. Então a resolução �
 contra os arquivos que EXISTEM, e a configuração entra só como atalho conferido.
 
 Este módulo orquestra: despacha por extensão, chama o extrator da linguagem e o
-resolvedor, conta os sete baldes e ordena. Quem conhece sintaxe é `lib/linguagens/`;
-quem conhece o sistema de arquivos é `lib/resolucao.py`.
+resolvedor, conta os sete baldes e ordena. Quem conhece sintaxe é `lib/languages/`;
+quem conhece o sistema de arquivos é `lib/resolution.py`.
 """
 from collections import defaultdict
 from pathlib import Path
 
-from lib import resolucao, stacks as mod_stacks
-from lib.arvore import linguagem_de
-from lib.linguagens import js, php, python
+from lib import resolution, stacks as mod_stacks
+from lib.tree import linguagem_de
+from lib.languages import js, php, python
 
 # O despacho é por EXTENSÃO, não por stack detectada. A regra por stack já deixou
 # 210 arquivos Python nem parseados nem declarados como lacuna, e a detecção por
@@ -62,7 +62,7 @@ def _por_configuracao(alvo, prefixos, indice, extensoes, arquivo_de_pasta):
     for declarado, base in prefixos:
         if alvo == declarado or alvo.startswith(declarado + '/'):
             resto = alvo[len(declarado):].lstrip('/')
-            destino = resolucao.resolver_relativo(
+            destino = resolution.resolver_relativo(
                 f'{base}/x', f'./{resto}', indice, extensoes, arquivo_de_pasta)
             if destino:
                 return destino
@@ -100,7 +100,7 @@ def _de_fora(alvo, prefixo, indice, vocab, modulo, classe) -> bool:
     if any(prefixo == declarado or prefixo.startswith(declarado + '/')
            for declarado, _ in vocab['prefixos']):
         return False    # o projeto DECLARA possuir este prefixo: falha de medição
-    achados, _ = resolucao.candidatos(prefixo, indice, modulo.EXTENSOES,
+    achados, _ = resolution.candidatos(prefixo, indice, modulo.EXTENSOES,
                                       modulo.ARQUIVO_DE_PASTA, min_segmentos=1)
     return not achados
 
@@ -145,8 +145,8 @@ def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
         # o índice cobre TODOS os arquivos do projeto, não só os da linguagem: um
         # `import logo from '@/assets/logo.png'` é dependência real, e o `.png`
         # jamais estaria num índice feito só de `.ts`
-        indice = resolucao.indexar(caminhos)
-        vocab = resolucao.ler_vocabulario(raiz, modulo.CONFIGS)
+        indice = resolution.indexar(caminhos)
+        vocab = resolution.ler_vocabulario(raiz, modulo.CONFIGS)
         cont = dict(VAZIO)
         resolvidos, pendentes, nao_resolvidos = [], [], []
 
@@ -155,26 +155,26 @@ def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
                 texto = (raiz / caminho).read_text('utf-8', 'replace')
             except OSError:
                 continue
-            if resolucao.eh_barril(texto):
+            if resolution.eh_barril(texto):
                 barris.append(caminho)
             declarados = _declarados_de(caminho, por_manifesto)
             for alvo in modulo.extrair(texto):
                 classe = modulo.classificar(alvo)
                 if classe == 'relativo':
-                    destino = resolucao.resolver_relativo(
+                    destino = resolution.resolver_relativo(
                         caminho, alvo, indice, modulo.EXTENSOES, modulo.ARQUIVO_DE_PASTA)
                     if destino and destino != caminho:
                         cont['relativos'] += 1
                         arestas.append({'de': caminho, 'para': destino,
                                         'origem': 'relativo'})
-                    elif resolucao.aponta_para_podado(caminho, alvo):
+                    elif resolution.aponta_para_podado(caminho, alvo):
                         # aponta para dentro de `vendor/` ou `node_modules/`: é
                         # dependência externa, não falha de medição
                         cont['externos'] += 1
                     else:
                         cont['pendurados'] += 1
                     continue
-                if resolucao.eh_externo(alvo, classe, modulo.BUILTINS, declarados,
+                if resolution.eh_externo(alvo, classe, modulo.BUILTINS, declarados,
                                         vocab['raizes'],
                                         modulo.NOME_PURO_PODE_SER_INTERNO):
                     cont['externos'] += 1
@@ -196,11 +196,11 @@ def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
                 # do módulo, e o piso de dois segmentos (que existe para o RESTO de
                 # um apelido) o barraria à toa — `from pedido import X` com
                 # `pedido.py` no projeto é aresta de verdade
-                piso = 1 if classe == 'nome_puro' else resolucao.MIN_SEGMENTOS
+                piso = 1 if classe == 'nome_puro' else resolution.MIN_SEGMENTOS
                 for tentativa in (alvo, resto):
                     if not tentativa:
                         continue
-                    achados, sufixo = resolucao.candidatos(
+                    achados, sufixo = resolution.candidatos(
                         tentativa, indice, modulo.EXTENSOES, modulo.ARQUIVO_DE_PASTA,
                         min_segmentos=piso)
                     if achados:
@@ -217,9 +217,9 @@ def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
                 else:
                     pendentes.append((caminho, prefixo, resto or alvo, achados, sufixo))
 
-        provadas = resolucao.bases_provadas(resolvidos)
+        provadas = resolution.bases_provadas(resolvidos)
         for caminho, prefixo, resto, achados, sufixo in pendentes:
-            destino = resolucao.desempatar(prefixo, resto, achados, sufixo, provadas,
+            destino = resolution.desempatar(prefixo, resto, achados, sufixo, provadas,
                                            indice, modulo.EXTENSOES,
                                            modulo.ARQUIVO_DE_PASTA)
             if destino and destino != caminho:

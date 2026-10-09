@@ -1,5 +1,5 @@
 # tests/test_textual.py
-from lib.arvore import varrer
+from lib.tree import varrer
 from lib.textual import mencoes, simbolos_de, todas_as_mencoes
 
 
