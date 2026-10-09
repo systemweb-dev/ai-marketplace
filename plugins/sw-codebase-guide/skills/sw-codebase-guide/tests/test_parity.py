@@ -48,6 +48,7 @@ GEMEOS = {
     'bloco_respondido': 'guide.md',
     'bloco_resolucao': 'guide.md',
     'bloco_ambiente': 'guide.md',
+    'bloco_como_rodar': 'guide.md',
     'bloco_afirmacoes': 'guide.md',
     'bloco_lacunas': 'guide.md',
     # exclusivos do HTML, com o motivo — não é isenção, é decisão declarada
@@ -239,3 +240,51 @@ def test_a_frase_do_recorte_sai_nos_dois(tmp_path):
     assert 'a funcionalidade `user`' in md
     assert 'a funcionalidade `user`' in guia
     assert 'a funcionalidade user' in texto
+
+
+def _tres_documentos(projeto: Path, saida: Path) -> tuple:
+    """Os três documentos de um projeto JÁ preparado — o `_gerar` monta o seu."""
+    subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / 'scan.py'),
+                    '--projeto', str(projeto), '--out', str(saida)],
+                   check=True, capture_output=True)
+    (saida / 'interpretation.toml').write_text(COMPLETA)
+    for script in ('build.py', 'render.py'):
+        r = subprocess.run([sys.executable, str(RAIZ_SKILL / 'scripts' / script),
+                            '--dir', str(saida)], capture_output=True, text=True)
+        assert r.returncode == 0, f'{script}: {r.stderr}'
+    return ((saida / 'guide.md').read_text('utf-8'),
+            (saida / 'readme.html').read_text('utf-8'))
+
+
+def test_como_rodar_chega_aos_dois_documentos(tmp_path):
+    """O comando é a resposta da primeira pergunta de quem recebe um projeto. Se
+    ele sair em um emissor e não no outro, metade dos leitores continua sem saber
+    como subir — e foi assim que a parte não escrita divergiu duas vezes."""
+    # Arrange
+    projeto = _projeto(tmp_path)
+    (projeto / 'docker-compose.yml').write_text(
+        'services:\n  web:\n    image: nginx:1.27\n    ports:\n      - "8080:80"\n')
+    (projeto / 'Makefile').write_text('subir:\n\tdocker compose up\n')
+    # Act
+    guia, html = _tres_documentos(projeto, tmp_path / 'out')
+    # Assert
+    for documento, texto in (('guide.md', guia), ('readme.html', html)):
+        assert 'nginx:1.27' in texto, f'a imagem não chegou ao {documento}'
+        assert '8080:80' in texto, f'a porta não chegou ao {documento}'
+        assert 'make subir' in texto, f'o alvo do Makefile não chegou ao {documento}'
+
+
+def test_o_comando_que_parece_subir_sai_marcado_como_deducao(tmp_path):
+    """`start` é convenção, não prova. Sair como fato seria afirmar o que não foi
+    medido — e o leitor não tem como discordar de um fato."""
+    # Arrange
+    projeto = _projeto(tmp_path)
+    (projeto / 'composer.json').write_text(
+        '{"scripts": {"start": "php -S localhost:8000"}}')
+    # Act
+    guia, html = _tres_documentos(projeto, tmp_path / 'out')
+    # Assert
+    assert 'composer run start' in guia and 'composer run start' in html
+    linha = next(l for l in guia.splitlines() if 'composer run start' in l)
+    assert '[deducao' in linha, f'o comando saiu sem a etiqueta de confiança: {linha}'
+    assert 'convenção' in linha

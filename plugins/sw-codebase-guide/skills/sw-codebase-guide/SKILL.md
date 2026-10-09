@@ -39,7 +39,9 @@ o campo **"Other"**. A exceção é o usuário descrevendo livremente o que quer
   sustenta e o limiar que a decidiu. **Nota não existe**: número único vira meta, e meta vira
   teatro. Bug específico continua sendo trabalho da `sw-code-review`.
 - **Nenhum segredo sai.** De cada `.env` o inventário carrega **só os nomes** das variáveis,
-  extraídos na origem — não existe caminho pelo qual o valor chegue ao documento.
+  extraídos na origem — não existe caminho pelo qual o valor chegue ao documento. Do
+  `docker-compose` a skill lê serviço, imagem e porta, e **não abre o bloco `environment:`**
+  nem para pegar nomes: num projeto real ele traz `SENHA_DO_BANCO: <valor literal>` em linha.
 - **Nunca afirma ausência de dependentes.** O grafo não enxerga injeção de dependência,
   rota como string, reflexão nem template — então "nada depende disso" não existe neste
   documento.
@@ -194,6 +196,16 @@ O que cada seção carrega, e o quanto confiar nela:
 - **`mudanca_por_arquivo`** — a data da última alteração de cada arquivo. Existe para
   envelhecer resposta humana: respondida em outubro, arquivo mexido em dezembro, a pergunta
   pode ter voltado a valer. Invalidação por **evidência**, não por cronômetro.
+- **`execucao`** — **como rodar isto**: os serviços de cada `docker-compose`/`compose.yaml`
+  (com imagem, se constrói na máquina e as portas publicadas), os `scripts` de cada
+  `package.json`/`composer.json` com o gerenciador **provado pelo lockfile**, os alvos de
+  `Makefile`/`justfile` e a contagem de Dockerfiles. Três coisas a saber: o bloco
+  `environment:` do compose **não é lido, nem os nomes** — num projeto real ele traz
+  `SENHA_DO_BANCO: <valor literal>` em linha, e não abrir o bloco deixa a superfície de segredo
+  deste módulo em zero (a seção `ambiente` extrai chave de `.env` na origem, que é o lugar
+  certo); **dois arquivos de composição não são desempatados** — os dois aparecem e a escolha
+  vira pergunta em aberto; e o comando que *parece* subir sai como **dedução**, porque
+  `start`/`dev`/`serve` é convenção, não prova.
 - **`linhas_por_arquivo`** — quantas linhas tem cada arquivo, para a guarda de evidência
   conferir a **linha** citada e não só o arquivo. Binário, arquivo acima do teto e o que não
   deu para ler ficam **fora** do mapa: ausência significa "não apurado", e nesse caso a guarda
@@ -445,6 +457,11 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
   aparece no menu e não se recorta. O menu sai curto num projeto que nomeia por área em vez de
   por fatia — isso é retrato do código, não falha da varredura, e dizer isso vale mais que
   encher o menu.
+- **O leitor de composição é por indentação**, porque a skill é stdlib pura e não há PyYAML.
+  Medido contra os arquivos de composição de sete projetos reais: todos lidos, nenhum no nível
+  errado, conferidos à mão. O que ele não modela — mais de um documento YAML no mesmo arquivo,
+  bloco `services:` ausente — vira **lacuna com o motivo escrito**, nunca meia lista: serviço
+  inventado manda alguém subir o que não existe.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os
   que estão no código dos módulos; stack de nicho não é reconhecida.
 - **Sem extração de regra de negócio** — só propósito com fonte textual citada.

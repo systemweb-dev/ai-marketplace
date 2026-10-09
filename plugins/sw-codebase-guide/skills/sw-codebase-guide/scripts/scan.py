@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from lib import tree as mod_tree          # noqa: E402
-from lib import (areas, features, history, imports, judge,  # noqa: E402
+from lib import (areas, boot, features, history, imports, judge,  # noqa: E402
                  trail as mod_trail,
                  scope as mod_scope, stacks, surface, texts,
                  textual, redact)
@@ -102,6 +102,10 @@ def apurar(projeto: Path, recorte=None) -> dict:
         # rodada de área. O conteúdo já passa por redação, então não há custo.
         'textos': texts.coletar(projeto, todos),
         'ambiente': dict(sorted(ambiente.items())),
+        # `execucao` NÃO é recortada, pelo mesmo motivo de `textos`: quem precisa
+        # dela está tentando subir o projeto, e o compose mora na raiz ou num
+        # `infra/` que nenhuma área contém.
+        'execucao': boot.apurar(projeto, todos),
         'mencoes': dict(sorted(por_simbolo.items())),
     }
     # O julgamento vem por último porque LÊ o resto: ele não apura nada por conta

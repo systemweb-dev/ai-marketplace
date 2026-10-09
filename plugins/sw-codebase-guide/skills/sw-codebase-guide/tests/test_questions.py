@@ -280,3 +280,31 @@ def test_a_lista_de_parados_tem_teto():
     # Act / Assert
     assert len(questions.derivar(inv(sem_alcance=muitos), set())) == \
         questions.TETO_POR_CATEGORIA
+
+
+def test_dois_composes_viram_pergunta_com_os_dois_caminhos():
+    """Medido num monorepo real: `infra/` e `infra_v2/`, 8 e 12
+    serviços. A skill não escolhe — e a pergunta precisa nomear os dois arquivos,
+    senão quem for responder não sabe do que se trata."""
+    # Arrange
+    inv = {'execucao': {'composicoes': [
+        {'caminho': 'infra/docker-compose.yml', 'servicos': [{'nome': 'a'}], 'lacuna': None},
+        {'caminho': 'infra_v2/docker-compose.yml',
+         'servicos': [{'nome': 'a'}, {'nome': 'b'}], 'lacuna': None}]}}
+    # Act
+    saiu = questions.derivar(inv, set())
+    # Assert
+    assert len(saiu) == 1
+    assert 'infra/docker-compose.yml' in saiu[0]['pergunta']
+    assert 'infra_v2/docker-compose.yml' in saiu[0]['pergunta']
+    assert saiu[0]['evidencia'] == ['infra/docker-compose.yml',
+                                   'infra_v2/docker-compose.yml']
+
+
+def test_um_compose_so_nao_gera_pergunta():
+    """Pergunta sem número não entra. Um arquivo de composição não é ambiguidade."""
+    # Arrange
+    inv = {'execucao': {'composicoes': [
+        {'caminho': 'docker-compose.yml', 'servicos': [], 'lacuna': None}]}}
+    # Act / Assert
+    assert questions.derivar(inv, set()) == []

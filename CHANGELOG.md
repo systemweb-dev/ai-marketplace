@@ -7,6 +7,58 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-codebase-guide` (v0.12.0): **a seção "Como entrar" passou a dizer como rodar.** Ela
+  emitia stack, contagem de arquivos e nomes de variáveis de ambiente — e **nenhum comando**.
+  "Como eu rodo isto?" é a primeira pergunta de quem recebe um projeto, e a resposta estava em
+  arquivos que a skill nem abria. A nova seção `execucao` do inventário lê quatro fontes:
+  serviços do `docker-compose` (imagem, se constrói na máquina e portas publicadas), os
+  `scripts` de cada `package.json`/`composer.json`, os alvos de `Makefile`/`justfile` e a
+  contagem de Dockerfiles.
+
+  - **O bloco `environment:` do compose não é lido — nem os nomes.** Medido num projeto real:
+    `environment: { SENHA_DO_BANCO: <valor literal> }`, senha literal em linha. Não abrir o bloco
+    deixa a superfície de segredo deste módulo em **zero**, e a seção `ambiente` já extrai
+    chave de `.env` na origem, que é o lugar certo. Conferido contra três projetos reais: nada
+    parecido com senha, segredo ou token na saída.
+  - **O gerenciador vem do lockfile.** `npm run` num repositório `pnpm` quebra a instalação de
+    quem acabou de chegar. Com lockfile é fato (`composer.lock` prova `composer run`); sem
+    lockfile, `npm` é suposição e o documento diz isso.
+  - **O comando sai como `deducao`, nunca como fato** — `start`/`dev`/`serve` é convenção. E
+    carrega a pasta: `cd api && composer run start`, porque num monorepo o comando na raiz não
+    roda nada, e comando que não roda é pior que comando nenhum.
+  - **Dois arquivos de composição não são desempatados.** Um monorepo real tem
+    `infra/` (8 serviços) e `infra_v2/` (12). Os dois aparecem, e "qual sobe
+    hoje?" entra nas perguntas em aberto — antes de qualquer outra, porque subir o errado é
+    caro.
+  - **O leitor de YAML é por indentação**, porque a skill é stdlib pura. Medido contra os
+    arquivos de composição de sete projetos: todos lidos, nenhum no nível errado, conferidos à
+    mão. Dois documentos no mesmo arquivo ou `services:` ausente viram lacuna **com o motivo**.
+
+### Corrigido
+- `sw-codebase-guide` (v0.12.0): quatro defeitos que **só apareceram rodando contra projeto
+  real**, com a suíte verde — e um que escapou dela.
+
+  - **A medição que fundamentava o desenho mentiu primeiro:** `'compose' in nome` casa com
+    `composer.json`, então os cinco projetos PHP saíram com "0 scripts". A conclusão quase foi
+    "composer não declara comando" — quando `composer.json` declara justamente `start`.
+  - **Porta em estilo de fluxo** (`ports: ["127.0.0.1:3307:3306"]`) não era lida: um serviço
+    que publica porta aparecia sem nenhuma. Silêncio no lugar de um fato.
+  - **Serviço com corpo em linha** (`web: {image: nginx}`) desaparecia calado, e lista
+    incompleta com cara de completa é pior que arquivo não lido.
+  - **`webpack_dev` não era reconhecido** (a comparação era pelo nome inteiro) e `db:up` era —
+    subir o banco não é subir a aplicação. A comparação virou por parte do nome, e `up` saiu da
+    convenção.
+  - **Uma mutação escapou da suíte:** o filtro de chave de compose não era exercitado por
+    teste nenhum. O caso que o aciona é o erro de edição mais comum de YAML à mão — `volumes:`
+    ganhando dois espaços e caindo dentro de `services:` —, que inventaria um serviço chamado
+    `volumes`. Dois testes novos, mais o campo de extensão `x-`, que tem a mesma forma de um
+    serviço.
+  - **Duas classes de CSS usadas sem existir** no `style.css` (`.servicos`, `.comando`): o
+    bloco saía no HTML sem estilo nenhum, e nenhum teste vê isso.
+
+  422 testes · 15/15 mutações pegas.
+
 ### Alterado
 - `sw-codebase-guide` (v0.11.0): **todo arquivo da skill passou a ter nome em inglês.**
   `varrer.py` → `scan.py`, `montar.py` → `build.py`, `imprimir.py` → `render.py`,

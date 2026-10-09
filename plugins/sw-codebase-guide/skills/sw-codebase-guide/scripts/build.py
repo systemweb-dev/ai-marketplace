@@ -408,6 +408,71 @@ def _ler_interpretacao(caminho: Path, caminhos: set | None = None,
     return afirmacoes
 
 
+def _comando(c: dict, script: str) -> str:
+    """O comando como se digita, da pasta certa.
+
+    Num monorepo o script mora em `api/composer.json`, e `composer run start` na
+    raiz não roda nada. O `cd` faz parte do comando.
+    """
+    pasta = str(Path(c['caminho']).parent)
+    prefixo = f'cd {pasta} && ' if pasta != '.' else ''
+    return f'{prefixo}{c["executor"]} {script}'
+
+
+def _como_rodar(L: list, inv: dict) -> None:
+    """A pergunta que a seção "Como entrar" não respondia: como eu rodo isto?
+
+    Emitia stack, contagem de arquivos e nomes de variáveis — e nenhum comando.
+    Tudo o que falta está em arquivos que a skill agora lê: composição, scripts de
+    manifesto e alvos de Makefile.
+    """
+    A = L.append
+    ex = inv.get('execucao') or {}
+    if not any(ex.get(k) for k in ('composicoes', 'comandos', 'alvos', 'containers')):
+        return
+    A('### Como rodar\n')
+    for c in ex.get('composicoes') or []:
+        if c['lacuna']:
+            A(f'`{c["caminho"]}` existe e não foi lido: {c["lacuna"]}.  [lacuna]\n')
+            continue
+        A(f'`{c["caminho"]}` declara {len(c["servicos"]) + c["omitidos"]} serviços:  [fato]\n')
+        # um serviço por linha: a lista inteira num parágrafo dava 600 caracteres, e
+        # um serviço que mudasse sujava o diff do parágrafo todo
+        for s in c['servicos']:
+            como = (s['imagem'] or ('constrói na máquina' if s['constroi']
+                                    else 'sem imagem declarada'))
+            porta = (' · publica `' + '` `'.join(s['portas']) + '`') if s['portas'] else ''
+            A(f'- `{s["nome"]}` — {como}{porta}')
+        if c['omitidos']:
+            A(f'- *e outros {c["omitidos"]} serviços*')
+        A('')
+    if len(ex.get('composicoes') or []) > 1:
+        A('**Há mais de um arquivo de composição.** Qual deles sobe hoje não está no')
+        A('código — a pergunta está na lista do fim.  [fato]\n')
+    for c in ex.get('comandos') or []:
+        if c['lacuna']:
+            A(f'`{c["caminho"]}`: {c["lacuna"]}.  [lacuna]\n')
+            continue
+        sobrou = f' (e outros {c["omitidos"]})' if c['omitidos'] else ''
+        A(f'`{c["caminho"]}` declara {len(c["scripts"]) + c["omitidos"]} scripts{sobrou}:  [fato]')
+        A('`' + '` · `'.join(c['scripts']) + '`\n')
+        prova = (f'`{c["por"]}` prova o gerenciador' if c['por']
+                 else 'nenhum lockfile no caminho, então o gerenciador é suposto')
+        for script in c['candidatos']:
+            A(f'Parece subir: `{_comando(c, script)}`  '
+              f'[deducao: o nome `{script}` é convenção, não prova; {prova}]')
+        if c['candidatos']:
+            A('')
+    for a in ex.get('alvos') or []:
+        sobrou = f' (e outros {a["omitidos"]})' if a['omitidos'] else ''
+        A(f'`{a["caminho"]}` tem {len(a["alvos"]) + a["omitidos"]} alvos{sobrou}: '
+          f'`{a["executor"]} ' + f'` · `{a["executor"]} '.join(a['alvos']) + '`  [fato]\n')
+    if ex.get('containers'):
+        quantos = len(ex['containers'])
+        A(f'{quantos} Dockerfile{"s" if quantos > 1 else ""} no projeto — há imagem para')
+        A('construir, mas Dockerfile não diz como rodar.  [fato]\n')
+
+
 def _como_foi_detectada(componente: dict) -> str:
     """Stack sem manifesto é detectada por contagem de extensão.
 
@@ -683,6 +748,7 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
         A(f'`{arquivo}` declara {len(chaves)} variáveis — **só os nomes**, '
           f'nunca os valores:  [fato]')
         A('`' + '` · `'.join(chaves) + '`\n')
+    _como_rodar(L, inv)
     _escrever(L, afirmacoes, 'como-entrar')
 
     A('## O que depende do quê\n')

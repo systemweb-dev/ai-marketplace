@@ -697,3 +697,23 @@ def test_arquivo_sem_contagem_aceita_a_linha(tmp_path):
     r = montar(saida)
     # Assert
     assert r.returncode == 0, r.stderr + r.stdout
+
+
+def test_o_comando_de_monorepo_carrega_a_pasta(tmp_path):
+    """`composer run start` na raiz de um monorepo não roda nada: o script mora em
+    `api/composer.json`. O `cd` é parte do comando, não enfeite — comando que não
+    roda é pior que comando nenhum, porque quem tentou conclui que o projeto está
+    quebrado."""
+    # Arrange
+    projeto = tmp_path / 'proj'
+    (projeto / 'api').mkdir(parents=True)
+    (projeto / 'api' / 'composer.json').write_text('{"scripts": {"start": "php -S x"}}')
+    (projeto / 'api' / 'app.php').write_text('<?php')
+    saida = tmp_path / 'out'
+    varrer(projeto, saida)
+    (saida / 'interpretation.toml').write_text('')
+    # Act
+    montar(saida)
+    guia = (saida / 'guide.md').read_text('utf-8')
+    # Assert
+    assert 'cd api && composer run start' in guia

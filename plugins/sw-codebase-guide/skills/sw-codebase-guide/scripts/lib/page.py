@@ -225,6 +225,67 @@ def bloco_ambiente(inv: dict) -> str:
                          'inventário, então não existe caminho pelo qual ele chegue aqui.')
 
 
+def bloco_como_rodar(inv: dict) -> str:
+    """Como subir isto — serviços, portas e o comando que parece subir.
+
+    O gêmeo mora na seção "Como entrar" do `guide.md`. Aqui ganha a forma de
+    cartão porque porta e imagem lado a lado é o que o olho procura primeiro.
+    """
+    ex = inv.get('execucao') or {}
+    if not any(ex.get(k) for k in ('composicoes', 'comandos', 'alvos', 'containers')):
+        return ''
+    partes, deducao = [], False
+    for c in ex.get('composicoes') or []:
+        if c['lacuna']:
+            partes.append(f'<p class="aviso"><code>{e(c["caminho"])}</code> existe e não '
+                          f'foi lido: {e(c["lacuna"])}.</p>')
+            continue
+        itens = []
+        for s in c['servicos']:
+            como = s['imagem'] or ('constrói aqui' if s['constroi'] else 'sem imagem')
+            portas = ''.join(f'<em>{e(x)}</em>' for x in s['portas'])
+            itens.append(f'<li><code>{e(s["nome"])}</code><span>{e(como)}</span>'
+                         f'{portas}</li>')
+        sobrou = (f'<p class="leg">e outros {c["omitidos"]} serviços</p>'
+                  if c['omitidos'] else '')
+        partes.append(f'<p class="leg"><code>{e(c["caminho"])}</code> — '
+                      f'{len(c["servicos"]) + c["omitidos"]} serviços</p>'
+                      f'<ul class="servicos">{"".join(itens)}</ul>{sobrou}')
+    if len(ex.get('composicoes') or []) > 1:
+        partes.append('<p class="aviso">Há mais de um arquivo de composição. Qual '
+                      'deles sobe hoje não está no código — a pergunta está no fim.</p>')
+    for c in ex.get('comandos') or []:
+        if c['lacuna']:
+            partes.append(f'<p class="aviso"><code>{e(c["caminho"])}</code>: '
+                          f'{e(c["lacuna"])}.</p>')
+            continue
+        for script in c['candidatos']:
+            deducao = True
+            pasta = str(Path(c['caminho']).parent)
+            prefixo = f'cd {pasta} && ' if pasta != '.' else ''
+            partes.append(f'<p class="comando"><code>{e(prefixo + c["executor"])} '
+                          f'{e(script)}</code></p>')
+        nomes = ''.join(f'<code>{e(s)}</code>' for s in c['scripts'])
+        sobrou = f' e outros {c["omitidos"]}' if c['omitidos'] else ''
+        partes.append(f'<p class="leg"><code>{e(c["caminho"])}</code> declara '
+                      f'{len(c["scripts"]) + c["omitidos"]} scripts{sobrou}</p>'
+                      f'<div class="chaves">{nomes}</div>')
+    for a in ex.get('alvos') or []:
+        nomes = ''.join(f'<code>{e(a["executor"])} {e(x)}</code>' for x in a['alvos'])
+        partes.append(f'<p class="leg"><code>{e(a["caminho"])}</code></p>'
+                      f'<div class="chaves">{nomes}</div>')
+    if ex.get('containers'):
+        n = len(ex['containers'])
+        partes.append(f'<p class="leg">{n} Dockerfile{"s" if n > 1 else ""} no projeto: '
+                      f'há imagem para construir, mas Dockerfile não diz como rodar.</p>')
+    nivel = 'deducao' if deducao else 'fato'
+    rodape = ('O comando em destaque é <b>dedução</b>: o nome do script casa a '
+              'convenção (<code>start</code>, <code>dev</code>, <code>serve</code>), '
+              'o que é indício e não prova. A lista inteira está aí para discordar.'
+              if deducao else '')
+    return _bloco('Como rodar', nivel, 'Como eu subo isto na minha máquina?',
+                  ''.join(partes), largo=True, rodape=rodape)
+
 def bloco_muda_junto(inv: dict) -> str:
     h = inv.get('historia') or {}
     area = (inv.get('escopo') or {}).get('area')

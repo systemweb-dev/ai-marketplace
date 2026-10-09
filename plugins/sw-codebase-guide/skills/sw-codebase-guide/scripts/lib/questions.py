@@ -174,6 +174,29 @@ def _resolucao_fraca(inv: dict, confiaveis: set) -> list:
     return achados[:TETO_POR_CATEGORIA]
 
 
+def _composicao_ambigua(inv: dict) -> list:
+    """Dois arquivos de composição e nenhum jeito de saber qual vale.
+
+    Medido num monorepo real: `infra/` e `infra_v2/`, 8 e 12
+    serviços. Escolher um por conta própria — o de nome maior, o mais novo no
+    disco — seria inventar o fato mais caro do documento: alguém sobe a
+    infraestrutura errada.
+    """
+    composicoes = [c for c in ((inv.get('execucao') or {}).get('composicoes') or [])]
+    if len(composicoes) < 2:
+        return []
+    caminhos = [c['caminho'] for c in composicoes]
+    quantos = ' e '.join(f'`{c["caminho"]}` ({len(c["servicos"])} serviços)'
+                         for c in composicoes[:2])
+    resto = f' — e outros {len(composicoes) - 2}' if len(composicoes) > 2 else ''
+    return [{
+        'pergunta': (f'Há {len(composicoes)} arquivos de composição: {quantos}'
+                     f'{resto}. Qual deles é o que sobe hoje?'),
+        'porque': 'nada no código diz qual é o atual, e subir o errado é caro',
+        'evidencia': caminhos,
+    }]
+
+
 def derivar(inv: dict, confiaveis: set) -> list:
     """Todas as perguntas que os números sustentam, na ordem em que se pergunta.
 
@@ -181,6 +204,7 @@ def derivar(inv: dict, confiaveis: set) -> list:
     perigoso, arquivo perigoso antes de arquivo parado.
     """
     return (_risco(inv)
+            + _composicao_ambigua(inv)
             + _perigosos(inv)
             + _sem_aresta(inv, confiaveis)
             + _parados(inv)

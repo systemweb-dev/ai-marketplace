@@ -66,6 +66,23 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .duplas em { font-style: normal; font-size: 0.62rem; text-transform: uppercase;
   letter-spacing: 0.1em; margin-left: 0.25rem; }
 
+/* Serviço de composição: nome, de onde vem e as portas. O mesmo desenho de
+   `.duplas` — nome em mono, qualificador fraco, etiqueta em caixa alta —, porque
+   é a mesma forma de informação e duas gramáticas visuais na mesma página fazem
+   o leitor achar que são coisas diferentes. */
+.servicos { list-style: none; display: grid; gap: 0.36rem; margin-top: 0.7rem; }
+.servicos li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem;
+  font-size: 0.84rem; min-width: 0; }
+.servicos li > span { color: var(--fraco); font-size: 0.78rem; }
+.servicos em { font-style: normal; font-family: var(--mono); font-size: 0.68rem;
+  letter-spacing: 0.02em; }
+
+/* O comando que parece subir: é a linha que alguém vai copiar, então ganha peso
+   e respiro — mas sem cor de acento, porque é DEDUÇÃO, e acento aqui o faria
+   passar por fato medido. */
+.comando { margin-top: 0.7rem; }
+.comando code { font-size: 0.86rem; padding: 0.35rem 0.6rem; display: inline-block; }
+
 .chaves { display: flex; flex-wrap: wrap; gap: 0.32rem; margin-top: 0.6rem; }
 .chaves code { font-size: 0.74rem; padding: 0.1rem 0.35rem; }
 
@@ -131,7 +148,9 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .escuro code { color: var(--acento); }
 .escuro .tag { background: #26262c; color: #a9abb2; border-radius: 3px; }
 .escuro .tag[data-n="lacuna"] { background: #3a2a2a; color: #e0a0a0; }
-.escuro .chaves code { background: #1c1c21; border-radius: 3px; color: #c3c5cc; }
+.escuro .chaves code, .escuro .comando code { background: #1c1c21; border-radius: 3px;
+  color: #c3c5cc; }
+.escuro .servicos em { color: var(--acento); }
 .escuro .retratos .r { padding-left: 0.9rem; border-left: 1px solid var(--fio); }
 .escuro .retratos .r > span { color: var(--fraco); }
 .escuro .retratos .r p { color: #c3c5cc; }
@@ -184,7 +203,8 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .brutalista .tag[data-n="lacuna"] { background: var(--acento); }
 .brutalista .tag[data-n="deducao"] { background: var(--campo); color: var(--tinta);
   border: 1px solid var(--tinta); }
-.brutalista .chaves code { border: 1px solid var(--tinta); }
+.brutalista .chaves code, .brutalista .comando code { border: 1px solid var(--tinta); }
+.brutalista .servicos em { background: var(--apoio); padding: 0 0.22rem; }
 .brutalista .retratos .r { border: 2px solid var(--tinta); padding: 0.9rem 1rem; }
 .brutalista .retratos .r b { font-weight: 800; }
 .brutalista .retratos .alerta { background: var(--apoio); }
