@@ -77,6 +77,11 @@ def apurar(projeto: Path, recorte=None) -> dict:
 
     inventario = {
         'gerado_em_versao': VERSAO,
+        # o nome da pasta do projeto. Existe para o `<title>` da aba e o nome do
+        # PDF serem um NOME: sem ele o título era a primeira frase da narrativa,
+        # e a aba do navegador ficava com "O propósito que o próprio projeto
+        # declara é curto e é o único que tem fonte escrita."
+        'projeto': projeto.name,
         # `caminhos_do_projeto` existe para a guarda de evidência: sem ele, uma
         # orientação citando `fora/b.py` — exatamente a frase que a seção existe
         # para dizer — era recusada, porque a árvore recortada não a contém.

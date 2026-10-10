@@ -93,6 +93,17 @@ def _manchete(texto: str) -> str:
     return ''
 
 
+def _titulo_da_aba(inv: dict) -> str:
+    """O `<title>`, que é outra coisa que a manchete.
+
+    A manchete é uma frase — é o que o agente escreveu sobre o que o sistema É —
+    e como `<title>` ela virava uma aba de navegador ilegível e um nome de PDF
+    pior ainda. A aba quer um NOME.
+    """
+    nome = inv.get('projeto')
+    return f'{nome} — guia do projeto' if nome else 'Guia do projeto'
+
+
 def titulo_do_documento(inv: dict, narrativa: list | None = None) -> str:
     """A manchete, que é também o `<title>` da aba.
 
@@ -210,7 +221,7 @@ def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str,
     return f'''<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{page.e(titulo)}</title>
+<title>{page.e(_titulo_da_aba(inv))}</title>
 <style>
 {_fontes_embutidas()}
 {css}

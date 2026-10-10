@@ -141,13 +141,14 @@ def test_teto_de_servicos_diz_quantos_ficaram_de_fora(tmp_path):
     """Medido: um compose real tem 17 serviços. A lista inteira afoga o leitor; o
     teto sem o número omitido mente por omissão."""
     # Arrange
-    corpo = 'services:\n' + ''.join(f'  s{i:02d}:\n    image: x\n' for i in range(20))
+    corpo = 'services:\n' + ''.join(f'  s{i:02d}:\n    image: x\n' for i in range(9))
     (tmp_path / 'docker-compose.yml').write_text(corpo)
-    # Act
-    c = _apurar(tmp_path, )['composicoes'][0]
+    # Act — o teto vem por parâmetro: a fixture nunca é dimensionada pela
+    # constante de produção, senão uma mutação do teto a dimensiona junto
+    c = apurar(tmp_path, varrer(tmp_path), teto_servicos=4)['composicoes'][0]
     # Assert
-    assert len(c['servicos']) == 12
-    assert c['omitidos'] == 8
+    assert len(c['servicos']) == 4
+    assert c['omitidos'] == 5
 
 
 # ───────────────────────────── comandos ──────────────────────────────────────
@@ -364,3 +365,19 @@ def test_campo_de_extensao_nao_vira_servico(tmp_path):
     servicos = [s['nome'] for s in _apurar(tmp_path)['composicoes'][0]['servicos']]
     # Assert
     assert servicos == ['web']
+
+
+def test_o_teto_PADRAO_nao_corta_um_compose_real(tmp_path):
+    """O teto vive em `TETO_SERVICOS`, e o teste do teto passa o valor por
+    parâmetro — então ele prova o mecanismo e **não** prova que o padrão serve.
+    Com 12, um compose real de 17 serviços perdia `scheduler`, `frontend_app` e
+    `website`: o relógio do sistema e as duas superfícies que servem o produto.
+    Este teste fixa o tamanho que o mundo real tem, não o da constante."""
+    # Arrange — 17 serviços, que é o maior medido em sete projetos
+    corpo = 'services:\n' + ''.join(f'  s{i:02d}:\n    image: x\n' for i in range(17))
+    (tmp_path / 'docker-compose.yml').write_text(corpo)
+    # Act — sem passar teto: o padrão de produção é o que está sob teste
+    c = _apurar(tmp_path)['composicoes'][0]
+    # Assert
+    assert c['omitidos'] == 0, 'o teto padrão corta um compose de tamanho real'
+    assert len(c['servicos']) == 17

@@ -7,6 +7,54 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Corrigido
+- `sw-codebase-guide` (v0.13.0): **cinco defeitos achados por um agente limpo**, que recebeu a
+  skill e um projeto nunca documentado e não tinha nenhum contexto de quem a escreveu. É o
+  mesmo teste que na v0.5.2 achou oito defeitos de contrato; desde então o contrato mudou sete
+  vezes e ninguém o tinha exercitado de novo.
+
+  - **Três numerais defasados no `SKILL.md`.** A lista de chaves do `inventory.json` nomeava
+    quinze quando já eram dezessete — e o agente, lendo-a como exaustiva, quase perdeu a seção
+    `execucao`, a que responde "como rodar isto". `imports.resolucao` dizia "sete números" e
+    enumerava oito (o agente recontou duas vezes achando que tinha perdido um campo).
+    "Três guardas recusam o `build.py`" vinha seguido de uma lista de quatro. **Os três agora
+    têm teste:** o nome de cada chave já era conferido, o número escrito não era, e numeral em
+    prosa envelhece em silêncio a cada seção nova.
+  - **O teto de serviços engolia a porta de entrada.** Com 12, um compose real de 17 perdia
+    `scheduler`, `frontend_app` e `website` — o relógio do sistema e as duas superfícies que
+    servem o produto. Teto é 24, porque serviço é uma linha e o maior medido em sete projetos
+    tem 17. O teste do teto passa o valor por parâmetro, então **não** provava que o padrão
+    serve: entrou um segundo teste, dimensionado pelo tamanho que o mundo real tem.
+  - **O `<title>` do HTML era a primeira frase da narrativa.** Num projeto real a aba ficou
+    com *"O propósito que o próprio projeto declara é curto e é o único que tem fonte
+    escrita."* — e esse texto vai para o nome do arquivo salvo e o cabeçalho de impressão. A
+    manchete continua saindo da narrativa; a aba agora leva o nome do projeto, pela nova chave
+    `projeto`. As duas exigências são distintas: a aba tem de ser **distinta** entre projetos
+    **e** ser um nome. A primeira versão atendia só a primeira.
+  - **Pergunta genérica pendurada sem dado.** *"Estas pastas ainda são usadas?"* saía logo
+    abaixo de dez perguntas que nomeiam arquivo e número, porque `julgamento.sem_alcance` veio
+    vazio — e o agente leu a linha como cabeçalho de lista, esperando itens que não vinham.
+    Vazio tem duas causas opostas: a skill mediu e não achou, ou não pôde medir. A pergunta
+    agora sai **só no segundo caso**. Pergunta sem número é a regra que as derivadas já
+    seguiam.
+  - **O contrato não tinha caminho não-interativo.** Cinco portões mandam usar
+    `AskUserQuestion`, e nenhuma frase dizia o que fazer sem usuário — rodando como subagente
+    ou em automação. Agora diz: decida, siga, e **registre a decisão e o motivo** no relato do
+    fim, com os quatro padrões escritos.
+
+  O que o agente **não** achou vale registrar: o pipeline é determinístico byte a byte (ele
+  conferiu md5 de quatro artefatos em duas rodadas), nenhum valor de segredo vazou (ele extraiu
+  uma chave de API real de um `.env` e procurou nos quatro arquivos: zero), nada foi escrito no
+  projeto-alvo, e o `build.py` passou de primeira — nenhuma guarda o recusou.
+
+  E um achado dele que não virou conserto, porque é item de backlog: **a guarda da linha
+  confere o intervalo, não o conteúdo.** Ele citou uma linha em branco, a guarda teria aceitado,
+  e ele só não caiu nisso porque conferiu as 60+ citações à mão antes de montar. É o custo que o
+  contrato empurra para quem escreve a interpretação, e o argumento mais forte até agora para o
+  `check.py`.
+
+  425 testes · 5/5 mutações pegas.
+
 ### Adicionado
 - `sw-codebase-guide` (v0.12.0): **a seção "Como entrar" passou a dizer como rodar.** Ela
   emitia stack, contagem de arquivos e nomes de variáveis de ambiente — e **nenhum comando**.

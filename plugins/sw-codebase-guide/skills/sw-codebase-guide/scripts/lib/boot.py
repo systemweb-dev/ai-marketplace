@@ -30,7 +30,12 @@ import json
 import re
 from pathlib import Path
 
-TETO_SERVICOS = 12
+# Medido: os arquivos de composição de sete projetos têm 1, 6, 7, 8, 12 e 17
+# serviços. Com teto 12, o de 17 perdia `scheduler`, `frontend_app` e `website` —
+# o relógio do sistema e as duas superfícies que servem o produto. Um teto que
+# esconde a porta de entrada não está protegendo o leitor de nada: serviço é uma
+# linha, e 24 linhas não afogam ninguém.
+TETO_SERVICOS = 24
 TETO_SCRIPTS = 12
 TETO_ALVOS = 12
 
@@ -159,8 +164,13 @@ def _executor(raiz: Path, pasta: str, gerenciador: str) -> tuple:
     return 'npm run', None
 
 
-def apurar(raiz, itens: list) -> dict:
-    """O que o projeto declara sobre como ser executado."""
+def apurar(raiz, itens: list, teto_servicos: int = TETO_SERVICOS) -> dict:
+    """O que o projeto declara sobre como ser executado.
+
+    `teto_servicos` é parâmetro para o teste poder dimensionar a fixture sem ler a
+    constante de produção: uma mutação que levasse o teto a um bilhão fazia a
+    fixture alocar um bilhão de strings e travava a máquina.
+    """
     raiz = Path(raiz)
     composicoes, comandos, alvos, containers = [], [], [], []
     for item in sorted(itens, key=lambda i: i['caminho']):
@@ -181,8 +191,8 @@ def apurar(raiz, itens: list) -> dict:
         if COMPOSE.match(nome):
             servicos, lacuna = _servicos(texto)
             composicoes.append({'caminho': caminho, 'lacuna': lacuna,
-                                'servicos': servicos[:TETO_SERVICOS],
-                                'omitidos': max(0, len(servicos) - TETO_SERVICOS)})
+                                'servicos': servicos[:teto_servicos],
+                                'omitidos': max(0, len(servicos) - teto_servicos)})
         elif nome in MANIFESTOS:
             try:
                 scripts = sorted((json.loads(texto).get('scripts') or {}))

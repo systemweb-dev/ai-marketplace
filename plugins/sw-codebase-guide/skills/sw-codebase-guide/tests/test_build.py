@@ -717,3 +717,28 @@ def test_o_comando_de_monorepo_carrega_a_pasta(tmp_path):
     guia = (saida / 'guide.md').read_text('utf-8')
     # Assert
     assert 'cd api && composer run start' in guia
+
+
+def _perguntas_do_fim(saida) -> str:
+    texto = (saida / 'guide.md').read_text('utf-8')
+    return texto[texto.index('Perguntas em aberto'):]
+
+
+def test_pergunta_generica_nao_sai_quando_a_medicao_correu_e_nao_achou(tmp_path):
+    """`julgamento.sem_alcance` vazio tem duas causas opostas: a skill mediu e não
+    achou arquivo parado, ou não pôde medir. Emitir "estas pastas ainda são usadas?"
+    no primeiro caso é pergunta sem número — a regra que as derivadas seguem — e um
+    agente limpo leu a linha como cabeçalho de lista, esperando itens que não vinham."""
+    # Arrange — projeto Python, resolução acima do piso: a medição CORREU
+    projeto = tmp_path / 'proj'
+    (projeto / 'app').mkdir(parents=True)
+    (projeto / 'pyproject.toml').write_text('[project]\nname = "x"')
+    (projeto / 'app' / 'a.py').write_text('from app import b\n')
+    (projeto / 'app' / 'b.py').write_text('x = 1\n')
+    saida = tmp_path / 'out'
+    varrer(projeto, saida)
+    (saida / 'interpretation.toml').write_text('')
+    # Act
+    montar(saida)
+    # Assert
+    assert 'ainda são usadas' not in _perguntas_do_fim(saida)

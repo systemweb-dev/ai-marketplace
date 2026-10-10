@@ -31,6 +31,13 @@ o trabalho da skill — ainda por cima a quem acabou de receber o projeto e não
 Para resposta aberta (um caminho, uma raiz diferente), ofereça as opções prováveis e conte com
 o campo **"Other"**. A exceção é o usuário descrevendo livremente o que quer — aí ele dirige.
 
+**E quando não há com quem decidir?** Rodando como subagente, em automação ou sem a ferramenta
+`AskUserQuestion`, você não tem usuário — e esta regra, sozinha, não dizia o que fazer. Então:
+**decida você, siga adiante, e escreva a decisão e o motivo** no relato do fim (passo 5). Uma
+decisão registrada é revisável; um turno travado numa pergunta que ninguém vai ler não é. Os
+padrões, quando você tiver que decidir sozinho: **gravar fora do repositório do projeto**,
+**escopo = o projeto todo**, **estilo `escuro`**, e **gerar o PDF só se o Chromium existir**.
+
 ## Garantias
 
 - **Não altera nada do projeto.** Só lê, e só escreve em `docs/project/`.
@@ -135,11 +142,13 @@ python3 <skill-dir>/scripts/scan.py --projeto . --out docs/project \
     [--area <caminho> | --funcionalidade <termo>]
 ```
 
-Grava `docs/project/inventory.json` com estas chaves de primeiro nível: `stacks`, `arvore`,
-`historia`, `retrato`, `imports` (que carrega `arestas`, `indisponivel`, `resolucao` e
-`barris` **dentro** dela), `superficie`, `percursos`, `ambiente`, `mencoes`, `textos`,
-`julgamento`,
-`escopo`, `caminhos_do_projeto`, `mudanca_por_arquivo` e `gerado_em_versao`. É determinístico — sem carimbo de tempo, ordem estável — para o documento
+Grava `docs/project/inventory.json` com **dezoito** chaves de primeiro nível: `stacks`,
+`arvore`, `linhas_por_arquivo`, `historia`, `retrato`, `imports` (que carrega `arestas`,
+`indisponivel`, `resolucao` e `barris` **dentro** dela), `superficie`, `percursos`, `execucao`,
+`ambiente`, `mencoes`, `textos`, `julgamento`, `escopo`, `caminhos_do_projeto`,
+`mudanca_por_arquivo`, `projeto` e `gerado_em_versao`. **Confira no arquivo, não aqui**: a
+lista já ficou defasada em duas chaves, e um agente que confiou nela quase perdeu a seção que
+responde "como rodar isto". É determinístico — sem carimbo de tempo, ordem estável — para o documento
 dar diff.
 
 O que cada seção carrega, e o quanto confiar nela:
@@ -168,7 +177,7 @@ O que cada seção carrega, e o quanto confiar nela:
 - **`mencoes`** — grafo textual: onde cada símbolo aparece como texto. Fica no inventário para
   quem quiser olhar à mão; não entra no documento, porque casa PALAVRA e numa base em
   português devolve `banco` e `caminho` às centenas sem haver relação de código.
-- **`imports.resolucao`** — por linguagem, sete números: `relativos`, `externos`, `sufixo_unico`,
+- **`imports.resolucao`** — por linguagem, **oito** números: `relativos`, `externos`, `sufixo_unico`,
   `base_provada`, `config_conferida`, `ambiguos`, `pendurados` e `nao_resolvidos`. A taxa é
   `(relativos + sufixo_unico + base_provada + config_conferida)` sobre tudo isso **menos
   `externos`**; denominador zero é "não medido", nunca 0%.
@@ -210,6 +219,9 @@ O que cada seção carrega, e o quanto confiar nela:
   conferir a **linha** citada e não só o arquivo. Binário, arquivo acima do teto e o que não
   deu para ler ficam **fora** do mapa: ausência significa "não apurado", e nesse caso a guarda
   aceita a linha — recusar seria inventar a medida que o inventário declarou não ter.
+- **`projeto`** — o nome da pasta do projeto, só isso. Existe para o `<title>` da aba e o nome
+  do PDF serem um **nome**: o título saía da narrativa, e a aba de um projeto real ficou com
+  *"O propósito que o próprio projeto declara é curto e é o único que tem fonte escrita."*
 - **`escopo`** e **`caminhos_do_projeto`** — o recorte usado e a lista completa de caminhos do
   projeto **inteiro**. A segunda existe porque percentual de teste e autoria são do projeto,
   não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%.
@@ -326,7 +338,7 @@ evidencia = ["CLAUDE.md"]
 | `mapa` | Onde ficam as coisas | `texto` · `evidencia` |
 | `orientacoes` | Para mexer | `texto` · `evidencia` |
 
-**Três guardas recusam o `build.py` inteiro**, e nenhum dos dois documentos é escrito:
+**Quatro guardas recusam o `build.py` inteiro**, e nenhum dos dois documentos é escrito:
 
 1. **Frase de ausência.** Prosa livre expõe pela primeira vez a garantia mais forte da skill, e
    o teste de saída não bastava: a recusa é do parser. "a pasta não é usada" para o processo.
@@ -438,7 +450,7 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
   apelidos moram num `vue.config.js`, que é JavaScript executando. A configuração entra só como
   atalho **conferido contra o disco**. Linguagem com sistema de módulos que esta versão não
   resolve aparece em `indisponivel` com o motivo.
-- **Cada execução publica a própria taxa de resolução**, em sete números absolutos. Abaixo de
+- **Cada execução publica a própria taxa de resolução**, em oito números absolutos. Abaixo de
   **70%** resolvido numa linguagem, a seção de dependências dela volta a ser lacuna: ranking
   sobre metade do grafo tem cara de fato, e é o erro que a v0.1.1 custou.
 - **O grafo continua sem ver** injeção de dependência, rota como string, reflexão e include de

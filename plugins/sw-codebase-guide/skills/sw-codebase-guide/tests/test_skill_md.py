@@ -108,3 +108,37 @@ def test_a_lista_de_secoes_bate_com_o_que_o_varrer_grava():
     # Assert
     faltando = [s for s in secoes if f'`{s}`' not in texto]
     assert not faltando, f'seções que o inventário grava e o SKILL.md não cita: {faltando}'
+
+
+NUMERAIS = {'onze': 11, 'doze': 12, 'treze': 13, 'quatorze': 14, 'catorze': 14,
+            'quinze': 15, 'dezesseis': 16, 'dezessete': 17, 'dezoito': 18,
+            'dezenove': 19, 'vinte': 20, 'vinte e uma': 21, 'vinte e duas': 22}
+
+
+def test_o_numeral_da_lista_de_chaves_bate_com_o_inventario():
+    """O `SKILL.md` dizia "estas chaves" e nomeava quinze, quando o inventário já
+    tinha dezessete. Um agente limpo leu a lista como exaustiva e quase perdeu a
+    seção `execucao` — a que responde "como rodar isto". O nome de cada chave já é
+    conferido por outro teste; o NÚMERO escrito não era, e numeral em prosa
+    envelhece em silêncio a cada seção nova."""
+    # Arrange
+    import json
+    import re
+    import subprocess
+    import sys
+    import tempfile
+    raiz = SKILL.parent
+    texto = SKILL.read_text('utf-8')
+    escrito = re.search(r'\*\*(\w+(?: e \w+)?)\*\* chaves de primeiro nível', texto)
+    assert escrito, 'a frase das chaves perdeu o numeral em negrito'
+    quantas = NUMERAIS.get(escrito.group(1).lower())
+    assert quantas, f'numeral não reconhecido: {escrito.group(1)!r}'
+    # Act
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run([sys.executable, str(raiz / 'scripts' / 'scan.py'),
+                        '--projeto', str(raiz / 'tests' / 'fixtures' / 'invisible_coupling'),
+                        '--out', tmp], check=True, capture_output=True)
+        real = len(json.loads(Path(tmp, 'inventory.json').read_text()))
+    # Assert
+    assert quantas == real, (f'o SKILL.md escreve {quantas} chaves de primeiro nível '
+                             f'e o inventário grava {real}')

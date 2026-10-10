@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -278,18 +279,29 @@ def test_html_da_fonte_nao_vira_html_da_pagina(tmp_path):
     assert '&lt;script&gt;' in html
 
 
-def test_a_aba_do_navegador_leva_o_titulo_do_projeto(tmp_path):
-    """O `<h1>` saía da narrativa e o `<title>` era fixo. Quem abre o guia de três
-    projetos recebidos vê três abas idênticas, e é o `<title>` que vai para o nome do
-    arquivo salvo e para o cabeçalho de impressão."""
+def test_a_aba_do_navegador_leva_o_NOME_do_projeto(tmp_path):
+    """Duas exigências, e a primeira versão só atendia uma.
+
+    O `<title>` era fixo, e quem abre o guia de três projetos recebidos via três
+    abas idênticas — por isso ele passou a sair da narrativa. Só que a narrativa é
+    uma FRASE: um agente limpo gerou
+    `<title>O propósito que o próprio projeto declara é curto e é o único que tem
+    fonte escrita.</title>`, que é o nome do arquivo salvo e o cabeçalho de
+    impressão. A aba precisa ser distinta **e** ser um nome."""
     # Arrange
     preparar(tmp_path)
-    narrativa = [{'parte': 'o-que-e', 'texto': 'É um portal de creators.',
+    narrativa = [{'parte': 'o-que-e',
+                  'texto': 'O propósito que o projeto declara é curto e tem fonte.',
                   'trecho': 'x', 'fonte': 'README.md', 'evidencia': []}]
     # Act
     html = imprimir_com_narrativa(tmp_path, narrativa)
-    # Assert
-    assert '<title>É um portal de creators.</title>' in html
+    # Assert — o nome da pasta do projeto, não a frase
+    titulo = re.search(r'<title>(.*?)</title>', html).group(1)
+    assert 'propósito' not in titulo, f'a frase vazou para a aba: {titulo}'
+    assert 'guia do projeto' in titulo
+    assert len(titulo) < 60, f'título de {len(titulo)} caracteres não é nome de aba'
+    # e a manchete, que é outra coisa, continua saindo da narrativa
+    assert 'O propósito que o projeto declara' in html
 
 
 def test_abertura_longa_nao_vira_manchete_de_duas_linhas(tmp_path):

@@ -866,10 +866,13 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     # de relance guarda "a pasta não é usada" e esquece o ponto de interrogação.
     # A própria guarda `PROIBIDAS` pegava esta linha, e estava certa.
     #
-    # E ela só sai quando NÃO houve pergunta derivada sobre arquivo parado: a
-    # genérica logo abaixo de três perguntas que nomeiam arquivo e dias parados
-    # faz a seção inteira parecer formulário.
-    if not any('parado há' in d['pergunta'] for d in derivadas):
+    # E ela só sai quando a skill NÃO PÔDE medir — nunca quando mediu e não achou
+    # nada. Um agente limpo leu esta linha como cabeçalho de lista e ficou
+    # esperando os itens que não vinham: `julgamento.sem_alcance` tinha vindo
+    # vazio porque a medição correu e não achou arquivo parado. Pergunta sem
+    # número é a regra que as derivadas seguem; a fixa seguia só pela metade.
+    pode_medir = bool(judge.linguagens_confiaveis(inv))
+    if not pode_medir and not any('parado há' in d['pergunta'] for d in derivadas):
         A('- Estas pastas ainda são usadas? Alguma pode ser apagada?')
     A('')
     return '\n'.join(L)
