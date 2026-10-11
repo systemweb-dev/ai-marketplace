@@ -19,7 +19,7 @@ import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import knowledge, judge, trail, questions  # noqa: E402
+from lib import changes, knowledge, judge, trail, questions  # noqa: E402
 from lib import scope as mod_scope  # noqa: E402
 from lib.tree import eh_codigo, linguagem_de  # noqa: E402
 
@@ -707,8 +707,63 @@ def _no_recorte(inv: dict) -> set:
     return {a['caminho'] for a in inv.get('arvore') or []}
 
 
+def _o_que_mudou(inv: dict, anterior: dict | None) -> list:
+    """A primeira seção do documento para quem já leu a anterior.
+
+    Vem ANTES do julgamento porque é a única seção que o leitor de volta precisa:
+    o resto ele já leu. Para quem chega pela primeira vez ela diz uma linha e sai
+    do caminho.
+    """
+    c = changes.comparar(inv, anterior)
+    L = ['## O que mudou desde a rodada anterior\n']
+    A = L.append
+    if not c['houve_rodada_anterior']:
+        A('Esta é a primeira rodada: não há inventário anterior para comparar — a')
+        A('próxima dirá o que mudou em relação a esta.  [fato]\n')
+        return L
+    if c['lacuna']:
+        A(f'Não comparado: {c["lacuna"]}.  [lacuna]\n')
+        return L
+    if c['nada_mudou']:
+        A('Nada mudou no que esta seção acompanha.  [fato]\n')
+    for n in [x for x in c['numeros'] if x['posicao'] == 'abertura']:
+        A(f'- {changes.frase_do_numero(n)}  [fato]')
+    if any(x['posicao'] == 'abertura' for x in c['numeros']):
+        A('')
+    for grupo in c['listas']:
+        A(f'**{changes.ROTULOS[grupo["chave"]].capitalize()}**\n')
+        for item in grupo['entrou']:
+            nomes = ' + '.join(f'`{n}`' for n in item['nomes'])
+            A(f'- entrou {nomes} — {item["detalhe"]}')
+        if grupo['entrou_omitidos']:
+            A(f'- … e mais {grupo["entrou_omitidos"]} que entraram')
+        for item in grupo['saiu']:
+            nomes = ' + '.join(f'`{n}`' for n in item['nomes'])
+            A(f'- saiu {nomes} — era {item["detalhe"]}')
+        if grupo['saiu_omitidos']:
+            A(f'- … e mais {grupo["saiu_omitidos"]} que saíram')
+        if grupo['saida_nao_apurada']:
+            A(f'\n> Saída não apurada: {grupo["saida_nao_apurada"]}, e quem sai dela')
+            A('> pode ter sido empurrado para fora por quem cresceu.  [lacuna]')
+        A('')
+    # o volume leva rótulo próprio: sem ele, duas linhas soltas embaixo do último
+    # grupo se leem como parte DELE — a leitura do documento gerado mostrou
+    # "+22 arquivos" parecendo continuação da lista de variáveis de ambiente
+    fecho = [x for x in c['numeros'] if x['posicao'] == 'fecho']
+    if fecho:
+        A('**Volume**\n')
+        for n in fecho:
+            A(f'- {changes.frase_do_numero(n)}  [fato]')
+        A('')
+    for item in c['nao_comparado']:
+        A(f'> {changes.ROTULOS[item["chave"]].capitalize()}: não comparado — '
+          f'{item["motivo"]}.  [lacuna]')
+    A('')
+    return L
+
+
 def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
-           narrativa: list | None = None) -> str:
+           narrativa: list | None = None, anterior: dict | None = None) -> str:
     respostas = respostas or []
     L = []
     A = L.append
@@ -727,6 +782,7 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
           f'({n} arquivo{plural}), não o projeto inteiro.\n')
     L.extend(_fatia(escopo))
 
+    L.extend(_o_que_mudou(inv, anterior))
     L.extend(_julgamento(inv, respostas))
     A('## Como entrar\n')
     for c in inv['stacks']:
@@ -920,7 +976,8 @@ def main() -> int:
     except ValueError as erro:
         print(erro, file=sys.stderr)
         return 2
-    texto_guia = montar(inv, afirmacoes, respostas, narrativa)
+    texto_guia = montar(inv, afirmacoes, respostas, narrativa,
+                        anterior=changes.ler_anterior(base))
     texto_leia_me = montar_leia_me(inv, narrativa)
     (base / 'guide.md').write_text(texto_guia, encoding='utf-8')
     (base / 'readme.md').write_text(texto_leia_me, encoding='utf-8')

@@ -151,6 +151,12 @@ lista já ficou defasada em duas chaves, e um agente que confiou nela quase perd
 responde "como rodar isto". É determinístico — sem carimbo de tempo, ordem estável — para o documento
 dar diff.
 
+Grava também `inventory.prev.json`: o inventário da rodada **anterior**, girado antes de
+sobrescrever. É o que permite ao documento dizer o que mudou sem deixar de ser função pura das
+suas entradas — a rodada anterior vira uma entrada, em arquivo. **Só gira quando o conteúdo
+difere:** varrer duas vezes sem mudança no projeto giraria o anterior para cima de uma cópia de
+si mesmo, e apagaria em silêncio a única referência que existia.
+
 O que cada seção carrega, e o quanto confiar nela:
 
 - **`stacks`** — um componente por manifesto encontrado (`package.json`, `composer.json`,
@@ -376,6 +382,29 @@ Grava **dois** arquivos: `guide.md`, o relatório técnico com a evidência de c
 mesmos fatos, mesmo documento, byte a byte — e a recusa de qualquer guarda não escreve nenhum
 dos dois, para não deixar um novo ao lado de um velho.
 
+#### A primeira seção: o que mudou desde a rodada anterior
+
+Havendo `inventory.prev.json`, o documento **abre** pelo que mudou — commits novos, projeto que
+voltou a andar ou que parou, quem entrou e saiu do mapa de perigo, par novo na co-mudança, rota,
+variável de ambiente e serviço novos, e o volume. Primeira porque quem volta ao documento já leu
+o resto; na primeira rodada ela diz uma linha e sai do caminho. Medido em duas rodadas reais com
+um mês e 63 commits entre elas: **dez linhas**, e elas contam uma história só.
+
+Três coisas que ela **não** faz, cada uma derrubada pela medição:
+
+- **Número que se move em item que ficou na lista não vira linha.** O arquivo já estava lá; o
+  leitor não age diferente porque `dependentes` foi de 59 para 62.
+- **De lista cortada, só a ENTRADA é fato.** A co-mudança carrega 40 pares: quem some dela pode
+  ter sido empurrado para fora por quem cresceu, e a linha diria que um acoplamento acabou sem
+  ninguém ter tocado nele. A saída sai como lacuna, com o corte escrito na tela.
+- **Rodadas de recortes diferentes não se comparam.** `--area api` contra projeto inteiro
+  reportaria centenas de arquivos "saindo". A comparação é recusada inteira, com o motivo — linha
+  de mudança errada afirma movimento no tempo, que é o que o leitor menos tem como conferir.
+
+E a trava de sempre, na forma que ela assume aqui: **lista vazia na rodada anterior tem duas
+causas opostas** — mediu e não achou, ou não pôde medir. Cada grupo declara o que a rodada
+anterior precisava ter; quem não cumpre vira "não comparado", nunca "entrou tudo".
+
 ### 3b. O documento tem o que dizer?
 
 Varrer sem erro **não** quer dizer que a skill apurou alguma coisa. Antes de entregar, olhe o
@@ -474,6 +503,10 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
   errado, conferidos à mão. O que ele não modela — mais de um documento YAML no mesmo arquivo,
   bloco `services:` ausente — vira **lacuna com o motivo escrito**, nunca meia lista: serviço
   inventado manda alguém subir o que não existe.
+- **O que mudou compara DUAS rodadas, não o histórico.** Existe só o `inventory.prev.json`, e
+  ele é a rodada imediatamente anterior: não há série temporal, e varrer três vezes num dia perde
+  a rodada da semana passada. Gravando a saída fora do repositório do projeto — que é o padrão —,
+  a comparação existe enquanto aquele diretório existir.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os
   que estão no código dos módulos; stack de nicho não é reconhecida.
 - **Sem extração de regra de negócio** — só propósito com fonte textual citada.

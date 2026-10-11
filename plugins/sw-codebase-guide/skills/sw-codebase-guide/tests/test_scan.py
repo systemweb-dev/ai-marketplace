@@ -163,3 +163,73 @@ def test_fase_de_areas_nao_abre_codigo(tmp_path, monkeypatch):
     for caminho in dentro:
         relativo = str(Path(caminho).relative_to(projeto))
         assert eh_fonte_textual(relativo), f'abriu {relativo}, que não é fonte textual'
+
+
+# ─────────────────── a rodada anterior, para o documento dizer o que mudou ────
+
+
+def test_a_primeira_rodada_nao_deixa_anterior(tmp_path):
+    # Arrange
+    sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+    from scan import girar
+    saida = tmp_path / 'out'
+    saida.mkdir()
+    # Act
+    girou = girar(saida, '{"a": 1}\n')
+    # Assert
+    assert girou is False
+    assert not (saida / 'inventory.prev.json').exists()
+
+
+def test_rodada_com_mudanca_guarda_a_anterior(tmp_path):
+    # Arrange
+    sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+    from scan import girar
+    saida = tmp_path / 'out'
+    saida.mkdir()
+    (saida / 'inventory.json').write_text('{"commits": 10}\n')
+    # Act
+    girou = girar(saida, '{"commits": 11}\n')
+    # Assert
+    assert girou is True
+    assert (saida / 'inventory.prev.json').read_text() == '{"commits": 10}\n'
+
+
+def test_rodada_identica_nao_apaga_a_anterior(tmp_path):
+    """Quem roda `scan.py` duas vezes — porque errou a flag, porque quer conferir
+    — não tem como saber que a segunda apagou a única referência que existia.
+    Rodada idêntica não é rodada nova."""
+    # Arrange
+    sys.path.insert(0, str(RAIZ_SKILL / 'scripts'))
+    from scan import girar
+    saida = tmp_path / 'out'
+    saida.mkdir()
+    (saida / 'inventory.prev.json').write_text('{"commits": 9}\n')
+    (saida / 'inventory.json').write_text('{"commits": 10}\n')
+    # Act
+    girou = girar(saida, '{"commits": 10}\n')
+    # Assert
+    assert girou is False
+    assert (saida / 'inventory.prev.json').read_text() == '{"commits": 9}\n'
+
+
+def test_duas_varreduras_deixam_a_anterior_em_disco(tmp_path):
+    """O fio inteiro, pelo processo: só o `girar` testado por dentro não prova
+    que o `main` o chama — a mutação que trocava a chamada por `pass` passou
+    verde com os três testes de unidade acima."""
+    # Arrange
+    projeto = tmp_path / 'p'
+    (projeto / 'app').mkdir(parents=True)
+    (projeto / 'pyproject.toml').write_text('[project]\nname = "loja"')
+    (projeto / 'app' / 'a.py').write_text('x = 1\n')
+    saida = tmp_path / 'out'
+    varrer = [sys.executable, str(RAIZ_SKILL / 'scripts' / 'scan.py'),
+              '--projeto', str(projeto), '--out', str(saida)]
+    # Act — a segunda rodada vê um arquivo a mais
+    subprocess.run(varrer, check=True, capture_output=True)
+    primeiro = (saida / 'inventory.json').read_text()
+    (projeto / 'app' / 'b.py').write_text('y = 2\n')
+    subprocess.run(varrer, check=True, capture_output=True)
+    # Assert
+    assert (saida / 'inventory.prev.json').read_text() == primeiro
+    assert (saida / 'inventory.json').read_text() != primeiro

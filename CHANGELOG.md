@@ -7,6 +7,59 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 
 ## [Não publicado]
 
+### Adicionado
+- `sw-codebase-guide` (v0.14.0): **o documento diz o que mudou desde a rodada anterior.** Ele
+  regenera do zero a cada execução, e por isso calava sobre a própria mudança: quem já tinha
+  lido relia tudo para descobrir que um arquivo entrou no mapa de perigo. O `scan.py` passa a
+  girar o inventário da rodada anterior (`inventory.prev.json`), e a comparação vive no
+  emissor — o documento continua sendo função pura das suas entradas, agora três.
+
+  **Medido antes de desenhado**, em duas varreduras de um projeto real com um mês e 63 commits
+  entre elas. A medição produziu dez linhas, e elas contam uma história só: uma integração nova
+  entrou — a rota dela, o controller acoplado ao middleware, o token novo no `.env.example` e o
+  model que entrou no mapa de perigo —, mais "voltou a andar: estava parado há 5 semanas" e o
+  volume. Três decisões vieram dela, e nenhuma era a que eu esperava:
+
+  - **Número que se move em item que FICOU na lista é ruído.** Quatro arquivos perigosos
+    tiveram `dependentes` subindo de 1 a 3 no mês medido; o mais importado foi de 59 para 62.
+    Nada que o leitor faça muda — o arquivo já estava na lista. Só entrada e saída saem.
+  - **De lista cortada, só a entrada é fato.** A co-mudança carrega 40 pares. Três "saíram" com
+    3x e 4x, empurrados para fora do corte por pares que cresceram, e a linha dizia que um
+    acoplamento tinha acabado sem ninguém ter tocado nele. Escrevi essa regra no próprio
+    módulo e mandei a saída para a tela mesmo assim — **só apareceu lendo o documento
+    gerado**. `perigo` e `sem_alcance` continuam reportando saída, porque entram por limiar e
+    não por teto: sair delas é o arquivo que ganhou teste ou perdeu dependentes.
+  - **Reordenação do topo não é mudança.** Com teto de 10, três pares "novos no topo" — dois
+    deles mais um `Rotas.php + Middleware.php`, acoplamento que o documento já estampa na
+    primeira linha. Só entra o par que entrou na lista inteira.
+
+  E a trava que vale mais que as três: **rodadas de recortes diferentes não se comparam.** Uma
+  rodada `--area` contra uma do projeto inteiro reportaria centenas de arquivos saindo. A
+  comparação é recusada inteira, com o motivo escrito — linha de mudança errada afirma
+  movimento no tempo, que é o que o leitor menos tem como conferir sozinho. Mesma recusa para
+  versão diferente do inventário e para outro projeto.
+
+  A invariante de sempre reaparece em forma nova: **lista vazia na rodada anterior tem duas
+  causas opostas** — mediu e não achou, ou não pôde medir. Cada grupo declara o que a rodada
+  anterior precisava ter (git, grafo de import, co-mudança); quem não cumpre vira "não
+  comparado" com motivo, nunca "entrou tudo". Sem isso, a primeira rodada com grafo de import
+  anunciaria oito arquivos perigosos novos quando o que entrou foi a medição.
+
+  O giro **só acontece quando o conteúdo difere**: varrer duas vezes sem mudança no projeto
+  giraria o anterior para cima de uma cópia de si mesmo, e quem roda o `scan.py` de novo — por
+  ter errado a flag, por querer conferir — não teria como saber que pagou esse preço.
+
+  A seção sai nos **dois** emissores, com a marcação de cada um: no `guide.md` o sinal é a
+  palavra «entrou», no HTML é um `+` antes do nome, e por isso o par é unido por « e » lá —
+  a primeira versão pôs três `+` na mesma linha com dois significados diferentes.
+
+  **40 testes novos e 21 provas de mutação.** Três mutações escaparam na primeira rodada, e
+  duas delas pelo mesmo motivo da rodada anterior: o teste dimensionava a fixture **pela
+  constante de produção**, então um teto de 5.000 passava verde. A terceira mostrou que testar
+  o giro por dentro não prova que o `main` o chama. Uma quarta escapou depois, no refactor que
+  tirou o ida-e-volta por string do identificador de item: identificar o par de co-mudança por
+  uma ponta só faz o acoplamento novo sumir em silêncio quando a outra ponta já estava lá.
+
 ### Corrigido
 - `sw-codebase-guide` (v0.13.0): **cinco defeitos achados por um agente limpo**, que recebeu a
   skill e um projeto nunca documentado e não tinha nenhum contexto de quem a escreveu. É o

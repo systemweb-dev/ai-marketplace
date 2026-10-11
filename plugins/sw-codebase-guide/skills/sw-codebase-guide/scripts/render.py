@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import build
-from lib import knowledge, judge, page, questions  # noqa: E402
+from lib import changes, knowledge, judge, page, questions  # noqa: E402
 from lib import scope as mod_scope  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent.parent / 'assets'
@@ -187,9 +187,11 @@ def _abertura(inv: dict, narrativa: list | None = None) -> str:
 
 
 def construir(inv: dict, afirmacoes: list, narrativa: list, estilo: str,
-              respostas: list | None = None) -> str:
+              respostas: list | None = None, anterior: dict | None = None) -> str:
     titulo = titulo_do_documento(inv, narrativa)
     corpo = ''.join(filter(None, [
+        # primeiro de todos: quem volta ao documento só precisa deste
+        page.bloco_o_que_mudou(inv, anterior),
         page.bloco_o_que_e(narrativa),
         page.bloco_retrato(inv),
         page.bloco_perigo(inv),
@@ -279,7 +281,8 @@ def main() -> int:
         knowledge.ler(base),
         {c: {'ultima': d} for c, d in (inv.get('mudanca_por_arquivo') or {}).items()})
     destino = base / 'readme.html'
-    destino.write_text(construir(inv, afirmacoes, narrativa, args.estilo, respostas),
+    destino.write_text(construir(inv, afirmacoes, narrativa, args.estilo, respostas,
+                                 anterior=changes.ler_anterior(base)),
                        encoding='utf-8')
     print(destino)
 

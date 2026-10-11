@@ -177,6 +177,31 @@ def apurar_funcionalidades(projeto: Path) -> dict:
     }
 
 
+def girar(saida: Path, texto_novo: str) -> bool:
+    """Guarda o inventário da rodada anterior como `inventory.prev.json`.
+
+    É o que permite ao documento dizer o que mudou sem deixar de ser função pura
+    das suas entradas: a rodada anterior passa a ser uma entrada, em arquivo.
+
+    **Só gira quando o conteúdo difere.** Uma segunda varredura sem mudança no
+    projeto giraria o anterior para cima de uma cópia de si mesmo e apagaria a
+    única referência que existia — e quem roda `scan.py` duas vezes (porque errou
+    a flag, porque quer conferir) não tem como saber que pagou esse preço. Rodada
+    idêntica não é rodada nova.
+    """
+    atual = saida / 'inventory.json'
+    if not atual.exists():
+        return False
+    try:
+        if atual.read_text('utf-8') == texto_novo:
+            return False
+        (saida / 'inventory.prev.json').write_text(
+            atual.read_text('utf-8'), encoding='utf-8')
+    except OSError:
+        return False        # não poder girar some com a seção; nunca perde a rodada
+    return True
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description='Apura os fatos de um projeto.')
     p.add_argument('--projeto', required=True, help='raiz do projeto a ler')
@@ -240,8 +265,9 @@ def main() -> int:
     # `textos`, que carrega CONTEÚDO porque a conferência de trecho literal depende
     # dele — e por isso ele passa por redação LINHA A LINHA antes de entrar, com teto
     # de 64 KB por arquivo e 384 KB na seção.
-    texto = json.dumps(inventario, indent=1, ensure_ascii=False, sort_keys=True)
-    (saida / 'inventory.json').write_text(texto + '\n', encoding='utf-8')
+    texto = json.dumps(inventario, indent=1, ensure_ascii=False, sort_keys=True) + '\n'
+    girar(saida, texto)
+    (saida / 'inventory.json').write_text(texto, encoding='utf-8')
 
     print(f'{saida / "inventory.json"}')
     print(f'{len(inventario["arvore"])} arquivos · {len(inventario["stacks"])} stack(s)')

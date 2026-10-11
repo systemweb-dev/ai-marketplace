@@ -485,3 +485,55 @@ def test_bloco_da_taxa_mostra_os_numeros_absolutos(tmp_path):
     assert r.returncode == 0, r.stderr
     bloco = secao_do_bloco(html, 'Quanto disto foi medido')
     assert '569' in bloco and '424' in bloco and '100%' in bloco
+
+
+# ──────────────── o que mudou: o gêmeo HTML da seção do `guide.md` ───────────
+
+
+def test_o_html_nomeia_quem_entrou_no_mapa_de_perigo(tmp_path):
+    """O gêmeo que não pode divergir: os dois emissores nascem do mesmo material
+    e nenhum é conversão do outro."""
+    # Arrange
+    preparar(tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['julgamento'] = {**inv['julgamento'], 'perigo': [
+        {'caminho': 'app/novo.py', 'dependentes': 6, 'mudancas': 10}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    anterior = {**inv, 'julgamento': {**inv['julgamento'], 'perigo': []},
+                'mudanca_por_arquivo': {'app/velho.py': '2026-01-01'},
+                'imports': {**inv['imports'],
+                            'arestas': [{'de': 'a.py', 'para': 'b.py',
+                                         'origem': 'x'}]}}
+    (tmp_path / 'inventory.prev.json').write_text(json.dumps(anterior))
+    # Act
+    imprimir(tmp_path)
+    html = (tmp_path / 'readme.html').read_text()
+    # Assert
+    assert 'O que mudou' in html
+    # `<li data-sinal` e não `data-sinal`: o CSS vai EMBUTIDO na página, e o
+    # seletor `[data-sinal="entrou"]` casava a asserção sozinho
+    assert '<li data-sinal="entrou"' in html and 'app/novo.py' in html
+
+
+def test_o_html_recusa_comparar_recortes_diferentes(tmp_path):
+    # Arrange
+    preparar(tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    (tmp_path / 'inventory.prev.json').write_text(json.dumps(
+        {**inv, 'escopo': {'tipo': 'area', 'area': 'api', 'funcionalidade': None,
+                           'criterio': 'x', 'n_arquivos': 1}}))
+    # Act
+    imprimir(tmp_path)
+    html = (tmp_path / 'readme.html').read_text()
+    # Assert
+    assert 'Não comparado' in html and '<li data-sinal' not in html
+
+
+def test_as_classes_do_bloco_de_mudanca_existem_no_estilo():
+    """Duas classes usadas sem existir já renderizaram um bloco inteiro sem
+    estilo, e nenhum teste viu — o HTML era válido e a página, feia."""
+    # Arrange
+    css = (RAIZ_SKILL / 'assets' / 'style.css').read_text()
+    # Assert
+    assert '.mudou' in css
+    assert '[data-sinal="entrou"]' in css and '[data-sinal="saiu"]' in css

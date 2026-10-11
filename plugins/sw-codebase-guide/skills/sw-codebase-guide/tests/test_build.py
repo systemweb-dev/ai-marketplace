@@ -742,3 +742,92 @@ def test_pergunta_generica_nao_sai_quando_a_medicao_correu_e_nao_achou(tmp_path)
     montar(saida)
     # Assert
     assert 'ainda são usadas' not in _perguntas_do_fim(saida)
+
+
+# ──────────────── o que mudou desde a rodada anterior, no documento ──────────
+
+
+def _anterior(saida: Path, **mudar) -> None:
+    """Grava um `inventory.prev.json` derivado do inventário desta rodada.
+
+    Derivar do real, em vez de escrever um à mão, é o que garante que a única
+    diferença entre as duas rodadas é a que o teste quer provar — um inventário
+    de teste divergindo em `gerado_em_versao` ou em `escopo` faria a comparação
+    ser recusada inteira, e o teste passaria verde sem emitir linha nenhuma.
+    """
+    inv = json.loads((saida / 'inventory.json').read_text())
+    for chave, valor in mudar.items():
+        inv[chave] = valor
+    (saida / 'inventory.prev.json').write_text(json.dumps(inv))
+
+
+def test_sem_rodada_anterior_o_documento_diz_que_esta_e_a_primeira(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'polyglot', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert '## O que mudou desde a rodada anterior' in guia
+    assert 'primeira rodada' in guia
+
+
+def test_o_documento_nomeia_quem_entrou_no_mapa_de_perigo(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'polyglot', tmp_path)
+    inv = json.loads((tmp_path / 'inventory.json').read_text())
+    inv['julgamento'] = {**inv['julgamento'], 'perigo': [
+        {'caminho': 'app/novo.py', 'dependentes': 6, 'mudancas': 10}]}
+    (tmp_path / 'inventory.json').write_text(json.dumps(inv))
+    # a fixture não é repositório git nem tem grafo de import, e sem isso a
+    # rodada ANTERIOR não cumpre o pré-requisito do grupo `perigo` — a lista
+    # vazia dela seria "não pôde medir", não "mediu e não achou". Declarar os
+    # dois aqui é o que põe o teste no caminho que ele quer provar.
+    _anterior(tmp_path, julgamento={**inv['julgamento'], 'perigo': []},
+              mudanca_por_arquivo={'app/velho.py': '2026-01-01'},
+              imports={**inv['imports'],
+                       'arestas': [{'de': 'a.py', 'para': 'b.py', 'origem': 'x'}]})
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'entrou `app/novo.py` — 6 dependentes, 10 mudanças' in guia
+
+
+def test_o_documento_recusa_comparar_recortes_diferentes(tmp_path):
+    """A linha de mudança errada manda alguém investigar o que não aconteceu —
+    e, ao contrário de uma aresta errada, ela afirma movimento no tempo, que é
+    a afirmação mais difícil de o leitor conferir sozinho."""
+    # Arrange
+    varrer(FIXTURES / 'polyglot', tmp_path)
+    _anterior(tmp_path, escopo={'tipo': 'area', 'area': 'api',
+                                'funcionalidade': None, 'criterio': 'x',
+                                'n_arquivos': 1})
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert 'Não comparado:' in guia and 'recortes diferentes' in guia
+    assert 'entrou `' not in guia
+
+
+def test_a_secao_de_mudanca_vem_antes_do_julgamento(tmp_path):
+    """Quem volta ao documento só precisa desta seção — o resto já leu."""
+    # Arrange
+    varrer(FIXTURES / 'polyglot', tmp_path)
+    # Act
+    montar(tmp_path)
+    guia = (tmp_path / 'guide.md').read_text()
+    # Assert
+    assert guia.index('## O que mudou') < guia.index('## Antes de mexer')
+
+
+def test_anterior_quebrado_nao_derruba_o_emissor(tmp_path):
+    # Arrange
+    varrer(FIXTURES / 'polyglot', tmp_path)
+    (tmp_path / 'inventory.prev.json').write_text('{ não é json')
+    # Act
+    r = montar(tmp_path)
+    # Assert
+    assert r.returncode == 0
+    assert 'primeira rodada' in (tmp_path / 'guide.md').read_text()

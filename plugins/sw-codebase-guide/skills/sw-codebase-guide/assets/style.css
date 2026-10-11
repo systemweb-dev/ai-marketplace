@@ -77,6 +77,20 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .servicos em { font-style: normal; font-family: var(--mono); font-size: 0.68rem;
   letter-spacing: 0.02em; }
 
+/* O que mudou desde a rodada anterior: o sinal vem ANTES do nome, porque é o que
+   decide se o leitor continua lendo a linha. Entrou e saiu usam o mesmo desenho e
+   se distinguem pelo caractere, não pela cor — a página é impressa em PDF, e
+   distinção só por cor morre em preto e branco. */
+.mudou { list-style: none; display: grid; gap: 0.36rem; margin-top: 0.5rem; }
+.mudou li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem;
+  font-size: 0.84rem; min-width: 0; }
+.mudou li[data-sinal]::before { font-family: var(--mono); font-weight: 700;
+  font-size: 0.8rem; }
+.mudou li[data-sinal="entrou"]::before { content: "+"; }
+.mudou li[data-sinal="saiu"]::before { content: "\2212"; }
+.mudou li > span { font-size: 0.84rem; }
+.mudou em { font-style: normal; color: var(--fraco); font-size: 0.78rem; }
+
 /* O comando que parece subir: é a linha que alguém vai copiar, então ganha peso
    e respiro — mas sem cor de acento, porque é DEDUÇÃO, e acento aqui o faria
    passar por fato medido. */
@@ -151,6 +165,8 @@ code { font-family: var(--mono); font-size: 0.86em; }
 .escuro .chaves code, .escuro .comando code { background: #1c1c21; border-radius: 3px;
   color: #c3c5cc; }
 .escuro .servicos em { color: var(--acento); }
+.escuro .mudou li[data-sinal="entrou"]::before { color: var(--acento); }
+.escuro .mudou li[data-sinal="saiu"]::before { color: var(--fraco); }
 .escuro .retratos .r { padding-left: 0.9rem; border-left: 1px solid var(--fio); }
 .escuro .retratos .r > span { color: var(--fraco); }
 .escuro .retratos .r p { color: #c3c5cc; }
@@ -205,6 +221,8 @@ code { font-family: var(--mono); font-size: 0.86em; }
   border: 1px solid var(--tinta); }
 .brutalista .chaves code, .brutalista .comando code { border: 1px solid var(--tinta); }
 .brutalista .servicos em { background: var(--apoio); padding: 0 0.22rem; }
+.brutalista .mudou li[data-sinal]::before { font-weight: 800; }
+.brutalista .mudou li[data-sinal="entrou"]::before { color: var(--acento); }
 .brutalista .retratos .r { border: 2px solid var(--tinta); padding: 0.9rem 1rem; }
 .brutalista .retratos .r b { font-weight: 800; }
 .brutalista .retratos .alerta { background: var(--apoio); }

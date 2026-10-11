@@ -26,6 +26,7 @@ ambiente, extraídas na origem.
 import html as _html
 import re
 
+from lib import changes
 from lib import trail as _trail
 from lib.tree import ATIVOS, NAO_E_CODIGO, eh_codigo  # noqa: F401
 from collections import Counter
@@ -285,6 +286,69 @@ def bloco_como_rodar(inv: dict) -> str:
               if deducao else '')
     return _bloco('Como rodar', nivel, 'Como eu subo isto na minha máquina?',
                   ''.join(partes), largo=True, rodape=rodape)
+
+def _nomes(item: dict) -> str:
+    """Os nomes de um item de mudança. O par é unido por « e », nunca por « + »:
+    o sinal que abre a linha JÁ é um `+`, e a tela mostrava três sinais iguais na
+    mesma linha com dois significados diferentes. O `guide.md` usa ` + ` porque lá
+    o sinal é a palavra «entrou» — cada emissor segue a convenção que ele já tem."""
+    return ' e '.join(f'<code>{e(n)}</code>' for n in item['nomes'])
+
+
+def bloco_o_que_mudou(inv: dict, anterior: dict | None) -> str:
+    """O que mudou desde a rodada anterior. Gêmeo da seção de mesmo nome no `guide.md`.
+
+    É o primeiro cartão da página porque é o único que o leitor de volta precisa —
+    o resto ele já leu. Na primeira rodada diz uma linha e sai do caminho.
+    """
+    c = changes.comparar(inv, anterior)
+    pergunta = 'O que mexeu desde a última vez que eu li isto?'
+    if not c['houve_rodada_anterior']:
+        return _bloco('O que mudou', 'fato', pergunta,
+                      '<p class="leg">Esta é a primeira rodada: não há inventário '
+                      'anterior para comparar — a próxima dirá o que mudou em '
+                      'relação a esta.</p>')
+    if c['lacuna']:
+        return _bloco('O que mudou', 'lacuna', pergunta,
+                      f'<p class="aviso">Não comparado: {e(c["lacuna"])}.</p>')
+    partes = []
+    abertura = [x for x in c['numeros'] if x['posicao'] == 'abertura']
+    if abertura:
+        partes.append('<ul class="mudou">' + ''.join(
+            f'<li><span>{e(changes.frase_do_numero(n))}</span></li>'
+            for n in abertura) + '</ul>')
+    if c['nada_mudou']:
+        partes.append('<p class="leg">Nada mudou no que esta seção acompanha.</p>')
+    for grupo in c['listas']:
+        itens = []
+        for item in grupo['entrou']:
+            itens.append(f'<li data-sinal="entrou">{_nomes(item)}'
+                         f'<em>{e(item["detalhe"])}</em></li>')
+        if grupo['entrou_omitidos']:
+            itens.append(f'<li class="leg">e mais {grupo["entrou_omitidos"]} '
+                         f'que entraram</li>')
+        for item in grupo['saiu']:
+            itens.append(f'<li data-sinal="saiu">{_nomes(item)}'
+                         f'<em>era {e(item["detalhe"])}</em></li>')
+        if grupo['saiu_omitidos']:
+            itens.append(f'<li class="leg">e mais {grupo["saiu_omitidos"]} '
+                         f'que saíram</li>')
+        corte = (f'<p class="aviso">Saída não apurada: '
+                 f'{e(grupo["saida_nao_apurada"])}, e quem sai dela pode ter sido '
+                 f'empurrado para fora por quem cresceu.</p>'
+                 if grupo['saida_nao_apurada'] else '')
+        partes.append(f'<p class="leg">{e(changes.ROTULOS[grupo["chave"]])}</p>'
+                      f'<ul class="mudou">{"".join(itens)}</ul>{corte}')
+    fecho = [x for x in c['numeros'] if x['posicao'] == 'fecho']
+    if fecho:
+        partes.append('<p class="leg">volume</p><ul class="mudou">' + ''.join(
+            f'<li><span>{e(changes.frase_do_numero(n))}</span></li>'
+            for n in fecho) + '</ul>')
+    for item in c['nao_comparado']:
+        partes.append(f'<p class="aviso">{e(changes.ROTULOS[item["chave"]])}: não '
+                      f'comparado — {e(item["motivo"])}.</p>')
+    return _bloco('O que mudou', 'fato', pergunta, ''.join(partes), largo=True)
+
 
 def bloco_muda_junto(inv: dict) -> str:
     h = inv.get('historia') or {}

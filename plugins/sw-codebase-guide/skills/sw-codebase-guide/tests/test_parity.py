@@ -49,6 +49,7 @@ GEMEOS = {
     'bloco_resolucao': 'guide.md',
     'bloco_ambiente': 'guide.md',
     'bloco_como_rodar': 'guide.md',
+    'bloco_o_que_mudou': 'guide.md',
     'bloco_afirmacoes': 'guide.md',
     'bloco_lacunas': 'guide.md',
     # exclusivos do HTML, com o motivo — não é isenção, é decisão declarada
