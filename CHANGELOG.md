@@ -8,6 +8,63 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-codebase-guide` (v0.15.0): **a interpretação passou a ser conferida antes de montar o
+  documento.** O `check.py` roda entre escrever o `interpretation.toml` e rodar o `build.py`:
+  não escreve nada, não recusa nada, lista o que está fraco e devolve 1 quando achou algo. O
+  `build.py` tem quatro recusas duras, e elas pegam o que é binário — afirmação sem evidência,
+  lacuna sem motivo, caminho inventado, linha fora do intervalo. O que sobrava era julgamento,
+  e recusar por julgamento transforma julgamento em burocracia.
+
+  O gatilho foi o achado do agente limpo da v0.13.0 que não virou conserto na hora: **a guarda
+  da linha confere o intervalo, não o conteúdo.** Ele citou uma linha em branco, a guarda teria
+  aceitado, e ele só não caiu nisso porque conferiu as 60+ citações à mão antes de montar.
+
+  **Medido antes de desenhado**, contra as três interpretações reais que existem em disco —
+  escritas por agente contra projeto real, somando 80 afirmações, 46 blocos de narrativa e 198
+  citações com número de linha. Cinco rodadas de medição, e quatro decisões contra a
+  expectativa:
+
+  - **A candidata mais óbvia foi descartada.** "Evidência genérica" — afirmação cuja evidência
+    é só pasta, ou só arquivo sem linha — apontaria doze itens nas três interpretações, e
+    lendo um por um quase todos estão **certos**: *"não é um projeto, são cinco repositórios
+    git justapostos"* citando as cinco pastas é a evidência exata. Bronca injusta ensina a
+    ignorar a ferramenta, e isso custa mais que o defeito que ela pegaria.
+  - **Pasta citada endereça o arquivo, mas só até um tamanho.** Contar a pasta zerou a cobrança
+    do mapa de perigo justamente no projeto onde ela é verdadeira: `backend/` cobre 430
+    arquivos (41% do projeto) e a pasta de domínio dentro dele cobre 135 — nenhuma das duas é
+    endereço de arquivo. A de 8 arquivos é. Daí o teto de 30, calibrado por esses números e
+    passado por parâmetro em todo lugar.
+  - **Classificar a linha citada por sintaxe não serve.** Comentário é a melhor evidência que
+    existe quando o arquivo é um `CLAUDE.md` com os comandos de subida — e ` ```bash ` não é
+    comentário, é delimitador que não prova nada. A pergunta ficou mais estreita: a linha tem
+    conteúdo? Mediu **1 em 198**, e esse 1 é o caso real: `README.md:12` apontando a cerca de
+    um bloco cuja primeira linha de comando está na 13.
+  - **O agente cita a saída da própria skill.** Numa das três, duas afirmações sobre o projeto
+    tinham `docs/project/inventory.json` como evidência. O leitor do documento é mandado
+    conferir um arquivo que a skill escreveu, e a guarda do `build.py` aceita — porque o
+    arquivo existe mesmo.
+
+  São **sete conferências**: saída da própria skill · linha sem conteúdo · seção vazia · parte
+  da narrativa vazia · percurso que não atravessa camada · arquivo do mapa de perigo sem uma
+  frase · centro do grafo de import sem uma frase. Mais o relato da recusa dura do `build.py`,
+  adiantada chamando a função dele — nunca uma cópia, para a guarda e o aviso envelhecerem
+  juntos.
+
+  Rodando no material real, **cinco defeitos do próprio relatório apareceram lendo a saída**,
+  nenhum deles pego por teste: o percurso sem camada ganhava um segundo diagnóstico inventado
+  («4 passos, todos em `?`») embaixo da recusa dura que já dizia a mesma coisa; o corte do
+  texto em 58 caracteres fazia `"copiar .env."` parecer o fim da frase do agente; o arquivo
+  mais importado era cobrado duas vezes, com números diferentes, quando também estava no mapa
+  de perigo; a lista de cobrança não tinha teto; e o relatório mostrava a recusa com cabeçalho
+  e os achados sem nenhum.
+
+  E o limite, escrito no `SKILL.md` e na saída do próprio script: **"nada a apontar" não é
+  "está certo"**. As sete olham citação, cobertura e estrutura — não olham se a frase diz algo
+  que o leitor não saberia sozinho. Contra a frase fluente, verdadeira e inútil continua
+  existindo uma guarda só, o `trecho` literal, e ela cobre uma parte do documento.
+
+  510 testes · 21/21 mutações pegas.
+
 - `sw-codebase-guide` (v0.14.0): **o documento diz o que mudou desde a rodada anterior.** Ele
   regenera do zero a cada execução, e por isso calava sobre a própria mudança: quem já tinha
   lido relia tudo para descobrir que um arquivo entrou no mapa de perigo. O `scan.py` passa a

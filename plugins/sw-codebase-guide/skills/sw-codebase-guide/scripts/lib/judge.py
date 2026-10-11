@@ -54,7 +54,7 @@ PALAVRAS_DE_CREDENCIAL = ('secret', 'token', 'password', 'passwd', 'senha', 'key
                           'apikey', 'api_key', 'private', 'credential', 'auth')
 
 
-def _eh_teste(caminho: str) -> bool:
+def eh_teste(caminho: str) -> bool:
     c = caminho.lower()
     return ('test' in c or 'spec' in c or '__tests__' in c) and 'contest' not in c
 
@@ -96,14 +96,14 @@ def onde_e_perigoso(inv: dict, por_arquivo: dict) -> list:
     universo = inv.get('caminhos_do_projeto') or []
     nomes_de_teste = set()
     for c in universo:
-        if _eh_teste(c):
+        if eh_teste(c):
             p_teste = Path(c)
             base = p_teste.stem.lower().replace('.test', '').replace('.spec', '')
             nomes_de_teste.add((base, p_teste.suffix.lower()))
 
     achados = []
     for caminho, quem in dependentes.items():
-        if _eh_teste(caminho) or len(quem) < MIN_DEPENDENTES:
+        if eh_teste(caminho) or len(quem) < MIN_DEPENDENTES:
             continue
         mudancas = (por_arquivo.get(caminho) or {}).get('commits', 0)
         if mudancas < MIN_COMMITS:
@@ -142,7 +142,7 @@ def sem_alcance(inv: dict, ultima_mudanca: dict, agora=None) -> list:
     achados = []
     for item in inv['arvore']:
         caminho = item['caminho']
-        if item['gerado'] or _eh_teste(caminho) or caminho in alcancados:
+        if item['gerado'] or eh_teste(caminho) or caminho in alcancados:
             continue
         nome = Path(caminho).name.lower()
         if (nome.endswith(ENTRADAS_POR_CONVENCAO) or '.config.' in nome
@@ -222,7 +222,7 @@ def dossie_de_decisao(inv: dict) -> dict:
     retrato = inv.get('retrato') or {}
     universo = inv.get('caminhos_do_projeto') or []
     codigo = [a for a in inv['arvore'] if eh_codigo(linguagem_de(Path(a['caminho'])))]
-    testes = sum(1 for c in universo if _eh_teste(c))
+    testes = sum(1 for c in universo if eh_teste(c))
     resolucao = inv['imports'].get('resolucao') or {}
     return {
         'autores': retrato.get('autores'),

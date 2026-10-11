@@ -142,3 +142,25 @@ def test_o_numeral_da_lista_de_chaves_bate_com_o_inventario():
     # Assert
     assert quantas == real, (f'o SKILL.md escreve {quantas} chaves de primeiro nível '
                              f'e o inventário grava {real}')
+
+
+def test_o_numeral_das_conferencias_bate_com_o_codigo():
+    """O mesmo defeito que o agente limpo achou em "três guardas" seguido de uma
+    lista de quatro: numeral em prosa envelhece em silêncio a cada conferência
+    nova, e é por ele que o agente decide se leu a lista inteira."""
+    # Arrange
+    import re
+    import sys
+    sys.path.insert(0, str(SKILL.parent / 'scripts'))
+    from lib import review
+    texto = SKILL.read_text('utf-8')
+    escrito = re.search(r'\*\*(\w+(?: e \w+)?)\sconferências\*\*', texto)
+    assert escrito, 'a frase das conferências perdeu o numeral em negrito'
+    # Act
+    quantas = {'cinco': 5, 'seis': 6, 'sete': 7, 'oito': 8, 'nove': 9,
+               'dez': 10, 'onze': 11, 'doze': 12}.get(escrito.group(1).lower())
+    # Assert
+    assert quantas, f'numeral não reconhecido: {escrito.group(1)!r}'
+    assert quantas == len(review.CONFERENCIAS), (
+        f'o SKILL.md escreve {quantas} conferências e o check.py roda '
+        f'{len(review.CONFERENCIAS)}')

@@ -371,6 +371,49 @@ evidencia = ["CLAUDE.md"]
 **README é `declarado`, nunca `fato`.** Se o README discorda do `docker-compose`, mostre os
 dois — a divergência é um dos achados mais úteis para quem acabou de receber o projeto.
 
+### 2b. Conferir a interpretação — antes de montar
+
+```bash
+python3 <skill-dir>/scripts/check.py --dir docs/project --projeto .
+```
+
+Não escreve nada e não recusa nada: lista o que está fraco e devolve **1** quando achou algo,
+**0** quando não achou, **2** quando não conseguiu conferir. **Rode com `--projeto`** — sem ele
+a conferência da linha citada não acontece, e é a única que abre o arquivo; o relatório diz
+isso em "não conferido", nunca em silêncio.
+
+Ela adianta a recusa dura do `build.py` — chamando a função dele, nunca uma cópia, para a
+guarda e o aviso envelhecerem juntos — e cobra **sete conferências** que nenhuma recusa cobre:
+
+| Conferência | O que ela pega |
+|---|---|
+| saída da própria skill | `evidencia = ["docs/project/inventory.json"]`: circular, e o `build.py` aceita porque o arquivo existe mesmo |
+| linha sem conteúdo | a guarda do `build.py` confere o **intervalo**; `README.md:12` apontando ` ```bash ` passa |
+| seção vazia | das quatro do relatório técnico |
+| parte vazia | das quatro da narrativa |
+| percurso plano | passos todos na mesma camada: não é caminho pelo sistema, é prosa sobre uma pasta |
+| perigo sem frase | o documento estampa nome, dependentes e mudanças; a interpretação é o que diz o que fazer com isso |
+| centro do grafo sem frase | o arquivo mais importado do recorte, sem uma linha a respeito |
+
+Três coisas que ela **não** faz, cada uma decidida medindo contra três interpretações reais
+escritas por agente contra projeto real (80 afirmações, 46 blocos, 198 citações com linha):
+
+- **Evidência genérica não é defeito.** Cobrar afirmação cuja evidência é só pasta, ou só
+  arquivo sem linha, apontaria doze itens — e quase todos estão certos: *"não é um projeto, são
+  cinco repositórios justapostos"* citando as cinco pastas é a evidência exata. Bronca injusta
+  ensina a ignorar a ferramenta.
+- **Pasta citada endereça o arquivo, até um tamanho.** `src/identity/`, com 8 arquivos, diz
+  onde o arquivo está; `backend/`, com 430, diz em que repositório ele mora. Contar a pasta
+  grande zerava a cobrança exatamente no projeto onde ela é verdadeira.
+- **"Nada a apontar" não é "está certo".** Ela olha citação, cobertura e estrutura — **não**
+  olha se a frase diz algo que o leitor não saberia sozinho. Contra a frase fluente, verdadeira
+  e inútil continua existindo uma guarda só: o `trecho` literal do `o-que-e`.
+
+E a honestidade sobre a própria medição: a conferência da linha achou **1 em 198**, e isso não
+mede raridade. O agente limpo da v0.13.0 relatou ter citado linha em branco e conferido as 60+
+citações à mão antes de montar — o material em disco é pós-correção, e medição não vê o que foi
+consertado antes de salvar.
+
 ### 3. Montar o documento
 
 ```bash
@@ -507,6 +550,10 @@ reunião, mensagem para o cliente ou issue. O documento sozinho não marca conve
   ele é a rodada imediatamente anterior: não há série temporal, e varrer três vezes num dia perde
   a rodada da semana passada. Gravando a saída fora do repositório do projeto — que é o padrão —,
   a comparação existe enquanto aquele diretório existir.
+- **A conferência da interpretação não lê o texto.** Ela olha citação, cobertura e estrutura;
+  a frase fluente, verdadeira e inútil passa pelas sete. A única guarda contra essa é o `trecho`
+  literal, e ele cobre uma parte do documento só. Ela também não confere **se** a evidência
+  sustenta a frase — só que ela existe, aponta o projeto e tem conteúdo na linha.
 - **Sem configuração de stack por TOML.** Manifestos, extensões e convenções de caminho são os
   que estão no código dos módulos; stack de nicho não é reconhecida.
 - **Sem extração de regra de negócio** — só propósito com fonte textual citada.
