@@ -170,6 +170,10 @@ def _relatorio_sem_achado_critico():
     r = relatorio()
     for a in r["alvos"]:
         a["achados"] = [dict(x, severidade="low") for x in (a.get("achados") or [])]
+    # "Se isto falhar" só existe com ponto de impacto, e é dele que o teste de ordem fala
+    r["alvos"][0]["fatos"] = {"impact_points": [
+        {"cenario": "Se o nó manager cair", "consequencia": "o ingress cai junto",
+         "impacto": "alto", "esforco": "alto", "alvos": ["traefik"]}]}
     return r
 
 
@@ -197,3 +201,44 @@ def test_alvo_nao_confirmado_aparece_com_o_nome_dele():
     html = br._pendencias_novo(r["alvos"])
 
     assert "<b>site</b>" in html
+
+
+# --------------------------------------------------------------- os quatro movimentos
+def test_cada_secao_declara_o_movimento_a_que_pertence():
+    html = br.render_html_v3(_relatorio_sem_achado_critico())
+    movs = dict(re.findall(r'<section class="sec[^"]*" id="([^"]+)" data-mov="([^"]*)"', html))
+
+    assert movs.get("o-que-fazer-primeiro") == "decidir"
+    assert movs.get("se-isto-falhar") == "decidir"
+    assert movs.get("riscos-aceitos") == "registrar"
+    assert all(m in {"decidir", "medir", "consertar", "registrar"} for m in movs.values()), movs
+
+
+def test_a_decisao_vem_antes_da_medida():
+    """"Se isto falhar" ficava depois de "Instrumentos", no meio do bloco de medição — e é
+    a seção que mais se parece com uma decisão em todo o documento. Com a lombada colorida
+    isso virava um salto de tom no meio do movimento."""
+    html = br.render_html_v3(_relatorio_sem_achado_critico())
+
+    assert html.index('id="se-isto-falhar"') < html.index('id="cluster"')
+
+
+def test_o_movimento_nao_usa_a_cor_da_gravidade():
+    """A paleta já gasta vermelho, âmbar e verde em severidade. Se o movimento também pedir
+    matiz, as duas coisas competem pelo mesmo sinal — e quem perde é a gravidade, que é a
+    única das duas que muda o que se faz hoje. A escada anda em `--acc` e só nele."""
+    css = TPL.read_text(encoding="utf-8")
+    bloco = re.search(r'\[data-mov="decidir"\].*?\[data-mov="registrar"\][^}]*\}', css, re.S)
+
+    assert bloco, "o bloco dos movimentos sumiu do template"
+    for proibida in ("--crit", "--warn", "--ok"):
+        assert proibida not in bloco.group(0), f"{proibida} é cor de gravidade, não de movimento"
+
+
+def test_o_indice_agrupa_as_secoes_pelo_movimento():
+    html = br.render_html_v3(_relatorio_sem_achado_critico())
+    idx = html[html.index('<div class="idx">'):]
+    idx = idx[:idx.index("</div>\n\n")] if "</div>\n\n" in idx else idx[:6000]
+
+    assert 'data-mov="decidir"' in idx and "Decidir" in idx
+    assert 'data-mov="registrar"' in idx and "Registrar" in idx

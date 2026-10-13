@@ -1482,16 +1482,33 @@ def _ancora(titulo):
     return re.sub(r"[^a-z0-9]+", "-", plano.lower()).strip("-") or "secao"
 
 
-def _sec(icone, titulo, sub, corpo, classe="", ident=None):
+# Os quatro movimentos do documento, na ordem em que ele os pede. O rotulo e o que a
+# pessoa responde depois de ler a parte: "eu decidi", "eu sei o tamanho", "eu sei o que
+# consertar", "eu registrei".
+#
+# Eles ganham UMA matiz — a da marca — em quatro intensidades, e so ela. A paleta ja
+# gasta vermelho, ambar e verde em GRAVIDADE: se o movimento tambem pedir matiz, as duas
+# coisas competem pelo mesmo sinal e nenhuma e lida. Por isso a navegacao anda no eixo da
+# intensidade e a gravidade continua dona da cor.
+MOVIMENTOS = (("decidir", "Decidir", "o que você faz com isto na segunda-feira"),
+              ("medir", "Medir", "o tamanho do que existe, com a fonte de cada número"),
+              ("consertar", "Consertar", "o achado e o passo a passo, por regra"),
+              ("registrar", "Registrar", "o retrato, para comparar na próxima rodada"))
+
+
+def _sec(icone, titulo, sub, corpo, classe="", ident=None, mov=""):
     """Toda secao tem o mesmo cabecalho: icone, titulo e a linha que diz o que ele mede.
 
     E uma ancora. O sumario do topo e clicavel TAMBEM no PDF — o Chromium converte
     href interno em destino de pagina —, entao quem recebe o arquivo navega sem rolar
     41 paginas. Secao sem id quebra isso calada.
+
+    `mov` e o movimento a que ela pertence: ele pinta a lombada e o titulo, e e o que o
+    indice usa para agrupar. Sem ele a secao fica neutra — nao quebra nada.
     """
     if not corpo:
         return ""
-    return (f'<section class="sec" id="{_e(ident or _ancora(titulo))}">'
+    return (f'<section class="sec" id="{_e(ident or _ancora(titulo))}" data-mov="{_e(mov)}">'
             f'<div class="sh {classe}"><span class="box">{_ic(icone)}</span>'
             f'<h2>{_e(titulo)}</h2><span class="sub">{_e(sub)}</span></div>'
             f'<div class="conteudo">{corpo}</div></section>')
@@ -1979,7 +1996,8 @@ def _achado_bloco(regra, itens, completo):
 # leria o padrao escrito ao pe da letra como se o renderizador emitisse uma classe
 # chamada `sec[^`.
 _PADRAO_DE_SECAO = re.compile(
-    r'<section class=[\'"]sec[^\'"]*[\'"] id=[\'"]([^\'"]+)[\'"]>.*?<h2>(.*?)</h2>', re.S)
+    r'<section class=[\'"]sec[^\'"]*[\'"] id=[\'"]([^\'"]+)[\'"] data-mov=[\'"]([^\'"]*)[\'"]>'
+    r'.*?<h2>(.*?)</h2>', re.S)
 
 
 def _secoes_do_documento(*blocos):
@@ -1991,8 +2009,8 @@ def _secoes_do_documento(*blocos):
     """
     achadas = []
     for bloco in blocos:
-        for ident, titulo in _PADRAO_DE_SECAO.findall(bloco or ""):
-            achadas.append((ident, re.sub(r"<[^>]+>", "", titulo).strip()))
+        for ident, mov, titulo in _PADRAO_DE_SECAO.findall(bloco or ""):
+            achadas.append((ident, mov, re.sub(r"<[^>]+>", "", titulo).strip()))
     return achadas
 
 
@@ -2023,19 +2041,40 @@ def _indice(triagem, presentes=(), secoes=()):
     faixas = f'<ol class="porfaixa">{"".join(itens)}</ol>'
     if not secoes:
         return faixas
-    links = "".join(f'<li><a href="#{_e(ident)}">{_e(titulo)}</a></li>'
-                    for ident, titulo in secoes)
+    # As seções entram AGRUPADAS pelo movimento, e é aqui que a lombada colorida do corpo
+    # ganha legenda: sem isto o leitor vê quatro tons de azul e não sabe o que separam.
+    por_mov, soltas = {}, []
+    for ident, mov, titulo in secoes:
+        if mov:
+            por_mov.setdefault(mov, []).append((ident, titulo))
+        else:
+            soltas.append((ident, titulo))
+    grupos = []
+    for chave, rotulo, linha in MOVIMENTOS:
+        if not por_mov.get(chave):
+            continue
+        links = "".join(f'<li><a href="#{_e(i)}">{_e(t)}</a></li>'
+                        for i, t in por_mov[chave])
+        grupos.append(f'<div class="mov" data-mov="{chave}">'
+                      f'<p class="mov-h"><i></i><b>{_e(rotulo)}</b>'
+                      f'<em>{_e(linha)}</em></p>'
+                      f'<ol class="porsecao">{links}</ol></div>')
+    if soltas:
+        grupos.append('<div class="mov"><ol class="porsecao">'
+                      + "".join(f'<li><a href="#{_e(i)}">{_e(t)}</a></li>' for i, t in soltas)
+                      + "</ol></div>")
     return (f'{faixas}<p class="idx-h idx-h2">'
             f'{_plural(len(secoes), "seção, nesta ordem", "seções, nesta ordem")}</p>'
-            f'<ol class="porsecao">{links}</ol>')
+            f'<div class="movs">{"".join(grupos)}</div>')
 
 
-def _faixa(n, rotulo, resumo, quando, corpo):
+def _faixa(n, rotulo, resumo, quando, corpo, mov=""):
     """A banda que abre cada faixa de acao. Sem corpo ela nao existe: banda vazia
     anunciando nada e pior que ausencia."""
     if not corpo:
         return ""
-    return (f'<div class="faixa f{n}" id="faixa-{n}"><div class="fxh"><h2>{_e(rotulo)}</h2>'
+    return (f'<div class="faixa f{n}" id="faixa-{n}" data-mov="{_e(mov)}">'
+            f'<div class="fxh"><h2>{_e(rotulo)}</h2>'
             f'<span class="q">{_e(resumo)}</span>'
             f'<span class="quando">{_e(quando)}</span></div>{corpo}</div>')
 
@@ -2248,23 +2287,27 @@ def render_html_v3(r):
     # tinha corpo. Numa rodada real sem nenhum achado critico, as 8 recomendacoes —
     # com comando pronto, o conteudo mais acionavel do documento — nao apareceram em
     # nenhuma das 31 paginas. Elas abrem o relatorio: e a resposta a "o que eu faco".
+    # A ordem segue o movimento: as duas seções de DECISÃO primeiro, juntas, e só depois
+    # as de medida. "Se isto falhar" vinha depois de "Instrumentos", no meio do bloco de
+    # medição — e é a seção que mais se parece com uma decisão em todo o documento.
     cluster = (
         _sec("corrigir", "O que fazer primeiro",
              "a leitura do agente sobre os fatos, com o comando pronto para exibir",
-             _recomendacoes_novo(ctx["recomendacoes"]))
+             _recomendacoes_novo(ctx["recomendacoes"]), mov="decidir")
+        + _sec("falhar", "Se isto falhar", "consequência a partir do que existe hoje",
+               _impacto(((principal or {}).get("fatos") or {}).get("impact_points")),
+               mov="decidir")
         + _sec("cluster", "Cluster", _e(f'{len((principal or {}).get("fatos", {}).get("nodes") or [])} nós · '
                                       f'{t["total"]} achados nesta rodada'),
              _kpis_novo(principal, t) + _dimensoes_novo(principal)
-             + _divergencias(principal or {}) + _cascata(cascata(t)))
+             + _divergencias(principal or {}) + _cascata(cascata(t)), mov="medir")
         + _sec("metrica", "Instrumentos", "mostrador só onde a pergunta declara faixa",
-               _instrumentos(alvos))
-        + _sec("falhar", "Se isto falhar", "consequência a partir do que existe hoje",
-               _impacto(((principal or {}).get("fatos") or {}).get("impact_points")))
+               _instrumentos(alvos), mov="medir")
         + _sec("no", "Nós e capacidade", "o que cada nó carrega",
                _nos_novo(((principal or {}).get("fatos") or {}).get("nodes"))
                + _node_failures(((principal or {}).get("fatos") or {}).get("nodes") or [])
                + _disk(((principal or {}).get("fatos") or {}).get("disk"))
-               + _tls(((principal or {}).get("fatos") or {}).get("tls")))
+               + _tls(((principal or {}).get("fatos") or {}).get("tls")), mov="medir")
     )
 
     # ------------------------------------------------------------- faixa 1
@@ -2275,7 +2318,7 @@ def render_html_v3(r):
         corpo_agir = '<p class="sub2">O achado e o runbook completo</p>' + corpo_agir
     faixa1 = _faixa(1, "Agir agora",
                     f'{len(_agrupar_por_regra(agir))} regra(s) · {_plural(len(agir), "ocorrência", "ocorrências")}',
-                    "o prejuízo cresce enquanto você lê", corpo_agir)
+                    "o prejuízo cresce enquanto você lê", corpo_agir, mov="consertar")
 
     # ------------------------------------------------------------- faixa 2
     prog = t["faixas"]["programar"]["achados"]
@@ -2283,35 +2326,37 @@ def render_html_v3(r):
                          for regra, itens in _agrupar_por_regra(prog))
     faixa2 = _faixa(2, "Programar",
                     f'{len(_agrupar_por_regra(prog))} regra(s) · {_plural(len(prog), "achado", "achados")}',
-                    "tem conserto conhecido e cabe numa janela", corpo_prog)
+                    "tem conserto conhecido e cabe numa janela", corpo_prog, mov="consertar")
 
     # ------------------------------------------------------------- faixa 3
     reg = t["faixas"]["registrar"]["achados"]
     pend, aceites = _pendencias_novo(alvos), _aceites_novo(ctx["aceites"])
     corpo_reg = (
         _sec("bom", "Pontos positivos e negativos", "cada um com a evidência que o sustenta",
-             _pontos(ctx["fortes"], ctx["fracos"]))
+             _pontos(ctx["fortes"], ctx["fracos"]), mov="registrar")
         + _sec("aplicacoes", "Por aplicação", "as rotas que o proxy entrega em cada stack",
                _aplicacoes_stack((principal or {}).get("fatos"),
-                                 (principal or {}).get("components_analysis")))
+                                 (principal or {}).get("components_analysis")), mov="medir")
         + _sec("rede", "Redes, secrets e configs", "inventário — só o nome, nunca o valor",
-               _rede_e_segredos((principal or {}).get("fatos")))
-        + _sec("aplicacoes", "Topologia — sistemas por camada",
+               _rede_e_segredos((principal or {}).get("fatos")), mov="medir")
+        + _sec("aplicacoes", "Topologia · sistemas por camada",
                "recebe · processa · enfileira · guarda · observa",
-               _camadas((principal or {}).get("componentes")))
+               _camadas((principal or {}).get("componentes")), mov="medir")
         + _sec("cobertura", "Práticas e higiene",
                _plural(len(reg), "achado sem prazo", "achados sem prazo"),
                "".join(_achado_bloco(regra, itens, completo=False)
-                       for regra, itens in _agrupar_por_regra(reg)))
-        + _sec("aceito", "Riscos aceitos", "decididos pelo dono, com data de revisão", aceites)
+                       for regra, itens in _agrupar_por_regra(reg)), mov="consertar")
+        + _sec("aceito", "Riscos aceitos", "decididos pelo dono, com data de revisão",
+               aceites, mov="registrar")
         + _sec("metrica", "O que falta declarar",
-               "silêncio com causa: resolver é editar o alvos.toml", pend)
+               "silêncio com causa: resolver é editar o alvos.toml", pend, mov="registrar")
         + _sec("historico", "Desde a auditoria anterior",
-               "o que mudou entre as duas fotografias", _historico_novo(ctx["historico"]))
+               "o que mudou entre as duas fotografias", _historico_novo(ctx["historico"]),
+               mov="registrar")
     )
     faixa3 = _faixa(3, "Registrar e seguir",
                     _plural(len(reg), "achado", "achados"),
-                    "o retrato, para comparar na próxima rodada", corpo_reg)
+                    "o retrato, para comparar na próxima rodada", corpo_reg, mov="registrar")
 
     resumo = (_rich(ctx["resumo"]) if ctx["resumo"]
               else f'<p>{_e(nota["porque"].capitalize())}.</p>')

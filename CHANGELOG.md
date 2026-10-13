@@ -47,6 +47,26 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   nomes de secret que antes não cabiam. 13 testes novos (1.155 no total) seguram cada um dos
   cinco achados.
 
+  **E o documento ganhou quatro movimentos, separados por cor:** `Decidir` (o que fazer, o que
+  cai se falhar) · `Medir` (cluster, nós, aplicações, topologia) · `Consertar` (as faixas de
+  achado, as práticas) · `Registrar` (pontos, riscos aceitos, o que falta, o histórico). Cada um
+  pinta a lombada da seção e o título dela, e o índice os usa para agrupar — é ali que a lombada
+  ganha legenda.
+
+  A escada anda numa **matiz só**, a da marca, do azul fechado ao azul lavado. Não é escolha
+  estética: a paleta já gasta matiz em **gravidade** (vermelho `alto`, âmbar `médio`, verde
+  `ok`), e dar matiz também ao movimento põe as duas coisas disputando o mesmo sinal — num
+  documento de cinquenta páginas quem perde a disputa é a gravidade, a única das duas que muda o
+  que se faz hoje. Navegação anda na **intensidade**; gravidade fica com a **cor**. Um teste
+  recusa `--crit`, `--warn` e `--ok` dentro do bloco dos movimentos, para isso não voltar por
+  descuido. "Se isto falhar" subiu para junto de "O que fazer primeiro": era a seção mais
+  parecida com uma decisão em todo o documento e estava no meio do bloco de medição.
+
+  Três sistemas de cor foram desenhados sobre o documento inteiro e comparados lado a lado antes
+  da escolha; a primeira versão do escolhido misturava acento com cinza em quatro proporções e os
+  quatro tons saíram a um passo um do outro — indistinguíveis no índice. A rampa passou a andar
+  no claro. 4 testes a mais (1.159 no total).
+
 - `sw-codebase-guide` (v0.15.0): **a interpretação passou a ser conferida antes de montar o
   documento.** O `check.py` roda entre escrever o `interpretation.toml` e rodar o `build.py`:
   não escreve nada, não recusa nada, lista o que está fraco e devolve 1 quando achou algo. O

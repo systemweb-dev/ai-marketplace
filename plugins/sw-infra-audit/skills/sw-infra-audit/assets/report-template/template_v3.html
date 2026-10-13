@@ -826,9 +826,54 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var
 .tsis th{padding:10px 16px}
 .tsis td b{font:500 12.8px/1.4 var(--mono);color:var(--tinta);font-weight:500}
 
-/* --- o indice tambem lista as SECOES: treze delas em 31 paginas --- */
+/* =======================================================================
+   OS QUATRO MOVIMENTOS: DECIDIR, MEDIR, CONSERTAR, REGISTRAR.
+   Uma matiz so — a da marca — em quatro intensidades, na lombada da secao
+   e no titulo dela. E so nisso.
+
+   A razao de nao usar quatro CORES e que a paleta ja gastou matiz em
+   GRAVIDADE: vermelho quer dizer "alto", ambar "medio", verde "ok". Dar
+   matiz tambem ao movimento poe as duas coisas disputando o mesmo sinal, e
+   num documento de cinquenta paginas quem perde a disputa e a gravidade —
+   que e a unica das duas que muda o que voce faz hoje. Entao a navegacao
+   anda no eixo da INTENSIDADE e a gravidade fica com a cor.
+   ======================================================================= */
+/* A rampa anda no CLARO, nao na saturacao. A primeira versao misturava o
+   acento com o cinza em quatro proporcoes e os quatro tons sairam a um
+   passo de distancia um do outro: lado a lado no indice, ninguem
+   distinguia. Misturar com o PAPEL (e, no primeiro, com a tinta) abre a
+   escada de verdade — do azul fechado ao azul lavado. */
+[data-mov="decidir"]{--mov:color-mix(in srgb,var(--acc) 78%,var(--tinta));--mov-txt:var(--mov)}
+[data-mov="medir"]{--mov:var(--acc);--mov-txt:var(--mov)}
+[data-mov="consertar"]{--mov:color-mix(in srgb,var(--acc) 55%,var(--papel));
+ --mov-txt:color-mix(in srgb,var(--acc) 78%,var(--fraco))}
+[data-mov="registrar"]{--mov:color-mix(in srgb,var(--acc) 28%,var(--papel));
+ --mov-txt:var(--fraco)}
+/* o TEXTO nunca usa o tom da lombada: no fim da rampa ele e claro demais
+   para ler. `--mov-txt` existe so para isso, e os dois andam juntos. */
+section.sec[data-mov]{border-left:4px solid var(--mov,transparent)}
+section.sec[data-mov=""]{border-left:0}
+section.sec[data-mov] .sh h2{color:var(--mov-txt)}
+/* a faixa ja tinha lombada propria: ela passa a dizer o movimento tambem */
+.faixa[data-mov]{border-left-color:var(--mov)}
+
+/* --- o indice lista as SECOES agrupadas pelo movimento: e a legenda da
+       lombada. Sem ela o leitor ve quatro azuis e nao sabe o que separam --- */
 .idx-h2{margin-top:var(--s5)}
-.idx ol.porsecao{grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:2px var(--s4)}
+/* os quatro movimentos lado a lado quando ha largura. `auto-fit` colapsa a
+   trilha vazia, entao quatro itens viram quatro colunas iguais — e em papel
+   estreito eles descem para duas sem regra nova. A regra mora AQUI, no fim
+   da folha: declarada junto das outras grades de paisagem, ela era
+   sobrescrita por esta, que vem depois. */
+.movs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+ gap:var(--s4) var(--s5)}
+.mov{break-inside:avoid}
+.mov-h{display:grid;grid-template-columns:3px auto;gap:3px 10px;align-items:center;
+ margin-bottom:var(--s2)}
+.mov-h>i{align-self:stretch;border-radius:2px;background:var(--mov,var(--fio))}
+.mov-h b{font:700 14px/1.2 var(--disp);color:var(--mov-txt,var(--tinta));letter-spacing:.01em}
+.mov-h em{grid-column:2;font-style:normal;font-size:12.4px;line-height:1.45;color:var(--fraco)}
+.idx ol.porsecao{display:block}
 .porsecao li{display:block;padding:5px 0;border-top:1px solid var(--linha)}
 .porsecao li a{font-size:14px;color:var(--tinta2)}
 .porsecao li a:hover{color:var(--acc)}

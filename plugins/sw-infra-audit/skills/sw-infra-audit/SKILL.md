@@ -315,6 +315,18 @@ contagem na frente. Numa rodada real isso era a mesma frase impressa 61, 49, 34 
 componentes respondiam só `CPU em uso` e `memória em uso`: em cartão, são setenta números que
 não dá para comparar; em coluna, o maior salta aos olhos.
 
+**O documento tem quatro movimentos, e a cor é o que os separa.** `Decidir` (o que fazer e o
+que cai se falhar) · `Medir` (cluster, nós, aplicações, topologia) · `Consertar` (as faixas de
+achado e as práticas) · `Registrar` (pontos, riscos aceitos, o que falta, o histórico). Cada um
+pinta a **lombada** da seção e o título dela, e o índice os usa para agrupar — é ali que a
+lombada ganha legenda.
+
+Eles andam numa **matiz só** — a da marca —, numa escada do azul fechado ao azul lavado. A
+razão não é estética: a paleta já gasta matiz em **gravidade** (vermelho `alto`, âmbar `médio`,
+verde `ok`), e dar matiz também ao movimento põe as duas coisas disputando o mesmo sinal. Num
+documento de cinquenta páginas quem perde a disputa é a gravidade — a única das duas que muda o
+que você faz hoje. Navegação anda no eixo da **intensidade**; gravidade fica com a **cor**.
+
 **O relatório é organizado por AÇÃO, não por gravidade.** Três faixas, nesta ordem:
 
 | Faixa | O que cai nela | O que ela promete |
