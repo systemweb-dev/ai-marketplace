@@ -8,6 +8,45 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.17.0): **o relatório diz cada coisa uma vez — e o PDF voltou ao tamanho
+  em que foi desenhado.** A rodada que motivou isto tem 61 serviços, 189 achados e 31 páginas.
+  Lida com atenção, ela mostrou cinco coisas, e nenhuma delas era "o CSS está feio":
+
+  - **O PDF inteiro saía a dois terços do tamanho.** Uma `<div class="tags">` com 68 nomes de
+    secret emitia `<span>…</span><span>…</span>` **sem espaço entre as tags** — e sem espaço o
+    navegador não tem ponto de quebra. A linha ficava com 13.007 px, o Chromium encolhia o
+    documento todo para tentar encaixá-la, e ainda assim cortava as etiquetas a partir da
+    terceira. Medido nos glifos da página 1: 9,75 pt contra os 14,62 pt do desenho. A regra de
+    quebra agora vale para toda `.tags`, não só a de dentro do `.rec`.
+  - **As recomendações do agente não apareciam.** Elas eram renderizadas dentro da faixa "Agir
+    agora" e só quando ela tinha corpo. Numa rodada sem nenhum achado crítico — que é a rodada
+    boa — as oito recomendações, com comando pronto, não saíam em nenhuma das 31 páginas. Agora
+    abrem o relatório, em **"O que fazer primeiro"**.
+  - **A mesma frase era impressa uma vez por linha.** Em 6 das 9 regras o `detalhe` era idêntico
+    em todas as ocorrências: `container roda como root (user root/uid 0 ou USER ausente)` saía
+    61 vezes, `sem HEALTHCHECK definido` 49, `sem limite de CPU/memória` 34 — 144 dos 189
+    achados. O texto que vale para todas descreve a **regra**, não a ocorrência: subiu uma vez
+    para o cabeçalho, e a lista ficou só com os nomes. O detalhe que **varia** (`4 task(s)
+    falharam` contra `20 task(s)`) continua linha a linha — agrupar o que difere seria esconder.
+    Mesmo tratamento para as 79 perguntas sem resposta, que carregavam **3** motivos.
+  - **Trinta e cinco componentes respondiam dois números e ganhavam um cartão de 366 px cada.**
+    Nove páginas para setenta números, e nenhuma forma de comparar o consumo entre eles — que é
+    a única pergunta que alguém faz olhando essa lista. Viraram uma tabela; o worker de 609 MB
+    agora salta aos olhos.
+  - **Duas unidades no mesmo lugar.** Em "Se isto falhar", a coluna da direita trazia ou `alto`
+    ou `8 serviços`, no mesmo corpo e na mesma cor. A gravidade é o eixo comum e ficou em cima,
+    com cor por grau; o tamanho virou a legenda dela. Nas recomendações, `alto` e `medio` eram
+    impacto e esforço sem rótulo nenhum: agora dizem qual é qual.
+
+  Também: o índice do topo anuncia **as treze seções**, não só as três faixas de ação; e o alvo
+  não confirmado aparece **com o nome**, em vez de três linhas idênticas sem sujeito.
+
+  O PDF foi de 31 para 51 páginas, e isso é o conserto, não o custo: as 31 páginas eram o
+  documento espremido a 2/3 e com conteúdo cortado fora. No tamanho em que foi desenhado, a
+  mesma rodada daria ~70 páginas — as 51 são 27% a menos, **com** as recomendações e os 68
+  nomes de secret que antes não cabiam. 13 testes novos (1.155 no total) seguram cada um dos
+  cinco achados.
+
 - `sw-codebase-guide` (v0.15.0): **a interpretação passou a ser conferida antes de montar o
   documento.** O `check.py` roda entre escrever o `interpretation.toml` e rodar o `build.py`:
   não escreve nada, não recusa nada, lista o que está fraco e devolve 1 quando achou algo. O

@@ -296,7 +296,24 @@ python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM> -
 
 Gera `relatorio.html` — arquivo único, A4 **paisagem**, com as fontes embutidas em base64
 (o PDF é gerado sem rede). O índice do topo é **clicável também no PDF** — o Chromium converte
-as âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar.
+as âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar. Ele
+anuncia as **três faixas de ação e todas as seções**, com o link de cada uma: num documento de
+trinta e tantas páginas, anunciar só as faixas obriga a rolar atrás do resto.
+
+**O relatório abre com "O que fazer primeiro"** — as `recomendacoes` que você escreveu, com o
+comando pronto. Elas moravam dentro da faixa "Agir agora" e só apareciam quando ela tinha corpo:
+numa rodada sem nenhum achado crítico, as oito recomendações da auditoria não saíram em nenhuma
+das 31 páginas.
+
+**A frase que vale para todas as ocorrências é escrita uma vez.** Quando o `detalhe` é idêntico
+em todas as ocorrências de uma regra, ele descreve a **regra**, não a ocorrência, e sobe para o
+cabeçalho do bloco; a lista fica só com os nomes, em etiquetas que usam a largura do papel. O
+mesmo vale para o silêncio: as perguntas sem resposta são agrupadas **pelo motivo**, com a
+contagem na frente. Numa rodada real isso era a mesma frase impressa 61, 49, 34 e 55 vezes.
+
+**O sistema cuja medição inteira é número vira linha de tabela, não cartão.** Trinta e cinco
+componentes respondiam só `CPU em uso` e `memória em uso`: em cartão, são setenta números que
+não dá para comparar; em coluna, o maior salta aos olhos.
 
 **O relatório é organizado por AÇÃO, não por gravidade.** Três faixas, nesta ordem:
 

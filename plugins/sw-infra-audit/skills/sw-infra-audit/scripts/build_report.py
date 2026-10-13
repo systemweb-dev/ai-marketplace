@@ -1513,11 +1513,21 @@ def _impacto(pontos):
     linhas = []
     for p in ordenados:
         alvos = p.get("alvos") or []
-        peso = _plural(len(alvos), "serviço", "serviços") if alvos else (p.get("impacto") or "—")
+        # a coluna da direita trazia OU a gravidade ("alto") OU uma contagem
+        # ("8 serviços"), no mesmo tamanho e na mesma cor: duas unidades no mesmo lugar,
+        # e quem lia nao sabia se 8 era pior que "alto". A gravidade e o eixo comum e
+        # fica em cima; o tamanho, quando existe, vira a legenda dela.
+        quantos = (f'<em>{_e(_plural(len(alvos), "serviço", "serviços"))}</em>'
+                   if alvos else "")
+        impacto = str(p.get("impacto") or "—")
+        # `baixo` pintado de vermelho, do lado de `alto` no mesmo vermelho, apagava a
+        # unica distincao que a coluna faz
+        grau = {"alto": " alto", "medio": " medio", "médio": " medio"}.get(
+            impacto.lower(), " baixo")
         linhas.append(f'<div class="cen">{_ic("falhar")}<div>'
                       f'<p class="se">{_e(p.get("cenario"))}</p>'
                       f'<p class="en">{_e(p.get("consequencia"))}</p></div>'
-                      f'<span class="pk n">{_e(peso)}</span></div>')
+                      f'<span class="pk n{grau}">{_e(impacto)}{quantos}</span></div>')
     return f'<div class="cartao">{"".join(linhas)}</div>'
 
 
@@ -1561,6 +1571,80 @@ def _camadas(componentes):
             'o papel de cada componente, não quem chama quem.</p>')
 
 
+def _respostas_do_cartao(respostas):
+    """As respostas de um sistema, com o silencio agrupado pela CAUSA.
+
+    Num cartao real, tres perguntas descartadas pela mesma razao imprimiam o mesmo
+    paragrafo de vinte palavras tres vezes seguidas, dentro do mesmo cartao. O motivo
+    descreve a FONTE, nao a pergunta: vale uma vez, com os titulos na frente.
+
+    A medida vem primeiro e o silencio depois, de proposito: quem le o cartao quer o
+    numero, e o que nao foi medido e nota de rodape — nunca omissao.
+    """
+    from lib.perguntas import PERGUNTAS
+
+    medidas, mudas = [], {}
+    for r in respostas or []:
+        if r.get("sem_dados") or r.get("erro_interno"):
+            titulo = (PERGUNTAS.get(r.get("pergunta"), {}).get("titulo")
+                      or r.get("pergunta") or "—")
+            mudas.setdefault(str(r.get("motivo") or "—"), []).append(str(titulo))
+        else:
+            medidas.append(_resposta(r))
+    for motivo, titulos in mudas.items():
+        medidas.append(f'<div class="semdados"><b>{_e(" · ".join(titulos))}</b> — '
+                       f'{_e(motivo)}</div>')
+    return "".join(medidas)
+
+
+def _so_medidas_simples(componente):
+    """O sistema cuja medicao inteira cabe numa linha: sem analise, sem achado, e toda
+    resposta e um numero — nenhuma lista, nenhum silencio com motivo proprio."""
+    respostas = componente.get("respostas") or []
+    if not respostas or componente.get("analise") or componente.get("achados"):
+        return False
+    return all(not r.get("sem_dados") and not r.get("erro_interno")
+               and not isinstance(r.get("valor"), list) for r in respostas)
+
+
+def _tabela_de_sistemas(itens):
+    """Os sistemas cuja medicao e so numero, numa TABELA e nao num cartao cada.
+
+    Numa rodada real, 35 componentes respondiam exatamente `CPU em uso` e `memoria em
+    uso` — dois numeros. Cada um ganhava um cartao de 366px: nove paginas para setenta
+    numeros, e nenhuma forma de comparar o consumo entre eles, que e a unica pergunta
+    que alguem faz olhando essa lista. Em coluna, o maior salta aos olhos.
+    """
+    from lib.perguntas import PERGUNTAS
+
+    if not itens:
+        return ""
+    colunas, fontes = [], []
+    for c in itens:
+        for r in c.get("respostas") or []:
+            if r.get("pergunta") not in colunas:
+                colunas.append(r.get("pergunta"))
+            if r.get("fonte") and r["fonte"] not in fontes:
+                fontes.append(r["fonte"])
+    cabecalho = ["sistema"]
+    for p in colunas:
+        pergunta = PERGUNTAS.get(p, {})
+        unidade = pergunta.get("unidade")
+        cabecalho.append(f'{pergunta.get("titulo") or p}'
+                         + (f' ({unidade})' if unidade else ""))
+    linhas = []
+    for c in sorted(itens, key=lambda x: str(x.get("nome") or "")):
+        por_pergunta = {r.get("pergunta"): r for r in (c.get("respostas") or [])}
+        celulas = [f'<b>{_e(c.get("nome"))}</b>']
+        for p in colunas:
+            r = por_pergunta.get(p)
+            celulas.append(_numero(r.get("valor")) if r else "—")
+        linhas.append(celulas)
+    tabela = _table(cabecalho, linhas, aligns=[""] + ["num"] * len(colunas))
+    rodape = (f'<p class="corte">fonte: {_e(" · ".join(fontes))}</p>') if fontes else ""
+    return tabela.replace("<table>", '<table class="tsis">', 1) + rodape
+
+
 def _camada_bloco(titulo, papel, icone, itens):
     """Um cartao por sistema da camada.
 
@@ -1569,10 +1653,13 @@ def _camada_bloco(titulo, papel, icone, itens):
     e medidor so onde ha faixa declarada. Reimplementar isso aqui seria reabrir todas
     essas decisoes de novo, e errar pelo menos uma.
     """
-    cartoes, calados = [], 0
+    cartoes, calados, simples = [], 0, []
     for c in sorted(itens, key=lambda x: str(x.get("nome") or "")):
         achados = c.get("achados") or []
-        respostas = "".join(_resposta(r) for r in (c.get("respostas") or []))
+        if _so_medidas_simples(c):
+            simples.append(c)
+            continue
+        respostas = _respostas_do_cartao(c.get("respostas"))
         # `_rich` ja devolve <p>; embrulhar em <p> gera paragrafo dentro de paragrafo,
         # que o navegador fecha sozinho e desmonta o bloco
         analise = f'<div class="an">{_rich(c["analise"])}</div>' if c.get("analise") else ""
@@ -1595,16 +1682,19 @@ def _camada_bloco(titulo, papel, icone, itens):
     rodape = (f'<p class="corte">Outros {calados} nesta camada não receberam pergunta nesta '
               f'rodada — o motivo de cada um está em '
               f'<a href="#o-que-falta-declarar">O que falta declarar</a>.</p>') if calados else ""
-    if not cartoes:
+    tabela = _tabela_de_sistemas(simples)
+    if not cartoes and not tabela:
         return (f'<div class="camada"><p class="sub2">{_ic(icone)}{_e(titulo)} '
                 f'<em>0 de {len(itens)}</em></p>{rodape}</div>')
-    # o cabecalho conta o que a grade DESENHA; o resto vai no rodape, dito por extenso.
-    # Dizer "3 sistemas" e mostrar 1 cartao e o leitor procurando dois que nao existem.
-    quantos = (f'{len(cartoes)} de {len(itens)}' if calados
-               else _plural(len(cartoes), "sistema", "sistemas"))
+    # o cabecalho conta o que a camada DESENHA — cartao e linha de tabela —; o resto vai
+    # no rodape, dito por extenso. Dizer "3 sistemas" e mostrar 1 cartao e o leitor
+    # procurando dois que nao existem.
+    desenhados = len(cartoes) + len(simples)
+    quantos = (f'{desenhados} de {len(itens)}' if calados
+               else _plural(desenhados, "sistema", "sistemas"))
+    grade = f'<div class="sisgrid">{"".join(cartoes)}</div>' if cartoes else ""
     return (f'<div class="camada"><p class="sub2">{_ic(icone)}{_e(titulo)} '
-            f'<em>{quantos}</em></p>'
-            f'<div class="sisgrid">{"".join(cartoes)}</div>{rodape}</div>')
+            f'<em>{quantos}</em></p>{grade}{tabela}{rodape}</div>')
 
 
 def _imagem_curta(servico):
@@ -1667,8 +1757,9 @@ def _aplicacoes_stack(fatos, comp_an=None):
     comp_an = comp_an or {}
     cartoes = []
     for g in sorted(grupos, key=lambda x: str(x.get("stack") or "")):
-        servicos = []
-        for sv in sorted(g.get("services") or [], key=lambda x: str(x.get("name") or "")):
+        ordenados = sorted(g.get("services") or [], key=lambda x: str(x.get("name") or ""))
+        por_servico = []
+        for sv in ordenados:
             sinais = []
             if sv.get("has_healthcheck") is False:
                 sinais.append("sem healthcheck")
@@ -1677,10 +1768,22 @@ def _aplicacoes_stack(fatos, comp_an=None):
                 sinais.append("sem limites")
             if sv.get("tasks_failed"):
                 sinais.append(_plural(sv["tasks_failed"], "task falhou", "tasks falharam"))
+            por_servico.append((sv, " · ".join(sinais) or "ok"))
+
+        # a stack inteira com o mesmo diagnostico diz isso UMA vez, no cabecalho.
+        # `sem healthcheck · sem limites` repetido nos quatro servicos da stack nao
+        # informa quatro vezes — e o mesmo fato, e a coluna da direita vira um padrao
+        # visual que o olho deixa de ler.
+        iguais = {sinal for _, sinal in por_servico}
+        todos_iguais = len(por_servico) > 1 and len(iguais) == 1
+        comum = por_servico[0][1] if todos_iguais else ""
+        servicos = []
+        for sv, sinal in por_servico:
+            marca = ("" if todos_iguais else
+                     f'<em class="{"mal" if sinal != "ok" else "ok"}">{_e(sinal)}</em>')
             servicos.append(
                 f'<div class="svc"><div class="svch">'
-                f'<b>{_e(stacks.short_name(sv.get("name")))}</b>'
-                f'<em class="{"mal" if sinais else "ok"}">{_e(" · ".join(sinais) or "ok")}</em>'
+                f'<b>{_e(stacks.short_name(sv.get("name")))}</b>{marca}'
                 f'</div><code>{_e(_imagem_curta(sv))}</code></div>')
 
         selos = ""
@@ -1692,6 +1795,10 @@ def _aplicacoes_stack(fatos, comp_an=None):
                       f'{_plural(g["findings_med"], "médio", "médios")}</span>')
         if g.get("spofs"):
             selos += f'<span class="tag">{_plural(len(g["spofs"]), "sem reserva", "sem reserva")}</span>'
+
+        if comum:
+            selos += (f'<span class="tag {"mal" if comum != "ok" else ""}">'
+                      f'{_e(comum)} nos {len(por_servico)}</span>')
 
         rotas = g.get("routes") or []
         linha_rotas = (f'<p class="rota">{_ic("rota")}{_e(" · ".join(rotas[:4]))}'
@@ -1744,18 +1851,56 @@ def _peso_do_detalhe(detalhe):
     return None
 
 
-def _ocorrencias(itens, limite=10):
+def _detalhe_comum(itens):
+    """O detalhe quando ele e o MESMO em todas as ocorrencias — e entao ele descreve a
+    REGRA, nao a ocorrencia, e pertence ao cabecalho do bloco.
+
+    Medido numa rodada real de 61 servicos: em 6 das 9 regras o texto era identico em
+    todas as ocorrencias (`container roda como root (user root/uid 0 ou USER ausente)`
+    nas 61, `sem HEALTHCHECK definido` nas 49, `sem limite de CPU/memoria definido` nas
+    34) — 144 dos 189 achados. A mesma frase dez vezes nao informa dez vezes: ocupa dez
+    linhas e ensina quem le a pular o bloco inteiro, inclusive a linha que mudaria.
+    """
+    textos = {str(a.get("detalhe") or "").strip() for a in itens}
+    return textos.pop() if len(textos) == 1 else None
+
+
+# teto da lista compacta. Alto de proposito: sem barra e sem legenda cada nome ocupa
+# uma celula, e 61 deles cabem em 21 linhas de tres colunas — cortar em 10 mandaria
+# para o `report.json` uma lista que a pagina comporta inteira.
+TETO_DE_NOMES = 60
+
+
+def _lista_de_nomes(nomes, limite=TETO_DE_NOMES):
+    """So os nomes, em colunas. A pagina e A4 PAISAGEM e a lista de uma coluna deixava
+    dois tercos da largura em branco."""
+    mostra = list(nomes)[:limite]
+    etiquetas = "".join(f'<span class="nome">{_e(n)}</span>' for n in mostra)
+    resto = len(nomes) - len(mostra)
+    rodape = (f'<p class="un">e mais {resto} — a lista completa está no '
+              f'<code>report.json</code></p>') if resto > 0 else ""
+    return f'<div class="nomes">{etiquetas}</div>{rodape}'
+
+
+def _ocorrencias(itens, limite=10, detalhe_na_regra=False):
     """As ocorrencias, com teto. O relatorio mostra as primeiras e DIZ quantas ficaram
     de fora — a lista completa continua no report.json.
 
     Havendo numero no detalhe, a lista e ordenada por ele e ganha barra: e o que faz a
     fila com 11.663 mensagens aparecer antes da que tem 1. Sem numero, o detalhe vira
     legenda embaixo do nome, e nao um texto espremido numa coluna de 66px.
+
+    Com `detalhe_na_regra` a frase ja foi escrita UMA vez no cabecalho (ver
+    `_detalhe_comum`): aqui sobra o nome, e a grade de ranking passaria a desenhar uma
+    barra vazia por item — uma barra que nao mede nada. Vira lista em colunas.
     """
     if not itens:
         return ""
     pesados = [(_peso_do_detalhe(a.get("detalhe")), a) for a in itens]
     tem_peso = any(p is not None for p, _ in pesados)
+    if detalhe_na_regra and not tem_peso:
+        return _lista_de_nomes([str(a.get("objeto") or a.get("componente") or "—")
+                                for a in itens])
     if tem_peso:
         pesados.sort(key=lambda x: (-(x[0] or 0), str(x[1].get("objeto") or "")))
     teto = max((p or 0 for p, _ in pesados), default=0) or 1
@@ -1768,7 +1913,7 @@ def _ocorrencias(itens, limite=10):
         else:
             barra = f'<span class="tr"><i style="width:{100 * peso / teto:.1f}%"></i></span>'
             valor = _human(peso)
-        extra = ("" if tem_peso else
+        extra = ("" if tem_peso or detalhe_na_regra else
                  f'<p class="un">{_e(a.get("detalhe") or "")}</p>')
         linhas.append(f'<div class="rk{" topo" if ordem == 1 and peso else ""}">'
                       f'<span class="o n">{ordem}</span>'
@@ -1818,17 +1963,47 @@ def _achado_bloco(regra, itens, completo):
               f'<p class="qt n">{len(itens)}'
               f'<em>{"ocorrência" if len(itens) == 1 else "ocorrências"}</em></p></div>')
     corpo = [cabeca]
+    # a frase que vale para TODAS as ocorrencias e escrita aqui, uma vez, antes da lista
+    comum = _detalhe_comum(itens)
+    if comum:
+        corpo.append(f'<p class="detalhe-da-regra">{_e(comum)}</p>')
     if completo and cr and cr.get("por_que_importa"):
         corpo.append(f'<div class="pq">{_rich(cr["por_que_importa"])}</div>')
-    corpo.append(_ocorrencias(itens))
+    corpo.append(_ocorrencias(itens, detalhe_na_regra=bool(comum)))
     corpo.append(_bloco_remediacao(cr, completo=completo))
     return f'<article class="achado{classe}">{"".join(corpo)}</article>'
 
 
-def _indice(triagem, presentes=()):
+# A aspa e escrita como classe de caractere, nao literal: a trava que varre esta fonte
+# atras de classe sem regra no template procura o atributo de classe entre aspas, e
+# leria o padrao escrito ao pe da letra como se o renderizador emitisse uma classe
+# chamada `sec[^`.
+_PADRAO_DE_SECAO = re.compile(
+    r'<section class=[\'"]sec[^\'"]*[\'"] id=[\'"]([^\'"]+)[\'"]>.*?<h2>(.*?)</h2>', re.S)
+
+
+def _secoes_do_documento(*blocos):
+    """Os titulos das secoes JA montadas, lidos do HTML pronto.
+
+    Ler o documento em vez de manter uma segunda lista e deliberado: duas listas
+    divergem na primeira secao nova — e o indice passaria a prometer uma secao que nao
+    existe, ou a calar uma que existe.
+    """
+    achadas = []
+    for bloco in blocos:
+        for ident, titulo in _PADRAO_DE_SECAO.findall(bloco or ""):
+            achadas.append((ident, re.sub(r"<[^>]+>", "", titulo).strip()))
+    return achadas
+
+
+def _indice(triagem, presentes=(), secoes=()):
     from lib.triagem import FAIXAS
     """As tres faixas anunciadas antes de comecarem, com o tamanho de cada uma. Quem
-    recebe decide onde gastar a atencao antes de rolar 30 paginas."""
+    recebe decide onde gastar a atencao antes de rolar 30 paginas.
+
+    E, depois delas, as SECOES. O indice so falava das tres faixas num documento de 31
+    paginas e treze secoes: quem quisesse "Nos e capacidade" ou "Riscos aceitos" tinha
+    de rolar atras. As ancoras ja existiam — faltava alguem aponta-las."""
     descricao = {
         "agir": "o que custa dinheiro ou disponibilidade enquanto você lê",
         "programar": "tem conserto conhecido e cabe numa janela planejada",
@@ -1845,7 +2020,14 @@ def _indice(triagem, presentes=()):
         itens.append(f'<li class="f{n}"><i></i>{rotulo}'
                      f'<span class="d">{_e(descricao[fid])}</span>'
                      f'<span class="v n">{_plural(quantos, "achado", "achados")}</span></li>')
-    return f'<ol class="porfaixa">{"".join(itens)}</ol>'
+    faixas = f'<ol class="porfaixa">{"".join(itens)}</ol>'
+    if not secoes:
+        return faixas
+    links = "".join(f'<li><a href="#{_e(ident)}">{_e(titulo)}</a></li>'
+                    for ident, titulo in secoes)
+    return (f'{faixas}<p class="idx-h idx-h2">'
+            f'{_plural(len(secoes), "seção, nesta ordem", "seções, nesta ordem")}</p>'
+            f'<ol class="porsecao">{links}</ol>')
 
 
 def _faixa(n, rotulo, resumo, quando, corpo):
@@ -1913,6 +2095,30 @@ def _aceites_novo(aceites):
     return "".join(linhas)
 
 
+def _mudos_por_motivo(mudos):
+    """As perguntas caladas agrupadas pelo MOTIVO, nao uma linha por pergunta.
+
+    Numa rodada real eram 79 linhas carregando 3 motivos: a mesma frase de vinte
+    palavras impressa 55, 18 e 6 vezes. O numero de componentes continua na frente de
+    cada grupo, entao agrupar nao encolhe lacuna nenhuma — so para de reescrever a causa.
+    """
+    if not mudos:
+        return ""
+    grupos = {}
+    for m in mudos:
+        grupos.setdefault(str(m.get("motivo") or "—"), []).append(
+            f'{m.get("componente")} · {m.get("pergunta")}')
+    blocos = []
+    for motivo, itens in sorted(grupos.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        etiquetas = "".join(f'<span class="nome">{_e(i)}</span>' for i in sorted(itens))
+        blocos.append(f'<div class="motivo">'
+                      f'<p class="mt"><b class="n">{len(itens)}</b> '
+                      f'{"pergunta" if len(itens) == 1 else "perguntas"} · um motivo só'
+                      f'</p><p class="mtx">{_e(motivo)}</p>'
+                      f'<div class="nomes">{etiquetas}</div></div>')
+    return "".join(blocos)
+
+
 def _pendencias_novo(alvos):
     """O que esta calado e por que. Resolver e editar o alvos.toml — nenhum destes
     itens e um problema da infraestrutura.
@@ -1925,7 +2131,11 @@ def _pendencias_novo(alvos):
     linhas = []
     for a in alvos:
         for n in (a.get("nao_coletado") or []):
-            linhas.append(f'<div class="item"><div class="dt"><b>{_e(n.get("o_que") or n.get("what"))}</b>'
+            # sem `o_que`, o titulo saia VAZIO: tres alvos nao confirmados viravam tres
+            # linhas identicas dizendo "alvo nao confirmado nesta execucao" sem dizer
+            # qual alvo. O nome do alvo e a resposta obvia, e ele sempre existe.
+            o_que = n.get("o_que") or n.get("what") or a.get("nome") or "—"
+            linhas.append(f'<div class="item"><div class="dt"><b>{_e(o_que)}</b>'
                           f'</div><p>{_e(n.get("motivo") or n.get("reason"))}</p></div>')
         # as perguntas que a skill SABE fazer e que ficaram sem resposta. Um 🟡 sem nada
         # que o explique inverte o problema que `agravar_saude` documenta: quem lê precisa
@@ -1950,13 +2160,7 @@ def _pendencias_novo(alvos):
                     f'<b>Papel errado faz a pergunta errada:</b> o relatório pode estar medindo '
                     f'a coisa certa no lugar errado.</p>'
                     f'<div class="l"><span>{nomes}</span></div></div>')
-            if not cobertura["mudos"]:
-                linhas_mudas = ""
-            else:
-                linhas_mudas = "".join(
-                f'<div class="l"><span>{_e(m["componente"])} · '
-                f'<code>{_e(m["pergunta"])}</code></span>'
-                f'<em>{_e(m["motivo"])}</em></div>' for m in cobertura["mudos"])
+            linhas_mudas = _mudos_por_motivo(cobertura["mudos"])
             linhas.append(
                 f'<div class="item crit"><div class="dt">'
                 f'<b>{_plural(len(cobertura["mudos"]), "pergunta sem resposta", "perguntas sem resposta")}</b>'
@@ -2005,8 +2209,11 @@ def _recomendacoes_novo(recs):
     itens = []
     for ordem, r in enumerate(recs, 1):
         cmd = f'<pre>{_e(r.get("comando"))}</pre>' if r.get("comando") else ""
-        etiquetas = "".join(f'<span class="tag">{_e(v)}</span>'
-                            for v in (r.get("impacto"), r.get("alvo")) if v)
+        # `alto` numa etiqueta e `medio` na coluna da direita eram duas palavras soltas:
+        # uma e IMPACTO, a outra e ESFORCO, e nada na pagina dizia qual era qual.
+        etiquetas = "".join(f'<span class="tag">{rotulo} {_e(v)}</span>'
+                            for rotulo, v in (("impacto", r.get("impacto")),
+                                              ("alvo", r.get("alvo"))) if v)
         tags = f'<div class="tags">{etiquetas}</div>' if etiquetas else ""
         # .rec e uma grade de TRES colunas: o numero, o miolo e o esforco a direita.
         # Com dois filhos o miolo caia na coluna de 40px e saia uma palavra por linha.
@@ -2014,7 +2221,8 @@ def _recomendacoes_novo(recs):
                      f'<span class="o n">{ordem}</span>'
                      f'<div><h4>{_e(r.get("titulo"))}</h4>'
                      f'<p>{_e(r.get("porque"))}</p>{tags}{cmd}</div>'
-                     f'<span class="quando">{_e(r.get("esforco") or "—")}</span></div>')
+                     f'<span class="quando">esforço'
+                     f'<em>{_e(r.get("esforco") or "—")}</em></span></div>')
     return "".join(itens)
 
 
@@ -2036,8 +2244,15 @@ def render_html_v3(r):
     titulo = f'Auditoria de infraestrutura — {_plural(quantos, "alvo", "alvos")}'
 
     # ---------------------------------------------------------------- topo
+    # As recomendacoes do agente vinham DENTRO da faixa "Agir agora" e so quando ela
+    # tinha corpo. Numa rodada real sem nenhum achado critico, as 8 recomendacoes —
+    # com comando pronto, o conteudo mais acionavel do documento — nao apareceram em
+    # nenhuma das 31 paginas. Elas abrem o relatorio: e a resposta a "o que eu faco".
     cluster = (
-        _sec("cluster", "Cluster", _e(f'{len((principal or {}).get("fatos", {}).get("nodes") or [])} nós · '
+        _sec("corrigir", "O que fazer primeiro",
+             "a leitura do agente sobre os fatos, com o comando pronto para exibir",
+             _recomendacoes_novo(ctx["recomendacoes"]))
+        + _sec("cluster", "Cluster", _e(f'{len((principal or {}).get("fatos", {}).get("nodes") or [])} nós · '
                                       f'{t["total"]} achados nesta rodada'),
              _kpis_novo(principal, t) + _dimensoes_novo(principal)
              + _divergencias(principal or {}) + _cascata(cascata(t)))
@@ -2057,10 +2272,7 @@ def render_html_v3(r):
     corpo_agir = "".join(_achado_bloco(regra, itens, completo=True)
                          for regra, itens in _agrupar_por_regra(agir))
     if corpo_agir:
-        corpo_agir = ('<p class="sub2">O achado e o runbook completo</p>' + corpo_agir
-                      + ('<p class="sub2">Recomendações</p>'
-                         + _recomendacoes_novo(ctx["recomendacoes"])
-                         if ctx["recomendacoes"] else ""))
+        corpo_agir = '<p class="sub2">O achado e o runbook completo</p>' + corpo_agir
     faixa1 = _faixa(1, "Agir agora",
                     f'{len(_agrupar_por_regra(agir))} regra(s) · {_plural(len(agir), "ocorrência", "ocorrências")}',
                     "o prejuízo cresce enquanto você lê", corpo_agir)
@@ -2113,7 +2325,8 @@ def render_html_v3(r):
         "%%CLUSTER%%": cluster,
         "%%FORA%%": _fora(alvos),
         "%%INDICE%%": _indice(t, presentes={n for n, faixa in
-                                            ((1, faixa1), (2, faixa2), (3, faixa3)) if faixa}),
+                                            ((1, faixa1), (2, faixa2), (3, faixa3)) if faixa},
+                              secoes=_secoes_do_documento(cluster, faixa1, faixa2, faixa3)),
         "%%AGIR%%": faixa1,
         "%%PROGRAMAR%%": faixa2,
         "%%REGISTRAR%%": faixa3,

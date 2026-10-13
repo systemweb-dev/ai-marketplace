@@ -216,7 +216,13 @@ section.sec{padding:var(--s6) 44px 0}
 .cen .ic{width:17px;height:17px;color:var(--crit);align-self:center}
 .cen .se{font-size:14px;color:var(--fraco)}
 .cen .en{font-size:14.8px;color:var(--tinta);margin-top:3px}
-.cen .pk{font:700 22px/1 var(--disp);color:var(--crit);white-space:nowrap}
+.cen .pk{font:700 22px/1 var(--disp);color:var(--crit);white-space:nowrap;text-align:right}
+.cen .pk.medio{color:var(--warn)}
+.cen .pk.baixo{color:var(--fraco)}
+/* a gravidade em cima, o tamanho como legenda: duas unidades no mesmo corpo de 22px
+   faziam "8 serviços" e "alto" parecerem a mesma medida */
+.cen .pk em{display:block;margin-top:6px;font:500 12px/1.3 var(--mono);
+ font-style:normal;color:var(--fraco)}
 .rec{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:var(--s3);align-items:start;
  background:var(--campo);border:1px solid var(--fio);border-radius:var(--r2);padding:var(--s4);margin-bottom:var(--s2)}
 .rec .o{display:grid;place-items:center;width:38px;height:38px;border-radius:99px;
@@ -224,12 +230,19 @@ section.sec{padding:var(--s6) 44px 0}
 .rec.top .o{background:var(--crits);color:var(--crit)}
 .rec h4{font:600 16.5px/1.3 var(--sans);letter-spacing:-.015em}
 .rec p{font-size:14.5px;color:var(--tinta2);margin-top:7px;max-width:70ch}
-.rec .tags{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+/* QUEBRA DE LINHA. `.tags` so era grade dentro de `.rec`; no inventario ela ficava
+   bloco, e `<span>A</span><span>B</span>` sem espaco entre as tags nao da ao navegador
+   NENHUM ponto de quebra. Com 68 secrets isso virou uma linha unica de 13.007px: no
+   HTML pedia rolagem horizontal e no PDF as etiquetas somiam no corte da pagina a
+   partir da terceira. A regra vale agora para toda `.tags`, nao so a do `.rec`. */
+.tags{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:flex-start}
 .tag{padding:5px 11px;border-radius:99px;font:600 12px/1.3 var(--sans);
- background:var(--linha);color:var(--tinta2)}
+ background:var(--linha);color:var(--tinta2);overflow-wrap:anywhere}
 .tag.alto{background:var(--crits);color:var(--crit)}
 .tag.baixo{background:var(--oks);color:var(--ok)}
-.rec .quando{font:600 12.5px/1.5 var(--sans);color:var(--fraco);text-align:right;white-space:nowrap}
+.rec .quando{font:500 11.5px/1.4 var(--sans);color:var(--fraco);text-align:right;white-space:nowrap}
+.rec .quando em{display:block;margin-top:3px;font:600 13.5px/1.3 var(--sans);
+ font-style:normal;color:var(--tinta2)}
 .nota{display:flex;gap:var(--s2);align-items:flex-start;margin-top:var(--s4);padding:var(--s3) var(--s4);
  border-radius:var(--r2);background:var(--campo2);border:1px solid var(--fio)}
 .nota .ic{width:18px;height:18px;color:var(--fraco);margin-top:2px}
@@ -779,6 +792,46 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var
  font:500 11.6px/1.5 var(--sans);background:var(--campo2);color:var(--tinta2)}
 .chip.bad{background:color-mix(in srgb,var(--crit) 12%,transparent);color:var(--crit)}
 .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+
+/* =======================================================================
+   DIZER UMA VEZ, E NAO UMA VEZ POR LINHA.
+   Em 6 das 9 regras de uma rodada real o `detalhe` era identico em todas as
+   ocorrencias — a mesma frase saia 61, 49 e 34 vezes. Ela subiu para o
+   cabecalho do bloco e a lista ficou so com os nomes; sem barra e sem
+   legenda, cada nome e uma celula, e a pagina (A4 PAISAGEM) comporta tres
+   colunas onde havia uma.
+   ======================================================================= */
+.detalhe-da-regra{margin-top:var(--s2);font-size:14.2px;line-height:1.6;
+ color:var(--tinta2);max-width:84ch}
+/* FLUXO INLINE, de proposito. A primeira versao usava grade de colunas e ficou bonita
+   na tela e pessima no papel: o Chromium fragmenta mal um grid container, e as dez
+   listas empurraram o PDF de 31 para 60 paginas. `inline-block` em fluxo normal quebra
+   entre paginas como texto — que e exatamente o que esta lista e. */
+.nomes{margin-top:var(--s3)}
+.nome{display:inline-block;margin:0 6px 5px 0;padding:4px 10px;border-radius:99px;
+ background:var(--campo2);border:1px solid var(--fio);
+ font:400 11.8px/1.45 var(--mono);color:var(--tinta2);overflow-wrap:anywhere}
+
+/* --- o silencio, agrupado pela causa: 79 linhas carregavam 3 motivos --- */
+.motivo{padding:var(--s3) 0;border-top:1px solid var(--linha)}
+.motivo:first-of-type{border-top:0}
+.mt{font:600 13px/1.3 var(--sans);color:var(--fraco)}
+.mt .n{font-size:16px;color:var(--tinta)}
+.mtx{margin-top:5px;font-size:14px;line-height:1.6;color:var(--tinta2);max-width:92ch}
+.motivo .nomes{margin-top:var(--s2)}
+
+/* --- o sistema que so responde numero vira LINHA, nao cartao de 366px --- */
+.tsis{margin-top:var(--s3);break-inside:auto}
+.tsis td{padding:9px 16px;font-size:13.4px}
+.tsis th{padding:10px 16px}
+.tsis td b{font:500 12.8px/1.4 var(--mono);color:var(--tinta);font-weight:500}
+
+/* --- o indice tambem lista as SECOES: treze delas em 31 paginas --- */
+.idx-h2{margin-top:var(--s5)}
+.idx ol.porsecao{grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:2px var(--s4)}
+.porsecao li{display:block;padding:5px 0;border-top:1px solid var(--linha)}
+.porsecao li a{font-size:14px;color:var(--tinta2)}
+.porsecao li a:hover{color:var(--acc)}
 </style>
 </head>
 <body>
