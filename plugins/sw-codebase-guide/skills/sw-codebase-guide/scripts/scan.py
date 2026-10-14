@@ -38,15 +38,21 @@ def _governa(caminho_do_componente: str, arquivos: list) -> bool:
     return any(a['caminho'].startswith(prefixo) for a in arquivos)
 
 
-def apurar(projeto: Path, recorte=None) -> dict:
+def apurar(projeto: Path, recorte=None, pronto=None) -> dict:
+    """O inventário. `pronto` reaproveita o que o chamador já apurou.
+
+    `--funcionalidade` precisa do grafo ANTES de saber o recorte — é dele que a
+    fatia sai. Sem `pronto`, a varredura inteira acontecia duas vezes.
+    """
     recorte = recorte or mod_scope.tudo()
-    todos = mod_tree.varrer(projeto)
+    pronto = pronto or {}
+    todos = pronto.get('todos') or mod_tree.varrer(projeto)
     arquivos = [a for a in todos if a['caminho'] in recorte]
 
     # stack e ambiente ACIMA do recorte entram herdados e marcados: sem isto o
     # "Como entrar" esvazia, porque o manifesto mora na raiz
     componentes = []
-    for c in stacks.detectar(projeto):
+    for c in (pronto.get('componentes') or stacks.detectar(projeto)):
         if c['caminho'] in recorte:
             componentes.append({**c, 'de_fora_da_area': False})
         elif recorte.parcial and _governa(c['caminho'], arquivos):
@@ -99,7 +105,9 @@ def apurar(projeto: Path, recorte=None) -> dict:
         # o retrato é do PROJETO, não da área: quantas pessoas conhecem este
         # código e há quanto tempo ninguém encosta nele não mudam com o recorte
         'retrato': history.retrato(projeto),
-        'imports': imports.grafo(projeto, componentes, todos, recorte=recorte),
+        'imports': (imports.recortar_grafo(pronto['grafo'], recorte)
+                    if pronto.get('grafo')
+                    else imports.grafo(projeto, componentes, todos, recorte=recorte)),
         'superficie': [s for s in surface.detectar(projeto)
                        if s['caminho'] in recorte],
         # `textos` NÃO é recortado: a guarda da vacuidade exige que `fonte` esteja
@@ -241,12 +249,15 @@ def main() -> int:
     saida = Path(args.out).resolve()
     saida.mkdir(parents=True, exist_ok=True)
 
+    pronto = {}
     if args.funcionalidade:
         termo = ' '.join(features.palavras(args.funcionalidade))
         todos = mod_tree.varrer(projeto)
         componentes = stacks.detectar(projeto)
-        arestas = imports.grafo(projeto, componentes, todos)['arestas']
-        fatia = features.recortar(todos, arestas, termo)
+        completo = imports.grafo(projeto, componentes, todos)
+        # guardado para o `apurar` não refazer os três passos mais caros
+        pronto = {'todos': todos, 'componentes': componentes, 'grafo': completo}
+        fatia = features.recortar(todos, completo['arestas'], termo)
         if not fatia['nucleo']:
             print(f'nenhum arquivo casa com {termo!r} — rode --funcionalidades '
                   f'para ver os termos que este projeto usa', file=sys.stderr)
@@ -257,7 +268,7 @@ def main() -> int:
     else:
         recorte = mod_scope.tudo()
 
-    inventario = apurar(projeto, recorte=recorte)
+    inventario = apurar(projeto, recorte=recorte, pronto=pronto)
     # NÃO passe o JSON pronto por `redigir`: ele casa `chave: valor` linha a linha, e
     # linha de JSON é exatamente isso — `"AuthController": [` virava
     # `"AuthController": ***` e o arquivo saía inválido. A proteção acontece na

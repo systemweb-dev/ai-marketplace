@@ -83,6 +83,23 @@ def _sem_aresta(inv: dict, confiaveis: set) -> list:
     return achados[:TETO_POR_CATEGORIA]
 
 
+def agrupar(derivadas: list) -> list:
+    """As perguntas derivadas, agrupadas pelo motivo que as gerou.
+
+    São três moldes, e numa rodada real eles saíram oito vezes: três *"quem mexe
+    nele hoje"*, três *"o que liga os dois"*, duas *"alguma coisa o chama por
+    fora"* — cada uma arrastando o mesmo motivo em itálico. Levar isso para uma
+    reunião é ler a mesma justificativa oito vezes com o nome do arquivo trocado.
+    O motivo idêntico em todas as ocorrências descreve o **molde**, não a
+    ocorrência: ele é escrito uma vez, e as perguntas ficam embaixo dele.
+    """
+    grupos = {}
+    for d in derivadas:
+        grupos.setdefault(d['porque'], []).append(d['pergunta'])
+    return [(porque, perguntas) for porque, perguntas
+            in sorted(grupos.items(), key=lambda kv: (-len(kv[1]), kv[0]))]
+
+
 def _perigosos(inv: dict) -> list:
     achados = []
     for item in ((inv.get('julgamento') or {}).get('perigo') or []):
@@ -91,7 +108,13 @@ def _perigosos(inv: dict) -> list:
                          f'dependentes e mudou {item["mudancas"]} vezes. Quem '
                          f'mexe nele hoje, e como essa pessoa sabe que não '
                          f'quebrou nada?'),
-            'porque': 'é onde o erro alcança mais gente, e o que mais muda',
+            # NÃO "é onde o erro alcança mais gente": `perigo` exige os dois
+            # sinais juntos, e o arquivo MAIS importado do projeto muitas vezes
+            # não está aqui, porque é estável. Numa rodada real a frase saía em
+            # três linhas, uma delas com 19 dependentes, enquanto o arquivo de
+            # 100 dependentes não recebia pergunta nenhuma.
+            'porque': ('os dois sinais coincidem neste arquivo: muita gente '
+                       'depende dele e ele muda muito'),
             'evidencia': [item['caminho']],
         })
     return achados[:TETO_POR_CATEGORIA]

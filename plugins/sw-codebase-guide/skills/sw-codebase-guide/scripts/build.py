@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import changes, knowledge, judge, trail, questions  # noqa: E402
+from lib import resolution as mod_resolution  # noqa: E402
 from lib import scope as mod_scope  # noqa: E402
 from lib.tree import eh_codigo, linguagem_de  # noqa: E402
 
@@ -539,7 +540,9 @@ def _dependentes(inv: dict) -> list:
             linhas.append(f'Nenhum import interno em {linguagem} — não medido, que '
                           f'não é o mesmo que zero.  [lacuna]\n')
             continue
-        pct = round(resolvidos * 100 / denominador)
+        # `round` levava 99,6% a "100%", e a mesma frase imprimia "764 de 767":
+        # a linha se contradizia em nove palavras. Só 100% de verdade é 100%.
+        pct = mod_resolution.pct_honesto(resolvidos, denominador)
         if resolvidos / denominador < PISO_RESOLUCAO:
             linhas.append(
                 f'A resolução de import ficou em **{pct}%** ({resolvidos} de '
@@ -611,26 +614,46 @@ def _julgamento(inv: dict, respostas: list) -> list:
         A('- autoria **não apurada** — não há repositório git')
     else:
         um = d['autores'] == 1
+        extras = []
+        if (d.get('identidades') or 0) > d['autores']:
+            extras.append(f'{d["identidades"]} identidades de nome/e-mail agrupadas')
+        if d.get('autores_de_maquina'):
+            extras.append(f'{d["autores_de_maquina"]} de ferramenta, fora da conta')
         A(f'- **{d["autores"]} pessoa{"" if um else "s"}** '
-          f'{"commitou" if um else "commitaram"}, em {d["commits"]} commits')
+          f'{"commitou" if um else "commitaram"}, em {d["commits"]} commits'
+          + (f' ({"; ".join(extras)})' if extras else ''))
     parado = d['semanas_parado'] or 0
     A(f'- **{d["semanas_de_vida"] or "?"} semanas de vida**, '
       + ('**mexido esta semana**' if parado == 0 else
          f'**parado há {parado} semana{"" if parado == 1 else "s"}**'))
-    A(f'- **{d["arquivos_de_codigo"]} arquivos de código** em {d["stacks"]} stack(s), '
-      f'**{d["pct_teste"]}% é teste**')
+    stacks = d['stacks']
+    cabeca = (f'- **{d["arquivos_de_codigo"]} arquivos de código** em '
+              f'{stacks} stack{"" if stacks == 1 else "s"}')
+    if d.get('codigo_do_projeto'):
+        # o denominador POR EXTENSO. "14% é teste" ao lado de "763 arquivos de
+        # código" só se lê como percentual deles, e era percentual de 1.946
+        # arquivos — mil deles PNG e SVG.
+        mesmo = d['codigo_do_projeto'] == d['arquivos_de_codigo']
+        onde = '' if mesmo else ' do projeto inteiro'
+        A(f'{cabeca}, e **{d["arquivos_de_teste"]} dos {d["codigo_do_projeto"]} '
+          f'arquivos de código{onde} são teste ({d["pct_teste"]}%)**')
+    else:
+        A(cabeca)
     A(f'- import medido em: {", ".join(d["linguagens_medidas"]) or "nenhuma linguagem"}')
     A(f'\n*Falta, e o código não tem: {d["falta"]}.*  [lacuna]\n')
 
     if j['perigo']:
         A('### Onde é mais caro errar\n')
-        A(f'Os três sinais **juntos**: mais de {judge.MIN_DEPENDENTES} arquivos')
-        A(f'importando, mais de {judge.MIN_COMMITS} commits de histórico, e nenhum')
+        # `>=`, não `>`: o código é `if len(quem) < MIN: continue`. O texto dizia
+        # "mais de 10" e a lista imprimia linhas com exatamente 10 — num documento
+        # cuja promessa é mostrar o limiar que decidiu, errar por um é caro.
+        A(f'Os três sinais **juntos**: {judge.MIN_DEPENDENTES} ou mais arquivos')
+        A(f'importando, {judge.MIN_COMMITS} ou mais commits de histórico, e nenhum')
         A('teste com o mesmo nome. Isoladamente nenhum diz nada — arquivo muito')
         A('importado pode estar estável há anos.  [dedução]\n')
         for a in j['perigo'][:10]:
             A(f'- `{a["caminho"]}` — {a["dependentes"]} dependentes, '
-              f'{a["mudancas"]} commits, sem teste')
+              f'{a["mudancas"]} commits, sem teste de mesmo nome')
         if len(j['perigo']) > 10:
             A(f'- … e mais {len(j["perigo"]) - 10}')
         A('')
@@ -767,7 +790,11 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     respostas = respostas or []
     L = []
     A = L.append
-    A('# Guia do projeto\n')
+    # O H1 nomeia o PROJETO. `inv['projeto']` existe desde a v0.12 e só o HTML
+    # a usava: um arquivo chamado `guide.md` com título "Guia do projeto" não
+    # sobrevive a ser anexado num e-mail — quem recebe não sabe de qual sistema é.
+    nome = inv.get('projeto')
+    A(f'# {nome} — guia do projeto\n' if nome else '# Guia do projeto\n')
     A('> Documento gerado por leitura do código. Cada afirmação carrega o nível de')
     A('> confiança: **fato** (medido) · **declarado** (humano escreveu antes) ·')
     A('> **dedução** (inferida, com evidência) · **lacuna** (não apurado, com motivo)')
@@ -906,8 +933,13 @@ def montar(inv: dict, afirmacoes: list, respostas: list | None = None,
     # chegam com o número na mão, que é o que transforma a seção em pauta de
     # reunião em vez de formulário.
     derivadas = questions.derivar(inv, judge.linguagens_confiaveis(inv))
-    for d in derivadas:
-        A(f'- {d["pergunta"]} — *{d["porque"]}*')
+    for porque, perguntas in questions.agrupar(derivadas):
+        if len(perguntas) == 1:
+            A(f'- {perguntas[0]} — *{porque}*')
+            continue
+        A(f'- *{porque}* — {len(perguntas)} perguntas:')
+        for pergunta in perguntas:
+            A(f'    - {pergunta}')
 
     respondido = {a['secao'] for a in afirmacoes if a['nivel'] != 'lacuna'}
     if any(b['parte'] == 'o-que-e' for b in (narrativa or [])):

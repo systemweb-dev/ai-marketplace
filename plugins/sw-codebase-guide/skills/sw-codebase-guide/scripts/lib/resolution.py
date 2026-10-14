@@ -25,6 +25,22 @@ MIN_PROVAS = 5      # `@Assets` tinha exatamente 5 provas no projeto medido
 REEXPORT = re.compile(r"""^\s*export\s[^\n]*\sfrom\s*['"]""")
 
 
+def pct_honesto(parte: int, todo: int) -> int:
+    """O percentual que nunca arredonda para 100 sem ser 100.
+
+    `round(764 * 100 / 767)` dá 100, e a mesma frase do relatório imprimia
+    "**100%** (764 de 767)": ela se contradizia em nove palavras, e apagava
+    exatamente as três resoluções que faltavam. Vale para baixo também — 0,4% não
+    é 0%, porque "0" se lê como *nada foi resolvido*.
+    """
+    if todo <= 0:
+        return 0
+    if parte >= todo:
+        return 100
+    bruto = parte * 100 / todo
+    return max(1, min(99, round(bruto))) if parte else 0
+
+
 def indexar(caminhos) -> dict:
     """Todo sufixo de caminho -> os arquivos que terminam nele."""
     por_sufixo = {}

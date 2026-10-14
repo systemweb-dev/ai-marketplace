@@ -187,10 +187,19 @@ O que cada seção carrega, e o quanto confiar nela:
   `base_provada`, `config_conferida`, `ambiguos`, `pendurados` e `nao_resolvidos`. A taxa é
   `(relativos + sufixo_unico + base_provada + config_conferida)` sobre tudo isso **menos
   `externos`**; denominador zero é "não medido", nunca 0%.
-- **`retrato`** — quantas pessoas commitaram, quantos commits, idade e semanas parado. Sem git
-  vem tudo `None` com a lacuna dizendo por quê: **`0 autores` se lê como "ninguém mexe nisso"**,
-  e `1` como "uma pessoa só". Num monorepo por justaposição o retrato é do CONJUNTO — autores é
-  a união (quem conhece o sistema, não um pedaço dele) — e a lacuna diz de onde veio.
+- **`retrato`** — quantas **pessoas** commitaram, quantos commits, idade e semanas parado. Sem
+  git vem tudo `None` com a lacuna dizendo por quê: **`0 autores` se lê como "ninguém mexe
+  nisso"**, e `1` como "uma pessoa só". Num monorepo por justaposição o retrato é do CONJUNTO —
+  autores é a união (quem conhece o sistema, não um pedaço dele) — e a lacuna diz de onde veio.
+  **Pessoa não é e-mail.** Contar e-mail distinto inflava o fator ônibus justamente onde ele
+  precisa estar certo: num projeto real de uma pessoa, seis identidades — gmail pessoal, dois
+  `@example.com` de máquina nova e o rodapé de co-autoria do Claude Code — viravam
+  *"6 pessoas commitaram"*, e "há um time, alguém sabe disto" é o oposto do que o histórico
+  dizia. A união é por **evidência**: o mesmo e-mail é sempre a mesma pessoa; o mesmo nome só
+  une quando tem duas partes, porque `admin`, `root` ou o nome do repositório são tão prováveis
+  como login de máquina quanto como pessoa. Identidade de ferramenta sai da conta (o commit
+  continua contado; o que ela não é é segunda fonte), e o documento publica `identidades` ao
+  lado de `autores` para dizer quantas foram agrupadas.
 - **`textos`** — a única seção que carrega **conteúdo**, e por isso a única redigida linha a
   linha. São README, `CLAUDE.md`, ADR, `docs/` e tradução, **em qualquer profundidade** (num
   monorepo o README de cada aplicação não está na raiz) e também em pasta podada da árvore
@@ -230,7 +239,22 @@ O que cada seção carrega, e o quanto confiar nela:
   *"O propósito que o próprio projeto declara é curto e é o único que tem fonte escrita."*
 - **`escopo`** e **`caminhos_do_projeto`** — o recorte usado e a lista completa de caminhos do
   projeto **inteiro**. A segunda existe porque percentual de teste e autoria são do projeto,
-  não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%.
+  não da área: um `0% é teste` calculado na área recortada mentia num projeto com 44%. O
+  percentual divide **código por código** e o documento escreve o denominador por extenso —
+  `14% é teste` ao lado de "763 arquivos de código" só se lê como percentual deles, e era
+  percentual de 1.946 arquivos, mil deles PNG e SVG.
+
+**O que conta como arquivo de teste** é decidido num lugar só, e por **segmento de pasta e nome
+de arquivo** — nunca por substring. `'test' in caminho` casava `Testemunha.php` e `'spec' in
+caminho` casava `EAposentadoriaEspecial.php`: num sistema trabalhista em português, uma
+testemunha e três enums entravam na cobertura. E o casamento *teste → arquivo testado* conhece
+as convenções que existem: `HelperTest.php` cobre `Helper.php`, `test_parser.py` cobre
+`parser.py`, `srv_test.go` cobre `srv.go`, `Pedido.test.js` cobre `Pedido.js`. Antes ele
+conhecia só a do ponto, do JavaScript — então **todo projeto PHP, Python ou Go recebia "sem
+teste" em todos os arquivos**, houvesse o que houvesse em `tests/`. A extensão continua
+pareada, para que um `pedido.test.js` do painel não dê "tem teste" ao `Pedido.php` da API. A
+coluna diz **"sem teste de mesmo nome"**, que é o que ela mede: `HelperCpfCheckDigitTest.php`
+existe e não casa com `Helper.php`.
 
 ### 2. Escrever a interpretação
 

@@ -105,6 +105,28 @@ def _de_fora(alvo, prefixo, indice, vocab, modulo, classe) -> bool:
     return not achados
 
 
+def _recortar(arestas: list, recorte) -> list:
+    # UMA ponta dentro, não as duas: a aresta que cruza a fronteira é o valor da
+    # seção — "para mexer aqui você mexe lá fora".
+    if recorte is None or not recorte.parcial:
+        return arestas
+    return [a for a in arestas if a['de'] in recorte or a['para'] in recorte]
+
+
+def recortar_grafo(resultado: dict, recorte=None) -> dict:
+    """Aplica o recorte a um grafo JÁ construído.
+
+    O recorte sempre foi só um filtro no fim (a resolução é feita sobre o projeto
+    inteiro, de propósito), e por isso construir o grafo duas vezes para obter
+    duas fatias dele é trabalho jogado fora. Com `--funcionalidade` era
+    exatamente o que acontecia: o `scan` montava o grafo completo para descobrir
+    a fatia e o `apurar` montava outro, idêntico, para recortá-lo — os três
+    passos mais caros da varredura em dobro, no único modo que alguém usa
+    justamente porque o projeto é grande.
+    """
+    return {**resultado, 'arestas': _recortar(resultado['arestas'], recorte)}
+
+
 def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
     """Arestas de import do que deu para resolver, e a contagem do que não deu.
 
@@ -237,11 +259,7 @@ def grafo(raiz, stacks: list, arvore: list, recorte=None) -> dict:
         cont['exemplos_nao_resolvidos'] = sorted(nao_resolvidos)[:TETO_EXEMPLOS]
         contagem[nome] = cont
 
-    if recorte is not None and recorte.parcial:
-        # UMA ponta dentro, não as duas: a aresta que cruza a fronteira é o valor
-        # da seção — "para mexer aqui você mexe lá fora".
-        arestas = [a for a in arestas
-                   if a['de'] in recorte or a['para'] in recorte]
+    arestas = _recortar(arestas, recorte)
 
     if not arestas and not indisponivel and not contagem:
         indisponivel.append({

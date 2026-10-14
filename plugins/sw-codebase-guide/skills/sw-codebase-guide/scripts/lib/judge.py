@@ -12,6 +12,7 @@ script. O que elas acrescentam é o recorte — quais números, juntos, responde
 pergunta — e o limiar, que tem valor escrito pelo mesmo motivo do `areas.py`: sem
 número, cada projeto se comporta diferente por motivo que ninguém sabe explicar.
 """
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,13 @@ ENTRADAS_POR_CONVENCAO = ('config.js', 'config.ts', 'config.mjs', 'config.cjs',
                           'conf.py', 'setup.py', 'manage.py', 'wsgi.py', 'asgi.py',
                           'gulpfile.js', 'gruntfile.js', 'webpack.mix.js')
 PASTAS_SERVIDAS = ('public/', 'static/', 'dist/', 'assets/vendor/', 'www/')
+# Pasta de configuração: o framework a carrega por caminho, varrendo a pasta ou
+# montando array — nunca por `import`/`use`. A exclusão por NOME de arquivo
+# (`*.config.js`) não pegava `config/Themes.php`, que é o mapa prefixo-de-URL →
+# módulo e faz as cinco superfícies HTTP do projeto existirem: o documento
+# sugeria que ele podia sair. Dois projetos diferentes trouxeram o mesmo
+# falso positivo, os dois em `config/`.
+PASTAS_DE_CONFIGURACAO = ('config/', 'conf/', 'settings/')
 # front controller: o servidor o chama, nenhum arquivo o importa
 ENTRADAS_DE_SERVIDOR = ('index.php', 'index.html', 'main.py', '__main__.py')
 
@@ -54,9 +62,74 @@ PALAVRAS_DE_CREDENCIAL = ('secret', 'token', 'password', 'passwd', 'senha', 'key
                           'apikey', 'api_key', 'private', 'credential', 'auth')
 
 
+# Marca de teste no caminho. É por SEGMENTO de pasta e por NOME DE ARQUIVO —
+# nunca por substring solta. `'test' in caminho` casava `Testemunha.php` e
+# `'spec' in caminho` casava `EAposentadoriaEspecial.php`: num sistema
+# trabalhista, uma testemunha e três enums de aposentadoria especial entravam na
+# contagem de teste, e o percentual de cobertura subia com eles. O `contest not
+# in` era remendo para UM caso de uma família inteira — `latest`, `protest`,
+# `testemunha`, `especial`, `inspecao` casavam todos.
+PASTAS_DE_TESTE = {'test', 'tests', '__tests__', 'spec', 'specs', 'testing',
+                   'e2e', 'cypress'}
+
+# O nome do arquivo. Duas famílias de convenção, e a caixa importa: `HelperTest`
+# com T maiúsculo é PHPUnit/Pest/PSR, e distingui-la de `latest` custa só olhar o
+# nome como ele foi escrito.
+_TESTE_MINUSCULO = re.compile(r'^test_|_test$|^spec_|_spec$|\.test$|\.spec$')
+_TESTE_MAIUSCULO = re.compile(r'.(?:Test|Tests|Spec|Specs)$')
+
+
 def eh_teste(caminho: str) -> bool:
-    c = caminho.lower()
-    return ('test' in c or 'spec' in c or '__tests__' in c) and 'contest' not in c
+    p = Path(caminho)
+    if {parte.lower() for parte in p.parts[:-1]} & PASTAS_DE_TESTE:
+        return True
+    return bool(_TESTE_MINUSCULO.search(p.stem.lower())
+                or _TESTE_MAIUSCULO.search(p.stem))
+
+
+def bases_do_teste(stem: str) -> set:
+    """Os nomes que ESTE arquivo de teste cobre.
+
+    `HelperTest.php` cobre `Helper.php`; `test_parser.py` cobre `parser.py`;
+    `Pedido.test.js` cobre `Pedido.js`. A versão anterior tirava só `.test` e
+    `.spec` do nome, isto é, só a convenção com ponto do JavaScript — então
+    `HelperTest` virava `helpertest`, não casava com `helper`, e **todo projeto
+    PHP, Python ou Go recebia "sem teste" em todos os arquivos**, houvesse o que
+    houvesse em `tests/`. Era a afirmação falsa mais grave do documento.
+    """
+    bases = {stem}
+    for sufixo in ('.test', '.spec'):
+        if stem.lower().endswith(sufixo):
+            bases.add(stem[:-len(sufixo)])
+    for sufixo in ('Tests', 'Specs', 'Test', 'Spec'):
+        if stem.endswith(sufixo) and len(stem) > len(sufixo):
+            bases.add(stem[:-len(sufixo)])
+    baixo = stem.lower()
+    if baixo.startswith('test_') or baixo.startswith('spec_'):
+        bases.add(stem[5:])
+    if baixo.endswith('_test') or baixo.endswith('_spec'):
+        bases.add(stem[:-5])
+    return {b.lower() for b in bases if b}
+
+
+def cobertura_de_teste(inv: dict) -> dict | None:
+    """Quantos arquivos de CÓDIGO são teste — numerador e denominador no mesmo
+    universo.
+
+    O percentual saía com `testes` contados sobre `caminhos_do_projeto`, que
+    inclui PNG, SVG e migration: num projeto de 1.946 arquivos, 1.049 eram
+    imagem, e o resultado era impresso ao lado de "763 arquivos de código", onde
+    só se pode ler como percentual DELES. A conta certa dava 21%, o documento
+    dizia 14%, e um agente deduziu do número errado uma frase sobre cobertura que
+    nenhuma das guardas pegou.
+    """
+    universo = inv.get('caminhos_do_projeto') or []
+    codigo = [c for c in universo if eh_codigo(linguagem_de(Path(c)))]
+    if not codigo:
+        return None
+    testes = sum(1 for c in codigo if eh_teste(c))
+    return {'testes': testes, 'codigo': len(codigo),
+            'pct': round(testes * 100 / len(codigo))}
 
 
 def _taxa(c: dict) -> float:
@@ -98,8 +171,8 @@ def onde_e_perigoso(inv: dict, por_arquivo: dict) -> list:
     for c in universo:
         if eh_teste(c):
             p_teste = Path(c)
-            base = p_teste.stem.lower().replace('.test', '').replace('.spec', '')
-            nomes_de_teste.add((base, p_teste.suffix.lower()))
+            for base in bases_do_teste(p_teste.stem):
+                nomes_de_teste.add((base, p_teste.suffix.lower()))
 
     achados = []
     for caminho, quem in dependentes.items():
@@ -148,7 +221,8 @@ def sem_alcance(inv: dict, ultima_mudanca: dict, agora=None) -> list:
         if (nome.endswith(ENTRADAS_POR_CONVENCAO) or '.config.' in nome
                 or nome in ENTRADAS_DE_SERVIDOR):
             continue
-        if any(f'/{pasta}' in f'/{caminho}' for pasta in PASTAS_SERVIDAS):
+        if any(f'/{pasta}' in f'/{caminho}'
+               for pasta in PASTAS_SERVIDAS + PASTAS_DE_CONFIGURACAO):
             continue
         sem_extensao = Path(caminho).stem.lower()
         if any(sem_extensao.endswith(papel) for papel in PAPEIS_POR_CONVENCAO):
@@ -220,9 +294,8 @@ def dossie_de_decisao(inv: dict) -> dict:
     escrito, qual é o número que falta.
     """
     retrato = inv.get('retrato') or {}
-    universo = inv.get('caminhos_do_projeto') or []
     codigo = [a for a in inv['arvore'] if eh_codigo(linguagem_de(Path(a['caminho'])))]
-    testes = sum(1 for c in universo if eh_teste(c))
+    cobertura = cobertura_de_teste(inv)
     resolucao = inv['imports'].get('resolucao') or {}
     return {
         'autores': retrato.get('autores'),
@@ -230,7 +303,12 @@ def dossie_de_decisao(inv: dict) -> dict:
         'semanas_de_vida': retrato.get('semanas_de_vida'),
         'semanas_parado': retrato.get('semanas_parado'),
         'arquivos_de_codigo': len(codigo),
-        'pct_teste': round(testes * 100 / len(universo)) if universo else None,
+        # o percentual é do PROJETO e sobre CÓDIGO; `arquivos_de_codigo` é da
+        # árvore, que vem recortada. Numa rodada de área os dois divergem de
+        # propósito, e por isso o documento imprime o denominador por extenso.
+        'pct_teste': cobertura['pct'] if cobertura else None,
+        'arquivos_de_teste': cobertura['testes'] if cobertura else None,
+        'codigo_do_projeto': cobertura['codigo'] if cobertura else None,
         'stacks': len({s['stack'] for s in (inv.get('stacks') or [])}),
         'linguagens_medidas': sorted(linguagens_confiaveis(inv)),
         'falta': ('quanto custa reescrever e o que o negócio depende disto — '

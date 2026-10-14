@@ -177,6 +177,74 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   uma ponta só faz o acoplamento novo sumir em silêncio quando a outra ponta já estava lá.
 
 ### Corrigido
+- `sw-codebase-guide` (v0.16.0): **a skill parou de afirmar o que não mediu.** Dois agentes
+  limpos, em dois projetos reais e sem contato entre si, chegaram à mesma conclusão: a varredura
+  publicava números falsos com cara de medida. Cinco deles, e o encadeamento é o que importa —
+  um dos agentes leu o percentual errado, deduziu dele uma frase sobre cobertura e a escreveu no
+  documento humano. **Nenhuma das guardas pegou**, porque elas conferem procedência, não
+  validade.
+
+  - **`sem teste` em arquivos que têm teste** — o pior tipo de defeito, porque não é uma vagueza:
+    é afirmação falsa no bloco que o documento apresenta como a lista do que mais importa, e o
+    leitor age sobre ela. O casamento *teste → arquivo testado* tirava do nome só `.test` e
+    `.spec`, isto é, **só a convenção com ponto do JavaScript**. `HelperTest.php` virava
+    `helpertest` e nunca casava com `helper` — então todo projeto PHP, Python ou Go recebia "sem
+    teste" em **todos** os arquivos, houvesse o que houvesse em `tests/`. Num dos projetos a
+    lista tinha 4 itens e o certo era 1; no outro, 3 dos 8 tinham teste. Agora conhece
+    `<Nome>Test`, `<Nome>Spec`, `test_<nome>`, `<nome>_test` e a do ponto, com a extensão ainda
+    pareada para um `pedido.test.js` do painel não dar "tem teste" ao `Pedido.php` da API. E a
+    coluna passou a dizer **"sem teste de mesmo nome"**, que é o que ela mede.
+  - **O que contava como arquivo de teste era substring solta.** `'test' in caminho` casava
+    `Testemunha.php` e `'spec' in caminho` casava `EAposentadoriaEspecial.php`: num sistema
+    trabalhista em português, uma testemunha e três enums de aposentadoria especial entravam na
+    cobertura, mais um `.conf` do Flyway e uma migration. O `contest not in` era remendo para UM
+    caso de uma família inteira — `latest`, `protest`, `inspecao` casavam todos. Agora é por
+    segmento de pasta e por nome de arquivo, com a caixa importando: `HelperTest` com T
+    maiúsculo é convenção de PHPUnit, `latest` não.
+  - **`14% é teste` dividia por 1.946 arquivos**, mil deles PNG e SVG — e o número saía impresso
+    ao lado de "763 arquivos de código", onde só se pode ler como percentual deles. A conta
+    certa dava 23%. Numerador e denominador agora estão no mesmo universo, o documento escreve o
+    denominador por extenso, e **a regra do que é teste tem um dono só**: havia uma segunda
+    definição no `page.py`, byte a byte igual à do `judge.py` — a que o julgamento usa para
+    decidir o que é código vivo e a que o documento usa para imprimir a cobertura.
+  - **`6 pessoas commitaram` num projeto de uma pessoa.** Eram seis e-mails do mesmo nome: gmail
+    pessoal, dois `@example.com` de máquina nova e — notável — o rodapé de co-autoria do Claude
+    Code, contado como integrante do time. "Há um time, alguém sabe disto" é exatamente o oposto
+    do que o histórico dizia, e é a primeira informação que quem recebe um projeto lê. A união
+    agora é por **evidência**: o mesmo e-mail é sempre a mesma pessoa; o mesmo nome só une
+    quando tem duas partes, porque `admin`, `root` ou o nome do repositório são tão prováveis
+    como login de máquina quanto como pessoa — essa trava veio de um teste que já existia e
+    quebrou com a primeira versão da correção. Identidade de ferramenta sai da conta de pessoas
+    (o commit continua contado), e o documento diz quantas identidades foram agrupadas.
+  - **`100%` impresso ao lado de `764 de 767`** — a linha se contradizia em nove palavras e
+    apagava as três resoluções que faltavam. Vale para o outro extremo: 0,1% não é 0%, que se lê
+    como *nada foi resolvido*.
+  - **O limiar escrito era outro que o aplicado.** O texto dizia "mais de 5 arquivos importando,
+    mais de 10 commits" e o código é `>=`: três das oito linhas tinham exatamente 10 commits.
+    Num documento cuja promessa central é mostrar o número que sustenta a opinião e o limiar que
+    a decidiu, errar por um é caro.
+
+  Também: o H1 do `guide.md` **nomeia o projeto** (um arquivo chamado `guide.md` com título
+  "Guia do projeto" não sobrevive a ser anexado num e-mail); as perguntas derivadas deixaram de
+  afirmar superlativo — `perigo` exige os dois sinais juntos, e o arquivo mais importado do
+  projeto frequentemente não está lá porque é estável, então *"é onde o erro alcança mais
+  gente"* saía sobre um arquivo de 19 dependentes enquanto o de 100 não recebia pergunta
+  nenhuma — e o motivo idêntico em todas elas é escrito **uma vez**, com as perguntas embaixo,
+  em vez de oito vezes com o nome do arquivo trocado. Pasta de configuração saiu de "ninguém
+  parece usar": o framework carrega `config/*.php` por caminho, nunca por `use`, e os dois
+  projetos trouxeram o mesmo falso positivo — num deles o arquivo que o documento sugeria
+  remover é o mapa prefixo-de-URL → módulo, que faz as cinco superfícies HTTP existirem. E
+  `--funcionalidade` deixou de varrer o projeto duas vezes: o recorte sempre foi um filtro no
+  fim, então o grafo completo é construído uma vez e filtrado, no único modo que alguém usa
+  justamente porque o projeto é grande.
+
+  18 testes novos (528 no total). **O que os agentes acharam e esta versão não corrige**, porque
+  é capacidade nova e não conserto: "Superfície pública" não imprime **uma única URL** — lista
+  nome de arquivo de controller — enquanto os dois projetos têm a tabela de rotas pronta e
+  legível em arquivos `Rotas.php` (108 e 70 declarações, com verbo, caminho e middleware); e a
+  composição é reconhecida por **nome de arquivo**, então um `.swarm/production/*.yml` que é
+  Compose v3.8 com três serviços, Traefik e 25 secrets ficou invisível na seção "Como rodar".
+
 - `sw-codebase-guide` (v0.13.0): **cinco defeitos achados por um agente limpo**, que recebeu a
   skill e um projeto nunca documentado e não tinha nenhum contexto de quem a escreveu. É o
   mesmo teste que na v0.5.2 achou oito defeitos de contrato; desde então o contrato mudou sete

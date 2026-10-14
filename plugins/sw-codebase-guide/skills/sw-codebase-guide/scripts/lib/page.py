@@ -27,6 +27,9 @@ import html as _html
 import re
 
 from lib import changes
+from lib import judge as _judge
+from lib import questions as _questions
+from lib import resolution as _resolution
 from lib import trail as _trail
 from lib.tree import ATIVOS, NAO_E_CODIGO, eh_codigo  # noqa: F401
 from collections import Counter
@@ -84,11 +87,6 @@ def _barras(itens, unidade=''):
     return f'<ul class="barras">{linhas}</ul>'
 
 
-def _eh_teste(caminho: str) -> bool:
-    c = caminho.lower()
-    return ('test' in c or 'spec' in c or '__tests__' in c) and 'contest' not in c
-
-
 # ───────────────────────────── os blocos ─────────────────────────────
 
 def bloco_retrato(inv: dict) -> str:
@@ -112,9 +110,13 @@ def bloco_retrato(inv: dict) -> str:
     # o retrato é do PROJETO, não da área — autores e commits já eram. O
     # percentual saía da árvore RECORTADA, e uma área sem teste virava
     # "0% é teste · mexer aqui não tem rede" num projeto com 44% de cobertura.
-    universo = inv.get('caminhos_do_projeto') or [a['caminho'] for a in arvore]
-    testes = sum(1 for c in universo if _eh_teste(c))
-    pct = round(testes * 100 / len(universo)) if universo else 0
+    # Quem decide o que é teste é o `judge`, e é UM lugar só: havia aqui uma
+    # segunda definição byte a byte igual à dele. Duas cópias da mesma regra
+    # divergem na primeira mudança, e aí o documento imprime um percentual que o
+    # julgamento ao lado não reconhece.
+    cobertura = _judge.cobertura_de_teste(inv) or {}
+    testes, codigo_total = cobertura.get('testes', 0), cobertura.get('codigo', 0)
+    pct = cobertura.get('pct', 0)
     cartoes = [
         (r['autores'], 'pessoa commitou' if r['autores'] == 1 else 'pessoas commitaram',
          f'{r["commits"]} commits. ' + (
@@ -122,7 +124,7 @@ def bloco_retrato(inv: dict) -> str:
              'disponível, não há segunda fonte.' if r['autores'] == 1 else
              'Há mais de uma fonte sobre como o código funciona.'), False),
         (f'{pct}%', 'é teste',
-         f'{testes} dos {len(universo)} arquivos do projeto. ' + (
+         f'{testes} dos {codigo_total} arquivos de código do projeto. ' + (
              'É um projeto com rede de segurança: mexer nele é menos arriscado do '
              'que o tamanho sugere.' if pct >= 20 else
              'Mexer aqui não tem rede: a verificação é manual.'), pct < 20),
@@ -447,8 +449,15 @@ def bloco_lacunas(afirmacoes: list, derivadas: list | None = None) -> str:
     lacunas = [a for a in afirmacoes if a.get('nivel') == 'lacuna']
     itens = [f'<li><b>{citacao(a["texto"])}</b> — <em>{citacao(a.get("motivo", ""))}</em></li>'
              for a in lacunas]
-    itens += [f'<li><b>{citacao(d["pergunta"])}</b> — <em>{citacao(d["porque"])}</em></li>'
-              for d in (derivadas or [])]
+    # o motivo idêntico em todas as ocorrências descreve o molde, não a ocorrência
+    for porque, perguntas in _questions.agrupar(derivadas or []):
+        if len(perguntas) == 1:
+            itens.append(f'<li><b>{citacao(perguntas[0])}</b> — '
+                         f'<em>{citacao(porque)}</em></li>')
+            continue
+        dentro = ''.join(f'<li>{citacao(q)}</li>' for q in perguntas)
+        itens.append(f'<li><em>{citacao(porque)}</em> — {len(perguntas)} perguntas'
+                     f'<ul class="molde">{dentro}</ul></li>')
     corpo = ''.join(itens) or '<li>Nenhuma lacuna foi registrada na interpretação.</li>'
     return _bloco('O que ficou sem resposta', 'lacuna',
                   'O que o código não respondeu. É a pauta da conversa com quem '
@@ -637,8 +646,8 @@ def bloco_resolucao(inv: dict) -> str:
                       + c['config_conferida'])
         denominador = (resolvidos + c['ambiguos'] + c['pendurados']
                        + c['nao_resolvidos'])
-        quanto = (f'{round(resolvidos * 100 / denominador)}%' if denominador
-                  else '—')
+        quanto = (f'{_resolution.pct_honesto(resolvidos, denominador)}%'
+                  if denominador else '—')
         detalhe = (f'{resolvidos} de {denominador} imports internos. '
                    f'{c["externos"]} externos, {c["ambiguos"]} ambíguos, '
                    f'{c["pendurados"]} pendurados.' if denominador

@@ -302,7 +302,8 @@ def retrato(raiz) -> dict:
     a `lacuna` diz por quê: `0 autores` se lê como *ninguém mexe nisso*, e `1` se
     lê como *uma pessoa só* — a diferença entre as duas é todo o valor do número.
     """
-    vazio = {'autores': None, 'commits': None, 'primeiro_commit': None,
+    vazio = {'autores': None, 'identidades': None, 'autores_de_maquina': None,
+             'commits': None, 'primeiro_commit': None,
              'ultimo_commit': None, 'semanas_de_vida': None,
              'semanas_parado': None, 'lacuna': None}
 
@@ -313,13 +314,13 @@ def retrato(raiz) -> dict:
         # quem conhece um pedaço dele) e a idade vai do commit mais antigo de
         # qualquer sub-repositório ao mais novo de qualquer um
         subs = subrepos(raiz)
-        autores, datas = set(), []
+        identidades, datas = set(), []
         for sub in subs:
             a, d = _autores_e_datas(sub)
-            autores |= a
+            identidades |= a
             datas += d
         nomes = ', '.join(s.name for s in subs)
-        juntado = _retrato(autores, datas, lacuna=(
+        juntado = _retrato(identidades, datas, lacuna=(
             f'a raiz não é repositório git; o retrato é a soma de {len(subs)} '
             f'sub-repositórios ({nomes})'))
         if juntado:
@@ -334,28 +335,106 @@ def retrato(raiz) -> dict:
         **vazio, 'lacuna': 'o repositório não tem nenhum commit ainda'}
 
 
+# Identidade que não é pessoa. `noreply@anthropic.com` é o rodapé de co-autoria
+# do Claude Code: numa rodada real ele entrou na contagem, e o documento anunciou
+# "6 pessoas commitaram" para um projeto de uma pessoa só — com a ferramenta
+# contada como integrante do time. A pergunta que o número responde é *se esta
+# pessoa sair, alguém sabe disto?*, e máquina nenhuma é segunda fonte.
+EMAILS_DE_MAQUINA = ('noreply@anthropic.com', 'noreply@github.com',
+                     'actions@github.com', 'bot@renovateapp.com')
+NOMES_DE_MAQUINA = ('[bot]', 'dependabot', 'github-actions', 'renovate')
+
+
+def _e_maquina(nome: str, email: str) -> bool:
+    return (email.endswith(EMAILS_DE_MAQUINA)
+            or any(m in nome for m in NOMES_DE_MAQUINA))
+
+
 def _autores_e_datas(raiz) -> tuple:
-    """Os autores e as datas de todos os commits de UM repositório."""
-    saida = _git(raiz, 'log', '--pretty=format:%aE\t%aI')
-    autores, datas = set(), []
+    """As identidades e as datas de todos os commits de UM repositório.
+
+    Identidade é o par `(nome, e-mail)`, não o e-mail: contar e-mail distinto
+    como pessoa inflava o fator ônibus, que é justamente o número que quem recebe
+    um projeto lê primeiro. Sete e-mails do mesmo nome — gmail pessoal, dois
+    `@example.com` de máquina nova e o rodapé do Claude Code — viravam "6
+    pessoas", e "há um time, alguém sabe disto" é o oposto do que o histórico
+    dizia.
+    """
+    saida = _git(raiz, 'log', '--pretty=format:%aN\t%aE\t%aI')
+    identidades, datas = set(), []
     for linha in (saida or '').split('\n'):
-        if '\t' not in linha:
+        partes = linha.split('\t')
+        if len(partes) != 3:
             continue
-        email, data = linha.split('\t', 1)
-        autores.add(email.strip().lower())
-        datas.append(data.strip())
-    return autores, datas
+        nome, email, data = (x.strip().lower() for x in partes)
+        identidades.add((' '.join(nome.split()), email))
+        datas.append(partes[2].strip())
+    return identidades, datas
 
 
-def _retrato(autores: set, datas: list, lacuna) -> dict | None:
+def _pessoas(identidades: set) -> dict:
+    """Agrupa identidades que compartilham nome OU e-mail, e separa as máquinas.
+
+    É união por evidência, não adivinhação: `Ana <ana@casa>` e `Ana <ana@antiga>`
+    são a mesma pessoa porque o nome é o mesmo; dois nomes no mesmo e-mail também
+    se juntam. O que a união NÃO faz é casar um primeiro nome solto com o nome
+    completo da mesma pessoa quando nenhum e-mail os liga — e por isso o
+    documento publica os dois números, pessoas e identidades, em vez de só o
+    menor.
+    """
+    humanas = {(n, e) for n, e in identidades if not _e_maquina(n, e)}
+    maquinas = len(identidades) - len(humanas)
+
+    pai = {i: i for i in humanas}
+
+    def raiz_de(x):
+        while pai[x] != x:
+            pai[x] = pai[pai[x]]
+            x = pai[x]
+        return x
+
+    def unir(a, b):
+        ra, rb = raiz_de(a), raiz_de(b)
+        if ra != rb:
+            pai[ra] = rb
+
+    por_nome, por_email = {}, {}
+    for ident in humanas:
+        nome, email = ident
+        # O NOME só une quando tem duas partes. Um nome de uma palavra é tão
+        # provável ser login de máquina, handle ou nome de repositório (`admin`,
+        # `root`, `ubuntu`, `api`) quanto pessoa — e unir por ele juntaria duas
+        # pessoas que só configuraram o git do mesmo jeito. Nome e sobrenome é
+        # evidência; `admin` não é.
+        if nome and len(nome.split()) > 1:
+            por_nome.setdefault(nome, []).append(ident)
+        # O E-MAIL une sempre: a mesma caixa postal é a mesma pessoa.
+        if email:
+            por_email.setdefault(email, []).append(ident)
+    for grupo in list(por_nome.values()) + list(por_email.values()):
+        for outro in grupo[1:]:
+            unir(grupo[0], outro)
+
+    return {'pessoas': len({raiz_de(i) for i in humanas}),
+            'identidades': len(humanas),
+            'maquinas': maquinas}
+
+
+def _retrato(identidades: set, datas: list, lacuna) -> dict | None:
     if not datas:
         return None
+    quem = _pessoas(identidades)
     datas = sorted(datas)
     primeiro = datetime.fromisoformat(datas[0])
     ultimo = datetime.fromisoformat(datas[-1])
     agora = datetime.now(timezone.utc)
     return {
-        'autores': len(autores),
+        'autores': quem['pessoas'],
+        # publicados ao lado de `autores` porque a união é por evidência: quando
+        # há mais identidades que pessoas, o documento diz quantas foram agrupadas
+        # em vez de esconder a conta.
+        'identidades': quem['identidades'],
+        'autores_de_maquina': quem['maquinas'],
         'commits': len(datas),
         'primeiro_commit': datas[0],
         'ultimo_commit': datas[-1],
