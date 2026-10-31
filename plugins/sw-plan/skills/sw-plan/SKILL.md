@@ -320,9 +320,10 @@ antes de qualquer execução. Mostre um resumo escaneável, não o plano inteiro
 **O que cada resposta significa:**
 - **Aprovar** → segue para a escolha do modo de execução.
 - **Ajustar** → o usuário diz o que mudar, você edita o plano e roda o self-review de novo.
-- **Resumir** → releia o `plan.md` do disco e explique no chat, em até 15 linhas: o que será
-  construído, em que ordem, o que muda no projeto e os riscos. Nada que não esteja no plano
-  entra no resumo, e nenhum arquivo é gravado. Depois, repita este gate.
+- **Resumir** → releia o `plan.md` do disco e explique no chat, em 30 a 50 linhas (plano muito
+  pequeno pode ter menos): o que será construído, a ordem das tasks e o motivo dela, o que cada
+  grupo de tasks entrega, os arquivos afetados, como será testado e os riscos. Nada que não esteja
+  no plano entra no resumo, e nenhum arquivo é gravado. Depois, repita este gate.
 - **Cancelar** → **não execute nada**. O `plan.md` fica no dossiê como está (é rascunho útil,
   não lixo), o dossiê **continua** `aprovado` (não vai para `em-execucao`), e você diz em uma
   linha onde o arquivo ficou, para retomar depois. Só apague o arquivo se o usuário pedir.

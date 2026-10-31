@@ -8,6 +8,8 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-brainstorming` (v0.8.2) e `sw-plan` (v0.7.1): o resumo do spec e o do plano passam de 15 para
+  30 a 50 linhas, com fluxo, decisões, riscos e o que está em aberto.
 - `sw-brainstorming` (v0.8.1): meta de até 80 linhas para o spec no modo Direto e o gatilho "vale a
   pena trocar X por Y" na descrição, as duas recomendações do teste da skill.
 - `sw-brainstorming` (v0.8.0): **afirmação técnica sem origem não entra mais no design.** Toda

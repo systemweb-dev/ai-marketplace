@@ -486,8 +486,16 @@ Depois do spec aprovado, **ofereça via `AskUserQuestion`** (Sim / Não): *"Quer
 antes de seguir?"*. É para quem vai decidir ou executar e quer conferir o todo sem ler o documento;
 quem precisa de linguagem de negócio usa o Briefing.
 
-Se **sim**, releia o `spec.md` do disco e mostre no chat, em até 15 linhas: **objetivo**, **o que
-entra**, **o que fica de fora**, **decisões principais** e **riscos e suposições abertas**.
+Se **sim**, releia o `spec.md` do disco e mostre no chat um resumo que permita decidir sem abrir o
+documento, em **30 a 50 linhas** (spec muito pequeno pode ter menos):
+
+- **Problema e objetivo:** a dor real, para quem é e como saberemos que resolveu.
+- **Como vai funcionar:** a abordagem escolhida e o fluxo principal, passo a passo.
+- **O que muda:** partes do sistema, dados e comportamento afetados.
+- **O que entra e o que fica de fora.**
+- **Decisões:** cada decisão estrutural, o motivo e a alternativa descartada.
+- **Riscos e suposições:** o que pode derrubar o design e como validar.
+- **Em aberto:** o que ainda depende de alguém.
 
 - Tudo sai do arquivo: nada que não esteja no spec entra no resumo. Se notar lacuna ao resumir,
   aponte separadamente e pergunte se ajusta o spec.
