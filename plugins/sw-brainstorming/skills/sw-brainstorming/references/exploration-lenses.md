@@ -24,7 +24,8 @@ perguntas que ABRE o espaço de possibilidades antes de convergir pro design.
 
 ### 1. Enquadrar o problema (Jobs-to-be-done)
 **Pra quê:** garantir que estamos resolvendo a dor certa, não a primeira solução que apareceu.
-**Quando:** quase sempre — é a lente-base. Especialmente se a ideia já vem como solução pronta.
+**Quando:** quase sempre — é a lente-base. Se a ideia já vem como solução pronta, uma pergunta desta
+lente roda até no modo **Direto**.
 **Perguntas (exemplos):**
 - Qual é a **dor real** por trás disso? O que trava hoje?
 - **Pra quem** é? Quem sente mais essa dor?

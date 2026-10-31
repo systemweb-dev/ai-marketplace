@@ -28,6 +28,14 @@ Task tool (general-purpose):
     Você revisa um documento de spec. Confira se ele está completo e pronto para o plano.
 
     **Spec a revisar:** [CAMINHO_DO_SPEC]
+    **Raiz do projeto:** [RAIZ_DO_PROJETO]
+
+    ## Primeiro: confira as citações contra o código
+
+    Não confie no texto. Abra cada `[visto: arquivo:linha]` e confirme que o trecho diz o que o spec
+    afirma. Procure no repositório toda função, classe, rota, tabela ou comando dado como existente.
+    Afirmação técnica sem marca de origem é problema. `[doc:]` sobre API externa: abra a fonte
+    quando houver busca na web. O que for criado por este trabalho não precisa existir.
 
     ## O que checar
 
@@ -50,13 +58,16 @@ Task tool (general-purpose):
     requisito que admite duas leituras são problemas. Melhoria de redação, preferência de
     estilo e "essa seção está menos detalhada que a outra" não são.
 
-    Aprove, a não ser que haja lacuna séria o bastante para gerar um plano errado.
+    Aprove, a não ser que haja lacuna séria o bastante para gerar um plano errado. Citação que não
+    se confirma no código sempre reprova: é assim que um plano nasce sobre algo que não existe.
 
     ## Formato da resposta
 
     ## Revisão do spec
 
     **Status:** Aprovado | Com problemas
+
+    **Citações conferidas:** N de M confirmadas
 
     **Problemas (se houver):**
     - [Seção X]: [problema específico] — [por que atrapalha o plano]
@@ -88,8 +99,13 @@ Task tool (general-purpose):
     Você revisa um design em andamento numa sessão de brainstorming. Ainda não existe spec.
     Leia com olhos frescos.
 
+    **Raiz do projeto:** [RAIZ_DO_PROJETO]
+
     **Design até aqui:**
     [COLE O DESIGN ACUMULADO: problema, abordagem escolhida, seções aprovadas, restrições]
+
+    Antes de opinar, abra no repositório o que o design dá como existente. Afirmação técnica que
+    não se confirma ou não tem origem é problema, não detalhe.
 
     ## O que checar
 

@@ -8,6 +8,15 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-brainstorming` (v0.8.0): **afirmação técnica sem origem não entra mais no design.** Toda
+  afirmação carrega `[visto: arquivo:linha]`, `[usuário]`, `[doc: fonte · versão · data]` ou
+  `[suposição]`, e o que não tem origem vira leitura ou pergunta. Biblioteca, API e serviço externo
+  são conferidos na documentação da versão em uso, com busca na web quando a sessão tiver. Antes das
+  abordagens entra o **mapa do que se sabe**, com critério de parada para as perguntas. Pedido que já
+  chega como solução pronta recebe uma pergunta sobre a dor real, mesmo em Direto. O **revisor abre o
+  código** e reprova citação que não se confirma; antes ele só lia o spec. Novo
+  `scripts/spec_check.py` reprova seção faltando, placeholder, evidência inexistente e suposição sem
+  validação. Depois do spec aprovado, a skill oferece um **resumo**.
 - `sw-dead-code-scan` (v0.3.0): **o comentário que o assistente deixa atrás de si.** A v0.2.0
   pegava código comentado, repetição curta, divisória e scaffold — e **nada** dos três padrões
   que o dono apontou depois de ver o resultado: comentário comprido sem relação com o que a
@@ -290,6 +299,7 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   uma ponta só faz o acoplamento novo sumir em silêncio quando a outra ponta já estava lá.
 
 ### Corrigido
+- `sw-brainstorming` (v0.8.0): removido do plugin um dossiê vazio que ia publicado por engano.
 - `sw-dead-code-scan` (v0.3.1): números errados no `SKILL.md` e nas entradas das v0.2.0 e v0.3.0. A
   skill de referência tem nenhum candidato de alta e 2 de média, não "zero candidatos"; o ensaio em
   PHP cobriu 14 comentários em 8 arquivos, 7 deles PHP; eram 53 testes na primeira versão; e o
