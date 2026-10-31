@@ -28,15 +28,21 @@ import comentarios as com  # noqa: E402
 
 
 def classes(texto, familia, **kw):
-    """As classes atribuídas aos comentários de um trecho, em ordem."""
-    spans = com.extrair(texto, familia)
+    """As classes atribuídas aos comentários de um trecho, em ordem.
+
+    Agrupa e calcula o bloco igual ao `apurar`: helper que anda por outro caminho deixa a
+    suíte verde sobre código que o programa nunca executa.
+    """
+    spans = com.agrupar(texto, com.extrair(texto, familia))
     saida = []
     for inicio, fim, forma in spans:
         bruto = texto[inicio:fim]
         alvo, adiante, _ = com._alvo_de(texto, inicio, fim)
         c = {'corpo': com.corpo_de(bruto), 'forma': forma, 'texto': bruto}
+        c['linhas'] = bruto.count('\n') + 1
         saida.append(com.classificar(c, familia, alvo, adiante,
-                                     kw.get('vocabulario', set())))
+                                     kw.get('vocabulario', set()),
+                                     bloco=com._bloco_de(adiante)))
     return saida
 
 
@@ -607,3 +613,270 @@ def test_toda_classe_emitida_tem_rotulo_no_resumo():
     fonte = (RAIZ / 'scripts' / 'comentarios.py').read_text(encoding='utf-8')
     emitidas = set(_re.findall(r"'classe': '(\w+)'", fonte))
     assert emitidas <= set(com.ROTULO), emitidas - set(com.ROTULO)
+
+
+# ------------------------------------------------- o comentário que a IA escreve
+# Três padrões, pedidos pelo dono depois de ver a primeira versão: comentário comprido sem
+# relação com o que a linha faz, comentário empilhado em cima de comentário, e narração
+# cerimonial. Os três caíam em `prosa` — ou seja, não eram propostos.
+def test_narracao_em_primeira_pessoa_e_candidata():
+    c = classes('// Agora vamos validar o CPF\nvalidarCpf($cpf);\n', 'c')[0]
+    assert c['classe'] == 'narracao' and c['confianca'] == 'alta'
+
+
+def test_apresentacao_do_simbolo_e_candidata():
+    """`Esta função é responsável por` apresenta o que a assinatura já apresenta."""
+    fonte = ('<?php\n/** Esta função é responsável por validar o CPF */\n'
+             'function validarCpf($cpf) {}\n')
+    assert classes(fonte, 'php')[0]['classe'] == 'narracao'
+
+
+def test_passo_a_passo_do_codigo_e_candidato():
+    for abertura in ('Primeiro,', 'Em seguida', 'Por fim', 'Passo 2', 'Então:'):
+        c = classes(f'// {abertura} grava o pedido\nsalvar();\n', 'c')[0]
+        assert c['classe'] == 'narracao', abertura
+
+
+def test_ordinal_que_nao_enumera_passo_nao_e_narracao():
+    """`primeiro de todos:` ordena, não narra — e saía como remoção de ALTA confiança."""
+    c = classes('// primeiro de todos: quem volta ao documento só precisa deste\nx();\n',
+                'c')[0]
+    assert c['classe'] != 'narracao'
+
+
+def test_nome_de_framework_nao_abre_passo_a_passo():
+    """`Next.js App Router` casava `^next\\b` e saía como narração de alta confiança."""
+    c = classes('# Next.js App Router\nrotas = ler()\n', 'py')[0]
+    assert c['classe'] != 'narracao'
+
+
+def test_abertura_de_narracao_vale_no_comeco_do_comentario():
+    """Com `re.M` o `^` casava qualquer LINHA: um comentário de três linhas que explicava um
+    defeito medido virava "narração" porque a última começava com "Então"."""
+    fonte = ('# "2.036 arquivos" se lê como 2.036 arquivos de CÓDIGO; num projeto real\n'
+             '# metade eram PNG e SVG. A afirmação estava correta e comunicava errado.\n'
+             '# Então o predicado passou a dizer o denominador.\n'
+             'cabeca = monta(d)\n')
+    assert classes(fonte, 'py')[0]['classe'] != 'narracao'
+
+
+def test_marcador_aaa_combinado_numa_linha_e_protegido():
+    """`# Act / Assert` é marcador igual a `# Act` — e entrava na conta da pilha."""
+    assert classes('# Act / Assert\nassert f() == 1\n', 'py')[0]['classe'] == 'marcador'
+
+
+def test_etiqueta_curta_nao_conta_como_camada_de_pilha(tmp_path):
+    """Pilha é sobre duas EXPLICAÇÕES no mesmo código; `noscan: fixture` é uma etiqueta."""
+    (tmp_path / 'a.py').write_text(
+        '# as linhas marcadas carregam valor com forma de segredo de propósito, e é\n'
+        '# assim que a guarda prova que funciona\n'
+        '# noscan: fixture\n'
+        'CHAVE = "x"\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+
+    assert not [a for a in achados if a['classe'] == 'empilhado']
+
+
+def test_rotulo_de_camada_e_candidato():
+    c = classes('// Tratamento de erro\ntry {\n', 'c')[0]
+    assert c['classe'] == 'narracao'
+
+
+def test_anuncio_de_secao_que_a_sintaxe_ja_delimita_e_candidato():
+    c = classes('# Imports\nimport os\n', 'py')[0]
+    assert c['classe'] == 'narracao'
+
+
+def test_note_que_com_aviso_de_verdade_continua_protegido():
+    """O "porquê" é testado ANTES: só chega à narração o `Note que` que não avisa nada."""
+    c = classes('// Note que a ordem importa: o token expira antes do refresh\nx();\n',
+                'c')[0]
+    assert c['classe'] == 'porque'
+
+
+def test_narracao_longa_vai_para_media_nao_para_remocao_direta():
+    """Pode ter engolido informação de domínio no meio do cerimonial; quem separa é quem lê."""
+    fonte = ('// Esta função é responsável por conciliar o extrato bancário do dia com os\n'
+             '// lançamentos previstos, tolerando divergência de centavos conforme o acordo\n'
+             '// comercial fechado com a operadora em dezembro\n'
+             'conciliar();\n')
+    c = classes(fonte, 'c')[0]
+    assert c['classe'] == 'narracao' and c['acao'] == 'decidir'
+
+
+def test_comentario_comprido_e_generico_e_candidato():
+    """O enchimento: comprido, nenhuma âncora, só vocabulário de categoria."""
+    fonte = ('# Este trecho cuida de toda a parte de preparação dos dados que serão\n'
+             '# usados mais adiante no decorrer do processamento geral\n'
+             'x = 1\n')
+    c = classes(fonte, 'py')[0]
+    assert c['classe'] in ('vago', 'narracao')
+    assert c['acao'] in ('decidir', 'remover')
+
+
+def test_o_sinal_do_vago_traz_a_conta():
+    """A skill não opina sem mostrar a medida que a fez opinar."""
+    fonte = ('# trata de diversos casos relacionados ao fluxo geral da aplicação\n'
+             '# inteira sem necessidade de nada apropriado\n'
+             'total = soma(a, b)\n')
+    c = classes(fonte, 'py')[0]
+    assert c['classe'] == 'vago'
+    assert 'âncora' in c['sinal'] and 'palavras' in c['sinal']
+
+
+def test_o_porque_comprido_nao_e_vago():
+    """Dez achados lidos num projeto real eram TODOS "porquê", e nenhum podia sair.
+
+    Sobreposição baixa com o código é a assinatura do bom comentário de motivo: ele fala da
+    razão, não da mecânica. O que separa o enchimento é não ter âncora — número,
+    identificador ou termo do domínio. Estes têm.
+    """
+    reais = [
+        ('# `round` levava 99,6% a "100%", e a mesma frase imprimia "764 de 767":\n'
+         '# a linha se contradizia em nove palavras\n'
+         'pct = honesto(a, b)\n'),
+        ('# um serviço por linha: a lista inteira num parágrafo dava 600 caracteres,\n'
+         '# e um serviço que mudasse sujava o diff do parágrafo todo\n'
+         'for s in servicos:\n'),
+        ('# Pasta no plural é o mesmo papel do arquivo no singular: sem isto\n'
+         '# `Controllers/` e `Controller.php` eram dois papéis\n'
+         "SINONIMO = {'controllers': 'controller'}\n"),
+    ]
+    for fonte in reais:
+        c = classes(fonte, 'py')[0]
+        assert c['classe'] != 'vago', (c['classe'], fonte[:50])
+
+
+def test_comentario_curto_e_generico_nao_e_vago():
+    """Curto não é enchimento: a regra exige comprimento, porque um rótulo curto já é
+    julgado por outras regras e porque o curto raramente cansa quem lê."""
+    c = classes('# trata dos dados\nx = f()\n', 'py')[0]
+    assert c['classe'] != 'vago'
+
+
+def test_dois_comentarios_sobre_a_mesma_linha_sao_uma_pilha(tmp_path):
+    """O padrão: o assistente acrescenta por cima, e ninguém apaga o que já estava."""
+    (tmp_path / 'a.py').write_text(
+        '# calcula o frete pela faixa de CEP\n'
+        '\n'
+        '# usa a tabela nova da transportadora\n'
+        'frete = tabela(cep)\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+
+    pilha = [a for a in achados if a['classe'] == 'empilhado']
+    assert len(pilha) == 2
+    assert all(a['acao'] == 'fundir' for a in pilha)
+    assert pilha[0]['grupo'] == pilha[1]['grupo']
+
+
+def test_a_camada_que_repete_a_outra_sai(tmp_path):
+    (tmp_path / 'a.py').write_text(
+        '# a transportadora cobra por faixa, e a nossa é a B\n'
+        '\n'
+        '# a transportadora cobra por faixas, e a nossa é a B\n'
+        'frete = tabela(cep)\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+
+    duplicata = [a for a in achados if a['acao'] == 'remover']
+    assert len(duplicata) == 1
+    assert 'repete quase palavra por palavra' in duplicata[0]['sinal']
+
+
+def test_diretiva_acima_de_simbolo_documentado_nao_e_pilha(tmp_path):
+    """`// eslint-disable-next-line` junto de um docblock é o normal, não empilhamento."""
+    (tmp_path / 'a.ts').write_text(
+        '/**\n * @param nome do cliente\n */\n'
+        '// eslint-disable-next-line no-unused-vars\n'
+        'export function v(nome: string) {}\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+
+    assert not [a for a in achados if a['classe'] == 'empilhado']
+
+
+def test_um_paragrafo_de_tres_linhas_nao_e_pilha(tmp_path):
+    """Linhas seguidas são UM comentário; pilha é camada separada sobre o mesmo código."""
+    (tmp_path / 'a.py').write_text(
+        '# o fisco exige truncar, não arredondar, porque a diferença de centavo\n'
+        '# acumulada no fechamento do mês gerava divergência com a nota\n'
+        'valor = trunca(v)\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+
+    assert len(achados) == 1 and achados[0]['classe'] != 'empilhado'
+
+
+def test_achado_de_alta_nao_e_rebaixado_pela_pilha(tmp_path):
+    """`empilhado` é mais fraco: sobrescrever um achado já provado perderia informação."""
+    (tmp_path / 'a.py').write_text(
+        '# print(total)\n'
+        '\n'
+        '# soma os valores do pedido inteiro\n'
+        'total = sum(v)\n', encoding='utf-8')
+
+    achados = com.apurar(tmp_path)['achados']
+    por_corpo = {a['corpo']: a for a in achados}
+
+    assert por_corpo['print(total)']['classe'] == 'codigo_comentado'
+
+
+def test_passo_numerado_com_titulo_rotula_a_secao():
+    """`<!-- Step 2: Dados da Empresa -->` num formulário de sete passos rotula a seção.
+
+    Eram nove achados de ALTA num formulário real. O título vem com maiúscula; a frase de
+    ação, não — e é essa a diferença entre rotular um bloco e narrar o código.
+    """
+    c = classes('<!-- Step 2: Dados da Empresa -->\n', 'html')[0]
+    assert c['classe'] == 'marcador' and c['acao'] == 'manter'
+
+
+def test_passo_numerado_com_acao_continua_narracao():
+    c = classes('// Passo 2: grava o pedido\nsalvar();\n', 'c')[0]
+    assert c['classe'] == 'narracao'
+
+
+def test_narracao_que_cita_algo_concreto_nao_sai_em_alta():
+    """`Helper para testar métodos privados via Reflection` conta a técnica usada."""
+    fonte = ('<?php\n/** Helper para invocar métodos privados de AwsS3Image */\n'
+             'function chamar($m) {}\n')
+    c = classes(fonte, 'php')[0]
+    assert c['classe'] == 'narracao' and c['confianca'] == 'media'
+
+
+def test_narracao_sem_nenhuma_ancora_sai_em_alta():
+    c = classes('// Tratamento de erro\ntry {\n', 'c')[0]
+    assert c['classe'] == 'narracao' and c['confianca'] == 'alta'
+
+
+def test_carimbo_de_autor_no_docblock_e_apontado():
+    """O git guarda autor e data com precisão — e num repositório público o `@author` é
+    dado pessoal que viaja dentro do arquivo. Achado numa varredura real."""
+    fonte = '<?php\n/**\n * Classe utilitária\n *\n * @author Alguem\n */\nclass U {}\n'
+    c = classes(fonte, 'php')[0]
+    assert c['classe'] in ('autoria', 'narracao')
+
+
+def test_autoria_sozinha_vai_para_media():
+    c = classes('<?php\n/**\n * @author Alguem\n * @date 2019-04-02\n */\nclass U {}\n',
+                'php')[0]
+    assert c['classe'] == 'autoria' and c['confianca'] == 'media'
+
+
+def test_substantivo_terminado_em_ria_nao_e_verbo_no_condicional():
+    """`\\w+ria` casava "utilitária", "memória", "categoria" — e marcava como "porquê",
+    protegido, comentário que não explica nada. Protegido a mais esconde achado."""
+    # `memória` fica de fora da lista porque é protegida por OUTRA regra, a de medida
+    # e desempenho — ali a proteção é deliberada.
+    for palavra in ('utilitária', 'categoria', 'obrigatória', 'bateria', 'história'):
+        c = classes(f'# trata da {palavra} do item\nx = 1\n', 'py')[0]
+        assert c['classe'] != 'porque', palavra
+
+
+def test_o_condicional_de_verdade_continua_protegendo():
+    for frase in ('sem isso o checkout quebraria', 'o cache cairia a cada deploy',
+                  'duas chamadas levariam 400ms'):
+        c = classes(f'# {frase}\nx = 1\n', 'py')[0]
+        assert c['classe'] == 'porque', frase

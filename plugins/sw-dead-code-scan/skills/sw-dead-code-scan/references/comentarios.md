@@ -86,6 +86,54 @@ Dívida registrada, muitas vezes o único registro de um problema conhecido. Só
 ### 8. Comentário de teste que nomeia o cenário
 É o que diz qual armadilha o teste trava. Apagá-lo transforma a suíte num muro de asserts.
 
+## O comentário que o assistente escreve
+
+Três padrões, que são a razão desta seção existir. Nenhum deles é pego pelas regras
+clássicas: o comentário de IA raramente é *código comentado* ou *repetição curta* — ele é
+**comprido, cerimonial e empilhado**.
+
+### 1. Narração — conta o que o código faz
+O comentário descreve a mecânica em vez de dizer o que o código não diz. Reconhecido pela
+**abertura**, por lista versionada: primeira pessoa (`Agora vamos`, `Aqui nós`, `Let's`),
+apresentação do símbolo (`Esta função é responsável por`), passo a passo (`Primeiro,`,
+`Em seguida`, `Step 2: grava`), observação que não observa (`Note que`), rótulo de categoria
+(`Função auxiliar para`, `Helper`), anúncio de seção que a sintaxe já delimita (`# Imports`),
+rótulo de camada (`Tratamento de erro`), e a forma verbo-genérico + objeto-genérico
+(`Retorna o resultado`).
+
+A abertura vale **no começo do comentário**, não de qualquer linha dele — com `re.M`, um
+comentário de três linhas que explicava um defeito medido virava "narração" porque a
+**última** linha começava com "Então".
+
+### 2. Vago — comprido e sem âncora
+Comentário com 10 palavras ou mais em que **nada é concreto**: nenhum número, nenhum
+identificador (`entre acentos graves`, camelCase, caminho de arquivo) e no máximo 30% de
+palavras fora do vocabulário genérico (`parte`, `dados`, `processamento`, `fluxo`, `geral`,
+`necessário`, `apropriado`…).
+
+> **A âncora é a medida — não a sobreposição com o código.** A primeira versão desta regra
+> media "o comentário fala de outra coisa que não a linha". Lida num projeto real, ela acusou
+> dez comentários e **os dez eram "porquê"**: sobreposição baixa é a assinatura do bom
+> comentário de motivo, que fala da razão e não da mecânica. O que separa o enchimento é não
+> citar nada — e quem tem o que dizer cita alguma coisa.
+
+### 3. Empilhado — camada sobre camada
+Mais de um comentário sobre a **mesma linha de código**, ou mais de uma frase independente
+dentro do mesmo bloco. É o que acontece quando o assistente acrescenta por cima e ninguém
+apaga o que já estava ali.
+
+A ação é **fundir**, nunca remover automaticamente: cada camada pode carregar um pedaço da
+informação. A exceção é a camada que repete outra quase palavra por palavra — essa sai.
+
+Duas exigências, as duas vindas de falso positivo medido: **etiqueta curta não é camada**
+(menos de 4 palavras — `Act / Assert`, `noscan: fixture` ao lado de um parágrafo não formam
+pilha), e **comentário protegido não entra na conta** (`// eslint-disable-next-line` junto de
+um docblock é o normal).
+
+### 4. Autoria — `@author` e `@date`
+O git guarda autor e data com precisão. Em repositório **público**, o carimbo no arquivo é
+dado pessoal que viaja junto do código. Fica em média: há projeto cuja política pede.
+
 ## 🔴 Sai, com aprovação
 
 | Classe | O que é | Por que sai |
@@ -97,12 +145,23 @@ Dívida registrada, muitas vezes o único registro de um problema conhecido. Só
 | `contradiz` | `@param $b` numa função que recebe `$c` | **corrigir, não remover**: comentário falso é pior que nenhum, porque quem lê confia e para de ler o código |
 | `orfao` | cita símbolo que não existe mais | só quando **referencia** (`ver X`, `definido em X`); exemplo dentro de prosa (`funil/page.tsx → (funil, page)`) não é referência |
 | `gerador` | banner de gerador | **média**: pode ser atribuição de licença |
+| `narracao` | conta o que o código faz | alta quando é curta, repete a assinatura ou é ≥70% genérica **e não cita nada concreto**; média quando cita — aí pode estar informando |
+| `vago` | ≥10 palavras, nenhuma âncora, ≤30% fora do genérico | média: é enchimento, mas quem confirma é quem lê |
+| `empilhado` | 2+ comentários sobre o mesmo código | **fundir**, não remover — exceto a camada que repete outra |
+| `autoria` | `@author`, `@date` no docblock | média: o git já guarda, e em repo público é dado pessoal |
 | `prosa` | não foi provado desnecessário | **não é candidato** — é o que o humano lê com contexto |
 
 Exigências do classificador, cada uma nascida de um falso positivo medido:
 
 - **Uma palavra é rótulo, não descrição.** `# RabbitMQ` acima de `RABBITMQ_HOST=` nomeia o
   grupo de variáveis que começa ali.
+- **`Step 2: Dados da Empresa` rotula uma seção; `Passo 2: grava o pedido` narra o código.**
+  O título vem com maiúscula, a frase de ação não. Num formulário real de sete passos eram
+  nove achados de alta confiança.
+- **Nome de framework não abre passo a passo.** `Next.js App Router` casava `^next\b`, e saía
+  como narração de alta confiança.
+- **Ordinal que ordena não enumera passo.** `primeiro de todos: quem volta ao documento só
+  precisa deste` também saía em alta.
 - **Comentário acima de linha que abre bloco rotula o bloco.** `// Status de API` sobre
   `const API_STATUS = {` é o título do objeto.
 - **Palavra-chave no início não faz prosa virar código.** `// If done with making changes…`
@@ -134,6 +193,12 @@ Exigências do classificador, cada uma nascida de um falso positivo medido:
 - **Ruby heredoc e `%w[]`, regex de JS com `/*` dentro de classe de caractere, e `.php` com
   HTML entremeado** não são reconhecidos perfeitamente. Por isso o `--aplicar` confere o texto
   antes de cortar: o pior caso é recusar, não corromper.
+- **A proteção também pode errar, e errar protegendo esconde achado.** `\w+ria` como marca de
+  verbo no condicional casava "utilitária", "memória" e "categoria", e marcava 55 comentários
+  de um projeto real como "porquê" — protegidos — sem que explicassem nada. Hoje o condicional
+  é lista fechada.
+- **`vago` quase nunca dispara em código escrito à mão** — nos dois projetos de referência deu
+  zero. Ele existe para o código gerado, e um zero aqui não é a regra falhando.
 - **`orfao` por texto é fraco** — símbolo citado pode ser de biblioteca, de produto ou um nome
   hipotético. Fica em média, nunca em alta.
 - **Docstring de Python e Ruby não são lidas**: remover uma muda `__doc__` e pode quebrar

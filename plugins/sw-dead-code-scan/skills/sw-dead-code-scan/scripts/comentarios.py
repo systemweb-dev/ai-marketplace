@@ -318,7 +318,15 @@ PORQUES = (
     (r'\b(ordem importa|a ordem|antes de|depois de|precisa vir|tem que vir|'
      r'order matters|must come|must be before|must be after)\b',
      'declara uma dependência de ordem que o código não mostra'),
-    (r'\b\w+(?:ria|riam|r[ií]amos)\b|\bsem (?:a|o|os|as|isso|ele|ela|esse|essa)\b|'
+    # O condicional é lista FECHADA de propósito: `\w+ria` casava "utilitária",
+    # "memória", "categoria" e "obrigatória", e marcava como "porquê" — protegido —
+    # comentário que não explica nada. Protegido a mais esconde achado.
+    (r'\b(?:seria|teria|faria|daria|iria|viria|poderia|deveria|quebraria|cairia|'
+     r'deixaria|geraria|perderia|passaria|ficaria|voltaria|acabaria|sairia|entraria|'
+     r'custaria|bastaria|valeria|mudaria|sumiria|apareceria|aceitaria|retornaria|'
+     r'salvaria|dispararia|falharia|funcionaria|viraria|duplicaria|contaria|levaria|'
+     r'traria|impediria|exigiria|obrigaria|precisaria|continuaria|pararia)(?:m|mos)?\b|'
+     r'\bsem (?:a|o|os|as|isso|isto|este|esta|ele|ela|esse|essa)\b|'
      r'\bpara que\b|\bde modo que\b|\bbasta\b|\bdo contr[aá]rio\b',
      'explica a consequência de fazer diferente'),
     (r'\b(hist[oó]ric|legado|legacy|compatibilidade|retrocompat|migra[cç][aã]o|'
@@ -333,11 +341,18 @@ PENDENCIAS = r'\b(TODO|FIXME|HACK|XXX|BUG|OPTIMIZE|REVIEW|NOTE)\b'
 # estrutura do teste. O marcador não DESCREVE a linha seguinte: ele marca a fronteira de um
 # bloco, e a convenção AAA/BDD é exigida por outra skill desta casa. Numa rodada real num
 # projeto de 76 arquivos eram 200 dos 317 candidatos a "redundante".
+# A palavra-chave não liga para a caixa, mas o TÍTULO liga: `Step 2: Dados da Empresa`
+# rotula uma seção, `Passo 2: grava o pedido` narra o código. Daí o grupo `(?i:...)`
+# aplicado só à palavra-chave, em vez de `re.I` na expressão inteira.
+SECAO_NUMERADA = re.compile(
+    r'^(?i:passo|etapa|step|parte|part|se[cç][aã]o|section)\s*\d+\s*[:.\-]\s*[A-ZÀ-Ý]')
+
 MARCADORES = (
     (r'^[=\-*~#_]{2,}\s*[^\s=\-*~#_][^\n]*?[=\-*~#_]{2,}$',
      'faixa de seção: rotula um bloco, não a linha seguinte'),
-    (r'^(arrange|act|assert|given|when|then|setup|teardown|fixture|'
-     r'arranjo|a[cç][aã]o|verifica[cç][aã]o|prepara[cç][aã]o|preparo)\s*[:.\-]?$',
+    (r'^(?:arrange|act|assert|given|when|then|setup|teardown|fixture|'
+     r'arranjo|a[cç][aã]o|verifica[cç][aã]o|prepara[cç][aã]o|preparo)'
+     r'(?:\s*[/|+e&]\s*(?:arrange|act|assert|given|when|then))*\s*[:.\-]?$',
      'marca a fronteira de um bloco (AAA/BDD), não descreve a linha'),
 )
 
@@ -364,6 +379,46 @@ SCAFFOLDS = (
     (r'^\s*(code|c[oó]digo)\s+(here|aqui)\s*\.?\s*$', 'marcador de scaffold'),
     (r'^\s*(descri[cç][aã]o|description|summary|resumo|undefined|n/?a)\s*\.?\s*$',
      'campo de template não preenchido'),
+)
+
+# Abertura que denuncia NARRAÇÃO: o comentário conta o que o código faz em vez de dizer
+# o que o código não diz. É o padrão mais comum de comentário gerado por assistente, e o
+# motivo de ele existir é diferente dos outros — ninguém pediu, e ninguém lê duas vezes.
+# Repare que todo "porquê" já foi testado ANTES: um `Note que a ordem importa` fica
+# protegido por causa de "ordem importa", e só chega aqui o `Note que` que não avisa nada.
+NARRACOES = (
+    (r'^(agora\s+)?(vamos|vou|iremos)\b|^aqui\s+(n[oó]s|eu|vamos)\b|'
+     r"^(we|let's|now we|i'?ll)\b", 'narra o que vai fazer, em primeira pessoa'),
+    (r'^est[ae]\s+(fun[cç][aã]o|m[eé]todo|classe|arquivo|trecho|bloco|vari[aá]vel)\s+'
+     r'(é|e|serve|faz|cuida|trata|ser[aá])\b|'
+     r'^(é|e)\s+respons[aá]vel\s+por\b|respons[aá]vel\s+por\b|'
+     r'^th(is|e)\s+(function|method|class|file|block|variable)\s+(is|does|will)\b',
+     'apresenta o símbolo que a assinatura logo abaixo já apresenta'),
+    (r'^(em seguida|por fim|logo depois|finalmente|a seguir|na sequ[eê]ncia)\b|'
+     r'^(passo|etapa|step)\s*\d+\b|^\d+\s*[).:-]\s*(faz|cria|chama|valida|retorna)\b|'
+     r'^(primeiro|segundo|terceiro|depois|ent[aã]o)\s*[,:]\s*\S|'
+     r'^(first|then|next|finally|lastly|afterwards)\s*[,:]\s*\S',
+     'enumera o passo a passo do código'),
+    (r'^(note|observe|repare|lembre|atenç)\w*\s+que\b|^(note|notice) that\b',
+     'anuncia uma observação que não observa nada'),
+    (r'^(fun[cç][aã]o|m[eé]todo|classe)\s+(auxiliar|utilit[aá]ri\w+|helper)\b|'
+     r'^helper\b|^(fun[cç][aã]o|m[eé]todo)\s+(para|que)\b|^(function|method)\s+(to|that)\b',
+     'rotula o símbolo pela categoria dele, não pelo que ele resolve'),
+    (r'^(inicializa|instancia|declara|importa)\w*\s+(as\s+|os\s+|a\s+|o\s+)?'
+     r'(vari[aá]ve|depend[eê]nc|import|m[oó]dulo|constante|bibliotec)\w*|'
+     r'^(imports?|depend[eê]ncias?|constantes?|vari[aá]veis)\s*[:.]?$|'
+     r'^(initialize|declare|import)\s+(the\s+)?(variab|depend|modul|constant)\w*',
+     'anuncia a seção que a própria sintaxe já delimita'),
+    (r'^(retorna|devolve|cria|chama|executa|valida|verifica|inicializa|configura|'
+     r'trata|processa|atualiza|salva|remove|adiciona|monta|define)\s+'
+     r'(?:o|a|os|as|the)?\s*'
+     r'(resultado|valor|valores|dados|objeto|item|itens|lista|array|total|erro|erros|'
+     r'resposta|retorno|result|value|data|object|list|error|response)\s*\.?$',
+     'rotula a operação pelo objeto genérico dela'),
+    (r'^(l[oó]gica|fluxo|tratamento|valida[cç][aã]o|processamento)\s+'
+     r'(principal|de erro|dos? dados?|da requisi[cç][aã]o)\b|'
+     r'^(main|business)\s+logic\b|^error handling\b',
+     'rotula o trecho pela camada, não pelo que ele decide'),
 )
 
 # Palavra do comentário que já está dita por um token de sintaxe da linha. Sem esta tabela,
@@ -414,11 +469,62 @@ SINONIMOS = {
     'true': ('true',), 'false': ('false',), 'nulo': ('null', 'none', 'nil'),
 }
 
+# Palavra que não ancora nada: nomeia categoria, não coisa. Um comentário comprido feito
+# SÓ destas é enchimento — `cuida de toda a parte de preparação dos dados que serão usados
+# mais adiante no processamento geral`. A lista é versionada porque a fronteira entre
+# "genérico" e "termo do domínio" é uma decisão, não um cálculo.
+GENERICAS = {
+    'parte', 'partes', 'trecho', 'trechos', 'coisa', 'coisas', 'dado', 'dados',
+    'informacao', 'informacoes', 'informação', 'informações', 'processamento',
+    'processar', 'processa', 'tratamento', 'tratar', 'trata', 'cuida', 'cuidar',
+    'lida', 'lidar', 'geral', 'gerais', 'adiante', 'decorrer', 'necessario',
+    'necessaria', 'necessário', 'necessária', 'apropriado', 'adequado', 'correto',
+    'corretamente', 'devidamente', 'basicamente', 'simplesmente', 'apenas',
+    'responsavel', 'responsável', 'relacionado', 'relacionados', 'relacionadas',
+    'diversos', 'diversas', 'varios', 'varias', 'vários', 'várias', 'etc',
+    'fluxo', 'logica', 'lógica', 'operacao', 'operação', 'operacoes', 'operações',
+    'funcionalidade', 'funcionalidades', 'aplicacao', 'aplicação', 'sistema',
+    'codigo', 'código', 'metodo', 'método', 'metodos', 'métodos', 'funcao',
+    'função', 'funcoes', 'funções', 'classe', 'objeto', 'objetos', 'valor',
+    'valores', 'item', 'itens', 'elemento', 'elementos', 'variavel', 'variável',
+    'variaveis', 'variáveis', 'parametro', 'parâmetro', 'parametros', 'parâmetros',
+    'campo', 'campos', 'usado', 'usados', 'usada', 'usadas', 'usar', 'utiliza',
+    'utilizar', 'utilizado', 'realiza', 'realizar', 'executa', 'executar',
+    'efetua', 'faz', 'fazer', 'feito', 'serve', 'servir', 'permite', 'permitir',
+    'garante', 'garantir', 'define', 'definir', 'configura', 'configurar',
+    'inicializa', 'inicializar', 'prepara', 'preparar', 'preparacao', 'preparação',
+    'verifica', 'verificar', 'valida', 'validar', 'obtem', 'obtém', 'obter',
+    'retorna', 'retornar', 'cria', 'criar', 'inteiro', 'inteira', 'todo', 'toda',
+    'todos', 'todas', 'mesmo', 'mesma', 'aqui', 'abaixo', 'acima', 'seguinte',
+    'anterior', 'principal', 'importante', 'forma', 'maneira', 'modo', 'caso',
+    'casos', 'momento', 'vez', 'vezes', 'ponto', 'pontos', 'nivel', 'nível',
+    'tipo', 'tipos', 'conteudo', 'conteúdo', 'resultado', 'resultados', 'estado',
+    'atual', 'novo', 'nova', 'sera', 'será', 'serao', 'serão', 'ser', 'esta',
+    'este', 'isso', 'isto', 'entao', 'então', 'bem', 'muito', 'mais', 'menos',
+    'part', 'thing', 'things', 'data', 'information', 'process', 'processing',
+    'handle', 'handles', 'handling', 'general', 'necessary', 'appropriate',
+    'properly', 'correctly', 'basically', 'simply', 'just', 'responsible',
+    'related', 'various', 'several', 'flow', 'logic', 'operation', 'functionality',
+    'application', 'system', 'code', 'method', 'function', 'class', 'object',
+    'value', 'item', 'element', 'variable', 'parameter', 'field', 'used', 'use',
+    'uses', 'using', 'perform', 'performs', 'execute', 'executes', 'make', 'makes',
+    'does', 'serve', 'serves', 'allow', 'allows', 'ensure', 'ensures', 'define',
+    'defines', 'configure', 'initialize', 'prepare', 'check', 'checks', 'validate',
+    'get', 'gets', 'return', 'returns', 'create', 'creates', 'whole', 'entire',
+    'same', 'here', 'below', 'above', 'following', 'previous', 'main', 'important',
+    'way', 'case', 'moment', 'time', 'times', 'point', 'level', 'type', 'content',
+    'result', 'state', 'current', 'new', 'will', 'would', 'should', 'can',
+}
+
 VAZIAS = {'o', 'a', 'os', 'as', 'um', 'uma', 'de', 'do', 'da', 'dos', 'das', 'no',
           'na', 'nos', 'nas', 'em', 'para', 'por', 'com', 'e', 'ou', 'que', 'se',
           'ao', 'aos', 'pelo', 'pela', 'este', 'esta', 'esse', 'essa', 'isto',
           'the', 'of', 'to', 'in', 'on', 'at', 'is', 'are', 'this', 'that', 'it',
-          'and', 'or', 'for', 'with', 'from', 'by', 'as', 'be', 'all', 's'}
+          'and', 'or', 'for', 'with', 'from', 'by', 'as', 'be', 'all', 's',
+          'é', 'ela', 'ele', 'elas', 'eles', 'são', 'foi', 'foram', 'está',
+          'estão', 'tem', 'têm', 'há', 'à', 'às', 'num', 'numa', 'me', 'se',
+          'lhe', 'seu', 'sua', 'seus', 'suas', 'was', 'were', 'been', 'has',
+          'have', 'had', 'its', 'their', 'an', 'not', 'no'}
 
 # Começo de linha que denuncia código, não prosa.
 PALAVRAS_DE_CODIGO = (
@@ -436,6 +542,19 @@ PALAVRAS_DE_CODIGO = (
 def _casa(corpo: str, padroes) -> str | None:
     for padrao, motivo in padroes:
         if re.search(padrao, corpo, re.I | re.M):
+            return motivo
+    return None
+
+
+def _casa_inicio(corpo: str, padroes) -> str | None:
+    """Como `_casa`, mas sem `re.M`: o `^` é o começo do comentário.
+
+    A narração se reconhece pela ABERTURA. Com `re.M`, `^` casava qualquer linha, e um
+    comentário de três linhas que explicava um defeito medido virava "narração" porque a
+    última linha começava com "Então".
+    """
+    for padrao, motivo in padroes:
+        if re.search(padrao, corpo, re.I):
             return motivo
     return None
 
@@ -465,6 +584,23 @@ def _vocabulario_da_linha(linha: str, so_identificador: bool = False) -> set:
             palavras.add(parte.lower())
         palavras.update(p.lower() for p in ident.split('_') if p)
     return palavras
+
+
+def sobreposicao(corpo: str, bloco: str) -> tuple:
+    """Quantas palavras do comentário aparecem no código que ele descreve.
+
+    É o mesmo eixo das duas pontas: `redundante` é sobreposição TOTAL — o comentário não
+    acrescenta nada; `sem_contexto` é sobreposição quase NULA num comentário longo — ele
+    fala de outra coisa. O meio é onde vive o comentário útil, e o meio não é proposto.
+    """
+    palavras = _palavras(corpo)
+    if not palavras:
+        return 0, 0, 0
+    vocabulario = _vocabulario_da_linha(bloco, so_identificador=True)
+    baixo = SEM_STRING.sub(' ', bloco).lower()
+    dentro = sum(1 for p in palavras
+                 if p in vocabulario or any(t in baixo for t in SINONIMOS.get(p, ())))
+    return dentro, len(palavras), round(dentro * 100 / len(palavras))
 
 
 def eh_redundante(corpo: str, alvo: str) -> bool:
@@ -638,8 +774,56 @@ def _orfaos(corpo: str, vocabulario: set, primeira_palavra: str) -> str | None:
     return None
 
 
+def _generico_pct(corpo: str) -> int:
+    """Que fração das palavras do comentário não ancora nada."""
+    palavras = _palavras(corpo)
+    if not palavras:
+        return 0
+    return round(sum(1 for p in palavras if p in GENERICAS) * 100 / len(palavras))
+
+
+def _camadas(corpo: str) -> int:
+    """Quantas frases independentes foram empilhadas dentro do MESMO bloco.
+
+    Linha nova que começa com maiúscula, depois de uma linha que não terminou em sinal de
+    continuação, é outra frase — não a continuação de um parágrafo. É assim que a pilha
+    aparece quando o assistente escreve duas linhas seguidas sobre o mesmo comando, e o
+    agrupador (que existe para não decapitar parágrafo) as juntaria num bloco só.
+    """
+    linhas = [ln.strip() for ln in corpo.splitlines() if ln.strip()]
+    camadas = 1
+    for anterior, atual in zip(linhas, linhas[1:]):
+        if atual[:1].isupper() and not anterior.endswith((',', ';', ':', '-', '(', '/')):
+            camadas += 1
+    return camadas
+
+
+ANCORA = re.compile(r'`[^`]+`|\d|[A-Za-z][a-z0-9]+[A-Z]|\w+_\w+|\w+\.\w{2,4}\b')
+
+
+def _sem_ancora(corpo: str) -> str | None:
+    """Comprido, e sem nada concreto em que se segurar.
+
+    Âncora é número, identificador (`entre acentos graves`, camelCase, caminho de arquivo)
+    ou termo que não está no vocabulário genérico. Uma só basta para o comentário deixar de
+    ser enchimento — e é por isso que a regra quase nunca dispara em comentário escrito por
+    pessoa: quem tem o que dizer cita alguma coisa.
+    """
+    palavras = _palavras(corpo)
+    if len(palavras) < 10:
+        return None
+    if ANCORA.search(corpo):
+        return None
+    concretas = [p for p in palavras if p not in GENERICAS]
+    pct = round(len(concretas) * 100 / len(palavras))
+    if pct > 30:
+        return None
+    return (f'{len(palavras)} palavras e nenhuma âncora: sem número, sem identificador, '
+            f'e só {len(concretas)} ({pct}%) fora do vocabulário genérico')
+
+
 def classificar(com: dict, familia: str, alvo: str, adiante: str,
-                vocabulario: set) -> dict:
+                vocabulario: set, bloco: str = '') -> dict:
     """Uma classe por comentário, com o sinal que a decidiu escrito no achado.
 
     A ordem é a própria política: todo protegido é testado ANTES de qualquer candidato,
@@ -662,6 +846,15 @@ def classificar(com: dict, familia: str, alvo: str, adiante: str,
         return {'classe': 'porque', 'confianca': 'protegido', 'sinal': motivo,
                 'acao': 'manter'}
     motivo = _casa(corpo.strip(), MARCADORES)
+    if not motivo and SECAO_NUMERADA.match(corpo.strip()):
+        motivo = 'numera uma seção e dá o título dela: rotula um bloco'
+    if not motivo:
+        linhas_corpo = [ln.strip() for ln in corpo.splitlines() if ln.strip()]
+        # Faixa de três linhas (pontuação, título, pontuação): o `=====` sozinho não casa
+        # a faixa de uma linha, e o bloco inteiro caía em `prosa`.
+        if (len(linhas_corpo) >= 3 and eh_divisoria(linhas_corpo[0])
+                and eh_divisoria(linhas_corpo[-1])):
+            motivo = 'faixa de seção: rotula um bloco, não a linha seguinte'
     if motivo:
         return {'classe': 'marcador', 'confianca': 'protegido', 'sinal': motivo,
                 'acao': 'manter'}
@@ -680,6 +873,28 @@ def classificar(com: dict, familia: str, alvo: str, adiante: str,
         return {'classe': 'gerador', 'confianca': 'media',
                 'sinal': 'banner de gerador: em asset de terceiro pode ser a atribuição '
                          'exigida pela licença',
+                'acao': 'decidir'}
+    motivo = _casa_inicio(corpo.strip(), NARRACOES)
+    if motivo:
+        _, total, pct = sobreposicao(corpo, bloco)
+        # Narração curta, ou que só repete o que a assinatura diz, é remoção segura. A
+        # longa pode ter engolido uma informação de domínio no meio do cerimonial, e aí
+        # quem separa é quem lê.
+        generico = _generico_pct(corpo)
+        # Curta, ou que só repete a assinatura, ou feita de palavra que não ancora nada:
+        # os três casos são remoção segura. A comprida e específica pode ter engolido
+        # informação de domínio no meio do cerimonial, e aí quem separa é quem lê.
+        segura = ((total <= 10 or pct >= 60 or generico >= 70)
+                  and not ANCORA.search(corpo))
+        return {'classe': 'narracao', 'confianca': 'alta' if segura else 'media',
+                'sinal': f'{motivo} ({total} palavras, {pct}% já no código, '
+                         f'{generico}% sem ancorar nada'
+                         + ('' if segura else '; cita algo concreto — leia antes') + ')',
+                'acao': 'remover' if segura else 'decidir'}
+    if re.search(r'@(author|date|created|modified|lastmod)\b', corpo, re.I):
+        return {'classe': 'autoria', 'confianca': 'media',
+                'sinal': 'o git já guarda autor e data com precisão; em repositório '
+                         'público isto é dado pessoal que viaja no arquivo',
                 'acao': 'decidir'}
     motivo = _casa(corpo, SCAFFOLDS)
     if motivo:
@@ -703,6 +918,16 @@ def classificar(com: dict, familia: str, alvo: str, adiante: str,
     orfao = _orfaos(corpo, vocabulario, (_palavras(corpo) or [''])[0])
     if orfao:
         return {'classe': 'orfao', 'confianca': 'media', 'sinal': orfao,
+                'acao': 'decidir'}
+    # O comentário comprido feito só de palavra genérica. A medida é a ÂNCORA, não a
+    # sobreposição com o código: lido num projeto real, `sem relação com a linha` acusou
+    # dez comentários e os dez eram "porquê" — a sobreposição baixa é a assinatura do bom
+    # comentário de motivo, que fala da razão e não da mecânica. O que separa o enchimento
+    # é ser genérico: estes dez traziam número, identificador entre acentos graves ou termo
+    # do domínio; o enchimento não traz nenhum dos três.
+    vago = _sem_ancora(corpo)
+    if vago:
+        return {'classe': 'vago', 'confianca': 'media', 'sinal': vago,
                 'acao': 'decidir'}
     return {'classe': 'prosa', 'confianca': 'baixa',
             'sinal': 'não foi provado desnecessário', 'acao': 'decidir'}
@@ -748,6 +973,98 @@ def _alvo_de(texto: str, inicio: int, fim: int) -> tuple:
     return proxima.strip(), adiante, 'solto'
 
 
+PROTEGIDAS = ('diretiva', 'licenca', 'porque', 'legenda', 'marcador', 'pendencia')
+
+
+def _alvo_linha(orig: list, limpo: list, depois: int) -> int:
+    """A primeira linha de CÓDIGO depois da linha `depois`.
+
+    Pula linha em branco e linha que é só comentário. Esse pulo é o que permite ver o
+    empilhamento: sem ele, o alvo do primeiro comentário de uma pilha é o segundo
+    comentário, os dois ficam em alvos diferentes e a pilha nunca é detectada.
+    """
+    for n in range(depois + 1, min(len(orig), len(limpo)) + 1):
+        if orig[n - 1].strip() and limpo[n - 1].strip():
+            return n
+    return 0
+
+
+def _marcar_pilhas(achados: list) -> None:
+    """Mais de um comentário sobre a mesma linha de código é uma pilha.
+
+    É o padrão que motivou esta versão: o assistente acrescenta um comentário por cima do
+    que já estava ali, e ninguém apaga o antigo. A pilha não é apagada automaticamente —
+    ela é FUNDIDA, porque cada camada pode ter um pedaço da informação. A exceção é a
+    camada que repete outra quase palavra por palavra: essa sai.
+
+    Comentário protegido não entra na conta: `// eslint-disable-next-line` acima de uma
+    função que também tem docblock é o normal, não uma pilha.
+    """
+    grupos: dict = {}
+    for a in achados:
+        if a['classe'] in PROTEGIDAS or not a['alvo_linha']:
+            continue
+        if len(_palavras(a['corpo'])) < 4:
+            continue
+        grupos.setdefault((a['arquivo'], a['alvo_linha']), []).append(a)
+
+    for (arquivo, linha), itens in grupos.items():
+        if len(itens) < 2:
+            continue
+        rotulo = f'{arquivo}:{linha}'
+        for i, a in enumerate(itens):
+            a['grupo'] = rotulo
+            gemeo = _quase_igual(a, itens)
+            if gemeo is not None and i > gemeo:
+                a['classe'] = 'empilhado'
+                a['confianca'] = 'alta'
+                a['acao'] = 'remover'
+                a['sinal'] = (f'repete quase palavra por palavra o comentário da linha '
+                              f'{itens[gemeo]["linha"]}, sobre o mesmo código')
+                continue
+            # Achado de alta por outro motivo continua valendo: `empilhado` é mais fraco,
+            # e sobrescrever perderia informação já provada.
+            if a['confianca'] == 'alta':
+                continue
+            a['classe'] = 'empilhado'
+            a['confianca'] = 'media'
+            a['acao'] = 'fundir'
+            a['sinal'] = (f'{len(itens)} comentários sobre o código da linha {linha}: '
+                          f'funda no que informa, apague as camadas que repetem')
+
+
+def _quase_igual(a: dict, itens: list) -> int | None:
+    meu = set(_palavras(a['corpo']))
+    if len(meu) < 3:
+        return None
+    for i, outro in enumerate(itens):
+        if outro is a:
+            continue
+        dele = set(_palavras(outro['corpo']))
+        if len(dele) < 3:
+            continue
+        uniao = meu | dele
+        if uniao and len(meu & dele) / len(uniao) >= 0.6:
+            return i
+    return None
+
+
+def _bloco_de(adiante: str, teto: int = 10) -> str:
+    """O trecho que o comentário encabeça: até a primeira linha em branco.
+
+    Comparar um comentário de cabeçalho com UMA linha de código é injusto — ele descreve o
+    grupo. A linha em branco é a fronteira que o próprio autor desenhou.
+    """
+    linhas = []
+    for linha in adiante.lstrip('\n').splitlines():
+        if not linha.strip():
+            break
+        linhas.append(linha)
+        if len(linhas) >= teto:
+            break
+    return '\n'.join(linhas)
+
+
 def apurar(raiz) -> dict:
     """Todos os comentários do projeto, classificados. Ordem estável, sem carimbo de tempo."""
     raiz = Path(raiz)
@@ -775,7 +1092,9 @@ def apurar(raiz) -> dict:
         # aparece dentro de comentário não prova que o símbolo existe.
         limpo = list(texto)
         for inicio, fim, _ in spans:
-            limpo[inicio:fim] = ' ' * (fim - inicio)
+            for k in range(inicio, fim):
+                if limpo[k] != '\n':
+                    limpo[k] = ' '
         vocabulario |= _vocabulario_da_linha(''.join(limpo))
         vocabulario.add(arquivo.name.lower())
         vocabulario.add(arquivo.stem.lower())
@@ -783,6 +1102,13 @@ def apurar(raiz) -> dict:
 
     achados = []
     for rel, fam, texto, spans in cruas:
+        linhas_orig = texto.splitlines()
+        sem_comentario = list(texto)
+        for inicio, fim, _ in spans:
+            for k in range(inicio, fim):
+                if sem_comentario[k] != '\n':
+                    sem_comentario[k] = ' '
+        linhas_limpas = ''.join(sem_comentario).splitlines()
         for inicio, fim, forma in spans:
             bruto = texto[inicio:fim]
             corpo = corpo_de(bruto)
@@ -795,10 +1121,16 @@ def apurar(raiz) -> dict:
                    'inicio': inicio, 'fim': fim, 'texto': bruto, 'corpo': corpo,
                    'forma': forma, 'posicao': posicao, 'alvo': alvo,
                    'linhas': bruto.count('\n') + 1}
-            com.update(classificar(com, fam, alvo, adiante, vocabulario))
+            com.update(classificar(com, fam, alvo, adiante, vocabulario,
+                                   bloco=_bloco_de(adiante)))
+            com['alvo_linha'] = (com['linha'] if posicao == 'rabo' else
+                                 _alvo_linha(linhas_orig, linhas_limpas,
+                                             com['linha'] + bruto.count('\n')))
             com['id'] = hashlib.sha1(
                 f'{rel}:{inicio}:{bruto}'.encode('utf-8')).hexdigest()[:8]
             achados.append(com)
+
+    _marcar_pilhas(achados)
 
     return {'projeto': raiz.resolve().name, 'arquivos_lidos': len(arquivos),
             'comentarios': len(achados), 'nao_lidos': dict(sorted(nao_lidos.items())),
@@ -873,6 +1205,7 @@ ROTULO = {
     'doc': 'documentação de API (em lib, é o manual publicado)',
     'scaffold': 'lixo de ferramenta ou de template',
     'gerador': 'banner de gerador (pode ser atribuição de licença)',
+    'autoria': 'carimbo de autor/data que o git já guarda melhor',
     'divisoria': 'divisória ou comentário vazio',
     'codigo_comentado': 'código desativado em forma de comentário',
     'redundante': 'repete o que a linha ao lado já diz',
@@ -880,6 +1213,9 @@ ROTULO = {
     'orfao': 'cita símbolo que não existe mais',
     'marcador': 'marca a estrutura do bloco (AAA/BDD)',
     'legenda': 'explica um padrão que o código não deixa ler (regex, bits)',
+    'narracao': 'narra o que o código faz, em vez de dizer o que ele não diz',
+    'vago': 'comprido, genérico e sem nada concreto em que se segurar',
+    'empilhado': 'mais de um comentário sobre o mesmo código',
     'prosa': 'não foi provado desnecessário — humano decide',
 }
 ORDEM = ('alta', 'media', 'baixa', 'protegido')

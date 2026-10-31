@@ -8,6 +8,65 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-dead-code-scan` (v0.3.0): **o comentário que o assistente deixa atrás de si.** A v0.2.0
+  pegava código comentado, repetição curta, divisória e scaffold — e **nada** dos três padrões
+  que o dono apontou depois de ver o resultado: comentário comprido sem relação com o que a
+  linha faz, comentário empilhado em cima de comentário, e narração cerimonial. Os três caíam
+  em `prosa` ("não foi provado desnecessário") e não eram propostos; pior, o agrupador de
+  linhas seguidas **fundia** a pilha e escondia justamente o segundo padrão.
+
+  Três classes novas, mais uma:
+
+  - **`narracao`** — o comentário conta o que o código faz em vez de dizer o que ele não diz.
+    Reconhecida pela **abertura**, em lista versionada: primeira pessoa (`Agora vamos`,
+    `Let's`), apresentação do símbolo (`Esta função é responsável por`), passo a passo
+    (`Primeiro,`, `Em seguida`), observação que não observa (`Note que`), rótulo de categoria
+    (`Helper para`), seção que a sintaxe já delimita (`# Imports`), camada (`Tratamento de
+    erro`) e a forma verbo-genérico + objeto-genérico (`Retorna o resultado`). Sai em **alta**
+    quando é curta, repete a assinatura ou é ≥70% vocabulário genérico **e não cita nada
+    concreto**; em média quando cita, porque aí pode estar informando.
+  - **`vago`** — 10 palavras ou mais e **nenhuma âncora**: sem número, sem identificador, com
+    no máximo 30% de palavras fora do vocabulário genérico.
+  - **`empilhado`** — dois ou mais comentários sobre a **mesma linha de código**, ou duas
+    frases independentes no mesmo bloco. A ação é **fundir**, nunca remover: cada camada pode
+    ter um pedaço da informação. A exceção é a camada que repete outra quase palavra por
+    palavra, que sai.
+  - **`autoria`** — `@author` e `@date` no docblock: o git guarda os dois com precisão, e em
+    repositório público o carimbo é dado pessoal viajando dentro do arquivo.
+
+  **A primeira especificação de `vago` estava errada, e foi a leitura do resultado que provou.**
+  Ela media "o comentário fala de outra coisa que não a linha". Rodada na skill desta casa, ela
+  acusou dez comentários e **os dez eram "porquê"** — sobreposição baixa é a assinatura do bom
+  comentário de motivo, que fala da razão e não da mecânica. A medida passou a ser a **âncora**:
+  número, identificador ou termo fora do vocabulário genérico. Quem tem o que dizer cita alguma
+  coisa.
+
+  **Oito falsos positivos corrigidos, todos achados lendo a saída, não a suíte:** `^next\b`
+  casava `Next.js App Router` e saía em alta; `primeiro de todos:` era lido como passo de um
+  passo a passo; com `re.M` a abertura de narração casava **qualquer linha**, então um
+  comentário de três linhas que explicava um defeito medido virava narração porque a última
+  começava com "Então"; `<!-- Step 2: Dados da Empresa -->` num formulário de sete passos eram
+  nove achados de alta, quando `Step N: Título` rotula uma seção e só `Passo N: grava` narra
+  (o título vem com maiúscula, a frase de ação não — e `re.I` anulava esse sinal); `Act /
+  Assert` não era reconhecido como marcador; etiqueta curta (`noscan: fixture`) contava como
+  camada de pilha; `Helper para … de AwsS3Image` saía em alta embora cite a classe; e apagar
+  comentário com espaços levava embora as **quebras de linha** dele, dessincronizando a
+  numeração.
+
+  **E um defeito na metade protetora, que é o mais grave porque esconde achado:** `\w+ria`,
+  usado para reconhecer verbo no condicional, casava "utilitária", "memória", "categoria" e
+  "obrigatória" — 55 comentários de um projeto real estavam marcados como "porquê",
+  **protegidos**, sem explicar nada. O condicional é lista fechada agora.
+
+  **O teste também mentia:** o helper da suíte não agrupava as linhas nem calculava o bloco,
+  isto é, exercitava um caminho que `apurar` nunca executa. Corrigido, e com ele quatro
+  asserções que passavam por acidente.
+
+  Medido: 113 travas. Num projeto de 1.291 arquivos, 33 candidatos de alta e 19 de média contra
+  416 comentários protegidos; **zero candidatos** na skill desta casa cujos comentários são
+  todos "porquê" — que é o resultado certo, não a regra falhando. Num arquivo com os padrões de
+  IA, as cinco narrações saem, o `# type: ignore`, a faixa de seção e o comentário que explica a
+  regra do fisco ficam, e o arquivo continua Python válido.
 - `sw-dead-code-scan` (v0.2.0): **comentário desnecessário virou a sexta categoria da
   varredura** — com uma assimetria deliberada, porque aqui errar é pior do que no resto da
   skill. Código apagado por engano volta do git, dos testes e do comportamento do sistema; o

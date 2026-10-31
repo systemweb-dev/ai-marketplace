@@ -3,9 +3,12 @@ name: sw-dead-code-scan
 description: >
   Varre o projeto inteiro e identifica código não utilizado — imports/uses órfãos,
   variáveis e parâmetros mortos, funções/métodos/classes nunca chamados, arquivos que
-  ninguém importa, dependências do manifesto sem uso e COMENTÁRIO desnecessário (código
-  comentado, repetição do que a linha já diz, divisória, lixo de scaffold, docblock que
-  não bate com a assinatura). Agnóstica a linguagem: usa a
+  ninguém importa, dependências do manifesto sem uso e COMENTÁRIO desnecessário — inclusive
+  o comentário que assistente de IA deixa: narração cerimonial ("Esta função é responsável
+  por…", "Agora vamos…", "Retorna o resultado"), comentário comprido e genérico sem nada
+  concreto, comentário EMPILHADO em cima de outro sobre o mesmo código, além de código
+  comentado, repetição do que a linha já diz, divisória, lixo de scaffold e docblock que não
+  bate com a assinatura. Agnóstica a linguagem: usa a
   ferramenta nativa de dead-code quando existe (knip/ts-prune, vulture/ruff, deadcode/
   staticcheck, PHPStan, cargo-machete, etc.) e cai pra heurística genérica quando não tem.
   Classifica cada achado por nível de confiança pra evitar falso positivo (pontos de entrada,
@@ -17,7 +20,9 @@ description: >
   arquivos sem uso", "dependências que não uso mais", "dead/unused code", "arquivos órfãos".
   Para comentários, dispara com "remove os comentários desnecessários", "limpa os
   comentários", "tem código comentado?", "tira os comentários inúteis/obsoletos", "comentário
-  que não serve pra nada", "remove comentário morto", "dead comments". Nunca remove o
+  que não serve pra nada", "remove comentário morto", "dead comments", "a IA encheu de
+  comentário", "comentário em cima de comentário", "comentário grande que não diz nada",
+  "tira a narração do código", "limpa o que o Claude/Copilot comentou". Nunca remove o
   comentário que explica POR QUE, a licença, nem a diretiva que o linter/compilador/framework
   lê (`# type: ignore`, `// eslint-disable`, `//go:build`, `@ORM\Column`). Dispare mesmo sem a
   palavra "scan" — basta a intenção de descobrir o que está sem uso pra limpar. NÃO use para:
@@ -123,13 +128,28 @@ não existe.
 | `orfao` · `gerador` | 🟡 média | decidir com contexto |
 | `doc` · `prosa` | ⚪ baixa | o humano lê; `doc` depende de app ou lib (Fase 1) |
 
+**Os três padrões de comentário de assistente** — o motivo pelo qual esta fase existe, porque
+nenhum deles é código comentado nem repetição curta:
+
+| Classe | O que é | Ação |
+|---|---|---|
+| `narracao` | conta o que o código faz: `Esta função é responsável por…`, `Agora vamos…`, `Primeiro,`, `Note que`, `Helper para`, `# Imports`, `Tratamento de erro`, `Retorna o resultado` | 🔴 alta quando é curta, repete a assinatura ou é ≥70% genérica **e não cita nada concreto**; 🟡 média quando cita — aí pode estar informando |
+| `vago` | ≥10 palavras e **nenhuma âncora**: sem número, sem identificador, ≤30% fora do vocabulário genérico | 🟡 média |
+| `empilhado` | 2+ comentários sobre a **mesma linha**, ou 2+ frases independentes no mesmo bloco | 🟡 **fundir**, não remover — exceto a camada que repete outra quase palavra por palavra, que sai |
+
+A medida de `vago` é a **âncora, não a sobreposição com o código**. A primeira versão media
+"fala de outra coisa que não a linha"; lida num projeto real, acusou dez comentários e **os
+dez eram "porquê"** — sobreposição baixa é a assinatura do bom comentário de motivo, que fala
+da razão e não da mecânica. Quem tem o que dizer cita alguma coisa.
+
 **O trabalho que é seu, não do script:** a classe `prosa` é a maior de todas num projeto real,
 e é de propósito — ela significa "não foi provado desnecessário". Leia-a com contexto e
 proponha só o que você consegue justificar numa frase. **Não trate `prosa` como lista de
 remoção**, e não some os números dela no total de candidatos.
 
-Numa rodada real de 1.291 arquivos: 3.370 comentários, **29 candidatos de alta** — e 471
-comentários protegidos por explicarem um motivo.
+Numa rodada real de 1.291 arquivos: 3.370 comentários, **33 candidatos de alta** e 19 de
+média — contra 416 protegidos por explicarem um motivo. Na skill desta casa cujos comentários
+são todos "porquê", **zero candidatos** — e isso é o resultado certo, não a regra falhando.
 
 ### Fase 4 — Classificar e montar o relatório
 
@@ -225,6 +245,7 @@ Antes de manter um achado como **alta**, confirme que ele **não** é nenhum des
 12. É **marcador de estrutura** (`# Arrange/Act/Assert`, faixa de seção) ou dívida registrada com conteúdo?
 13. É **doc de API** e o projeto é **lib** (então é o manual publicado)?
 14. O comentário **mente** sobre a assinatura? Então o conserto é **corrigir**, não remover.
+15. É `empilhado`? Então a ação é **fundir** — cada camada pode ter um pedaço da informação.
 
 ## Limites
 
