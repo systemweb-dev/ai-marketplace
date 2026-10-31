@@ -6,7 +6,8 @@ description: >-
   aprovado. Use SEMPRE que o usuário for começar algo novo ou não-trivial — uma
   feature, um componente, um fluxo, uma integração ou uma mudança de comportamento —
   ou disser coisas como "quero criar", "vamos construir", "preciso de uma feature",
-  "como estruturar isso", "me ajuda a planejar", "bora pensar nessa ideia", "antes de
+  "como estruturar isso", "me ajuda a planejar", "bora pensar nessa ideia", "vale a pena trocar X
+  por Y", "antes de
   codar". Dispare mesmo sem a palavra "brainstorm", sempre que a intenção for
   desenhar/decidir O QUE construir antes de mexer no código. NÃO use para: tarefas
   triviais e já especificadas (corrigir typo, renomear, bump de dependência, ajuste
@@ -369,6 +370,11 @@ sem UI (ex.: um job, uma API interna).
 - **Não commitar** automaticamente — deixe o arquivo pro usuário commitar quando quiser.
 
 **Estrutura do spec (proporcional ao tamanho — feature pequena leva a versão enxuta):**
+
+**No modo Direto, mire em até 80 linhas.** Num teste com uma mudança pequena, o spec saiu com 178.
+Passou disso? Corte o que não muda decisão de quem vai executar: reduza seções a uma linha, tire
+alternativas descartadas óbvias e omita rollout quando não houver risco. Evidência fica; repetição
+sai. Se a mudança realmente pedir mais, mantenha e diga por quê no resumo do gate.
 
 Além de arquitetura / componentes / fluxo de dados / erro / testes, o spec **fecha** com as seções
 que evitam o **over-engineering e o scope-drift** — o modo de falha nº1 de quem executa o spec
