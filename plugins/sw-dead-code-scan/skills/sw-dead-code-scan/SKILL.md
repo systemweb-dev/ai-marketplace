@@ -149,7 +149,7 @@ remoção**, e não some os números dela no total de candidatos.
 
 Numa rodada real de 1.291 arquivos: 3.370 comentários, **33 candidatos de alta** e 19 de
 média — contra 416 protegidos por explicarem um motivo. Na skill desta casa cujos comentários
-são todos "porquê", **zero candidatos** — e isso é o resultado certo, não a regra falhando.
+são todos "porquê", **nenhum candidato de alta** e 2 `empilhado` de média.
 
 ### Fase 4 — Classificar e montar o relatório
 
