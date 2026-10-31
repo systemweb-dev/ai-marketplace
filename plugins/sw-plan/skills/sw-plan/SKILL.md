@@ -307,7 +307,7 @@ para o gate do usuário.
 
 ## Aprovação do plano (antes de executar)
 
-Apresente o plano e peça aprovação via `AskUserQuestion` (**Aprovar / Ajustar / Cancelar**)
+Apresente o plano e peça aprovação via `AskUserQuestion` (**Aprovar / Ajustar / Resumir / Cancelar**)
 antes de qualquer execução. Mostre um resumo escaneável, não o plano inteiro:
 
 - objetivo em uma linha;
@@ -320,6 +320,9 @@ antes de qualquer execução. Mostre um resumo escaneável, não o plano inteiro
 **O que cada resposta significa:**
 - **Aprovar** → segue para a escolha do modo de execução.
 - **Ajustar** → o usuário diz o que mudar, você edita o plano e roda o self-review de novo.
+- **Resumir** → releia o `plan.md` do disco e explique no chat, em até 15 linhas: o que será
+  construído, em que ordem, o que muda no projeto e os riscos. Nada que não esteja no plano
+  entra no resumo, e nenhum arquivo é gravado. Depois, repita este gate.
 - **Cancelar** → **não execute nada**. O `plan.md` fica no dossiê como está (é rascunho útil,
   não lixo), o dossiê **continua** `aprovado` (não vai para `em-execucao`), e você diz em uma
   linha onde o arquivo ficou, para retomar depois. Só apague o arquivo se o usuário pedir.
@@ -358,7 +361,35 @@ o material implementado + a task/plano relevante):
 
 Ele retorna **ok** ou **problemas + recomendações**. Com problemas: corrija o que fizer sentido
 (ou explique por que não) e **só então** apresente o gate humano, listando o que o juiz apontou.
-Se a **`sw-code-review`** estiver instalada, ofereça-a (via menu) pra um pass mais profundo.
+
+### Code review final com contexto vazio
+
+**Só se a `sw-code-review` existir nesta máquina.** Ela existe se aparece na lista de skills da
+sessão ou se isto encontra o arquivo:
+
+```bash
+find ~/.claude/skills/sw-code-review ~/.claude/plugins -type f \
+  -path '*sw-code-review*' -name SKILL.md 2>/dev/null | head -1
+```
+
+Não existindo, esta pergunta não acontece: não mencione a skill nem sugira instalar.
+
+Existindo, junto com o modo e o juiz, **pergunte via `AskUserQuestion`**: *"Ao terminar, rodar a
+`sw-code-review` num subagente de contexto vazio?"* (**Sim** / **Não**). O sim do usuário é o pedido
+explícito que aquela skill exige.
+
+O ganho é a independência: quem escreveu o código tende a reler o que pretendia escrever, e o
+subagente só conhece o diff, o plano e o spec. O juiz confere se o plano foi cumprido; esta revisão
+procura defeito no código. Uma não substitui a outra, e nenhuma substitui os testes.
+
+Com **Sim**:
+
+1. **Antes da primeira task**, grave em "Ajustes durante a execução" do `plan.md` a base do diff,
+   para ela sobreviver a uma compactação: `Base da revisão final: <saída de git rev-parse HEAD>`.
+2. **Depois da última task**, despache o subagente com
+   [`code-review-subagent-prompt.md`](code-review-subagent-prompt.md), preenchendo só os campos do
+   template. Rode antes de oferecer os diagnósticos e o PR de "Regras comuns aos dois modos".
+3. O subagente não edita nada. Mostre os achados e deixe o usuário escolher o que corrigir.
 
 ### Modo 1 — Subagent-Driven
 

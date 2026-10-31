@@ -17,6 +17,10 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   código** e reprova citação que não se confirma; antes ele só lia o spec. Novo
   `scripts/spec_check.py` reprova seção faltando, placeholder, evidência inexistente e suposição sem
   validação. Depois do spec aprovado, a skill oferece um **resumo**.
+- `sw-plan` (v0.7.0): opção **Resumir** no gate de aprovação e, quando a `sw-code-review` existe na
+  máquina, a oferta de rodá-la **ao final num subagente de contexto vazio**, que recebe só o diff, o
+  plano e o spec. Sem a skill, a pergunta não aparece.
+
 - `sw-dead-code-scan` (v0.3.0): **o comentário que o assistente deixa atrás de si.** A v0.2.0
   pegava código comentado, repetição curta, divisória e scaffold — e **nada** dos três padrões
   que o dono apontou depois de ver o resultado: comentário comprido sem relação com o que a
