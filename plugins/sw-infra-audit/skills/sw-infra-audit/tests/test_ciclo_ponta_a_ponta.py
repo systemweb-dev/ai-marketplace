@@ -50,7 +50,7 @@ def test_as_perguntas_feitas_sao_as_do_papel_CONFIRMADO(prometheus):
     assert componente["papel"] == "cache"
     assert componente["papel_origem"] == "exporter redis-exporter"
     perguntadas = {r["pergunta"] for r in componente["respostas"]}
-    assert perguntadas == {"cache.memoria_usada", "cache.evicções"}, \
+    assert perguntadas == {"cache.memoria_usada", "cache.evicções", "cache.acerto"}, \
         "as perguntas vieram do papel provisório: o passe rodou tarde demais"
     respondida = next(r for r in componente["respostas"]
                       if r["pergunta"] == "cache.memoria_usada")

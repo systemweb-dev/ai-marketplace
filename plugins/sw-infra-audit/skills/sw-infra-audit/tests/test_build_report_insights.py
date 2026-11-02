@@ -35,21 +35,17 @@ def _relatorio():
                      "motivo": "o exporter deste componente não expõe histograma"}]}]}]}
 
 
-def test_o_indice_anuncia_as_faixas_sem_numero_de_pagina():
-    """O sumario deste relatorio e o indice por ACAO: ele anuncia as tres faixas antes
-    de elas comecarem, para quem recebe decidir onde gastar a atencao.
-
-    Numero de pagina exigiria segunda passada dependente de ferramenta externa — saida
+def test_as_partes_saem_sem_numero_de_pagina():
+    """Numero de pagina exigiria segunda passada dependente de ferramenta externa — saida
     diferente por maquina, e la se vai o determinismo."""
     html = build_report.render_html_v3(_relatorio())
-    assert "Como este relatorio esta organizado" in html or "organizado" in html
-    assert "Agir agora" in html and "Programar" in html and "Registrar e seguir" in html
+    assert "Saúde por sistema" in html and "Problemas" in html and "Registro" in html
     assert "pág." not in html
 
 
 def test_insight_mostra_valor_e_fonte():
     html = build_report.render_html_v3(_relatorio())
-    assert "12.480" in html or "12480" in html
+    assert "12,5 mil de acessos" in html
     assert "promql:traefik" in html
 
 
@@ -65,7 +61,7 @@ def test_lista_vira_ranking_com_as_chaves():
 
 def test_achado_traz_como_resolver_e_como_confirmar():
     html = build_report.render_html_v3(_relatorio())
-    assert "Como resolver" in html and "Como confirmar" in html
+    assert "O que fazer" in html and "Como conferir" in html
     assert "rode a auditoria de novo" in html
     assert "quando é o proxy público" in html
 
@@ -96,7 +92,7 @@ def test_relatorio_sem_componente_nao_quebra():
     r = _relatorio()
     r["alvos"][0]["componentes"] = []
     html = build_report.render_html_v3(r)
-    assert "nenhum componente" in html
+    assert "Não medido" in html and "Outros sistemas" not in html
 
 
 def _com_componentes():
@@ -113,22 +109,21 @@ def _com_componentes():
             {"regra": "SEC_USER_ROOT", "severidade": "medium", "alvo": "cluster",
              "componente": "api"}], "analise": "", "respostas": []},
     ]
+    alvo["achados"] = alvo["achados"] + alvo["componentes"][2]["achados"]   # como o coletor promove
     return r
 
 
-def test_topologia_agrupa_por_papel_e_diz_que_e_papel():
-    """O mapa mostra CAMADAS POR PAPEL, não dependência medida. Deixar isso implícito faria
-    o relatório afirmar uma topologia que a skill nunca observou.
+def test_detalhes_seguem_a_ordem_dos_papeis_e_dizem_que_e_papel():
+    """O agrupamento mostra PAPEL, não dependência medida. Deixar isso implícito faria o
+    relatório afirmar uma topologia que a skill nunca observou."""
+    r = _com_componentes()
+    r["alvos"][0]["componentes"].append(
+        {"nome": "busca", "papel": "busca", "achados": [], "analise": "",
+         "respostas": [{"pergunta": "x", "fonte": "promql:y", "valor": 1}]})
+    html = build_report.render_html_v3(r)
 
-    A ordem é cobrada pelo RÓTULO da camada, e não pelo nome de um componente: componente
-    que não respondeu nada deixou de ganhar cartão, então usar o nome dele como âncora
-    amarrava este teste a uma decisão que não é a que ele quer provar.
-    """
-    html = build_report.render_html_v3(_com_componentes())
-
-    assert "Topologia" in html
-    assert html.index("Recebe o tráfego") < html.index("Processa") < html.index("Guarda"), \
-        "entrada vem antes de app, que vem antes de banco"
+    assert html.index("Serviços web") < html.index("Maiores consumidores") < html.index("Outros sistemas"), \
+        "entrada vem antes de app, que vem antes do que não tem bloco"
     assert "papel" in html.lower()
     assert "não é dependência medida" in html.lower(), \
         "a legenda precisa dizer que o agrupamento não é dependência observada"
@@ -137,45 +132,45 @@ def test_topologia_agrupa_por_papel_e_diz_que_e_papel():
 def test_componente_calado_e_contado_e_nao_vira_cartao():
     """54 de 57 componentes não responderam nada numa rodada real. Um cartão para cada,
     todos repetindo a mesma frase, deu NOVE páginas A4 de ruído. A informação não some:
-    ela é contada uma vez e apontada para "O que falta declarar"."""
+    ela é contada uma vez, em "O que falta declarar"."""
     html = build_report.render_html_v3(_com_componentes())
 
-    import re
-    # ele nao ganha CARTAO...
-    camadas = html[html.index("Topologia"):html.index('id="o-que-falta-declarar"')]
-    assert "postgres_principal" not in camadas, "componente sem nada a dizer não ganha cartão"
-    assert "traefik" in camadas and "api" in camadas, "quem respondeu ou tem achado continua"
+    detalhes = html[html.index('id="detalhes-tecnicos"'):html.index('id="o-que-falta-declarar"')]
+    assert "postgres_principal" not in detalhes, "componente sem nada a dizer não ganha cartão"
+    assert "traefik" in detalhes and "api" in detalhes, "quem respondeu ou tem achado continua"
 
-    # ...mas e NOMEADO em "O que falta declarar". Sem isso, o ponteiro da camada seria
-    # uma promessa vazia e o relatorio ficaria mudo justamente sobre o proprio silencio.
+    # ...mas e NOMEADO em "O que falta declarar": o relatorio nao fica mudo sobre o silencio
     pend = html[html.index('id="o-que-falta-declarar"'):]
     assert "postgres_principal" in pend, "o calado é nomeado, não sumido"
     assert "alvos.toml" in pend, "e o relatório diz o que fazer para ele falar"
 
 
-def test_no_da_topologia_mostra_quantos_achados_tem():
+def test_problema_mostra_quantos_achados_tem():
     html = build_report.render_html_v3(_com_componentes())
-    assert 'class="qt"' in html
+    assert "Afetados: 1 ocorrência" in html
 
 
-def test_medidor_so_aparece_onde_ha_faixa_declarada():
-    """Agulha sem tolerância declarada sugere uma leitura que ninguém definiu."""
+def test_cor_de_tolerancia_so_aparece_onde_ha_faixa_declarada():
+    """Veredito sem tolerância declarada sugere uma leitura que ninguém definiu."""
     html = build_report.render_html_v3(_com_componentes())
 
-    assert html.count('class="anel"') == 1, "só a latência declara faixa"
-    assert "890" in html and "12.480" in html
+    assert '<b class="bl-c-warn">890 ms</b>' in html, "só a latência declara faixa"
+    assert "12,5 mil de acessos" in html and 'bl-c-warn">12,5' not in html
 
 
-def test_medidor_diz_qual_e_a_faixa():
+def test_relatorio_diz_qual_e_a_faixa():
     html = build_report.render_html_v3(_com_componentes())
-    assert "700" in html and "1.500" in html or "1500" in html
+    assert "700 ms" in html and "1.500 ms" in html
 
 
 def test_selos_contam_os_estados_em_palavra():
-    html = build_report.render_html_v3(_com_componentes())
+    r = _com_componentes()
+    r["nota_geral"] = {"valor": 70, "faixa": "atencao", "parcial": False, "online": 1, "base": 1,
+                       "teto": None, "parcelas": {}}
+    html = build_report.render_html_v3(r)
     assert "Atenção" in html and "🟡" not in html
 
 
-def test_sumario_traz_contagem_por_secao():
+def test_problema_traz_contagem():
     html = build_report.render_html_v3(_com_componentes())
-    assert "1 achado" in html or "1 aberto" in html
+    assert "1 ocorrência" in html

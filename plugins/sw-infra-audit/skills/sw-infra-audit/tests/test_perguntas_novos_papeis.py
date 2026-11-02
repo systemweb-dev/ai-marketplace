@@ -14,11 +14,10 @@ from lib.perguntas import PERGUNTAS, REGRAS_PRODUZIDAS, do_papel
 
 
 @pytest.mark.parametrize("papel,esperadas", [
-    ("app", 2),       # cpu e memória — respondidas pelo exporter de container, não pela app
+    ("app", 3),       # cpu, memória e disponibilidade — do exporter de container, não da app
     ("banco", 2),     # conexões e tamanho
-    # taxa de acerto ficou de FORA: a razão entre acertos e erros exige aritmética que a
-    # linguagem de extração não tem, e nenhuma família conseguiria respondê-la
-    ("cache", 2),     # memória em uso e chaves descartadas
+    ("cache", 3),     # memória em uso, chaves descartadas e taxa de acerto, opcional
+    ("maquina", 4),   # CPU, memória, disco e dias até encher, todas opcionais
 ])
 def test_papel_passa_a_ter_pergunta(papel, esperadas):
     assert len(do_papel(papel)) == esperadas
@@ -30,7 +29,33 @@ def test_as_perguntas_de_app_sao_respondidas_pela_INFRAESTRUTURA():
     responde é o exporter de container, não a aplicação."""
     ids = {p["id"] for p in do_papel("app")}
 
-    assert ids == {"app.cpu", "app.memoria"}
+    assert ids == {"app.cpu", "app.memoria", "app.disponibilidade_7d"}
+
+
+def test_perguntas_novas_sao_opcionais():
+    for id_ in ("cache.acerto", "maquina.disco_dias", "app.disponibilidade_7d"):
+        assert PERGUNTAS[id_]["forma"] == "escalar" and PERGUNTAS[id_]["opcional"]
+    assert PERGUNTAS["app.disponibilidade_7d"]["titulo"] == "Disponibilidade em 7 dias"
+    assert "app.disponibilidade_30d" not in PERGUNTAS
+
+
+def _consulta(familia, id_):
+    from lib.catalogo import familias
+
+    escolhida = next(f for f in familias() if f["familia"] == familia)
+    return next(p for p in escolhida["pergunta"] if p["id"] == id_)["query"]
+
+
+def test_disponibilidade_mede_sete_dias_por_componente_com_o_seletor_por_ultimo():
+    query = _consulta("cadvisor", "app.disponibilidade_7d")
+    assert "avg_over_time(" in query and "[7d:1h]" in query and "30d" not in query
+    assert query.count('container_last_seen{name!="",%SELETOR%}') == 2
+
+
+def test_acerto_soma_acertos_e_erros_do_componente():
+    query = _consulta("redis-exporter", "cache.acerto")
+    assert query.count("redis_keyspace_hits_total{%SELETOR%}[%JANELA%]") == 2
+    assert query.count("redis_keyspace_misses_total{%SELETOR%}[%JANELA%]") == 1
 
 
 def test_nenhuma_pergunta_nova_inventa_faixa():
@@ -74,9 +99,8 @@ def test_toda_pergunta_declarada_tem_alguem_que_a_responda():
     """Pergunta sem família capaz de respondê-la vira `sem dados` permanente: derruba a
     cobertura sem que haja nada a consertar, e ensina quem lê a ignorar o número.
 
-    Eu mesmo escorreguei nisto ao acrescentar `cache.taxa_de_acerto`: a razão entre acertos e
-    erros exige aritmética que a linguagem de extração não tem, e nenhum arquivo de família
-    conseguia respondê-la. Esta trava é o que impede a próxima.
+    Eu mesmo escorreguei nisto ao acrescentar `cache.taxa_de_acerto` sem arquivo de família
+    que a respondesse. Esta trava é o que impede a próxima.
     """
     import tomllib
     from pathlib import Path
@@ -88,6 +112,9 @@ def test_toda_pergunta_declarada_tem_alguem_que_a_responda():
     for arquivo in (raiz / "apis").glob("*.toml"):
         dados = tomllib.loads(arquivo.read_text(encoding="utf-8"))
         respondidas |= {q["id"] for q in dados.get("pergunta", [])}
+
+    for arquivo in (raiz / "logs").glob("*.toml"):
+        respondidas.add(tomllib.loads(arquivo.read_text(encoding="utf-8"))["pergunta"])
 
     orfas = sorted(set(PERGUNTAS) - respondidas)
 
@@ -105,3 +132,14 @@ def test_toda_pergunta_respondida_por_familia_existe_no_registro():
         for q in fam.get("pergunta", []):
             assert q["id"] in declaradas, \
                 f'{fam["familia"]} responde {q["id"]!r}, que não existe em perguntas.py'
+
+
+def test_hora_sem_scrape_fica_fora_da_media():
+    """`vector(0)` existe em toda hora, até na que o Prometheus não raspou nada, e virava 0.
+
+    O ramo que completa a hora vem do cluster inteiro: sem scrape ele some junto, e a hora sai
+    da média. Por isso ele não leva `%SELETOR%`: precisa existir quando só o serviço sumiu.
+    """
+    query = _consulta("cadvisor", "app.disponibilidade_7d")
+    assert "vector(0)" not in query
+    assert '> bool 0) or 0 * count(container_last_seen{name!=""}))[7d:1h]' in query

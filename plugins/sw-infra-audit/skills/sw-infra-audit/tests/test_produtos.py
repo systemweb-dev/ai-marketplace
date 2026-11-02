@@ -186,3 +186,12 @@ def test_label_fora_do_prefixo_declarado_e_descartada():
                            "org.opencontainers.image.source": "git@algum/lugar"})
 
     assert set(saida) == {"traefik.http.routers.api.rule"}
+
+
+def test_nome_da_rota_sai_so_da_label_de_regra_de_rota():
+    assert produtos.nome_da_rota("traefik.http.routers.loja-web.rule") == "loja-web"
+    assert produtos.nome_da_rota("traefik.http.routers.a.b.rule") == "a.b"
+    assert produtos.nome_da_rota("traefik.http.routers.loja-web.tls") is None
+    assert produtos.nome_da_rota("traefik.http.middlewares.x.rule") is None
+    assert produtos.nome_da_rota("com.exemplo.routers.x.rule") is None
+    assert produtos.nome_da_rota(None) is None

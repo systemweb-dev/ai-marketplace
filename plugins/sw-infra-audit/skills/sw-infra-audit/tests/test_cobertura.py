@@ -4,6 +4,8 @@ Papel sem pergunta registrada fica fora do denominador: contá-lo deixaria a cob
 permanentemente péssima e, portanto, inútil — ninguém olha um número que não se move
 quando se conserta o que dá para consertar.
 """
+import pytest
+
 from lib.cobertura import medir
 
 
@@ -30,8 +32,8 @@ def test_conta_so_as_perguntas_que_a_skill_sabe_fazer():
 
     m = medir(alvo(c))
 
-    assert m["perguntadas"] == 3, \
-        "`entrada` tem 3 perguntas; `observabilidade` segue sem nenhuma, de propósito"
+    assert m["perguntadas"] == 5, \
+        "`entrada` tem 5 perguntas, duas opcionais; `observabilidade` segue sem nenhuma, de propósito"
     assert m["respondidas"] == 1
 
 
@@ -345,3 +347,30 @@ def test_papel_sugerido_pela_imagem_tambem_e_lacuna():
 
     assert [m["componente"] for m in medir(alvo)["mudos"]
             if m.get("pergunta") == "<identidade>"] == ["dados_pg"]
+
+
+def _opcional(resposta):
+    return {"nome": "r", "papel": "cache", "papel_origem": "declarado",
+            "respostas": [resp("cache.memoria_usada", 1), resp("cache.evicções", 2)] + resposta}
+
+
+def test_opcional_que_a_fonte_nao_publica_fica_fora_da_conta():
+    r = medir(alvo([_opcional([{"pergunta": "cache.acerto", "sem_dados": True, "nao_publica": True,
+                                "motivo": "a consulta não devolveu série"}])]))
+    assert (r["perguntadas"], r["respondidas"], r["pct"], r["mudos"]) == (2, 2, 100, [])
+
+
+@pytest.mark.parametrize("resposta", [
+    {"pergunta": "cache.acerto", "sem_dados": True, "motivo": "a fonte de métrica não respondeu"},
+    {"pergunta": "cache.acerto", "sem_dados": True, "motivo": "orçamento do alvo esgotado"},
+    {"pergunta": "cache.acerto", "erro_interno": True, "motivo": "promql: KeyError: x"},
+])
+def test_opcional_com_falha_continua_nos_mudos(resposta):
+    r = medir(alvo([_opcional([resposta])]))
+    assert (r["perguntadas"], r["respondidas"], r["pct"]) == (3, 2, 67)
+    assert [(m["pergunta"], m["motivo"]) for m in r["mudos"]] == [("cache.acerto", resposta["motivo"])]
+
+
+def test_opcional_sem_resposta_nenhuma_continua_nos_mudos():
+    r = medir(alvo([_opcional([])]))
+    assert r["pct"] == 67 and [m["motivo"] for m in r["mudos"]] == ["a pergunta não foi feita"]

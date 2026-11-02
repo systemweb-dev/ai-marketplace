@@ -70,10 +70,10 @@ def test_a_nota_e_a_origem_chegam_ao_HTML():
 def test_a_nota_da_limitacao_chega_ao_HTML():
     """D5 diz que a limitação é DECLARADA no relatório. Ela já existiu numa função órfã que
     `build()` nunca chamou — existir e ser testada não é chegar a quem lê."""
-    # `_topologia` tem a MESMA legenda e é órfã — `build()` não a chama. Asserir contra ela
-    # seria o mesmo verde falso que fez esta nota não chegar ao PDF duas vezes.
-    html = build_report._camadas([{"nome": "x", "papel": "app", "papel_origem": "padrão",
-                                   "respostas": []}])
+    html = build_report.render_html_v3({
+        "schema_version": 3, "generated_at": "2026-09-19T10:00:00Z", "inventario": [], "aceites": [],
+        "alvos": [{"nome": "c", "saude": "🟡", "achados": [],
+                   "componentes": [{"nome": "x", "papel": "app", "papel_origem": "padrão", "respostas": []}]}]})
 
     assert "classificam pela imagem" in html
 

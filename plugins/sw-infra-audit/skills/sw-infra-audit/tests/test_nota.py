@@ -1,5 +1,5 @@
-"""A nota de estabilidade e a primeira frase que alguem le. Ela sai das dimensoes por
-regra, nao da prosa do agente: titulo reinventado a cada rodada torna duas auditorias
+"""A nota geral e a primeira coisa que alguem le. Ela sai das dimensoes e dos servicos por
+regra, nao da prosa do agente: nota reinventada a cada rodada torna duas auditorias
 incomparaveis, que e exatamente o que um relatorio de auditoria nao pode ser.
 
 As dimensoes aqui tem a forma REAL do report.json (conferida contra uma rodada de
@@ -8,7 +8,9 @@ verdade). Teste que inventa a forma do dado valida a propria invencao.
 import json
 import pathlib
 import pytest
-from lib.nota import nota_de_estabilidade, pontuacoes, ORDEM
+from lib.nota import nota_geral, pontuacoes
+
+ORDEM = ("operacao", "disponibilidade", "seguranca", "higiene")
 
 
 def dims(op=(57, 57), ha=100, high=0, med=0, hig=(100, 100, 100, 100)):
@@ -49,46 +51,45 @@ def test_dimensao_ausente_vira_None_e_nao_zero():
     assert pontuacoes({})["disponibilidade"] is None
 
 
-# -------------------------------------------------------------------- titulo
+# -------------------------------------------------------------------- nota
+def alvo(dimensoes, replicas="1/1"):
+    return {"nome": "c", "tipo": "docker", "dimensoes": dimensoes,
+            "fatos": {"services": [{"name": "x_a", "replicas": replicas}]}, "achados": []}
+
+
 def test_tudo_bem_e_dito_sem_rodeio():
-    n = nota_de_estabilidade(dims())
-    assert n["faixa"] == "bom" and n["titulo"].endswith(".")
+    assert nota_geral([alvo(dims())], [])["faixa"] == "bom"
 
 
 def test_o_caso_classico_roda_mas_nao_tem_reserva():
     """Operacao cheia e disponibilidade baixa e a infra que serve hoje e cai amanha."""
-    n = nota_de_estabilidade(dims(ha=42))
-    assert "frágil" in n["titulo"].lower() and n["faixa"] == "atencao"
-    assert n["pior"] == "disponibilidade"
+    n = nota_geral([alvo(dims(ha=42))], [])
+    assert n["parcelas"]["estabilidade"] == 42 and n["parcelas"]["online"] == 100
 
 
-def test_operacao_quebrada_manda_no_titulo():
+def test_operacao_quebrada_manda_na_nota():
     """Com servico fora do ar, nada mais importa primeiro."""
-    n = nota_de_estabilidade(dims(op=(2, 10), ha=100))
-    assert n["faixa"] == "ruim" and "fora do ar" in n["titulo"]
+    n = nota_geral([alvo(dims(ha=100), "0/1")], [])
+    assert n["faixa"] == "critico" and n["valor"] <= 59
 
 
-def test_a_nota_aponta_a_dimensao_mais_fraca():
-    assert nota_de_estabilidade(dims(ha=90, hig=(31, 31, 31, 31)))["pior"] == "higiene"
+def test_a_nota_guarda_a_parcela_mais_fraca():
+    assert nota_geral([alvo(dims(hig=(31, 31, 31, 31)))], [])["parcelas"]["praticas"] < 100
 
 
-def test_a_nota_diz_por_que_em_numero():
-    assert "31 de 100" in nota_de_estabilidade(dims(hig=(31, 31, 31, 31)))["porque"]
-
-
-def test_sem_dimensao_nenhuma_a_capa_ainda_existe():
-    """Alvo sem dados chega com dimensoes vazias; a capa nao pode ficar em branco."""
-    n = nota_de_estabilidade({})
-    assert n["faixa"] == "sem_dados" and n["titulo"] and n["pior"] is None
+def test_sem_dimensao_nenhuma_a_nota_e_parcial():
+    """Alvo sem dimensoes nao pode somar zero nem sair verde."""
+    n = nota_geral([alvo({})], [])
+    assert n["parcial"] is True and n["faixa"] != "bom"
 
 
 def test_mesma_entrada_mesma_nota():
-    assert nota_de_estabilidade(dims(ha=42)) == nota_de_estabilidade(dims(ha=42))
+    assert nota_geral([alvo(dims(ha=42))], []) == nota_geral([alvo(dims(ha=42))], [])
 
 
 def test_valor_corrompido_nao_derruba_o_relatorio():
     for v in (-10, 101, None, "x"):
-        assert nota_de_estabilidade(dims(ha=v))["titulo"]
+        assert nota_geral([alvo(dims(ha=v))], [])["valor"] >= 0
 
 
 def test_pontuacao_fica_presa_entre_0_e_100():

@@ -4,7 +4,7 @@ A primeira versão montava `job="<nome do serviço no Swarm>"`. Isso só acerta 
 da etiqueta é idêntico ao nome do serviço — verdade para o cAdvisor, cujo rótulo É o nome do
 serviço, e quase nunca verdade para `job`, que vale o que o scrape config do Prometheus disser.
 
-Errando, caía para "exporter inteiro": `systemweb_nginx` e `traefik_traefik` recebiam os
+Errando, caía para "exporter inteiro": `loja_nginx` e `traefik_traefik` recebiam os
 MESMOS 60.281 requests e os MESMOS 652 ms. Lido assim, o relatório afirma que o nginx serviu
 aquele tráfego. Ele não serviu.
 

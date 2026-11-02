@@ -57,9 +57,9 @@ def test_todo_link_do_indice_tem_destino():
     assert not orfaos, f"link sem destino no relatório: {sorted(orfaos)}"
 
 
-def test_o_indice_aponta_para_as_tres_faixas():
-    """O indice E o sumario deste relatorio: ele promete as tres faixas de acao."""
-    assert _links(_pagina()) >= {"faixa-1", "faixa-2", "faixa-3"}
+def test_as_cinco_partes_existem_como_ancora():
+    """Sem elas, o Chromium nao gera destino de pagina para navegar pelo PDF."""
+    assert _ancoras(_pagina()) >= {"bl-capa", "saude-por-sistema", "detalhes-tecnicos", "problemas", "registro"}
 
 
 def test_nenhuma_ancora_repetida():
@@ -76,13 +76,11 @@ def test_o_indice_nao_promete_numero_de_pagina():
     assert "pág." not in _pagina()
 
 
-def test_faixa_sem_achado_aparece_no_indice_mas_sem_link():
-    """O bug que esta trava pegou: o indice listava "Programar" com link mesmo quando
-    nao havia achado medio nenhum, e a faixa nem chegava a ser desenhada."""
+def test_regra_sem_achado_nao_vira_problema():
+    """Problema sem ocorrencia seria promessa vazia."""
     dados = _relatorio()
     dados["alvos"][0]["achados"] = [a for a in dados["alvos"][0]["achados"]
                                     if a["severidade"] != "medium"]
     html = build_report.render_html_v3(dados)
 
-    assert "Programar" in html, "a faixa continua anunciada — zero achado medio e informacao"
-    assert "faixa-2" not in _links(html), "sem secao, sem link"
+    assert html.count('class="bl-prob"') == 2

@@ -94,3 +94,17 @@ def test_porta_fora_da_faixa_e_recusada_com_mensagem():
     with pytest.raises(NotConfirmed) as erro:
         check_allowed("http://site.interno:8080000/x", [("site.interno", 80)])
     assert "porta inválida" in str(erro.value)
+
+
+def test_logs_so_na_rota_de_consulta_do_loki():
+    """O carregador só aceita `query_range`, e o módulo não escreve rota nenhuma."""
+    from lib import catalogo_logs
+
+    assert {f["rota"] for f in catalogo_logs.familias()} == {"/loki/api/v1/query_range"}
+    fonte = (ROOT / "scripts" / "lib" / "adaptadores" / "logql.py").read_text(encoding="utf-8")
+    assert "/api/v1/" not in fonte and "method" not in fonte
+
+
+def test_allowlist_documenta_o_egresso_de_logs():
+    texto = (ROOT / "references" / "commands-allowlist.md").read_text(encoding="utf-8")
+    assert "`logs_url`" in texto and "/loki/api/v1/query_range" in texto

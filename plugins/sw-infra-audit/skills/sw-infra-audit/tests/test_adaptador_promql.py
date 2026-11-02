@@ -330,3 +330,44 @@ def pergunta_sem_familia():
     assert sobrando, ("toda pergunta canônica tem família promql — o motivo "
                       "`nao_se_aplica` ficou inalcançável e esta trava não protege mais nada")
     return sobrando[0]
+
+
+def _viva(cache=None):
+    return dict(CONTEXTO, cache=dict({"fonte_viva": {"http://p": True}}, **(cache or {})))
+
+
+def test_consulta_sem_serie_marca_que_a_fonte_nao_publica(monkeypatch):
+    familia = {"familia": "x", "pergunta": [{"id": "cache.acerto", "query": "q"}]}
+    monkeypatch.setattr(promql, "familia_do_componente", lambda *a: (familia, 'a="b"'))
+    monkeypatch.setattr(promql, "_consultar", lambda *a: [])
+    resposta = promql.perguntar("cache.acerto", {"nome": "r", "metricas_url": "http://p"}, _viva())
+    assert resposta["sem_dados"] and resposta["nao_publica"]
+
+
+def test_exporter_que_nao_expoe_e_fonte_sem_familia_marcam_que_a_fonte_nao_publica(monkeypatch):
+    monkeypatch.setattr(promql, "familia_do_componente", lambda *a: (None, None))
+    comp = {"nome": "r", "metricas_url": "http://p"}
+    assert promql.perguntar("cache.acerto", comp, _viva())["nao_publica"]
+    expoe = {"resolvido": {"r": {"familias": [{"familia": {"familia": "x"}}]}}}
+    assert promql.perguntar("cache.acerto", comp, _viva(expoe))["nao_publica"]
+
+
+def test_falha_de_fonte_nao_passa_por_nao_publicada(monkeypatch):
+    familia = {"familia": "x", "pergunta": [{"id": "cache.acerto", "query": "q"}]}
+    comp = {"nome": "r", "metricas_url": "http://p"}
+    monkeypatch.setattr(promql, "familia_do_componente", lambda *a: (familia, 'a="b"'))
+    monkeypatch.setattr(promql, "_consultar", lambda *a: None)
+    assert "nao_publica" not in promql.perguntar("cache.acerto", comp, _viva())
+
+    monkeypatch.setattr(promql, "familia_do_componente", lambda *a: (None, None))
+    morta = dict(CONTEXTO, cache={"fonte_viva": {"http://p": False}})
+    assert "nao_publica" not in promql.perguntar("cache.acerto", comp, morta)
+    nao_sondada = dict(CONTEXTO, cache={})
+    assert "nao_publica" not in promql.perguntar("cache.acerto", comp, nao_sondada)
+
+
+def test_componente_nao_ligado_nao_passa_por_nao_publicado(monkeypatch):
+    monkeypatch.setattr(promql, "familia_do_componente", lambda *a: (None, None))
+    resolvido = {"resolvido": {"r": {"sem_valor": [{"familia": "x", "pergunta": [{"id": "cache.acerto"}]}]}}}
+    resposta = promql.perguntar("cache.acerto", {"nome": "r", "metricas_url": "http://p"}, _viva(resolvido))
+    assert "não foi ligado" in resposta["motivo"] and "nao_publica" not in resposta

@@ -22,6 +22,7 @@ import re
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
 PY_ = RAIZ / "scripts" / "build_report.py"
 TPL = RAIZ / "assets" / "report-template" / "template_v3.html"
+LIB = RAIZ / "scripts" / "lib"
 MARCA_V3 = "# ---------------------------------------------------------------- relatório v3"
 
 
@@ -51,19 +52,119 @@ def test_nenhuma_classe_do_v3_fica_sem_regra():
                        "fluxo padrão por cima do desenho:\n  ." + "\n  .".join(orfas))
 
 
-def test_o_mostrador_nao_herda_a_quebra_de_pagina_da_faixa_de_triagem():
-    """`.faixa` era duas coisas: a banda de triagem (que força página nova em impressão) e a
-    tolerância do mostrador. O `<p>` de dentro do cartão herdava a quebra e partia o cartão."""
-    fonte = PY_.read_text(encoding="utf-8")
-    v3 = fonte[fonte.index(MARCA_V3):]
+def test_nenhuma_classe_dos_blocos_fica_sem_regra():
+    fontes = list((LIB / "blocos").glob("*.py")) + [LIB / "html_comum.py", LIB / "capa.py"]
+    css = _css()
+    achadas = set()
+    for p in fontes:
+        if p.exists():
+            texto = p.read_text(encoding="utf-8")
+            achadas |= _classes(texto)
+            for prefixo in re.findall(r'([\w-]+)-\{(?:tom|nota\["faixa"\])\}', texto):
+                sufixos = ("bom", "atencao", "critico") if prefixo == "bl-f" else ("ok", "warn", "crit")
+                achadas |= {f"{prefixo}-{t}" for t in sufixos}
+    orfas = sorted(c for c in achadas if not re.search(r"[.]" + re.escape(c) + r"(?![\w-])", css))
+    assert not orfas, orfas
+
+
+URL = {"nome": "a.test/x", "site": "a.test", "caminho": "/x", "acessos": 10, "erros": 1, "pct_5xx": 10.0,
+       "p95_ms": 5.0}
+STATUS_MISTO = [{"chave": "200", "valor": 90}, {"chave": "404", "valor": 8}, {"chave": "500", "valor": 2}]
+DADOS_DE_EXEMPLO = {
+    "fila": {"filas": [
+        {"nome": "parada", "prontas": 900, "consumidores": 0, "entrada": 3, "saida": 0},
+        {"nome": "lenta", "prontas": 40, "consumidores": 1, "entrada": 9, "saida": 3},
+        {"nome": "fluindo", "prontas": 1, "consumidores": 2, "entrada": 5, "saida": 5},
+        {"nome": "sem ritmo", "prontas": None, "consumidores": None, "entrada": None, "saida": None},
+        {"nome": "ociosa", "prontas": 0, "consumidores": 1, "entrada": None, "saida": None}]},
+    "entrada": {"itens": [
+        {"nome": "rapido", "volume": 12000, "status": STATUS_MISTO, "latencia": 100,
+         "servicos": [{"nome": "api", "acessos": 10, "erros": 1, "resposta": 80},
+                      {"nome": "vazio", "acessos": None, "erros": None, "resposta": None}]},
+        {"nome": "medio", "volume": None, "status": None, "latencia": 1000},
+        {"nome": "lento", "volume": 5, "status": [{"chave": "200", "valor": 5}], "latencia": 2000},
+        {"nome": "sem dado", "latencia": None}]},
+    "banco": {"itens": [{"nome": "pg", "conexoes": 12, "tamanho": 2048}, {"nome": "mysql"}]},
+    "cache": {"itens": [{"nome": "redis", "acerto": 97, "memoria": 2048, "evictions": 0},
+                        {"nome": "memcached"}]},
+    "maquinas": {"itens": [{"nome": "m1", "cpu": 40, "memoria": 75, "disco": 91},
+                           {"nome": "m2", "cpu": None, "memoria": None, "disco": None}]},
+    "consumo": {"itens": [{"nome": "api", "cpu": 40, "memoria": 2048}, {"nome": "web"}]},
+    "falhas": {"itens": [{"cenario": "a", "consequencia": "b", "impacto": "alto"},
+                         {"cenario": "c", "consequencia": "d", "impacto": "médio"},
+                         {"cenario": "e", "consequencia": "f", "impacto": "baixo"}, {}]},
+    "urls": {"geral": [URL], "sites": [{"site": "a.test", "acessos": 10, "urls": [URL]}], "erros": [URL],
+             "lentas": [URL], "faltas": [{"alvo": "b", "motivo": "m"}],
+             "janelas": [{"total": 24, "cobertas": [], "amostradas": 1, "amostra": True}]},
+    "storage": {"uso": "41%", "cota": None},
+}
+SEM_DADO = {"motivo": "sem exporter"}
+
+
+def _capas():
+    from lib.capa import render_capa
+
+    def nota(valor, faixa, **resto):
+        return {"valor": valor, "faixa": faixa, "parcial": False, "online": 3, "base": 4,
+                "teto": None, "parcelas": {}, **resto}
+
+    cheio = {"gerado_em": "2026-10-26T10:00:00Z", "aceites": [],
+             "alvos": [{"nome": "c", "fatos": {"services": [{"name": "x", "replicas": "0/1"}]}}],
+             "recomendacoes": [{"titulo": "a", "porque": "b", "impacto": i, "alvo": "c"}
+                               for i in ("alto", "médio", "baixo", "outro", None)]
+             + [{"titulo": "excedente"}],
+             "historico": {"vs": "2026-10-23_1000", "novos": ["a"], "resolvidos": ["b"],
+                           "nota_anterior": 70, "aviso": "formato anterior"},
+             "tendencias": {"erros": [1.0, 0.4], "resposta": [1.0, 1000.0], "disco": [1.0, 91.0],
+                            "cpu": [1.0, 40.0], "memoria": [1.0, 75.0]},
+             "certificados": [{"nome": "a", "dias": 90}, {"nome": "b", "dias": 12},
+                              {"nome": "c", "dias": -1}, {"nome": "d", "dias": None}]}
+    capas = [render_capa(cheio, nota(v, f), "<p>Resumo.</p>", ["bancos"])
+             for v, f in ((90, "bom"), (79, "atencao"), (40, "critico"))]
+    capas.append(render_capa(cheio, nota(59, "critico", teto=59, online=0), "", []))
+    capas.append(render_capa({}, nota(79, "atencao", teto=79, online=4), "", []))
+    capas.append(render_capa(cheio, None, "<p>Resumo.</p>", ["bancos"]))
+    capas.append(render_capa({}, None, "", []))
+    return capas
+
+
+def _html_de_exemplo():
+    from lib.blocos import render_bloco
+    from lib.html_comum import nao_medido, painel
+
+    pedacos = [painel("Título", "resumo", "<p>corpo</p>"), painel("Título", "", "", cheio=True),
+               nao_medido("sem fonte")]
+    for papel, dados in DADOS_DE_EXEMPLO.items():
+        pedacos += [render_bloco(papel, dados), render_bloco(papel, SEM_DADO)]
+    return "".join(pedacos + _capas())
+
+
+def test_toda_classe_que_sai_no_html_renderizado_tem_regra_no_template():
+    """A varredura da fonte não enxerga `bl-c-{tom}`, nem classe montada em função. O que chega
+    ao navegador é o HTML, então a trava lê o HTML: cobre tom e faixa sem lista de prefixos."""
+    emitidas = {nome for valor in re.findall(r'class="([^"]*)"', _html_de_exemplo())
+                for nome in valor.split()}
     css = _css()
 
-    assert re.search(r"\.faixa\{[^}]*break-before:\s*page", css), \
-        "a faixa de triagem deixou de forçar página nova; este teste perdeu o sentido"
-    dentro_do_mostrador = re.search(r'<div class="mdr">.*?</div>\'\)', v3, re.S)
-    assert dentro_do_mostrador, "o cartão de mostrador mudou de forma; reveja esta trava"
-    assert 'class="faixa"' not in dentro_do_mostrador.group(0), \
-        "o mostrador voltou a usar `faixa`, que é o nome da banda que quebra a página"
+    orfas = sorted(c for c in emitidas if not re.search(r"[.]" + re.escape(c) + r"(?![\w-])", css))
+
+    assert not orfas, orfas
+
+
+def test_os_dados_de_exemplo_cobrem_todos_os_tons_e_faixas():
+    """Sem isto, tirar um caso do exemplo deixa a trava de cima verde e cega para aquele tom."""
+    emitidas = set(re.findall(r'class="([^"]*)"', _html_de_exemplo()))
+    texto = " ".join(emitidas).split()
+    esperadas = {f"{prefixo}-{tom}" for tom in ("ok", "warn", "crit")
+                 for prefixo in ("bl-c", "bl-fl", "bl-tag", "bl-q", "bl-imp", "bl-nivel")}
+    esperadas |= {f"bl-f-{faixa}" for faixa in ("bom", "atencao", "critico")}
+    esperadas |= {"bl-sd", "bl-nm", "bl-cheio"}
+
+    assert esperadas <= set(texto), sorted(esperadas - set(texto))
+
+
+def test_tokens_do_mockup_nao_vazam_para_o_template():
+    assert "--border-color" not in TPL.read_text(encoding="utf-8")
 
 
 def test_nenhuma_variavel_css_do_v3_fica_sem_definicao():
@@ -96,38 +197,10 @@ def test_o_template_nao_referencia_variavel_que_ele_mesmo_nao_define():
     # expressão só captura a primeira por `style`, e `--g2` sumia de um `style` com duas.
     inline = {nome for estilo in re.findall(r'style="([^"]*)"', fonte[fonte.index(MARCA_V3):])
               for nome in re.findall(r"(--[\w-]+)\s*:", estilo)}
-    assert inline, "nenhuma variável inline encontrada; o padrão do `style=` mudou"
     usadas = set(re.findall(r"var\((--[\w-]+)[,)]", css)) - inline
     definidas = set(re.findall(r"(--[\w-]+)\s*:", css))
 
     assert not usadas - definidas, sorted(usadas - definidas)
-
-
-# ---------------------------------------------------------------- o arco diz a verdade
-def test_os_arcos_do_mostrador_saem_da_tolerancia_declarada():
-    """Três partes iguais é bonito e mente.
-
-    Com `bom_ate` 700 e `ruim_a_partir` 1500 sobre um máximo de 3000, as marcas reais estão em
-    42° e 90° — um terço cada (60° e 120°) diria que 1000 ms ainda é bom.
-    """
-    import build_report
-
-    faixa = {"sentido": "menor_melhor", "bom_ate": 700, "ruim_a_partir": 1500, "maximo": 3000}
-
-    assert build_report._arcos(faixa) == (42.0, 90.0)
-
-
-def test_no_sentido_invertido_o_bom_continua_a_esquerda():
-    """`_angulo` põe o lado bom sempre à esquerda nos dois sentidos; se os arcos não
-    espelharem junto, o verde fica do lado onde a agulha nunca é boa."""
-    import build_report
-
-    faixa = {"sentido": "maior_melhor", "bom_ate": 90, "ruim_a_partir": 50, "maximo": 100}
-    g1, g2 = build_report._arcos(faixa)
-
-    assert (g1, g2) == (18.0, 90.0)
-    agulha_otima = build_report._angulo(100, faixa)
-    assert agulha_otima == -90.0, "100 é o melhor valor e a agulha tem de encostar à esquerda"
 
 
 # ---------------------------------------------------------------- função que ninguém chama

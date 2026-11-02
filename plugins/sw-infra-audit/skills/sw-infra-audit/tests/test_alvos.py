@@ -221,3 +221,16 @@ def test_componente_aceita_usuario_declarado():
     from lib.alvos import COMPONENTE_PERMITE
 
     assert "usuario" in COMPONENTE_PERMITE
+
+
+def test_rotulos_chegam_no_alvo_docker(tmp_path):
+    texto = '[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "x"\n[alvo.rotulos]\nloja = "Loja virtual"\n'
+    lidos, _ = ler(escrever(tmp_path, texto))
+    assert lidos[0]["rotulos"] == {"loja": "Loja virtual"}
+
+
+@pytest.mark.parametrize("valor", ['"Loja"', "{ loja = 1 }"])
+def test_rotulos_fora_do_formato_sao_recusados(tmp_path, valor):
+    texto = f'[[alvo]]\nnome = "c"\ntipo = "docker"\ncontext = "x"\nrotulos = {valor}\n'
+    with pytest.raises(AlvoInvalido, match="rotulos"):
+        ler(escrever(tmp_path, texto))

@@ -164,7 +164,7 @@ def test_a_tabela_de_sistemas_poe_cada_pergunta_numa_coluna():
 
 # --------------------------------------------------------------- o que estava invisível
 def _relatorio_sem_achado_critico():
-    """Uma rodada em que a faixa "Agir agora" fica vazia — o caso REAL em que as oito
+    """Uma rodada sem achado crítico — o caso REAL em que as oito
     recomendações da auditoria não saíram em nenhuma das 31 páginas."""
     from tests.test_build_report_v3 import relatorio
     r = relatorio()
@@ -180,17 +180,16 @@ def _relatorio_sem_achado_critico():
 def test_as_recomendacoes_aparecem_mesmo_sem_nada_para_agir_hoje():
     html = br.render_html_v3(_relatorio_sem_achado_critico())
 
-    assert "Agir agora" in html          # a faixa continua anunciada no índice
+    assert 'id="problemas"' in html      # a parte continua no relatório
     assert "O que fazer primeiro" in html
     assert "Subir segunda réplica do Traefik" in html
 
 
-def test_o_indice_lista_as_secoes_e_nao_so_as_faixas():
+def test_as_partes_que_a_capa_promete_tem_ancora():
     html = br.render_html_v3(_relatorio_sem_achado_critico())
-    indice = html[html.index('<div class="idx">'):html.index('<div class="idx">') + 4000]
 
-    assert 'href="#o-que-fazer-primeiro"' in indice
-    assert 'href="#riscos-aceitos"' in indice
+    assert 'id="saude-por-sistema"' in html
+    assert 'id="riscos-aceitos"' in html
 
 
 def test_alvo_nao_confirmado_aparece_com_o_nome_dele():
@@ -203,24 +202,19 @@ def test_alvo_nao_confirmado_aparece_com_o_nome_dele():
     assert "<b>site</b>" in html
 
 
-# --------------------------------------------------------------- os quatro movimentos
-def test_cada_secao_declara_o_movimento_a_que_pertence():
+# --------------------------------------------------------------- a ordem do documento
+def test_cada_parte_tem_o_mesmo_cabecalho():
     html = br.render_html_v3(_relatorio_sem_achado_critico())
-    movs = dict(re.findall(r'<section class="sec[^"]*" id="([^"]+)" data-mov="([^"]*)"', html))
 
-    assert movs.get("o-que-fazer-primeiro") == "decidir"
-    assert movs.get("se-isto-falhar") == "decidir"
-    assert movs.get("riscos-aceitos") == "registrar"
-    assert all(m in {"decidir", "medir", "consertar", "registrar"} for m in movs.values()), movs
+    assert re.findall(r'<section class="bl-parte" id="([^"]+)"', html) == [
+        "saude-por-sistema", "detalhes-tecnicos", "problemas", "registro"]
 
 
 def test_a_decisao_vem_antes_da_medida():
-    """"Se isto falhar" ficava depois de "Instrumentos", no meio do bloco de medição — e é
-    a seção que mais se parece com uma decisão em todo o documento. Com a lombada colorida
-    isso virava um salto de tom no meio do movimento."""
+    """O que fazer primeiro abre o documento: os pontos de falha são medida, e vêm depois."""
     html = br.render_html_v3(_relatorio_sem_achado_critico())
 
-    assert html.index('id="se-isto-falhar"') < html.index('id="cluster"')
+    assert html.index("O que fazer primeiro") < html.index("Pontos únicos de falha")
 
 
 def test_o_movimento_nao_usa_a_cor_da_gravidade():
@@ -233,12 +227,3 @@ def test_o_movimento_nao_usa_a_cor_da_gravidade():
     assert bloco, "o bloco dos movimentos sumiu do template"
     for proibida in ("--crit", "--warn", "--ok"):
         assert proibida not in bloco.group(0), f"{proibida} é cor de gravidade, não de movimento"
-
-
-def test_o_indice_agrupa_as_secoes_pelo_movimento():
-    html = br.render_html_v3(_relatorio_sem_achado_critico())
-    idx = html[html.index('<div class="idx">'):]
-    idx = idx[:idx.index("</div>\n\n")] if "</div>\n\n" in idx else idx[:6000]
-
-    assert 'data-mov="decidir"' in idx and "Decidir" in idx
-    assert 'data-mov="registrar"' in idx and "Registrar" in idx

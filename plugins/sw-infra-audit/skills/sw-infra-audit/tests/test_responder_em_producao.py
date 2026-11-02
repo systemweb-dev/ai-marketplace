@@ -59,7 +59,7 @@ def test_o_cache_sobrevive_entre_as_perguntas_de_um_alvo():
 
     collect.coletar_alvo(alvo, coletor, _contexto(), [contador])
 
-    assert len(contador.contextos) == 3
+    assert len(contador.contextos) == 5
     assert contador.identificacoes == 1
 
 
@@ -106,7 +106,7 @@ def test_adaptador_que_estoura_nao_impede_o_proximo_de_responder():
 
     collect.responder(componente, _contexto(), [Estoura(), Responde()], Prazo(120))
 
-    assert [r.get("valor") for r in componente["respostas"]] == [7, 7, 7]
+    assert [r.get("valor") for r in componente["respostas"]] == [7, 7, 7, 7]
 
 
 def test_se_ninguem_responde_o_erro_interno_aparece():

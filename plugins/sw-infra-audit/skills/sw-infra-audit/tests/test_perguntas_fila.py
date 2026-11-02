@@ -65,7 +65,8 @@ def test_todo_limiar_registrado_compila():
 def test_o_papel_entrada_nao_foi_mexido():
     """Regressão: `entrada` já está publicado."""
     assert [p["id"] for p in do_papel("entrada")] == [
-        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia"]
+        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia",
+        "entrada.por_servico", "entrada.urls_mais_acessadas"]
 
 
 # --- a semântica do limiar REAL, não só que ele compila ---

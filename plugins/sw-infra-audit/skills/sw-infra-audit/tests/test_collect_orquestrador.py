@@ -414,3 +414,54 @@ def test_valor_nao_serializavel_falha_alto_em_vez_de_gravar_json_invalido(tmp_pa
     assert codigo == 2
     assert "não é um número" in capsys.readouterr().err
     assert not (tmp_path / "saida" / "report.json").exists()
+
+
+def coletor_com_servico_parado(alvo, contexto):
+    return {"saude": "🔴", "dimensoes": {},
+            "fatos": {"services": [{"name": "loja_web", "replicas": "2/2"},
+                                   {"name": "loja_worker", "replicas": "0/1"}]},
+            "achados": [{"regra": "OPS_SERVICE_STOPPED", "objeto": "loja_worker",
+                         "severidade": "high", "alvo": alvo["nome"]}]}
+
+
+def rodada_com_aceite(tmp_path, revisar_em):
+    projeto = ('alvos = ["cluster"]\n\n[[aceite]]\nalvo = "cluster"\nregra = "OPS_SERVICE_STOPPED"\n'
+               'objeto = "loja_worker"\nmotivo = "desligado de propósito"\ndesde = "2026-01-01"\n'
+               f'revisar_em = "{revisar_em}"\n')
+    collect.main([*ambiente(tmp_path, projeto=projeto), "--confirmar", "cluster"],
+                 coletores={"docker": coletor_com_servico_parado, "http": coletor_falso([])})
+    return ler_relatorio(tmp_path)["nota_geral"]
+
+
+def test_a_nota_entra_no_report_depois_dos_aceites(tmp_path):
+    nota = rodada_com_aceite(tmp_path, revisar_em="2027-01-01")
+
+    assert (nota["online"], nota["base"]) == (1, 1), "parado com aceite vigente sai da base"
+    assert nota["teto"] is None, "o achado aceito não pode mais limitar a nota"
+
+
+def test_aceite_vencido_volta_a_contar_na_nota(tmp_path):
+    nota = rodada_com_aceite(tmp_path, revisar_em="2026-02-01")
+
+    assert (nota["online"], nota["base"]) == (1, 2)
+    assert nota["teto"] == 59 and nota["valor"] <= 59
+
+
+@pytest.mark.parametrize("carimbo", ["2026-11-01Tlixo", "2026-11-01 lixo", "2026-13-01"])
+def test_at_que_o_promql_nao_entende_para_antes_de_coletar(tmp_path, capsys, carimbo):
+    """`momento` devolve None para isto, e aí a consulta iria sem `time=`, andando com o relógio."""
+    visitados = []
+    coletores = {"docker": coletor_falso(visitados), "http": coletor_falso(visitados)}
+    args = [a if a != "2026-09-19T10:00:00Z" else carimbo for a in ambiente(tmp_path)]
+
+    codigo = collect.main([*args, "--confirmar", "cluster"], coletores=coletores)
+
+    assert codigo == 2 and visitados == []
+    assert "--at" in capsys.readouterr().err and not (tmp_path / "saida").exists()
+
+
+@pytest.mark.parametrize("carimbo", ["2026-11-01", "2026-11-01T10:00:00Z", "2026-11-01T10:00:00-03:00"])
+def test_at_valido_segue(tmp_path, carimbo):
+    coletores = {"docker": coletor_falso([]), "http": coletor_falso([])}
+    args = [a if a != "2026-09-19T10:00:00Z" else carimbo for a in ambiente(tmp_path)]
+    assert collect.main([*args, "--confirmar", "cluster"], coletores=coletores) == 0

@@ -48,7 +48,8 @@ def test_cada_componente_responde_as_perguntas_do_seu_papel(tmp_path):
     componente = ler(tmp_path)["alvos"][0]["componentes"][0]
 
     assert [r["pergunta"] for r in componente["respostas"]] == [
-        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia"]
+        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia",
+        "entrada.por_servico", "entrada.urls_mais_acessadas"]
     assert componente["respostas"][0]["valor"] == 12480
     assert componente["respostas"][0]["fonte"] == "falso:x"
     assert componente["respostas"][1]["motivo"] == "não sei responder"
@@ -289,9 +290,12 @@ def test_o_motivo_guardado_e_de_quem_poderia_responder(tmp_path):
     collect.main([*ambiente(tmp_path), "--confirmar", "cluster"],
                  coletores={"docker": coletor_com_componente(papel="entrada")},
                  adaptadores=adaptadores.todos())
-    motivos = {r["motivo"] for r in ler(tmp_path)["alvos"][0]["componentes"][0]["respostas"]}
+    respostas = ler(tmp_path)["alvos"][0]["componentes"][0]["respostas"]
+    motivos = {r["pergunta"]: r["motivo"] for r in respostas}
+    do_log = motivos.pop("entrada.urls_mais_acessadas")
 
-    assert all("metricas_url" in m for m in motivos), motivos
+    assert all("metricas_url" in m for m in motivos.values()), motivos
+    assert "logs_url" in do_log
 
 
 def test_componente_de_fila_sem_nada_declarado_e_mandado_declarar_admin_url(tmp_path):
@@ -315,3 +319,8 @@ def test_a_marca_interna_nao_vaza_para_o_relatorio(tmp_path):
 
     texto = (tmp_path / "saida" / "report.json").read_text(encoding="utf-8")
     assert "nao_se_aplica" not in texto
+
+
+def test_rotulos_do_alvo_chegam_ao_registro():
+    alvo = {"nome": "c", "tipo": "docker", "context": "x", "rotulos": {"loja": "Loja virtual"}}
+    assert collect.coletar_alvo(alvo, None, {})["rotulos"] == {"loja": "Loja virtual"}

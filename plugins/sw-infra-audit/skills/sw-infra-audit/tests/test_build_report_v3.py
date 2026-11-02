@@ -51,16 +51,23 @@ def test_o_que_existe_vem_antes_do_que_esta_errado(tmp_path):
     html = montar(tmp_path)
 
     assert "context: ctx" in html and "exemplo.invalido" in html
-    # o diagnostico comeca na primeira faixa de acao; antes dela so vem o inventario
-    assert html.index("context: ctx") < html.index('id="faixa-1"'), \
+    # o diagnostico comeca em Problemas; antes dele so vem o mapa do que existe
+    assert html.index('class="bl-hm">cluster') < html.index('id="problemas"'), \
         "o mapa do que existe vem antes do diagnóstico"
 
 
-def test_nao_existe_nota_unica_da_infraestrutura(tmp_path):
-    html = montar(tmp_path)
+def test_a_nota_unica_aparece_quando_a_rodada_a_calculou(tmp_path):
+    dados = relatorio()
+    dados["nota_geral"] = {"valor": 79, "faixa": "atencao", "parcial": False, "online": 1, "base": 1,
+                           "teto": 79, "parcelas": {}}
 
-    assert "Saúde geral" not in html and "Nota geral" not in html
-    assert "1 alvo sem dados" in html or "sem dados" in html
+    html = montar(tmp_path, dados)
+
+    assert "Nota geral" in html and "Nota 79 de 100" in html
+
+
+def test_sem_nota_calculada_a_capa_diz_que_nao_ha_nota(tmp_path):
+    assert "Sem nota nesta rodada" in montar(tmp_path)
 
 
 def test_alvo_sem_dados_aparece_com_o_motivo(tmp_path):
@@ -110,7 +117,7 @@ def test_texto_do_agente_nao_injeta_secao_no_relatorio(tmp_path):
 
     html = montar(tmp_path, dados)
 
-    assert html.count('id="faixa-3"') == 1, "a seção existe uma vez só"
+    assert html.count('id="registro"') == 1, "a seção existe uma vez só"
     assert "%%ALVOS%%" in html, "o marcador aparece como texto, não como seção"
 
 
@@ -191,12 +198,12 @@ def test_relatorio_mostra_os_nos_do_cluster(tmp_path):
     assert "SIGKILL" in html, "o código sozinho não diz nada; a pista é o que o leitor usa"
 
 
-def test_relatorio_mostra_disco_redes_e_secrets(tmp_path):
+def test_relatorio_mostra_disco_e_deixa_redes_e_secrets_no_json(tmp_path):
     html = montar(tmp_path, _com_cluster())
 
     assert "4GB" in html, "o recuperável é o número que leva à ação"
-    assert "traefik-public" in html
-    assert "senha_do_banco" in html, "o NOME do secret é inventário; o valor nunca é coletado"
+    assert "traefik-public" not in html, "redes ficam só no report.json (spec)"
+    assert "senha_do_banco" not in html, "secrets ficam só no report.json (spec)"
     assert "cert.pem" in html and "34 dias" in html, "certificado perto de vencer é achado com data"
 
 
@@ -211,15 +218,13 @@ def test_tls_sem_certificado_nao_vira_tabela_so_com_cabecalho(tmp_path):
     assert "Certificados TLS" not in html
 
 
-def test_relatorio_agrupa_por_aplicacao_com_as_rotas(tmp_path):
-    """'Como o traefik está roteando pro app X' é a pergunta que a descrição promete."""
-    html = montar(tmp_path, _com_cluster())
+def test_rotas_por_aplicacao_ficam_so_no_report_json(tmp_path):
+    """O desenho aprovado não tem "Por aplicação": eram 11 páginas numa rodada real."""
+    dados = _com_cluster()
+    html = montar(tmp_path, dados)
 
-    assert "loja" in html and "loja.exemplo.test" in html
-    # dentro do bloco da stack o serviço aparece com o nome curto: `loja_web` vira `web`
-    assert ">web<" in html and ">api<" in html
-    assert "sem limites" in html, "o sinal por serviço é o que justifica olhar a aplicação"
-    assert "1 crítico<" in html, "selo no singular: '1 críticos' entrega relatório gerado no braço"
+    assert "Por aplicação" not in html and "loja.exemplo.test" not in html
+    assert dados["alvos"][0]["fatos"]["stacks"][0]["routes"] == ["loja.exemplo.test"]
 
 
 def test_alvo_sem_esses_fatos_nao_ganha_secao_vazia(tmp_path):

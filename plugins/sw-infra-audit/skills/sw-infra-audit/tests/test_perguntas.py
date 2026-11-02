@@ -7,7 +7,8 @@ def test_perguntas_do_papel_vem_na_ordem_declarada():
     """A ordem é contrato: o orçamento corta da última para a primeira, então ela vai da
     pergunta mais barata para a mais cara."""
     assert [p["id"] for p in do_papel("entrada")] == [
-        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia"]
+        "entrada.volume_na_janela", "entrada.distribuicao_de_status", "entrada.latencia",
+        "entrada.por_servico", "entrada.urls_mais_acessadas"]
 
 
 def test_pergunta_de_lista_exige_desempate():

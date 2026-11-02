@@ -85,3 +85,39 @@ def test_familia_sem_etiqueta_de_seletor_e_recusada(tmp_path):
     with pytest.raises(CatalogoInvalido) as erro:
         carregar_arquivo(caminho)
     assert "etiqueta" in str(erro.value)
+
+
+def test_familia_do_traefik_carrega_com_a_lista_por_servico():
+    from lib.perguntas import PERGUNTAS
+    por_nome = {f["familia"]: f for f in familias()}
+    ids = [p["id"] for p in por_nome["traefik"]["pergunta"]]
+    assert "entrada.por_servico" in ids and PERGUNTAS["entrada.por_servico"]["opcional"]
+    assert PERGUNTAS["entrada.por_servico"]["desempate"] == "nome"
+
+
+def test_lista_por_servico_mede_a_rota_com_o_seletor_por_ultimo():
+    traefik = next(f for f in familias() if f["familia"] == "traefik")
+    pergunta = next(p for p in traefik["pergunta"] if p["id"] == "entrada.por_servico")
+    assert pergunta["chave"] == "router" and pergunta["ordenar_por"] == "acessos"
+    assert pergunta["desempate"] == "nome"
+    campos = {c["nome"]: c["query"] for c in pergunta["campo"]}
+    assert set(campos) == {"acessos", "erros", "resposta"}
+    assert "traefik_router_requests_total" in campos["acessos"]
+    assert 'code=~"5..",%SELETOR%}' in campos["erros"]
+    assert "traefik_router_request_duration_seconds_bucket" in campos["resposta"]
+    for query in campos.values():
+        assert "%SELETOR%}[%JANELA%]" in query and "by (" in query and "router" in query
+
+
+def test_top_15_soma_quem_tem_erro():
+    from lib.blocos.entrada import selecionar
+    itens = [{"nome": f"s{i:02}", "acessos": 100 - i, "erros": 0} for i in range(17)]
+    itens.append({"nome": "z", "acessos": 1, "erros": 3})
+    nomes = [i["nome"] for i in selecionar(itens)]
+    assert len(nomes) == 16 and "z" in nomes
+
+
+def test_empate_de_acessos_desempata_por_nome():
+    from lib.blocos.entrada import selecionar
+    itens = [{"nome": "b", "acessos": 5}, {"nome": "a", "acessos": 5}, {"nome": "c", "acessos": 9}]
+    assert [i["nome"] for i in selecionar(itens)] == ["c", "a", "b"]
