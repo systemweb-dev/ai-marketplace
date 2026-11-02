@@ -49,7 +49,7 @@ solto, e **nunca termine um turno com pergunta em texto**. Vale para: **profundi
 Direto/Explorar a fundo), clarificações (uma por chamada), **as lentes de exploração** (uma por
 chamada, quando ativo), **nível de revisão** (passo 3), **escolha de abordagem** (passo 4),
 **aprovação de cada seção do design** (passo 5), **gate de revisão do spec** (passo 8) e a
-**oferta de resumo e Briefing** (passo 9). Para
+**oferta do Briefing** (passo 9). Para
 respostas abertas, ofereça as opções prováveis e use o campo **"Other"**. Exceção: o usuário
 descrevendo livremente a ideia/um ajuste é ele dirigindo — não force menu aí.
 
@@ -86,9 +86,9 @@ Crie um item de todo para cada ponto e cumpra na ordem (no caminho completo).
 7. **Auto-review do spec** — rode o `spec_check.py`, depois confira placeholders, contradições,
    escopo e ambiguidade (corrigir inline).
    Se o nível incluir spec, **revisor subagent do spec**.
-8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças**).
-9. **Oferecer resumo do spec e Briefing** — via `AskUserQuestion`, nesta ordem; gere só o
-   que for pedido (ver "Resumo do spec" e "Briefing").
+8. **Usuário revisa o spec** — via `AskUserQuestion` (**Aprovar / Pedir mudanças / Resumir**).
+   **Resumir** mostra o resumo detalhado (ver "Resumo do spec") e repete este gate.
+9. **Oferecer Briefing** — via `AskUserQuestion` (Sim/Não); se sim, gerar (ver "Briefing").
 10. **Transição** — marque o dossiê como aprovado (`dossie.py estado <slug> aprovado`) e
     invoque a **`sw-plan`**. Se ela não estiver instalada, **diga isso ao usuário** e ofereça
     via `AskUserQuestion`: instalar (`/plugin install sw-plan@ai-marketplace`) ou seguir sem
@@ -118,7 +118,6 @@ digraph brainstorming {
     "Escrever spec" [shape=box];
     "Auto-review (corrige inline)" [shape=box];
     "Aprovou o spec?" [shape=diamond];
-    "Resumo do spec?" [shape=diamond];
     "Gerar resumo" [shape=box];
     "Briefing?" [shape=diamond];
     "Gerar Briefing" [shape=box];
@@ -149,10 +148,9 @@ digraph brainstorming {
     "Auto-review (corrige inline)" -> "Revisor: spec (se nivel)";
     "Revisor: spec (se nivel)" -> "Aprovou o spec?";
     "Aprovou o spec?" -> "Escrever spec" [label="mudancas"];
-    "Aprovou o spec?" -> "Resumo do spec?" [label="aprovado"];
-    "Resumo do spec?" -> "Gerar resumo" [label="sim"];
-    "Resumo do spec?" -> "Briefing?" [label="nao"];
-    "Gerar resumo" -> "Briefing?";
+    "Aprovou o spec?" -> "Gerar resumo" [label="resumir"];
+    "Gerar resumo" -> "Aprovou o spec?";
+    "Aprovou o spec?" -> "Briefing?" [label="aprovado"];
     "Briefing?" -> "Gerar Briefing" [label="sim"];
     "Briefing?" -> "Invocar sw-plan" [label="nao"];
     "Gerar Briefing" -> "Invocar sw-plan";
@@ -374,7 +372,7 @@ sem UI (ex.: um job, uma API interna).
 **No modo Direto, mire em até 80 linhas.** Num teste com uma mudança pequena, o spec saiu com 178.
 Passou disso? Corte o que não muda decisão de quem vai executar: reduza seções a uma linha, tire
 alternativas descartadas óbvias e omita rollout quando não houver risco. Evidência fica; repetição
-sai. Se a mudança realmente pedir mais, mantenha e diga por quê no resumo do gate.
+sai. Se a mudança realmente pedir mais, mantenha e diga por quê na mensagem antes do gate.
 
 Além de arquitetura / componentes / fluxo de dados / erro / testes, o spec **fecha** com as seções
 que evitam o **over-engineering e o scope-drift** — o modo de falha nº1 de quem executa o spec
@@ -450,9 +448,11 @@ spec" ou "Em cada checkpoint"), despache o **subagent revisor** do spec usando a
 "spec" do template `spec-document-reviewer-prompt.md` antes do gate do usuário (ver "Revisor
 opcional"). Para specs grandes, vale despachar mesmo que o nível seja "Sem revisor".
 
-**Gate de revisão do usuário:** peça via `AskUserQuestion` (**Aprovar / Pedir mudanças**) que
-o usuário revise o spec escrito antes de prosseguir. Se pedir mudanças, ajuste e repita o
-auto-review. Só siga com a aprovação.
+**Gate de revisão do usuário:** peça via `AskUserQuestion` (**Aprovar / Pedir mudanças /
+Resumir**) que o usuário revise o spec escrito antes de prosseguir. Se pedir mudanças, ajuste e
+repita o auto-review. Se pedir **Resumir**, mostre o resumo (ver "Resumo do spec") e repita o
+gate. Só siga com a aprovação. A pergunta do gate traz só o caminho do spec e o pedido de
+aprovação: o campo `question` e a descrição das opções **nunca** carregam resumo.
 
 ### Mexer num spec já aprovado
 
@@ -482,20 +482,28 @@ antigo nos dois sentidos.
 
 ## Resumo do spec
 
-Depois do spec aprovado, **ofereça via `AskUserQuestion`** (Sim / Não): *"Quer um resumo do spec
-antes de seguir?"*. É para quem vai decidir ou executar e quer conferir o todo sem ler o documento;
-quem precisa de linguagem de negócio usa o Briefing.
+É a opção **Resumir** do gate de revisão, ou o pedido do usuário a qualquer momento depois de o
+spec existir. Serve para decidir sem abrir o documento, então vem **antes** da aprovação; quem
+precisa de linguagem de negócio usa o Briefing.
 
-Se **sim**, releia o `spec.md` do disco e mostre no chat um resumo que permita decidir sem abrir o
-documento, em **30 a 50 linhas** (spec muito pequeno pode ter menos):
+Releia o `spec.md` do disco e mostre o resumo em **mensagem normal no chat, nunca dentro do
+`AskUserQuestion`**: aquele campo só comporta poucas linhas, e é assim que um resumo vira duas
+frases. Só depois da mensagem venha o menu do gate.
 
-- **Problema e objetivo:** a dor real, para quem é e como saberemos que resolveu.
-- **Como vai funcionar:** a abordagem escolhida e o fluxo principal, passo a passo.
-- **O que muda:** partes do sistema, dados e comportamento afetados.
-- **O que entra e o que fica de fora.**
-- **Decisões:** cada decisão estrutural, o motivo e a alternativa descartada.
-- **Riscos e suposições:** o que pode derrubar o design e como validar.
-- **Em aberto:** o que ainda depende de alguém.
+**Tamanho:** 30 a 50 linhas; spec longo pode chegar a 80, e só spec muito pequeno fica abaixo de 30.
+Use estes títulos, sem pular nenhum (o que não se aplica diz isso em uma linha):
+
+- **Problema e objetivo:** a dor real, para quem é e a medida que diz que resolveu.
+- **Como vai funcionar:** a abordagem escolhida e o fluxo principal, em passos numerados.
+- **O que muda:** por parte do sistema, os arquivos ou módulos, dados e comportamentos afetados.
+- **O que entra e o que fica de fora:** duas listas, com os itens do spec.
+- **Decisões:** uma linha por decisão, no formato `decisão: motivo; descartado: alternativa`.
+- **Riscos e suposições:** o que pode derrubar o design e como validar cada um.
+- **Em aberto:** o que ainda depende de alguém, e de quem.
+
+**Detalhe concreto:** cite os nomes, valores e limites que estão no spec. "Melhora a validação" não
+serve; "`spec_check.py` recusa spec sem não-objetivos" serve. Linha que caberia em qualquer spec
+deve ser reescrita ou cortada.
 
 - Tudo sai do arquivo: nada que não esteja no spec entra no resumo. Se notar lacuna ao resumir,
   aponte separadamente e pergunte se ajusta o spec.

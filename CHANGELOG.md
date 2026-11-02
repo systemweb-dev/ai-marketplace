@@ -8,6 +8,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-brainstorming` (v0.8.3): o resumo do spec vira a opção **Resumir** do gate de revisão, antes da
+  aprovação, e sai em mensagem normal com títulos fixos e nomes concretos do spec. Ele não pode mais
+  ir dentro do `AskUserQuestion`, onde virava poucas linhas.
 - `sw-infra-audit` (v0.19.0): **relatório simples para leigos e técnicos.** Uma rodada real caiu de dezenas
   para cerca de 20 páginas. A capa traz nota geral, serviços online, tendências, resumo de até duas frases,
   prioridades e o que mudou. Depois vêm saúde por sistema, blocos próprios por tipo (máquinas, sites,
