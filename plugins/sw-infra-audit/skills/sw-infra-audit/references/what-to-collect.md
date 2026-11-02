@@ -16,3 +16,7 @@ o comando falhar/timeout ou não se aplicar (ex.: não-Swarm).
 **Redação (field-allowlist POSITIVA):** os `inspect` só emitem campos whitelisted; `Env/Cmd/Args/
 Labels`/valor de config **nunca** saem (env vira chaves). Labels de roteamento: só `traefik.*`, com
 valores sensíveis (basicauth/token/cred em URL) redigidos.
+
+## Logs de acesso (só com `logs_url`)
+
+Do Loki declarado no alvo docker, por 24 janelas de 1 hora: host, caminho agregado, status e duração, sempre por `line_format`. Vão ao `report.json` só o top 50 por site, com acessos, % de 5xx e p95, e as janelas cobertas; a linha bruta nunca é gravada.

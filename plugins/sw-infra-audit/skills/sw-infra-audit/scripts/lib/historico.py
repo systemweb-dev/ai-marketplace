@@ -60,7 +60,8 @@ def comparar(anterior, atual, nome_anterior):
     agora = _chaves(atual, com_componente=mesmo_formato)
     saida = {"vs": nome_anterior,
              "resolvidos": _formatar(antes - agora),
-             "novos": _formatar(agora - antes)}
+             "novos": _formatar(agora - antes),
+             "nota_anterior": (anterior.get("nota_geral") or {}).get("valor")}
     if not mesmo_formato:
         saida["aviso"] = ("formato anterior: a comparação ignora o componente, que não existia "
                           "no relatório anterior")

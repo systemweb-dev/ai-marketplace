@@ -12,23 +12,23 @@ Campos de cada pergunta:
   faixa      a tolerância, quando ela EXISTE de verdade: {sentido, bom_ate, ruim_a_partir,
              maximo}. Só quem declara faixa vira mostrador no relatório — agulha sem
              tolerância declarada é enfeite que sugere uma leitura que ninguém definiu.
+  por_ultimo a pergunta cara roda com o que sobrou do orçamento, depois de todas as outras.
 """
 
 PERGUNTAS = {}
 ORDEM = {}
 
 
-def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None, faixa=None):
+def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None, faixa=None, opcional=False,
+       por_ultimo=False):
     PERGUNTAS[id] = {"id": id, "papel": papel, "titulo": titulo, "forma": forma,
                      "unidade": unidade, "limiar": limiar, "desempate": desempate,
-                     "faixa": faixa}
+                     "faixa": faixa, "opcional": opcional, "por_ultimo": por_ultimo}
     ORDEM.setdefault(papel, []).append(id)
     return id
 
 
 # --- papel `entrada`: nesta versão, só o que QUALQUER família de exporter responde.
-# As que dependem de etiqueta de rota (top_rotas, top_dominios, erros_por_rota) exigem
-# exporter que exponha rota — entram junto com o adaptador de log, no plano 4.
 _p("entrada.volume_na_janela", "entrada", "Requisições na janela", "escalar",
    unidade="requisições")
 _p("entrada.distribuicao_de_status", "entrada", "Distribuição de status", "lista",
@@ -37,6 +37,13 @@ _p("entrada.distribuicao_de_status", "entrada", "Distribuição de status", "lis
 # API pública — "bom" depende do serviço, e inventar um número aqui seria chute com agulha.
 _p("entrada.latencia", "entrada", "Latência (p95)", "escalar", unidade="ms",
    faixa={"sentido": "menor_melhor", "bom_ate": 700, "ruim_a_partir": 1500, "maximo": 3000})
+# Opcional: exige a etiqueta `router`, que nem todo proxy publica, e a ausência não é defeito.
+_p("entrada.por_servico", "entrada", "Acessos por serviço web", "lista", desempate="nome",
+   opcional=True)
+# Opcional: só existe com `logs_url`. São 24 consultas ao Loki, e por isso vão por último: uma
+# rodada lenta perde janelas de log, não a CPU dos serviços.
+_p("entrada.urls_mais_acessadas", "entrada", "URLs mais acessadas", "lista", unidade="acessos",
+   desempate="nome", opcional=True, por_ultimo=True)
 
 
 # --- papel `fila`: tudo sai do mesmo endpoint de listagem de filas, então o custo marginal de
@@ -73,6 +80,9 @@ _p("fila.taxa_entrada_saida", "fila", "Entrada × saída", "lista", unidade="men
 # vezes o mesmo problema.
 _p("app.cpu", "app", "CPU em uso", "escalar", unidade="%")
 _p("app.memoria", "app", "Memória em uso", "escalar", unidade="bytes")
+# Opcional: cAdvisor sem `container_last_seen` não é defeito, e a coluna fica "sem dado". O
+# período é o da retenção medida no Prometheus: 7 dias.
+_p("app.disponibilidade_7d", "app", "Disponibilidade em 7 dias", "escalar", unidade="%", opcional=True)
 
 
 # --- papel `banco`: o que qualquer exporter de banco responde. Conexões e tamanho são o
@@ -91,14 +101,12 @@ _p("banco.tamanho", "banco", "Tamanho dos dados", "escalar", unidade="bytes")
 # limite, e isso é funcionamento normal, não defeito. O número importa — ele diz que o cache
 # está no teto —, mas transformá-lo em achado acusaria metade das instalações saudáveis.
 #
-# Taxa de acerto NÃO entra nesta versão, embora fosse a pergunta mais útil do papel: o Redis
-# publica acertos e erros como dois contadores separados, e a razão entre eles exige
-# aritmética que a linguagem de extração não tem de propósito. Declarar a pergunta sem
-# ninguém capaz de respondê-la deixaria todo cache com uma linha `sem dados` permanente e
-# derrubaria a cobertura sem que houvesse nada a consertar. Entra junto com a derivação
-# declarada de razão.
+# Taxa de acerto é opcional porque só a família do Redis responde hoje, com a razão calculada
+# na própria consulta PromQL. Cache sem nenhuma leitura na janela não tem taxa: a consulta
+# devolve NaN, e isso sai como `sem dados`, sem derrubar a cobertura.
 _p("cache.memoria_usada", "cache", "Memória em uso", "escalar", unidade="bytes")
 _p("cache.evicções", "cache", "Chaves descartadas", "escalar", unidade="chaves")
+_p("cache.acerto", "cache", "Taxa de acerto", "escalar", unidade="%", opcional=True)
 
 
 # --- papel `observabilidade`: NENHUMA pergunta nesta versão, de propósito.
@@ -107,6 +115,16 @@ _p("cache.evicções", "cache", "Chaves descartadas", "escalar", unidade="chaves
 # família responda, e inventar uma só para o papel deixar de aparecer mudo seria preencher a
 # lacuna com ruído. O relatório continua dizendo, em "O que falta declarar", que este papel
 # não tem pergunta nesta versão — que é a verdade.
+
+
+# --- papel `maquina`: um componente por nó do cluster, medido pelo exporter de nó. Opcionais
+# porque o cluster pode não ter esse exporter, e a ausência dele não é defeito da medição.
+# Sem limiar: o relatório já pinta os percentuais, e achado de capacidade é outra decisão.
+_p("maquina.cpu", "maquina", "CPU", "escalar", unidade="%", opcional=True)
+_p("maquina.memoria", "maquina", "Memória", "escalar", unidade="%", opcional=True)
+_p("maquina.disco", "maquina", "Disco", "escalar", unidade="%", opcional=True)
+# Negativo quer dizer "não está enchendo": a consulta devolve -1 e o bloco escreve "estável".
+_p("maquina.disco_dias", "maquina", "Dias até encher o disco", "escalar", unidade="dias", opcional=True)
 
 
 # O limiar é um produtor de achado, ao lado de `lib/rules.py` e do coletor http. Declarar o que

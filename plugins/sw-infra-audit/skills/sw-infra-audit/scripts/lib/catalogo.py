@@ -41,6 +41,8 @@ def carregar_arquivo(caminho):
         raise CatalogoInvalido(f"{caminho.name}: falta `[seletor] etiqueta` — sem ela a "
                                f"consulta agregaria o exporter inteiro como se fosse o "
                                f"componente")
+    if not isinstance(dados["seletor"].get("valor_do_componente", False), bool):
+        raise CatalogoInvalido(f"{caminho.name}: `valor_do_componente` precisa ser booleano")
     papel = dados.get("papel")
     if not papel:
         raise CatalogoInvalido(f"{caminho.name}: falta `papel` — é ele que diz de que papel "
@@ -65,6 +67,10 @@ def carregar_arquivo(caminho):
         if id_ not in PERGUNTAS:
             raise CatalogoInvalido(f"{caminho.name}: pergunta {id_!r} não existe no registro "
                                    f"de perguntas canônicas")
+        if PERGUNTAS[id_].get("opcional") and PERGUNTAS[id_].get("limiar"):
+            raise CatalogoInvalido(f"{caminho.name}: {id_} é opcional e tem limiar — sem resposta "
+                                   f"ela sai dos `mudos`, mas o limiar ainda trava o verde, e o "
+                                   f"relatório não diria o motivo")
         if str(id_).split(".")[0] != papel:
             raise CatalogoInvalido(f"{caminho.name}: a família diz falar de {papel!r} e "
                                    f"responde {id_!r}, que é de outro papel — uma das duas "
@@ -89,6 +95,12 @@ def carregar_arquivo(caminho):
                                    f"empate de valor mudaria o relatório entre rodadas")
         if campos:
             _validar_campos(caminho, id_, pergunta, campos, PERGUNTAS[id_])
+    for tendencia in dados.get("tendencia", []):
+        if not tendencia.get("nome") or not tendencia.get("query"):
+            raise CatalogoInvalido(f"{caminho.name}: `tendencia` precisa de `nome` e `query`")
+        if _MARCA.search(tendencia["query"]):
+            raise CatalogoInvalido(f"{caminho.name}: a tendência {tendencia['nome']} mede a fonte "
+                                   f"inteira e não aceita interpolação")
     return dados
 
 

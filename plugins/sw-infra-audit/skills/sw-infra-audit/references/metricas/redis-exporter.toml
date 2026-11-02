@@ -1,9 +1,8 @@
 # Família de exporter: redis_exporter.
 #
-# `cache.taxa_de_acerto` NÃO entra aqui: o Redis publica acertos e erros como dois contadores
-# separados, e a razão entre eles exige aritmética que a linguagem de extração não tem. Entra
-# quando houver derivação declarada para razão — antes disso, o campo ficaria `sem dados` com
-# um motivo que não explica nada.
+# `cache.acerto` calcula a razão na própria consulta, porque o Redis publica acertos e erros
+# como dois contadores separados. Sem nenhuma leitura na janela o resultado é NaN, que sai como
+# `sem dados`: cache sem acesso não tem taxa, e 0% acusaria um problema que não existe.
 familia = "redis-exporter"
 prioridade = 40
 
@@ -27,3 +26,8 @@ valor = "inteiro"
 id = "cache.evicções"
 query = 'sum(increase(redis_evicted_keys_total{%SELETOR%}[%JANELA%]))'
 valor = "inteiro"
+
+[[pergunta]]
+id = "cache.acerto"
+query = '100 * sum(rate(redis_keyspace_hits_total{%SELETOR%}[%JANELA%])) / (sum(rate(redis_keyspace_hits_total{%SELETOR%}[%JANELA%])) + sum(rate(redis_keyspace_misses_total{%SELETOR%}[%JANELA%])))'
+valor = "decimal"

@@ -82,7 +82,9 @@ def redact_service(insp):
     }
 
 
-_CRED = re.compile(r"//[^/@\s]+:[^/@\s]+@")  # http://user:pass@host -> http://***@host
+# http://user:pass@host -> http://***@host. A senha pode ter `@` e `/`, então vai até o último `@`
+# do trecho; só números logo depois do `:` são porta, e aí o `@` adiante é do caminho.
+_CRED = re.compile(r"//[^/@\s:]*:(?!\d{1,5}(?:[/?#\s]|$))\S*@")
 
 # Labels de roteamento (analisáveis) — os prefixos vêm de `references/produtos.toml`, onde
 # cada proxy declara como ELE publica rota. Era `("traefik.",)` cravado aqui, e com outro proxy
@@ -90,7 +92,8 @@ _CRED = re.compile(r"//[^/@\s]+:[^/@\s]+@")  # http://user:pass@host -> http://*
 # aparecia. Acrescentar um proxy passou a ser um bloco de dados.
 # Chaves cujo VALOR é redigido mesmo estando num prefixo permitido (podem carregar segredo).
 _SENSITIVE_LABEL = re.compile(
-    r"(basicauth|\.users|password|passwd|secret|token|apikey|api[_-]?key|credential|authorization)", re.I)
+    r"(basicauth|\.users|password|passwd|secret|token|apikey|api[_-]?key|credential|authorization"
+    r"|customrequestheaders|customresponseheaders|\.cookie)", re.I)
 
 
 def redact_labels(labels):
@@ -115,13 +118,42 @@ def redact_labels(labels):
     return out
 
 
-def scrub_text(text, limit=200):
-    """Sanitiza texto livre vindo do daemon (ex.: erro de task) antes de entrar no relatório.
+_VALOR = r"""("[^"\n]*"|'[^'\n]*'|\S+)"""
+_SEGREDOS = (
+    re.compile(r"(--(?:[\w-]+-)?(?:password|token|secret)(?:=|[ \t]+))" + _VALOR, re.I),
+    re.compile(r"(\b\w*PASSWORD=|\b(?:\w+_)?(?:TOKEN|SECRET)=|\b\w+_KEY=)" + _VALOR, re.I),
+    re.compile(r"(\bAuthorization:[ \t]*(?:Bearer|Basic)[ \t]+)" + _VALOR, re.I),
+    re.compile(r"(\b(?:mysql|mysqldump|mysqladmin|mariadb|mariadb-dump)\b[^\n|;&]*?[ \t]-p)" + _VALOR),
+)
+_REFERENCIA = re.compile(r"\$(?:\w+|\{\w+\}|\(.*)")     # `${X:-valor}` fica de fora: traz um valor
+_FECHO = ".,;:)]`'\""
+_PROSA = {"para", "no", "na", "em", "e", "ou", "de", "do", "da", "com", "é", "foi", "não"}
 
-    A coleta usa allowlist POSITIVA de campos; texto de erro é a única exceção — então passa
-    pelo mesmo scrub de credencial-em-URL e é truncado para não virar um dump.
+
+def _ocultar(casado):
+    """Troca só o valor. Referência a variável não é segredo, e `--password para` é uma frase."""
+    prefixo, valor = casado.groups()
+    entre_aspas = len(valor) >= 2 and valor[0] in "\"'" and valor[-1] == valor[0]
+    nucleo = valor[1:-1] if entre_aspas else valor.rstrip(_FECHO)
+    if not nucleo or _REFERENCIA.fullmatch(nucleo):
+        return casado.group(0)
+    if prefixo[-1].isspace() and (nucleo.startswith("--") or nucleo.lower() in _PROSA):
+        return casado.group(0)
+    if entre_aspas:
+        return f"{prefixo}{valor[0]}***{valor[0]}"
+    return f"{prefixo}***{valor[len(nucleo):]}"
+
+
+def scrub_text(text, limit=200):
+    """Sanitiza texto livre (erro do daemon, texto e comando do agente) antes do relatório.
+
+    A coleta usa allowlist POSITIVA de campos; texto livre é a exceção. Mascara credencial em
+    URL, flag, variável, cabeçalho e `-p` do mysql, e trunca para não virar um dump.
     """
-    return _CRED.sub("//***@", str(text or ""))[:limit]
+    texto = _CRED.sub("//***@", str(text or ""))
+    for padrao in _SEGREDOS:
+        texto = padrao.sub(_ocultar, texto)
+    return texto[:limit]
 
 
 def scrub_info(info):

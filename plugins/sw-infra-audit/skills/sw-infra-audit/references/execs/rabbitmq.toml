@@ -1,0 +1,40 @@
+# Leitura de filas por dentro do container, sem senha: é a última fonte, depois da API de
+# administração e do exporter.
+#
+# `familia` é o nome do produto em `references/produtos.toml`. Serviço de outro produto nunca
+# recebe `exec`. Cada `argv` é a forma EXATA que a allowlist aceita: nada de shell, argumento
+# livre ou terminal. `{vhost}` é a única vaga, e o valor vem de `enumerar`, já validado.
+#
+# Sem taxa aqui: o comando dá a foto da fila, não o ritmo, e o relatório diz "Ritmo não medido".
+# O limiar não fica aqui: ele pertence à pergunta canônica (lib/perguntas.py).
+
+familia = "rabbitmq"
+
+[enumerar]
+argv = ["rabbitmqctl", "list_vhosts", "-q", "--formatter", "json", "name"]
+campo = "name"
+
+[listar]
+argv = ["rabbitmqctl", "list_queues", "-q", "--formatter", "json", "-p", "{vhost}", "name", "messages_ready", "messages_unacknowledged", "consumers"]
+
+# `vhost` não vem do comando: o adaptador grava em cada item o vhost que ele consultou.
+[[pergunta]]
+id = "fila.filas"
+lista = ""
+identidade = ["nome", "vhost"]
+campos = { nome = "/name", vhost = "/vhost", prontas = "/messages_ready", nao_confirmadas = "/messages_unacknowledged", consumidores = "/consumers" }
+transformar = { prontas = "inteiro", nao_confirmadas = "inteiro", consumidores = "inteiro" }
+derivar = { acumuladas = { tipo = "soma", parcelas = ["/messages_ready", "/messages_unacknowledged"] } }
+ordenar_por = "acumuladas"
+ordem = "desc"
+desempate = "nome"
+
+[[pergunta]]
+id = "fila.consumidores_por_fila"
+lista = ""
+identidade = ["nome", "vhost"]
+campos = { nome = "/name", vhost = "/vhost", consumidores = "/consumers" }
+transformar = { consumidores = "inteiro" }
+ordenar_por = "consumidores"
+ordem = "desc"
+desempate = "nome"

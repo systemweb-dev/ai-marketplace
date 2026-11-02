@@ -69,10 +69,20 @@ def resolver(componentes, reconhecido_por_fonte):
     saida = {}
     for componente in componentes:
         nome = componente.get("nome")
-        familias, votos, soma = [], [], []
+        familias, votos, soma, sem_valor = [], [], [], []
         fonte = base_da_fonte(componente.get("metricas_url"))
         for reconhecida in reconhecido_por_fonte.get(fonte, []):
             valores = reconhecida.get("valores") or []
+            if reconhecida["seletor"].get("valor_do_componente"):
+                # A etiqueta desta família não guarda nome nenhum: casar pelo nome, ou cair no
+                # exporter inteiro, atribuiria a medida de uma máquina a outra.
+                valor = componente.get("valor_de_etiqueta")
+                if valor in valores:
+                    etiqueta = reconhecida["seletor"]["etiqueta"]
+                    familias.append({"familia": reconhecida, "seletor": f'{etiqueta}="{valor}"'})
+                else:
+                    sem_valor.append(reconhecida)
+                continue
             valor = casar_valor_da_etiqueta(nome, valores)
             if valor is not None:
                 etiqueta = reconhecida["seletor"]["etiqueta"]
@@ -107,6 +117,8 @@ def resolver(componentes, reconhecido_por_fonte):
                        # sobrescreve o papel devolve o que havia antes, senão o relatório não
                        # tem como dizer isso.
                        "papel_anterior": componente.get("papel")}
+        if sem_valor:
+            saida[nome]["sem_valor"] = sorted(sem_valor, key=lambda f: f["familia"])
     return saida
 
 
@@ -152,4 +164,8 @@ def motivo_da_falta(resolvido, pergunta):
         if any(p["id"] == pergunta for p in familia.get("pergunta", [])):
             return (f"o exporter {familia['familia']} cobre vários componentes e nenhum valor "
                     f"da etiqueta casa com este — o número sem filtro seria a soma de todos")
+    for familia in resolvido.get("sem_valor") or []:
+        if any(p["id"] == pergunta for p in familia.get("pergunta", [])):
+            return (f"o exporter {familia['familia']} responde, mas este componente não foi "
+                    f"ligado a nenhuma das séries dele — sem a ligação, o número seria de outro")
     return None

@@ -74,6 +74,11 @@ def medir(alvo):
         por_id = {r.get("pergunta"): r for r in (componente.get("respostas") or [])}
         for id_pergunta, pergunta in catalogo.items():
             resposta = por_id.get(id_pergunta)
+            # Só a fonte que respondeu sem publicar a série sai da conta. Fonte que falhou,
+            # orçamento esgotado e pergunta não feita são lacunas, mesmo em pergunta opcional.
+            if pergunta.get("opcional") and resposta is not None and resposta.get("nao_publica"):
+                perguntadas -= 1
+                continue
             if resposta is not None and _respondeu(resposta, pergunta):
                 medida = (id_pergunta,
                           json.dumps(resposta.get("valor"), sort_keys=True, default=str),
@@ -100,26 +105,9 @@ _TRAVA = {"critical": "🟡", "high": "🟡", "medium": "🟡"}
 _GRAVIDADE = {"🟢": 0, "🟡": 1, "🔴": 2}
 
 
-def teto_por_cobertura(alvo, aceites_vigentes=(), severidade_por_pergunta=None):
-    """Impede o 🟢 quando uma pergunta COM limiar ficou sem resposta.
-
-    Quatro guardas, todas deliberadas:
-
-    1. **Teto, nunca piso.** Só impede o 🟢; nunca produz 🔴 nem desce um alvo já pior.
-       Vermelho significa "algo está fora do ar", e não ver não é prova disso.
-    2. **Só severidade que trava.** Limiar `low` não derruba um 🟢 que o próprio achado não
-       derrubaria.
-    3. **Aceite vigente dispensa.** Se a regra daquele limiar já foi aceita, o achado não
-       contaria de qualquer forma — travar por ele cobraria duas vezes. Aceite VENCIDO não
-       dispensa: ele voltou a contar.
-    4. **Estado fora da escala não é tocado.** `sem dados` continua `sem dados`.
-    """
+def _exigidos_pelas_mudas(alvo, aceites_vigentes, severidade_por_pergunta):
+    """O estado que cada pergunta com limiar sem resposta exige; None quando ela não trava."""
     from lib.perguntas import do_papel
-
-    atual = alvo.get("saude")
-    if atual not in _GRAVIDADE:                                  # guarda 4
-        return
-    severidade_por_pergunta = severidade_por_pergunta or {}
 
     for componente in alvo.get("componentes") or []:
         catalogo = {p["id"]: p for p in do_papel(componente.get("papel"))}
@@ -134,6 +122,29 @@ def teto_por_cobertura(alvo, aceites_vigentes=(), severidade_por_pergunta=None):
             if limiar.get("regra") in aceites_vigentes:           # guarda 3
                 continue
             severidade = severidade_por_pergunta.get(id_pergunta, limiar.get("severidade"))
-            exigido = _TRAVA.get(severidade)                      # guarda 2
-            if exigido and _GRAVIDADE[exigido] > _GRAVIDADE[alvo["saude"]]:   # guarda 1
-                alvo["saude"] = exigido
+            yield _TRAVA.get(severidade)                          # guarda 2
+
+
+def teto_por_cobertura(alvo, aceites_vigentes=(), severidade_por_pergunta=None):
+    """Impede o 🟢 quando uma pergunta COM limiar ficou sem resposta.
+
+    Quatro guardas, todas deliberadas:
+
+    1. **Teto, nunca piso.** Só impede o 🟢; nunca produz 🔴 nem desce um alvo já pior.
+       Vermelho significa "algo está fora do ar", e não ver não é prova disso.
+    2. **Só severidade que trava.** Limiar `low` não derruba um 🟢 que o próprio achado não
+       derrubaria.
+    3. **Aceite vigente dispensa.** Se a regra daquele limiar já foi aceita, o achado não
+       contaria de qualquer forma — travar por ele cobraria duas vezes. Aceite VENCIDO não
+       dispensa: ele voltou a contar.
+    4. **Estado fora da escala não é tocado.** `sem dados` continua `sem dados`.
+    """
+    exigidos = list(_exigidos_pelas_mudas(alvo, aceites_vigentes, severidade_por_pergunta or {}))
+    if any(exigidos):
+        alvo["trava_cobertura"] = True        # a nota lê, mesmo quando a saúde não muda
+    atual = alvo.get("saude")
+    if atual not in _GRAVIDADE:                                  # guarda 4
+        return
+    for exigido in exigidos:
+        if exigido and _GRAVIDADE[exigido] > _GRAVIDADE[alvo["saude"]]:   # guarda 1
+            alvo["saude"] = exigido

@@ -1,31 +1,15 @@
-"""A nota de estabilidade da capa, e as pontuacoes por dimensao de que ela sai.
+"""A nota geral da capa, e as pontuacoes por dimensao de que ela sai.
 
-Tudo aqui e deterministico. A capa e a primeira frase que alguem le, e um titulo
-que o agente reinventa a cada rodada torna duas auditorias incomparaveis — que e
-exatamente o que um relatorio de auditoria nao pode ser. A interpretacao do agente
-continua existindo, no `resumo`, logo abaixo.
+Tudo aqui e deterministico. A capa e a primeira coisa que alguem le, e uma nota que o agente
+reinventa a cada rodada torna duas auditorias incomparaveis — que e exatamente o que um
+relatorio de auditoria nao pode ser. A interpretacao do agente continua existindo, no
+`resumo`, logo abaixo.
 
-NAO existe nota unica da infraestrutura: numero so vira meta, e meta vira teatro.
-A faixa daqui e a da CAPA — adjetivo de leitura, nao placar.
+A conta soma todos os alvos medidos: 70% servicos online, 20% estabilidade e 10% boas praticas,
+com teto de 59 ou 79 e faixas Bom (80+), Atencao (60 a 79) e Critico (abaixo de 60).
 """
 
 import math
-
-ORDEM = ("operacao", "disponibilidade", "seguranca", "higiene")
-
-ROTULO = {"operacao": "Operação", "disponibilidade": "Disponibilidade",
-          "seguranca": "Segurança", "higiene": "Higiene"}
-
-# o que cada dimensao quer dizer quando esta cheia e quando esta vazia
-VEREDITO = {
-    "operacao": ("converge: está rodando o que foi pedido", "há coisa fora do ar agora"),
-    "disponibilidade": ("tem reserva: o que cai tem quem assuma", "frágil: o que cai não tem reserva"),
-    "seguranca": ("sem pendência de prática relevante", "muita pendência acumulada"),
-    "higiene": ("as práticas estão aplicadas", "abaixo do piso nas práticas básicas"),
-}
-
-PISO = 70          # daqui para baixo a dimensao entra no titulo
-LIMIAR_RUIM = 60   # operacao abaixo disso e "tem coisa fora do ar"
 
 
 def _num(v):
@@ -72,7 +56,7 @@ def pontuacoes(dimensoes):
     pts["disponibilidade"] = _num(bloco("disponibilidade").get("ha_pct"))
 
     seg = bloco("seguranca")
-    if seg:
+    if "high" in seg:   # o coletor sem servicos devolve so {"note": "unknown"}: nao foi medida
         # alto pesa 12x o medio: uma falha alta vale por uma dezena de pendencias
         pts["seguranca"] = max(0, 100 - min(100, seg.get("high", 0) * 12 + seg.get("med", 0)))
     else:
@@ -84,39 +68,59 @@ def pontuacoes(dimensoes):
     return pts
 
 
-def _faixa_de(p):
-    if p is None:
-        return "sem_dados"
-    return "bom" if p >= PISO else ("atencao" if p >= LIMIAR_RUIM else "ruim")
+PESOS = {"online": 70, "estabilidade": 20, "praticas": 10}
 
 
-def nota_de_estabilidade(dimensoes):
-    """A frase da capa: como a infra esta, em uma linha, com a dimensao que puxa para baixo.
+def _aceitos(alvo, aceites):
+    return {a.get("objeto") for a in aceites
+            if a.get("alvo") == alvo.get("nome") and a.get("regra") == "OPS_SERVICE_STOPPED"
+            and not a.get("vencido") and not a.get("componente")}
 
-    Devolve `titulo`, `faixa`, `pior` e as `pontuacoes` — o relatorio desenha, nao decide.
-    """
-    pts = pontuacoes(dimensoes)
-    medidas = {k: v for k, v in pts.items() if v is not None}
-    if not medidas:
-        return {"titulo": "Sem dados para avaliar esta infraestrutura.",
-                "faixa": "sem_dados", "pior": None, "pontuacoes": pts,
-                "porque": "nenhuma dimensão foi medida nesta rodada"}
 
-    pior = min(sorted(medidas), key=lambda k: medidas[k])   # sorted(): empate desempata estavel
-    op = medidas.get("operacao")
+def _conta_do_alvo(alvo, aceites):
+    from lib.estado_servico import contar
+    if alvo.get("tipo") == "http":
+        fatos = alvo.get("fatos") or {}
+        if not fatos:
+            return {"online": 0, "base": 0, "fora": 0, "parcial": 0, "com_alerta": 0, "falhas_desconhecidas": 0}
+        codigo = fatos.get("codigo")
+        fora = codigo is None or codigo >= 500
+        return {"online": 0 if fora else 1, "base": 1, "fora": int(fora), "parcial": 0, "com_alerta": 0,
+                "falhas_desconhecidas": 0}
+    return contar((alvo.get("fatos") or {}).get("services") or [], _aceitos(alvo, aceites))
 
-    if op is not None and op < LIMIAR_RUIM:
-        titulo, faixa = "Tem serviço fora do ar agora.", "ruim"
-    elif medidas[pior] >= PISO:
-        titulo, faixa = "Estável, e com reserva para falhar.", "bom"
-    elif pior == "disponibilidade":
-        titulo, faixa = "Estável para servir, frágil para falhar.", "atencao"
-    elif pior == "higiene":
-        titulo, faixa = "No ar e entregando, abaixo do piso nas práticas.", "atencao"
-    elif pior == "seguranca":
-        titulo, faixa = "Sem falha aberta, com pendência acumulada.", "atencao"
-    else:
-        titulo, faixa = "No ar, com ponto que merece atenção.", "atencao"
 
-    return {"titulo": titulo, "faixa": faixa, "pior": pior, "pontuacoes": pts,
-            "porque": f"{ROTULO[pior].lower()} é a dimensão mais fraca, em {medidas[pior]} de 100"}
+def nota_geral(alvos, aceites):
+    medidos = [a for a in alvos if a.get("coletado", True)]
+    contas = [_conta_do_alvo(a, aceites) for a in medidos]
+    base = sum(c["base"] for c in contas)
+    if not base:
+        return None
+    online = sum(c["online"] for c in contas)
+    pts = [pontuacoes(a.get("dimensoes") or {}) for a in medidos]
+    estab = _media([p["disponibilidade"] for p in pts])
+    praticas = _media([v for p in pts for v in (p["seguranca"], p["higiene"])])
+    parcelas = {"online": round(100 * online / base), "estabilidade": estab, "praticas": praticas}
+    medidas = {k: v for k, v in parcelas.items() if v is not None}
+    valor = round(sum(v * PESOS[k] for k, v in medidas.items()) / sum(PESOS[k] for k in medidas))
+    achados = [x for a in medidos for x in a.get("achados") or []]
+    altos = [x for x in achados if x.get("severidade") in ("high", "critical")]
+    nos_fora = sum(((a.get("dimensoes") or {}).get("operacao") or {}).get("nodes_down", 0) for a in medidos)
+    limites = {"fora": sum(c["fora"] for c in contas), "parciais": sum(c["parcial"] for c in contas),
+               "nos_fora": nos_fora, "altos": len(altos),
+               "regras_altas": sorted({str(x.get("regra")) for x in altos})}
+    teto = 100
+    if altos or limites["parciais"]:
+        teto = 79
+    if nos_fora or limites["fora"]:
+        teto = 59
+    valor = min(valor, teto)
+    parcial = (len(medidas) < len(PESOS) or any(not c["base"] for c in contas)
+               or any(c["falhas_desconhecidas"] for c in contas))
+    faixa = "bom" if valor >= 80 else ("atencao" if valor >= 60 else "critico")
+    if (parcial or any(a.get("trava_cobertura") for a in medidos)) and faixa == "bom":
+        faixa = "atencao"
+    return {"valor": valor, "faixa": faixa, "parcial": parcial, "parcelas": parcelas,
+            "teto": teto if teto < 100 else None, "online": online, "base": base,
+            "com_alerta": sum(c["com_alerta"] for c in contas), "limites": limites,
+            "pendencias": {k: None if v is None else 100 - v for k, v in parcelas.items()}}

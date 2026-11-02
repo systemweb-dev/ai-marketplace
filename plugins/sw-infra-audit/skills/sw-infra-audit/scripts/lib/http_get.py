@@ -40,7 +40,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None   # nunca segue redirect
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect)
+# Sem o ProxyHandler vazio, `http_proxy` no ambiente manda tudo para um host que ninguém declarou.
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
 
 
 PORTA_PADRAO = {"http": 80, "https": 443}
@@ -99,16 +100,20 @@ def get(url, allowed_hosts, timeout=DEFAULT_TIMEOUT):
         return None   # indisponível → o coletor marca n/a
 
 
-def get_com_status(url, allowed_hosts, timeout=DEFAULT_TIMEOUT):
+def get_com_status(url, allowed_hosts, timeout=DEFAULT_TIMEOUT, maximo=None):
     """Como `get`, mas devolve (status, corpo). `(None, None)` quando não deu para alcançar.
 
     Código de erro HTTP não é falha de alcance: o servidor respondeu, e isso é um achado.
+    Com `maximo`, corpo maior levanta `RespostaGrandeDemais`; sem ele, corta em `MAX_BYTES`.
     """
     check_allowed(url, allowed_hosts)
     req = urllib.request.Request(url, method="GET")
     try:
         with _OPENER.open(req, timeout=timeout) as r:
-            return r.status, r.read(MAX_BYTES).decode("utf-8", "replace")
+            corpo = r.read(MAX_BYTES if maximo is None else maximo + 1)
+            if maximo is not None and len(corpo) > maximo:
+                raise RespostaGrandeDemais(maximo)
+            return r.status, corpo.decode("utf-8", "replace")
     except urllib.error.HTTPError as erro:          # respondeu, só que com erro
         return erro.code, ""
     except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException):

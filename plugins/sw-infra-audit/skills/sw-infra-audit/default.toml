@@ -7,6 +7,10 @@ pasta = "docs/infra"          # relatório E alvos.toml, dentro do projeto e for
 ignorar_em = "gitignore"      # "gitignore" (vale para o time) ou "exclude" (só sua máquina)
 formato = "html"              # "html" ou "html+pdf"
 
+[insights]
+janela = "24h"                # horas de acessos, tráfego e latência; a rodada pode escolher outra
+top = 15                      # linhas das tabelas de sites e URLs
+
 [limites]
 timeout_por_comando = 20      # segundos por comando de coleta
 orcamento_por_alvo = 120      # segundos por alvo; o que passar disso vira "sem dados"

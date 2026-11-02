@@ -116,7 +116,9 @@ def migrar(args) -> int:
         for ctx in contexts_docker():
             linhas += ["[[alvo]]", f'nome = "{ctx["nome"]}"', 'tipo = "docker"',
                        f'context = "{ctx["nome"]}"',
-                       "# metricas_url = \"http://host:9090\"   # opcional; veja `alvos --sugerir`", ""]
+                       "# metricas_url = \"http://host:9090\"   # opcional; veja `alvos --sugerir`",
+                       "# logs_url = \"http://host:3100\"       # opcional; Loki com o log de acesso do proxy",
+                       ""]
         conteudo = "\n".join(linhas)
         origem = f"{conteudo.count('[[alvo]]')} alvo(s) docker dos seus contexts"
 

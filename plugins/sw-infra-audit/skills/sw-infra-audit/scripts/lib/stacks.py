@@ -14,6 +14,16 @@ def stack_of(service_name):
     return service_name.split("_", 1)[0] if "_" in service_name else service_name
 
 
+def varios_alvos(alvos):
+    """Decide o prefixo da saúde e o das medidas: os dois lados precisam dar a mesma chave."""
+    return sum(1 for a in alvos if a.get("coletado", True)) > 1
+
+
+def no_alvo(alvo, texto, varios):
+    """A mesma stack em dois alvos são dois sistemas."""
+    return f'{alvo.get("nome")} · {texto}' if varios else texto
+
+
 def short_name(service_name):
     """'loja-api_database' -> 'database' (nome curto dentro do stack)."""
     if not service_name or "_" not in service_name:

@@ -6,18 +6,21 @@ com o motivo — confundir "não consegui ver" com "está ruim" é o jeito mais 
 """
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
 
 from lib import alvos as alvos_mod
 from lib import report as report_mod
+from lib.adaptadores.logql import horas_da_janela
 from lib.falhas import FalhaDeColeta
 from lib.orcamento import Prazo
 from lib.config import ConfigInvalida, caminho_do_projeto, caminho_dos_alvos, carregar,\
     exigir_pasta_protegida
 
 EXIT_OK, EXIT_PARADA = 0, 2
+JANELA_VALIDA = re.compile(r"[1-9]\d*[hd]")
 
 PADRAO_DA_SKILL = Path(__file__).resolve().parent.parent / "default.toml"
 
@@ -266,8 +269,11 @@ def identificar(componentes, contexto, adaptadores, prazo, fonte_do_alvo=None):
     return {"resolvido": resolvido, "fontes_mortas": sorted(set(mortas))}
 
 
-def responder(componente, contexto, adaptadores, prazo):
+def responder(componente, contexto, adaptadores, prazo, por_ultimo=False):
     """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
+
+    `por_ultimo` escolhe a passada: as perguntas caras rodam depois de todas as outras. Sobrar
+    pouco para elas é o desenho, e por isso o orçamento esgotado ali não vira lacuna.
 
     Cada pergunta tem o seu contorno: bug de adaptador vira `erro_interno` DAQUELA pergunta e a
     coleta segue. Sem isso, uma pergunta quebrada apagaria o inventário inteiro do alvo.
@@ -278,9 +284,11 @@ def responder(componente, contexto, adaptadores, prazo):
     from lib.perguntas import do_papel
 
     for pergunta in do_papel(componente.get("papel", "app")):
+        if bool(pergunta.get("por_ultimo")) != por_ultimo:
+            continue
         if prazo.esgotado():
-            componente["respostas"].append({"pergunta": pergunta["id"], "sem_dados": True,
-                                            "motivo": prazo.motivo()})
+            sem_tempo = {"pergunta": pergunta["id"], "sem_dados": True, "motivo": prazo.motivo()}
+            componente["respostas"].append(dict(sem_tempo, nao_publica=True) if por_ultimo else sem_tempo)
             continue
         # A cópia é rasa de propósito: `cache` é o MESMO dicionário em todas as perguntas do
         # alvo. Sem isso, o cache de identificação caía na cópia e morria com ela — três
@@ -288,7 +296,7 @@ def responder(componente, contexto, adaptadores, prazo):
         # comando: num endereço que não responde, 20 s por pergunta comiam o orçamento inteiro.
         contexto.setdefault("cache", {})
         contexto_pergunta = dict(
-            contexto, timeout=prazo.timeout(contexto["timeout"]),
+            contexto, timeout=prazo.timeout(contexto["timeout"]), prazo=prazo,
             http_timeout=prazo.timeout(contexto.get("http_timeout", contexto["timeout"])))
         resposta = None
         for adaptador in adaptadores:
@@ -378,6 +386,79 @@ def promover_achados(registro):
     return registro
 
 
+def componentes_de_maquina(alvo, fatos):
+    """Um componente por nó, medido pela fonte do alvo.
+
+    `papel_origem` é `declarado` porque o nó vem do Swarm, não de palpite: assim nenhuma família
+    o reclassifica. O valor de etiqueta só entra quando um único container liga a ele. Dois
+    containers no mesmo nó são ambíguos, e escolher um seria inventar.
+    """
+    url, nos = alvo.get("metricas_url"), fatos.get("nodes")
+    if not url or not isinstance(nos, list):
+        return []
+    ligados = {}
+    for container, hostname in sorted((fatos.get("exporter_por_container") or {}).items()):
+        ligados.setdefault(hostname, []).append(container)
+    componentes = []
+    for no in nos:
+        hostname = no.get("hostname") if isinstance(no, dict) else None
+        if not hostname:
+            continue
+        componente = {"nome": hostname, "papel": "maquina", "papel_origem": "declarado",
+                      "metricas_url": url, "respostas": [], "achados": []}
+        if len(ligados.get(hostname, [])) == 1:
+            componente["valor_de_etiqueta"] = ligados[hostname][0]
+        componentes.append(componente)
+    return componentes
+
+
+def somar_maquinas(registro, alvo):
+    """Acrescenta os nós aos componentes.
+
+    O passe de identificação indexa por nome: um nó com o nome de um serviço trocaria o papel
+    do serviço. O serviço fica, e o nó é dito em `nao_coletado`.
+    """
+    nomes = {c["nome"] for c in registro["componentes"]}
+    for maquina in componentes_de_maquina(alvo, registro["fatos"]):
+        if maquina["nome"] in nomes:
+            registro["nao_coletado"].append(report_mod.na(
+                f"máquina {maquina['nome']!r} não medida: o nome já é de outro componente"))
+            continue
+        nomes.add(maquina["nome"])
+        registro["componentes"].append(maquina)
+    peneirar_componentes(registro)
+
+
+def tendencias_do_alvo(registro, alvo, contexto, prazo):
+    """As séries da capa, só de fonte que o passe viu viva.
+
+    Fonte morta custaria um timeout por série. E o que falhar aqui não pode apagar o que a
+    coleta do alvo já leu: vira `nao_coletado`. Alvo que declara fonte e não mediu devolve os
+    nomes com `None`, para os cartões da capa dizerem "não medido" em vez de sumir.
+    """
+    from lib.capa import METRICAS
+    from lib.identificacao import base_da_fonte
+    from lib.tendencias import coletar_tendencias
+
+    fonte = alvo.get("metricas_url")
+    if not fonte:
+        return {}
+    sem_medida = dict.fromkeys(nome for nome, _ in METRICAS)
+    viva = contexto["cache"].get("fonte_viva", {}).get(base_da_fonte(fonte))
+    if viva is None:                               # `False` já foi dita pelo passe
+        registro["nao_coletado"].append(
+            report_mod.na("tendências: a fonte não foi sondada nesta rodada"))
+    if not viva:
+        return sem_medida
+    try:
+        return coletar_tendencias(alvo, contexto.get("at"), contexto["timeout"], prazo,
+                                  registro["nao_coletado"])
+    except Exception as erro:                      # noqa: BLE001 — a coleta do alvo segue
+        registro["nao_coletado"].append(
+            report_mod.na(f"tendências: {type(erro).__name__}: {erro}"))
+        return sem_medida
+
+
 def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     """Roda um coletor e traduz qualquer falha em `nao_coletado`.
 
@@ -386,10 +467,12 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     histórico; deixá-los editáveis seria deixar o relatório mentir.
     """
     registro = report_mod.novo_alvo(alvo["nome"], alvo["tipo"], onde_de(alvo))
+    registro["rotulos"] = alvo.get("rotulos")
     # Contexto próprio do alvo: o nome dele (a credencial é amarrada a ele) e um cache que não
     # vaza para o próximo alvo — dois alvos podem apontar para o mesmo endereço com credenciais
     # diferentes.
-    contexto = dict(contexto, alvo=alvo["nome"], cache={})
+    contexto = dict(contexto, alvo=alvo["nome"], docker_context=alvo.get("context"), cache={},
+                    logs_url=alvo.get("logs_url"))
     if coletor is None:
         registro["nao_coletado"].append(report_mod.na(f"tipo {alvo['tipo']} sem coletor nesta versão"))
         return registro
@@ -421,6 +504,7 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
         registro[campo] = valor
 
     peneirar_componentes(registro)
+    somar_maquinas(registro, alvo)
     prazo = Prazo(contexto.get("orcamento", 120))
     # O passe decide quais perguntas cada componente recebe, então roda ANTES delas. O `prazo`
     # já existe aqui, e é ele que impede uma fonte lenta de comer o alvo inteiro.
@@ -432,6 +516,13 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
             f"se é a API de um Prometheus (`/api/v1/query`)"))
     for componente in registro["componentes"]:
         responder(componente, contexto, adaptadores, prazo)
+    registro["tendencias"] = tendencias_do_alvo(registro, alvo, contexto, prazo)
+    for componente in registro["componentes"]:
+        responder(componente, contexto, adaptadores, prazo, por_ultimo=True)
+    if alvo.get("logs_url") and not any(c["papel"] == "entrada" for c in registro["componentes"]):
+        registro["nao_coletado"].append(report_mod.na(
+            "URLs mais acessadas: a `logs_url` está declarada, mas nenhum componente tem o papel "
+            "`entrada` — declare `papel = \"entrada\"` no proxy"))
     promover_achados(registro)
 
     extras = resultado.get("nao_coletado", [])
@@ -442,20 +533,45 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     return registro
 
 
+def opcoes_invalidas(janela, top):
+    """Vale para flag e para o config.toml: as duas portas gravam no mesmo report."""
+    if not JANELA_VALIDA.fullmatch(str(janela)) or horas_da_janela(janela) > 168:
+        return f"insights.janela precisa ser como 24h ou 2d, até 168 horas; veio {janela!r}"
+    if type(top) is not int or not 5 <= top <= 50:
+        return f"insights.top precisa ser inteiro de 5 a 50; veio {top!r}"
+    return None
+
+
 def main(argv=None, coletores=None, adaptadores=None) -> int:
     ap = argparse.ArgumentParser(description="Auditoria read-only por alvos.")
     ap.add_argument("--out", required=True, help="pasta desta execução")
     ap.add_argument("--at", required=True, help="carimbo de tempo (injetado, para ser determinístico)")
     ap.add_argument("--confirmar", nargs="*", default=[], help="nomes dos alvos autorizados nesta rodada")
+    ap.add_argument("--janela-horas", type=int, default=None, help="horas de acessos, 1 a 168")
+    ap.add_argument("--top", type=int, default=None, help="linhas de sites e URLs, 5 a 50")
+    ap.add_argument("--orcamento", type=int, default=None, help="segundos por alvo, 30 a 900")
     ap.add_argument("--padrao", default=None)
     ap.add_argument("--infra", default=None)
     ap.add_argument("--projeto", default=None)
     args = ap.parse_args(argv)
 
-    try:                                   # o carimbo vira a data que decide aceite vencido
+    from lib.adaptadores.promql import momento
+
+    # O carimbo vira a data que decide aceite vencido e o `time=` de toda consulta. Sem instante
+    # válido, a consulta sairia sem âncora e a janela andaria com o relógio de quem rodou.
+    for nome, valor, minimo, maximo in (("--janela-horas", args.janela_horas, 1, 168), ("--top", args.top, 5, 50),
+                                        ("--orcamento", args.orcamento, 30, 900)):
+        if valor is not None and not minimo <= valor <= maximo:
+            print(f"{nome} precisa estar entre {minimo} e {maximo}, veio {valor}", file=sys.stderr)
+            return 2
+    try:
         date.fromisoformat(args.at[:10])
+        valido = momento(args.at) is not None
     except ValueError:
-        print(f"--at precisa começar com AAAA-MM-DD, veio {args.at!r}", file=sys.stderr)
+        valido = False
+    if not valido:
+        print(f"--at precisa ser uma data ou um instante ISO 8601, como 2026-11-01 ou "
+              f"2026-11-01T10:00:00Z, veio {args.at!r}", file=sys.stderr)
         return EXIT_PARADA
 
     padrao = Path(args.padrao) if args.padrao else PADRAO_DA_SKILL
@@ -503,7 +619,19 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
                 "janela": limite("insights.janela", "24h"),
                 "at": args.at}
 
+    if args.janela_horas is not None:
+        contexto["janela"] = f"{args.janela_horas}h"
+    if args.orcamento is not None:
+        contexto["orcamento"] = args.orcamento
+
+    top = args.top if args.top is not None else limite("insights.top", 15)
+    erro = opcoes_invalidas(contexto["janela"], top)
+    if erro:
+        print(erro, file=sys.stderr)
+        return EXIT_PARADA
+
     relatorio = report_mod.novo(generated_at=args.at)
+    relatorio["opcoes"] = {"janela": contexto["janela"], "orcamento": contexto["orcamento"], "top": top}
     for alvo in escolhidos:
         if alvo["nome"] not in confirmados:
             registro = report_mod.novo_alvo(alvo["nome"], alvo["tipo"], onde_de(alvo))
@@ -531,6 +659,8 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
                       aceites_vigentes={x.get("regra")
                                         for x in (relatorio.get("aceites") or [])
                                         if not x.get("vencido")})
+    from lib.nota import nota_geral
+    relatorio["nota_geral"] = nota_geral(relatorio["alvos"], relatorio["aceites"])
     # a remediação vem do catálogo versionado, depois do aceite: achado aceito não precisa de
     # passo a passo, e achado que sobrou precisa — inclusive o de aceite vencido
     from lib import remediacao

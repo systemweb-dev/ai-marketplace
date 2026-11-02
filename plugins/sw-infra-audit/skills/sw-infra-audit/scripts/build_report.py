@@ -15,8 +15,15 @@ import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 
 from lib import metrics, stacks
+from lib.coletores.docker import USO_POR_NO
+from lib.nota import nota_geral
+from lib.dados_blocos import nao_coletado_vigente
+from lib.html_comum import _e
+from lib.redact import scrub_text
+from lib.regras import esperada
 from lib.rule_meta import meta as rule_meta
 
 TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -33,10 +40,6 @@ CHROME_CANDIDATES = ["google-chrome", "google-chrome-stable", "chromium", "chrom
 
 
 # ---------------------------------------------------------------- helpers
-def _e(x):
-    return html.escape("" if x is None else str(x))
-
-
 def find_chromium():
     for c in CHROME_CANDIDATES:
         p = shutil.which(c)
@@ -632,6 +635,46 @@ def render_html(report):
     return page
 
 
+MAXIMO_DE_FRASES_NO_RESUMO = 2
+MAXIMO_DE_CARACTERES_NO_RESUMO = 280
+_ABREVIACAO = re.compile(r"\b(?:p\.\s?ex|ex|etc|aprox|vs|sr|sra|dr|dra)\.", re.I)
+_ITEM_OU_PARAGRAFO = re.compile(r"\n\s*(?:[-*]|\d+[.)])\s+|\n\s*\n")
+
+
+def _conta_frases(texto):
+    """Quebra de linha simples não encerra frase, porque o agente quebra onde quiser; item de
+    lista e parágrafo encerram, e `3.650`, `1.2.3` e `4,5 %` não têm espaço depois do ponto."""
+    plano = _ABREVIACAO.sub("", _ITEM_OU_PARAGRAFO.sub(". ", "\n" + texto.strip()))
+    return sum(1 for frase in re.split(r"[.!?…]+[\"')\]]*\s+", plano) if any(c.isalnum() for c in frase))
+
+
+def _recusar_resumo_grande(resumo):
+    """A capa só cabe em uma folha com o resumo curto. A mensagem não repete o texto do agente."""
+    if not resumo:
+        return
+    texto = str(resumo).strip()
+    frases, caracteres = _conta_frases(texto), len(texto)
+    if frases > MAXIMO_DE_FRASES_NO_RESUMO or caracteres > MAXIMO_DE_CARACTERES_NO_RESUMO:
+        raise ValueError(f"`resumo` com {frases} frases e {caracteres} caracteres; o limite é "
+                         f"{MAXIMO_DE_FRASES_NO_RESUMO} frases e {MAXIMO_DE_CARACTERES_NO_RESUMO} "
+                         f"caracteres. Reescreva o `resumo` no report.json e gere de novo; "
+                         f"nenhum relatório foi gerado.")
+
+
+_EMOJI_DE_ESTADO = re.compile("[ \t]*([🔴🟡🟢])\ufe0f?[ \t]*")
+
+
+def _palavra_de_estado(casado):
+    """Como marcador de frase, o emoji sai; no meio dela, ele é o dado e vira a palavra."""
+    texto = casado.string
+    antes, depois = texto[:casado.start()].rstrip(), texto[casado.end():]
+    palavra = ESTADO_EM_PALAVRA[casado.group(1)][0].lower()
+    separador = " " if antes else ""
+    if not antes or antes[-1] in ".!?:\n" or depois.lower().startswith(palavra):
+        return separador
+    return f"{separador}{palavra}{' ' if depois[:1].isalnum() else ''}"
+
+
 FORMATOS = ("html", "html+pdf")
 
 # 60s bastavam para um relatório pequeno; o de 213 achados converte em ~1,3s, mas um
@@ -656,6 +699,7 @@ def build(report, out_dir, formato="html+pdf"):
     if report.get("schema_version") != 3:
         raise ValueError(f"schema {report.get('schema_version')!r}: este build lê o v3; "
                          f"relatórios anteriores ficam onde estão, como histórico")
+    _recusar_resumo_grande(report.get("resumo"))
     pagina = render_html_v3(report)
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(pagina)
@@ -764,17 +808,6 @@ def _estado(saude):
     branco e exige legenda que ninguém lê."""
     palavra, classe = ESTADO_EM_PALAVRA.get(saude, (str(saude), "na"))
     return f'<span class="chip {classe}"><i class="dot"></i>{_e(palavra)}</span>'
-
-
-def _quando(carimbo):
-    """`2026-09-19T10:00:00Z` → `19/09/2026 10:00 UTC`. O carimbo ISO é para o histórico
-    comparar; quem lê o relatório lê data."""
-    from datetime import datetime
-    try:
-        instante = datetime.fromisoformat(str(carimbo).replace("Z", "+00:00"))
-    except ValueError:
-        return str(carimbo)
-    return instante.strftime("%d/%m/%Y %H:%M UTC")
 
 
 def _numero(valor):
@@ -1050,91 +1083,6 @@ def _topologia(alvos):
     return f'<div class="mapa">{"".join(camadas)}{legenda}</div>'
 
 
-def _angulo(valor, faixa):
-    """A agulha percorre 180° do zero ao máximo declarado. Fora da escala, encosta no fim —
-    inventar posição para valor fora de faixa seria desenhar dado que não existe."""
-    maximo = float(faixa["maximo"]) or 1.0
-    fracao = min(max(float(valor) / maximo, 0.0), 1.0)
-    if faixa["sentido"] == "maior_melhor":
-        fracao = 1.0 - fracao
-    return round(-90 + 180 * fracao, 1)
-
-
-def _arcos(faixa):
-    """Onde o verde vira âmbar e o âmbar vira vermelho, em graus do arco.
-
-    Vem da tolerância DECLARADA, nunca de terços fixos. O arco desenhado em três partes iguais
-    é bonito e mente: numa pergunta com `bom_ate` 700 e `ruim_a_partir` 1500 sobre um máximo de
-    3000, as marcas reais estão em 23% e 50% — um terço cada diria que 1000 ainda é bom. Num
-    relatório cuja regra é "número sem fonte não existe", faixa sem tolerância é pior: é número
-    com fonte inventada.
-
-    O lado bom é sempre o ESQUERDO, porque é assim que `_angulo` posiciona a agulha nos dois
-    sentidos; em `maior_melhor` as duas marcas espelham junto com ela.
-    """
-    maximo = float(faixa["maximo"]) or 1.0
-
-    def fracao(limite):
-        f = min(max(float(limite) / maximo, 0.0), 1.0)
-        return 1.0 - f if faixa["sentido"] == "maior_melhor" else f
-
-    bom, ruim = fracao(faixa["bom_ate"]), fracao(faixa["ruim_a_partir"])
-    return round(180 * min(bom, ruim), 1), round(180 * max(bom, ruim), 1)
-
-
-def _medidor(resposta, pergunta):
-    faixa = pergunta["faixa"]
-    ang = _angulo(resposta["valor"], faixa)
-    unidade = f' <span class="un">{_e(pergunta.get("unidade"))}</span>' if pergunta.get("unidade") else ""
-    limite = ("bom até" if faixa["sentido"] == "menor_melhor" else "bom a partir de")
-    # `med` colidia com `.achado.med` (achado de severidade MÉDIA) e `faixa` com a banda de
-    # triagem, que em impressão força página nova — o cartão partia ao meio na quebra. Nome de
-    # classe é vocabulário compartilhado com o template: repetir um já usado é herdar o que
-    # ele faz, em silêncio.
-    g1, g2 = _arcos(faixa)
-    return (f'<div class="mdr"><div class="anel">'
-            f'<div class="arco" style="--g1:{g1}deg;--g2:{g2}deg"></div><div class="furo"></div>'
-            f'<div class="agulha" style="--ang:{ang}deg"></div><div class="eixo"></div></div>'
-            f'<p class="v num">{_numero(resposta["valor"])}{unidade}</p>'
-            f'<p class="rot">{_e(pergunta["titulo"])}</p>'
-            f'<p class="tol">{limite} {_numero(faixa["bom_ate"])}'
-            f' · ruim a partir de {_numero(faixa["ruim_a_partir"])}</p>'
-            f'<p class="src">fonte: {_e(resposta.get("fonte"))}</p></div>')
-
-
-def _instrumentos(alvos):
-    """Mostrador só onde a pergunta declara faixa. O resto vira cartão de insight, sem agulha."""
-    from lib.perguntas import PERGUNTAS
-
-    # Uma medida por (pergunta, valor, fonte). Quando o adaptador não consegue restringir a
-    # consulta a um componente, ele carimba a fonte com "(exporter inteiro)" — e aí o MESMO
-    # número chega por vários componentes. Desenhado uma vez por componente, o relatório
-    # afirma que cada um deles serviu aquele tráfego; nenhum serviu sozinho.
-    por_medida, cobertos = {}, {}
-    for alvo in alvos:
-        for componente in alvo.get("componentes", []):
-            for resposta in componente.get("respostas", []):
-                pergunta = PERGUNTAS.get(resposta.get("pergunta"), {})
-                if resposta.get("sem_dados") or not pergunta.get("faixa"):
-                    continue
-                chave = (resposta.get("pergunta"), json.dumps(resposta.get("valor"),
-                                                              sort_keys=True, default=str),
-                         resposta.get("fonte"))
-                por_medida.setdefault(chave, (resposta, pergunta))
-                cobertos.setdefault(chave, []).append(componente.get("nome"))
-
-    medidores = []
-    for chave, (resposta, pergunta) in por_medida.items():
-        nomes = cobertos[chave]
-        quem = (f'<p class="corte">mede {_e(" · ".join(nomes))} em conjunto</p>'
-                if len(nomes) > 1 else "")
-        medidores.append(_medidor(resposta, pergunta) + quem)
-    if not medidores:
-        return ('<p class="muted">nenhuma medida com tolerância declarada respondeu nesta '
-                'rodada.</p>')
-    return f'<div class="medidores">{"".join(medidores)}</div>'
-
-
 def pendencias_de_declaracao(alvos):
     """Por que o relatório está calado — e o que o dono escreve para ele falar.
 
@@ -1241,154 +1189,6 @@ def _ic(nome):
     return f'<svg class="ic"><use href="#ic-{nome}"/></svg>'
 
 
-_CLASSE_FAIXA = {"bom": "bom", "atencao": "mal", "ruim": "mal", "sem_dados": "nao"}
-
-
-def _alvo_principal(alvos):
-    """O alvo que a rodada realmente mediu. Alvo declarado e nao confirmado aparece
-    depois, em `.fora` — o inventario nao mente por omissao, mas tambem nao finge
-    que ha dado onde nao houve."""
-    com_dado = [a for a in alvos if (a.get("fatos") or a.get("dimensoes"))]
-    return max(com_dado, key=lambda a: len(a.get("achados") or []), default=None)
-
-
-def _linha(rotulo, valor, classe="n"):
-    return f'<div class="l"><span>{_e(rotulo)}</span><b class="{classe}">{_e(valor)}</b></div>'
-
-
-def _cartao_estado(alvo):
-    """Os tres blocos da capa, na ordem em que a pergunta aparece: a infra esta de pe?
-    o fluxo da aplicacao esta andando? e o que NAO afeta o servico agora?
-
-    Separar o terceiro bloco e o ponto: reinicio recuperado e achado de higiene nao
-    podem dividir espaco com fila parada, senao tudo vira a mesma urgencia.
-    """
-    if alvo is None:
-        return '<div class="alvo-card"><p class="nome">Sem alvo medido</p></div>'
-    fatos = alvo.get("fatos") or {}
-    dims = alvo.get("dimensoes") or {}
-    op = dims.get("operacao") or {}
-    nos = fatos.get("nodes") or []
-    prontos = sum(1 for n in nos if str(n.get("state", "")).lower() == "ready")
-    fora = op.get("nodes_down", 0)
-
-    # "operando" tem de concordar com a saúde do alvo. Olhando só a operação, a capa dizia
-    # "Infraestrutura · operando" com o alvo em 🟡 — e quem lê acredita no verde da capa, não
-    # no chip discreto ao lado.
-    infra_ok = (not fora and not op.get("failing") and not op.get("stopped")
-                and alvo.get("saude") == "🟢")
-    blocos = [
-        f'<div class="chk {"ok" if infra_ok else "mal"}">'
-        f'<p class="ch2">{_ic("bom" if infra_ok else "achado")}<b>Infraestrutura</b>'
-        f'<em>{"operando" if infra_ok else "com divergência"}</em></p>'
-        + (_linha("Nós prontos", f"{prontos} de {len(nos)}") if nos else "")
-        + _linha("Serviços no ar", f'{op.get("services_up", 0)} de {op.get("services_total", 0)}')
-        + _linha("Réplicas abaixo do desejado", op.get("stopped", 0))
-        + _linha("Nós fora do ar", fora)
-        + "</div>"
-    ]
-
-    # fluxo da aplicacao: o que esta parado APESAR de a infra estar de pe
-    filas = [a for a in (alvo.get("achados") or []) if a.get("regra") == "fila_sem_consumidor"]
-    presas = 0
-    for a in filas:
-        m = re.search(r"acumuladas:\s*(\d+)", str(a.get("detalhe") or ""))
-        if m:
-            presas += int(m.group(1))
-    if filas:
-        blocos.append(
-            f'<div class="chk mal"><p class="ch2">{_ic("fila")}<b>Fluxo de aplicação</b>'
-            f'<em>{_plural(len(filas), "fila parada", "filas paradas")}</em></p>'
-            + _linha("Filas sem consumidor", len(filas))
-            + _linha("Mensagens acumuladas", _human(presas))
-            + "</div>")
-
-    # o que NAO afeta o servico agora — existe para nao virar urgencia
-    higiene = [a for a in (alvo.get("achados") or []) if a.get("severidade") in ("low", "info")]
-    blocos.append(
-        f'<div class="chk nao"><p class="ch2">{_ic("historico")}<b>Não afeta o serviço agora</b></p>'
-        + _linha("Achados de severidade baixa",
-                 f'{len(higiene)} de {len(alvo.get("achados") or [])}')
-        + _linha("Práticas com cobertura", f'{(dims.get("higiene") or {}).get("pinned_pct", 0)}% fixadas')
-        + "</div>")
-
-    selos = f'<p class="tags">{_selos_do_alvo(alvo)}</p>'
-    blocos.append(selos)
-    onde = alvo.get("onde") or ""
-    quantos = len(nos)
-    ctx = f'{_e(onde)}' + (f' · {quantos} nó{"s" if quantos != 1 else ""}' if quantos else "")
-    return (f'<div class="alvo-card"><p class="nome">{_ic("cluster")}{_e(alvo.get("nome"))}</p>'
-            f'<p class="ctx">{ctx}</p>' + "".join(blocos) + "</div>")
-
-
-def _selos_do_alvo(alvo):
-    """O estado em PALAVRA. O emoji some na impressao em preto e branco e passa a exigir
-    uma legenda que o relatorio nao tem."""
-    palavra, classe = ESTADO_EM_PALAVRA.get(alvo.get("saude"), (str(alvo.get("saude")), "na"))
-    return f'<span class="tag {classe}">{_e(palavra)}</span>'
-
-
-def _kpis_novo(alvo, triagem):
-    """Os numeros que decidem se vale ler o resto. Verde quando a medida esta cheia,
-    vermelho quando falta — a cor aqui e informacao, nao enfeite."""
-    if alvo is None:
-        return ""
-    dims = alvo.get("dimensoes") or {}
-    op, hig = dims.get("operacao") or {}, dims.get("higiene") or {}
-    total = op.get("services_total", 0)
-    agir = len(triagem["faixas"]["agir"]["achados"])
-    itens = [
-        (f'{op.get("services_up", 0)}/{total}', "Serviços no ar", op.get("services_up") == total and total),
-        (str(agir), "Exigem ação hoje", agir == 0),
-        (f'{hig.get("nonroot_pct", 0)}%', "Containers não root", hig.get("nonroot_pct", 0) >= 70),
-        (f'{hig.get("healthcheck_pct", 0)}%', "Com healthcheck", hig.get("healthcheck_pct", 0) >= 70),
-        (f'{hig.get("pinned_pct", 0)}%', "Imagens com versão fixa", hig.get("pinned_pct", 0) >= 70),
-    ]
-    celulas = "".join(f'<div><p class="v n {"bom" if bom else "mal"}">{_e(v)}</p>'
-                      f'<p class="lb">{_e(rot)}</p></div>' for v, rot, bom in itens)
-    return f'<div class="kpis">{celulas}</div>'
-
-
-def _dimensoes_novo(alvo):
-    """Quatro barras, cada uma com o veredito em palavra E a evidencia que o sustenta.
-    A barra sozinha e um numero sem fonte."""
-    from lib.nota import ORDEM, ROTULO, VEREDITO, PISO, pontuacoes
-    dims = (alvo or {}).get("dimensoes") or {}
-    pts = pontuacoes(dims)
-    cartoes = []
-    for chave in ORDEM:
-        p, d = pts.get(chave), dims.get(chave) or {}
-        if p is None:
-            cartoes.append(f'<div class="dim nao"><div class="dt"><b>{_e(ROTULO[chave])}</b>'
-                           f'<span class="p">—</span></div>'
-                           f'<p class="ver">não medido nesta rodada</p></div>')
-            continue
-        bom, ruim = VEREDITO[chave]
-        classe = "bom" if p >= PISO else "mal"
-        cartoes.append(
-            f'<div class="dim {classe}"><div class="dt"><b>{_e(ROTULO[chave])}</b>'
-            f'<span class="p n">{p}</span></div>'
-            f'<div class="tr"><i style="width:{p}%"></i></div>'
-            f'<p class="ver">{_e(bom if p >= PISO else ruim)}</p>'
-            f'<p class="ev">{_evidencia(chave, d)}</p></div>')
-    return f'<div class="dgrid">{"".join(cartoes)}</div>'
-
-
-def _evidencia(chave, d):
-    """De onde o numero saiu — escrito por extenso, porque numero sem fonte nao existe."""
-    if chave == "operacao":
-        return _e(f'{d.get("services_up", 0)} de {d.get("services_total", 0)} serviços no ar · '
-                  f'{d.get("nodes_down", 0)} nó fora · {d.get("stopped", 0)} abaixo do desejado')
-    if chave == "disponibilidade":
-        n = len(d.get("spof_stateful") or []) + len(d.get("spof_critical") or [])
-        return _e(f'{d.get("ha_pct", 0)}% com 2+ réplicas · {n} sem reserva')
-    if chave == "seguranca":
-        return _e(f'{d.get("high", 0)} achados altos · {d.get("med", 0)} médios · '
-                  f'{d.get("expected", 0)} esperados')
-    return _e(f'{d.get("pinned_pct", 0)}% fixadas · {d.get("nonroot_pct", 0)}% não root · '
-              f'{d.get("limits_pct", 0)}% com limite · {d.get("healthcheck_pct", 0)}% com healthcheck')
-
-
 def _divergencias(alvo):
     """A dimensao traz contadores que o coletor calculou; a lista de achados traz as
     ocorrencias. Quando os dois discordam, o relatorio imprime os DOIS numeros em telas
@@ -1430,124 +1230,6 @@ def _divergencias(alvo):
             + "".join(linhas))
 
 
-
-_DEGRAU_CLASSE = {"total": "k0", "acionaveis": "k3", "registrar": "k3",
-                  "programar": "k2", "agir": "k1"}
-
-
-def _cascata(degraus):
-    """O funil do universo coletado ate o que exige acao hoje. A largura e sempre
-    relativa ao TOTAL — barra normalizada por degrau faria 7 parecer tanto quanto 219."""
-    total = max((d["n"] for d in degraus), default=0) or 1
-    barras = "".join(
-        f'<div class="b {_DEGRAU_CLASSE.get(d["id"], "k3")}">'
-        f'<span class="nm">{_e(d["rotulo"])}</span>'
-        f'<span class="tr"><i style="width:{100 * d["n"] / total:.1f}%"></i></span>'
-        f'<span class="vl n">{d["n"]}<em>{_e(d["nota"])}</em></span></div>' for d in degraus)
-    return f'<div class="casc">{barras}</div>'
-
-
-def _nos_novo(nos):
-    """Um cartao por no. Falha nas ultimas 24h em vermelho: e o numero que separa
-    'esta de pe' de 'esta de pe e saudavel'."""
-    if not nos:
-        return ""
-    cartoes = []
-    for n in nos:
-        # as chaves sao as que o coletor produz (hostname/engine/tasks_running/tasks_failed);
-        # inventar `name` e `engine_version` fazia o cartao sair com travessao em tudo
-        lider = '<em>líder</em>' if n.get("leader") else ""
-        falhas = n.get("tasks_failed")
-        pronto = str(n.get("state", "")).lower() == "ready"
-        linhas = [_linha("Engine", n.get("engine") or "—")]
-        if n.get("capacity"):
-            linhas.append(_linha("Capacidade", _fmt_capacity(n.get("capacity"))))
-        if n.get("tasks_running") is not None:
-            linhas.append(_linha("Tasks", n.get("tasks_running")))
-        if falhas is not None:
-            linhas.append(f'<div class="l"><span>Tasks falhadas</span>'
-                          f'<b class="n{" mal" if falhas else ""}">{_e(falhas)}</b></div>')
-        if not pronto:
-            linhas.append(f'<div class="l"><span>Estado</span>'
-                          f'<b class="mal">{_e(n.get("state") or "?")}</b></div>')
-        cartoes.append(f'<div class="no"><p class="nh">{_ic("no")}<b>{_e(n.get("hostname"))}</b>'
-                       f'{lider}</p>{"".join(linhas)}</div>')
-    return f'<div class="nos">{"".join(cartoes)}</div>'
-
-
-def _ancora(titulo):
-    """Ancora estavel a partir do titulo: sem acento, sem espaco, sem surpresa."""
-    import unicodedata
-    plano = unicodedata.normalize("NFKD", str(titulo)).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", plano.lower()).strip("-") or "secao"
-
-
-# Os quatro movimentos do documento, na ordem em que ele os pede. O rotulo e o que a
-# pessoa responde depois de ler a parte: "eu decidi", "eu sei o tamanho", "eu sei o que
-# consertar", "eu registrei".
-#
-# Eles ganham UMA matiz — a da marca — em quatro intensidades, e so ela. A paleta ja
-# gasta vermelho, ambar e verde em GRAVIDADE: se o movimento tambem pedir matiz, as duas
-# coisas competem pelo mesmo sinal e nenhuma e lida. Por isso a navegacao anda no eixo da
-# intensidade e a gravidade continua dona da cor.
-MOVIMENTOS = (("decidir", "Decidir", "o que você faz com isto na segunda-feira"),
-              ("medir", "Medir", "o tamanho do que existe, com a fonte de cada número"),
-              ("consertar", "Consertar", "o achado e o passo a passo, por regra"),
-              ("registrar", "Registrar", "o retrato, para comparar na próxima rodada"))
-
-
-def _sec(icone, titulo, sub, corpo, classe="", ident=None, mov=""):
-    """Toda secao tem o mesmo cabecalho: icone, titulo e a linha que diz o que ele mede.
-
-    E uma ancora. O sumario do topo e clicavel TAMBEM no PDF — o Chromium converte
-    href interno em destino de pagina —, entao quem recebe o arquivo navega sem rolar
-    41 paginas. Secao sem id quebra isso calada.
-
-    `mov` e o movimento a que ela pertence: ele pinta a lombada e o titulo, e e o que o
-    indice usa para agrupar. Sem ele a secao fica neutra — nao quebra nada.
-    """
-    if not corpo:
-        return ""
-    return (f'<section class="sec" id="{_e(ident or _ancora(titulo))}" data-mov="{_e(mov)}">'
-            f'<div class="sh {classe}"><span class="box">{_ic(icone)}</span>'
-            f'<h2>{_e(titulo)}</h2><span class="sub">{_e(sub)}</span></div>'
-            f'<div class="conteudo">{corpo}</div></section>')
-
-
-_ORDEM_IMPACTO = {"alto": 0, "medio": 1, "médio": 1, "baixo": 2}
-
-
-def _impacto(pontos):
-    """"Se isto falhar": a consequencia a partir do que EXISTE hoje, nao previsao.
-
-    `impact.build` roda desde o v1 e o resultado era descartado — o relatorio calculava
-    a consequencia e jogava fora. Aqui ela volta, ordenada por impacto.
-    """
-    if not pontos:
-        return ""
-    ordenados = sorted(pontos, key=lambda p: (_ORDEM_IMPACTO.get(str(p.get("impacto")).lower(), 3),
-                                              str(p.get("cenario") or "")))
-    linhas = []
-    for p in ordenados:
-        alvos = p.get("alvos") or []
-        # a coluna da direita trazia OU a gravidade ("alto") OU uma contagem
-        # ("8 serviços"), no mesmo tamanho e na mesma cor: duas unidades no mesmo lugar,
-        # e quem lia nao sabia se 8 era pior que "alto". A gravidade e o eixo comum e
-        # fica em cima; o tamanho, quando existe, vira a legenda dela.
-        quantos = (f'<em>{_e(_plural(len(alvos), "serviço", "serviços"))}</em>'
-                   if alvos else "")
-        impacto = str(p.get("impacto") or "—")
-        # `baixo` pintado de vermelho, do lado de `alto` no mesmo vermelho, apagava a
-        # unica distincao que a coluna faz
-        grau = {"alto": " alto", "medio": " medio", "médio": " medio"}.get(
-            impacto.lower(), " baixo")
-        linhas.append(f'<div class="cen">{_ic("falhar")}<div>'
-                      f'<p class="se">{_e(p.get("cenario"))}</p>'
-                      f'<p class="en">{_e(p.get("consequencia"))}</p></div>'
-                      f'<span class="pk n{grau}">{_e(impacto)}{quantos}</span></div>')
-    return f'<div class="cartao">{"".join(linhas)}</div>'
-
-
 # ---------------------------------------------------------------- por camada
 # A ordem das camadas ja existe em CAMADAS (linha ~1195) e e UMA so: duplica-la aqui
 # criou um sombreamento silencioso que fazia _topologia estourar ao desempacotar.
@@ -1558,17 +1240,13 @@ _ICONE_CAMADA = {"entrada": "rota", "app": "aplicacoes", "fila": "fila", "banco"
 
 
 def _camadas(componentes):
-    """Os sistemas agrupados pelo PAPEL que cada um cumpre, e nao pela ordem alfabetica
-    do nome do servico. E o que responde "o que esta rodando aqui?" sem exigir que quem
-    le ja saiba o que cada nome significa.
+    """Os sistemas sem bloco proprio, agrupados pelo PAPEL que cumprem.
 
     NAO e dependencia medida: a skill observa o papel de cada componente, nao quem chama
     quem. Dizer isso e obrigacao, nao rodape — a legenda sai junto.
 
     Papel que a skill nao reconhece nao some: cai em "Outros", nomeado.
     """
-    if not componentes:
-        return '<p class="nao">nenhum componente no inventário desta rodada.</p>'
     porpapel = {}
     for c in componentes:
         porpapel.setdefault(c.get("papel") or "app", []).append(c)
@@ -1582,7 +1260,6 @@ def _camadas(componentes):
     for papel in sorted(porpapel):                      # papel fora da ordem conhecida
         blocos.append(_camada_bloco(f"Outros · {papel}", papel, "aplicacoes", porpapel[papel]))
     return ("".join(blocos) +
-            f'<p class="nota-legenda">{NOTA_DO_PAPEL}</p>'
             '<p class="nota-legenda">As camadas agrupam por <b>papel</b> — quem recebe o tráfego, '
             'quem processa, quem guarda. <b>Não é dependência medida</b>: a skill observa '
             'o papel de cada componente, não quem chama quem.</p>')
@@ -1714,132 +1391,9 @@ def _camada_bloco(titulo, papel, icone, itens):
             f'<em>{quantos}</em></p>{grade}{tabela}{rodape}</div>')
 
 
-def _imagem_curta(servico):
-    """`registry.exemplo/app:9c93fa87537fc5ae58ac515a4147f9ac36ce7daa` -> `…/app:9c93fa87…`
-
-    O digest completo tem 40 caracteres, e e o MESMO para todos os servicos de uma
-    stack construida junto: impresso por extenso, ele quebrava em tres linhas e
-    empurrava o sinal do servico para fora da vista. Oito caracteres bastam para
-    conferir se duas replicas rodam a mesma imagem, que e a pergunta real aqui.
-    """
-    imagem = str(servico.get("image") or "—")
-    if imagem.count("/") >= 2:                       # registry.exemplo/grupo/app -> …/app
-        imagem = "…/" + imagem.rsplit("/", 1)[-1]
-    etiqueta = str(servico.get("tag") or "")
-    if len(etiqueta) >= 32 and all(c in "0123456789abcdef" for c in etiqueta.lower()):
-        etiqueta = etiqueta[:8] + "…"                # digest: os 8 primeiros identificam
-    return f"{imagem}:{etiqueta}" if etiqueta else imagem
-
-
-def _rede_e_segredos(fatos):
-    """Redes, secrets e configs: INVENTARIO, nao medida.
-
-    O relatorio mostra o NOME de cada secret e a CHAVE de cada config — nunca o valor,
-    nunca string de conexao. E o nome que responde "existe um segredo para isto?" sem
-    que o relatorio passe a ser, ele proprio, um vazamento.
-    """
-    fatos = fatos or {}
-    partes = []
-    redes = fatos.get("networks") or []
-    if redes:
-        linhas = "".join(
-            f'<div class="l"><span>{_e(r.get("name"))}</span>'
-            f'<b>{_e(r.get("driver"))} · {_e(r.get("scope"))}</b></div>'
-            for r in sorted(redes, key=lambda x: str(x.get("name") or "")))
-        partes.append(f'<div class="item"><p class="ch2">{_ic("rede")}'
-                      f'<b>{_plural(len(redes), "rede", "redes")}</b></p>{linhas}</div>')
-
-    nomes = ([str(x.get("name")) for x in (fatos.get("secrets") or [])]
-             + [str(x.get("name")) for x in (fatos.get("configs") or [])])
-    if nomes:
-        etiquetas = "".join(f'<span class="tag">{_e(n)}</span>' for n in sorted(nomes))
-        partes.append(f'<div class="item"><p class="ch2">{_ic("secret")}'
-                      f'<b>{_plural(len(nomes), "secret ou config", "secrets e configs")}</b>'
-                      f'<em>só o nome — o valor nunca é coletado</em></p>'
-                      f'<div class="tags">{etiquetas}</div></div>')
-    return f'<div class="duas">{"".join(partes)}</div>' if partes else ""
-
-
-def _aplicacoes_stack(fatos, comp_an=None):
-    """Uma aplicacao por stack, com as ROTAS que o proxy entrega nela.
-
-    "Como o proxy esta roteando para o app X" e a pergunta que o inventario promete, e
-    ela nao se responde com uma lista de servicos em ordem alfabetica. Dentro do bloco o
-    servico aparece com o nome curto (`loja_web` vira `web`): o prefixo e a stack, que ja
-    esta no titulo.
-    """
-    grupos = (fatos or {}).get("stacks") or []
-    if not grupos:
-        return ""
-    comp_an = comp_an or {}
-    cartoes = []
-    for g in sorted(grupos, key=lambda x: str(x.get("stack") or "")):
-        ordenados = sorted(g.get("services") or [], key=lambda x: str(x.get("name") or ""))
-        por_servico = []
-        for sv in ordenados:
-            sinais = []
-            if sv.get("has_healthcheck") is False:
-                sinais.append("sem healthcheck")
-            lim = sv.get("limits") or {}
-            if not lim.get("nano_cpus") and not lim.get("mem_bytes"):
-                sinais.append("sem limites")
-            if sv.get("tasks_failed"):
-                sinais.append(_plural(sv["tasks_failed"], "task falhou", "tasks falharam"))
-            por_servico.append((sv, " · ".join(sinais) or "ok"))
-
-        # a stack inteira com o mesmo diagnostico diz isso UMA vez, no cabecalho.
-        # `sem healthcheck · sem limites` repetido nos quatro servicos da stack nao
-        # informa quatro vezes — e o mesmo fato, e a coluna da direita vira um padrao
-        # visual que o olho deixa de ler.
-        iguais = {sinal for _, sinal in por_servico}
-        todos_iguais = len(por_servico) > 1 and len(iguais) == 1
-        comum = por_servico[0][1] if todos_iguais else ""
-        servicos = []
-        for sv, sinal in por_servico:
-            marca = ("" if todos_iguais else
-                     f'<em class="{"mal" if sinal != "ok" else "ok"}">{_e(sinal)}</em>')
-            servicos.append(
-                f'<div class="svc"><div class="svch">'
-                f'<b>{_e(stacks.short_name(sv.get("name")))}</b>{marca}'
-                f'</div><code>{_e(_imagem_curta(sv))}</code></div>')
-
-        selos = ""
-        if g.get("findings_high"):
-            selos += (f'<span class="tag mal">'
-                      f'{_plural(g["findings_high"], "crítico", "críticos")}</span>')
-        if g.get("findings_med"):
-            selos += (f'<span class="tag">'
-                      f'{_plural(g["findings_med"], "médio", "médios")}</span>')
-        if g.get("spofs"):
-            selos += f'<span class="tag">{_plural(len(g["spofs"]), "sem reserva", "sem reserva")}</span>'
-
-        if comum:
-            selos += (f'<span class="tag {"mal" if comum != "ok" else ""}">'
-                      f'{_e(comum)} nos {len(por_servico)}</span>')
-
-        rotas = g.get("routes") or []
-        linha_rotas = (f'<p class="rota">{_ic("rota")}{_e(" · ".join(rotas[:4]))}'
-                       + (f' +{len(rotas) - 4}' if len(rotas) > 4 else "") + "</p>") if rotas else ""
-        notas = [comp_an.get(sv.get("name")) for sv in (g.get("services") or [])
-                 if comp_an.get(sv.get("name"))]
-        nota = f'<p class="an">{_e(" ".join(notas))}</p>' if notas else ""
-        cartoes.append(
-            f'<div class="app{" crit" if g.get("findings_high") else ""}">'
-            f'<div class="ah"><span class="box">{_ic("aplicacoes")}</span>'
-            f'<div><b>{_e(g.get("stack"))}</b>{selos}</div></div>'
-            f'{linha_rotas}{"".join(servicos)}{nota}</div>')
-    return f'<div class="apps">{"".join(cartoes)}</div>'
-
-
-_ICONE_REGRA = {"fila_sem_consumidor": "fila", "tls": "cert", "cert": "cert"}
-
-
-def _icone_de(regra):
-    regra = str(regra or "")
-    for chave, icone in _ICONE_REGRA.items():
-        if chave in regra:
-            return icone
-    return "achado"
+def _peso_da_gravidade(itens):
+    return min(ORDEM_SEVERIDADE.index(a.get("severidade")) if a.get("severidade") in ORDEM_SEVERIDADE
+               else len(ORDEM_SEVERIDADE) for a in itens)
 
 
 def _agrupar_por_regra(achados):
@@ -1848,8 +1402,8 @@ def _agrupar_por_regra(achados):
     grupos = {}
     for a in achados:
         grupos.setdefault(a.get("regra"), []).append(a)
-    # ordem: a regra que mais ocorre primeiro; empate desempata pelo nome da regra
-    return sorted(grupos.items(), key=lambda kv: (-len(kv[1]), str(kv[0])))
+    # ordem: a pior gravidade da regra; empate vai para a que mais ocorre e depois para o nome
+    return sorted(grupos.items(), key=lambda kv: (_peso_da_gravidade(kv[1]), -len(kv[1]), str(kv[0])))
 
 
 # `prontas: 3 · acumuladas: 11663` -> o numero que ordena a lista e desenha a barra.
@@ -1899,7 +1453,7 @@ def _lista_de_nomes(nomes, limite=TETO_DE_NOMES):
     return f'<div class="nomes">{etiquetas}</div>{rodape}'
 
 
-def _ocorrencias(itens, limite=10, detalhe_na_regra=False):
+def _ocorrencias(itens, limite=None, detalhe_na_regra=False):
     """As ocorrencias, com teto. O relatorio mostra as primeiras e DIZ quantas ficaram
     de fora — a lista completa continua no report.json.
 
@@ -1917,7 +1471,8 @@ def _ocorrencias(itens, limite=10, detalhe_na_regra=False):
     tem_peso = any(p is not None for p, _ in pesados)
     if detalhe_na_regra and not tem_peso:
         return _lista_de_nomes([str(a.get("objeto") or a.get("componente") or "—")
-                                for a in itens])
+                                for a in itens], limite or TETO_DE_NOMES)
+    limite = limite or LIMITE_NO_RELATORIO
     if tem_peso:
         pesados.sort(key=lambda x: (-(x[0] or 0), str(x[1].get("objeto") or "")))
     teto = max((p or 0 for p, _ in pesados), default=0) or 1
@@ -1942,177 +1497,57 @@ def _ocorrencias(itens, limite=10, detalhe_na_regra=False):
     return f'<div class="rks">{"".join(linhas)}</div>{rodape}'
 
 
-def _bloco_remediacao(cr, completo=True):
-    """Os quatro blocos do catalogo, na ordem em que a duvida aparece: por que importa,
-    como resolver, como confirmar e quando NAO fazer.
-
-    O catalogo e versionado e revisado em pull request — nada aqui e escrito na hora.
+def _bloco_remediacao(cr):
+    """Os blocos do catalogo, na ordem em que a duvida aparece: o que fazer, como conferir e
+    quando NAO fazer. O catalogo e versionado e revisado em pull request — nada aqui e
+    escrito na hora.
     """
     if not cr:
-        return ('<p class="nota-legenda">Esta regra ainda não tem ficha de remediação em '
+        return ('<p class="bl-mini">Esta regra ainda não tem ficha de remediação em '
                 '<code>references/remediacao/</code>.</p>')
     partes = []
-    if cr.get("como_resolver"):
-        partes.append(f'<div class="fix"><p class="fh">{_ic("corrigir")}'
-                      f'<b>Como resolver</b></p>{_rich(cr["como_resolver"])}</div>')
-    if cr.get("como_confirmar"):
-        partes.append(f'<div class="chk ok"><p class="ch2">{_ic("bom")}'
-                      f'<b>Como confirmar que resolveu</b></p>{_rich(cr["como_confirmar"])}</div>')
-    if cr.get("quando_nao_fazer"):
-        partes.append(f'<div class="quando"><p class="ch2">{_ic("historico")}'
-                      f'<b>Quando NÃO fazer</b></p>{_rich(cr["quando_nao_fazer"])}</div>')
+    for chave, rotulo in (("como_resolver", "O que fazer"), ("como_confirmar", "Como conferir"),
+                          ("quando_nao_fazer", "Quando não fazer")):
+        if cr.get(chave):
+            partes.append(f'<h4>{rotulo}</h4>{_rich(cr[chave])}')
     return "".join(partes)
 
 
-def _achado_bloco(regra, itens, completo):
-    from lib.triagem import ORDEM_SEVERIDADE
-    """Um achado. `completo` traz o runbook inteiro; sem ele fica o cabecalho e as
-    ocorrencias — e o que separa 'Agir agora' de 'Programar' na pagina."""
+TOM_DA_SEVERIDADE = {"critical": "crit", "high": "crit", "medium": "warn"}
+
+
+def _comando(r):
+    """A capa só traz as 5 primeiras: fora dela, este bloco é o único lugar do `porque`."""
+    porque = f'<p>{_e(r.get("porque"))}</p>' if r.get("porque") else ""
+    comando = f'<pre>{_e(r.get("comando"))}</pre>' if r.get("comando") else ""
+    esforco = f'<p class="bl-mini">esforço {_e(r.get("esforco"))}</p>' if r.get("esforco") else ""
+    return f'<h4>{_e(r.get("titulo"))}</h4>{porque}{comando}{esforco}'
+
+
+def _comandos(recomendacoes):
+    return "".join(_comando(r) for r in recomendacoes)
+
+
+def _achado_bloco(regra, itens, completo, limite=None, recomendacoes=()):
+    """Um problema, na ordem do mockup: a esquerda o que significa e o que fazer, a direita
+    quem foi afetado. `completo` traz a explicacao de por que importa."""
     cr = next((a.get("como_resolver") for a in itens if a.get("como_resolver")), None)
-    titulo = (cr or {}).get("titulo") or regra
-    # a classe carrega a gravidade; `low` pintado como `medium` dizia uma urgencia
-    # que o achado nao tem
+    titulo = (cr or {}).get("titulo") or rule_meta(regra).get("label", regra)
     pior = min((a.get("severidade") for a in itens),
                key=lambda sv: ORDEM_SEVERIDADE.index(sv) if sv in ORDEM_SEVERIDADE else 9)
-    classe = "" if completo else f" {'med' if pior == 'medium' else 'baixo'}"
-    cabeca = (f'<div class="cab"><span class="sel">{_ic(_icone_de(regra))}</span>'
-              f'<div><h3>{_e(titulo)}</h3><p class="regra">{_e(regra)}</p></div>'
-              f'<p class="qt n">{len(itens)}'
-              f'<em>{"ocorrência" if len(itens) == 1 else "ocorrências"}</em></p></div>')
-    corpo = [cabeca]
+    nivel = (f'<span class="bl-nivel bl-nivel-{TOM_DA_SEVERIDADE.get(pior, "ok")}">'
+             f'{_e(ROTULO_SEVERIDADE.get(pior, pior))}</span>')
     # a frase que vale para TODAS as ocorrencias e escrita aqui, uma vez, antes da lista
     comum = _detalhe_comum(itens)
-    if comum:
-        corpo.append(f'<p class="detalhe-da-regra">{_e(comum)}</p>')
-    if completo and cr and cr.get("por_que_importa"):
-        corpo.append(f'<div class="pq">{_rich(cr["por_que_importa"])}</div>')
-    corpo.append(_ocorrencias(itens, detalhe_na_regra=bool(comum)))
-    corpo.append(_bloco_remediacao(cr, completo=completo))
-    return f'<article class="achado{classe}">{"".join(corpo)}</article>'
-
-
-# A aspa e escrita como classe de caractere, nao literal: a trava que varre esta fonte
-# atras de classe sem regra no template procura o atributo de classe entre aspas, e
-# leria o padrao escrito ao pe da letra como se o renderizador emitisse uma classe
-# chamada `sec[^`.
-_PADRAO_DE_SECAO = re.compile(
-    r'<section class=[\'"]sec[^\'"]*[\'"] id=[\'"]([^\'"]+)[\'"] data-mov=[\'"]([^\'"]*)[\'"]>'
-    r'.*?<h2>(.*?)</h2>', re.S)
-
-
-def _secoes_do_documento(*blocos):
-    """Os titulos das secoes JA montadas, lidos do HTML pronto.
-
-    Ler o documento em vez de manter uma segunda lista e deliberado: duas listas
-    divergem na primeira secao nova — e o indice passaria a prometer uma secao que nao
-    existe, ou a calar uma que existe.
-    """
-    achadas = []
-    for bloco in blocos:
-        for ident, mov, titulo in _PADRAO_DE_SECAO.findall(bloco or ""):
-            achadas.append((ident, mov, re.sub(r"<[^>]+>", "", titulo).strip()))
-    return achadas
-
-
-def _indice(triagem, presentes=(), secoes=()):
-    from lib.triagem import FAIXAS
-    """As tres faixas anunciadas antes de comecarem, com o tamanho de cada uma. Quem
-    recebe decide onde gastar a atencao antes de rolar 30 paginas.
-
-    E, depois delas, as SECOES. O indice so falava das tres faixas num documento de 31
-    paginas e treze secoes: quem quisesse "Nos e capacidade" ou "Riscos aceitos" tinha
-    de rolar atras. As ancoras ja existiam — faltava alguem aponta-las."""
-    descricao = {
-        "agir": "o que custa dinheiro ou disponibilidade enquanto você lê",
-        "programar": "tem conserto conhecido e cabe numa janela planejada",
-        "registrar": "o retrato do que existe, para comparar na próxima rodada",
-    }
-    itens = []
-    for n, (fid, _, _) in enumerate(FAIXAS, 1):
-        faixa = triagem["faixas"][fid]
-        quantos = len(faixa["achados"])
-        # faixa vazia nao vira link: no PDF, ancora morta e um clique que nao leva a
-        # lugar nenhum, e o indice passa a prometer uma secao que nao existe
-        rotulo = (f'<a class="t" href="#faixa-{n}">{_e(faixa["rotulo"])}</a>'
-                  if n in presentes else f'<span class="t">{_e(faixa["rotulo"])}</span>')
-        itens.append(f'<li class="f{n}"><i></i>{rotulo}'
-                     f'<span class="d">{_e(descricao[fid])}</span>'
-                     f'<span class="v n">{_plural(quantos, "achado", "achados")}</span></li>')
-    faixas = f'<ol class="porfaixa">{"".join(itens)}</ol>'
-    if not secoes:
-        return faixas
-    # As seções entram AGRUPADAS pelo movimento, e é aqui que a lombada colorida do corpo
-    # ganha legenda: sem isto o leitor vê quatro tons de azul e não sabe o que separam.
-    por_mov, soltas = {}, []
-    for ident, mov, titulo in secoes:
-        if mov:
-            por_mov.setdefault(mov, []).append((ident, titulo))
-        else:
-            soltas.append((ident, titulo))
-    grupos = []
-    for chave, rotulo, linha in MOVIMENTOS:
-        if not por_mov.get(chave):
-            continue
-        links = "".join(f'<li><a href="#{_e(i)}">{_e(t)}</a></li>'
-                        for i, t in por_mov[chave])
-        grupos.append(f'<div class="mov" data-mov="{chave}">'
-                      f'<p class="mov-h"><i></i><b>{_e(rotulo)}</b>'
-                      f'<em>{_e(linha)}</em></p>'
-                      f'<ol class="porsecao">{links}</ol></div>')
-    if soltas:
-        grupos.append('<div class="mov"><ol class="porsecao">'
-                      + "".join(f'<li><a href="#{_e(i)}">{_e(t)}</a></li>' for i, t in soltas)
-                      + "</ol></div>")
-    return (f'{faixas}<p class="idx-h idx-h2">'
-            f'{_plural(len(secoes), "seção, nesta ordem", "seções, nesta ordem")}</p>'
-            f'<div class="movs">{"".join(grupos)}</div>')
-
-
-def _faixa(n, rotulo, resumo, quando, corpo, mov=""):
-    """A banda que abre cada faixa de acao. Sem corpo ela nao existe: banda vazia
-    anunciando nada e pior que ausencia."""
-    if not corpo:
-        return ""
-    return (f'<div class="faixa f{n}" id="faixa-{n}" data-mov="{_e(mov)}">'
-            f'<div class="fxh"><h2>{_e(rotulo)}</h2>'
-            f'<span class="q">{_e(resumo)}</span>'
-            f'<span class="quando">{_e(quando)}</span></div>{corpo}</div>')
-
-
-def _pontos(fortes, fracos):
-    """Positivo e negativo lado a lado. Relatorio que so lista problema ensina quem
-    recebe a parar de ler — e o que esta sustentando a infra tambem e informacao."""
-    def coluna(titulo, itens, classe, icone):
-        if not itens:
-            return ""
-        li = "".join(f'<li>{_e(i)}</li>' for i in itens if i)
-        return (f'<div class="{classe}"><p class="ch2">{_ic(icone)}<b>{_e(titulo)}</b></p>'
-                f'<ul class="dl">{li}</ul></div>')
-    a = coluna("Sustenta bem", fortes, "bom", "bom")
-    b = coluna("Merece atenção", fracos, "neg", "ruim")
-    return f'<div class="duas">{a}{b}</div>' if (a or b) else ""
-
-
-def _fora(alvos):
-    """Alvo declarado e NAO confirmado nesta rodada. Ele aparece — inventario que cala
-    o que nao mediu mente por omissao — mas longe dos numeros, para nao ser lido como medida."""
-    mudos = [a for a in alvos if not (a.get("fatos") or a.get("dimensoes"))]
-    if not mudos:
-        return ""
-    # o estado de cada um sai em PALAVRA, e nao so o nome: "sem dados" e uma afirmacao
-    # diferente de "operacional", e e justamente a que o relatorio nao pode engolir
-    etiquetas = "".join(
-        f'<span class="tag {ESTADO_EM_PALAVRA.get(a.get("saude"), ("", "na"))[1]}">'
-        f'{_e(a.get("nome"))} · '
-        f'{_e(ESTADO_EM_PALAVRA.get(a.get("saude"), (str(a.get("saude")), "na"))[0].lower())}'
-        # o ONDE fica: alvo sem endereco no inventario e so um nome, e nao diz a quem
-        # a proxima rodada precisa pedir confirmacao
-        f'<em>{_e(a.get("onde"))}</em></span>'
-        for a in sorted(mudos, key=lambda x: str(x.get("nome"))))
-    return (f'<div class="fora"><p>{_ic("panorama")}<b>'
-            f'{_plural(len(mudos), "outro alvo está declarado", "outros alvos estão declarados")}</b> '
-            f'no <code>alvos.toml</code> e não foram confirmados nesta rodada, portanto não foram '
-            f'tocados nem medidos.</p><div class="tags">{etiquetas}</div></div>')
+    frase = f'<p class="detalhe-da-regra">{_e(comum)}</p>' if comum else ""
+    significa = (f'<h4>O que significa</h4>{_rich(cr["por_que_importa"])}'
+                 if completo and cr and cr.get("por_que_importa") else "")
+    esquerda = frase + significa + _bloco_remediacao(cr) + _comandos(recomendacoes)
+    direita = (f'<h4>Afetados: {_plural(len(itens), "ocorrência", "ocorrências")}</h4>'
+               + _ocorrencias(itens, limite, detalhe_na_regra=bool(comum))
+               + f'<h4>Fonte da regra</h4><p class="bl-mini regra">{_e(regra)}</p>')
+    return (f'<article class="bl-prob">{nivel}<h3>{_e(titulo)}</h3>'
+            f'<div class="bl-pgrid"><div>{esquerda}</div><div>{direita}</div></div></article>')
 
 
 def _aceites_novo(aceites):
@@ -2169,7 +1604,9 @@ def _pendencias_novo(alvos):
     """
     linhas = []
     for a in alvos:
-        for n in (a.get("nao_coletado") or []):
+        if a.get("coletado") is False:
+            continue
+        for n in nao_coletado_vigente(a):
             # sem `o_que`, o titulo saia VAZIO: tres alvos nao confirmados viravam tres
             # linhas identicas dizendo "alvo nao confirmado nesta execucao" sem dizer
             # qual alvo. O nome do alvo e a resposta obvia, e ele sempre existe.
@@ -2189,7 +1626,7 @@ def _pendencias_novo(alvos):
                              mudos=[m for m in cobertura["mudos"]
                                     if m.get("pergunta") != "<identidade>"])
             if sem_papel:
-                nomes = ", ".join(_e(m["componente"]) for m in sem_papel[:14])
+                nomes = ", ".join(_e(m["componente"]) for m in sem_papel)
                 linhas.append(
                     f'<div class="item"><div class="dt">'
                     f'<b>{_plural(len(sem_papel), "componente sem papel provado", "componentes sem papel provado")}</b>'
@@ -2207,6 +1644,17 @@ def _pendencias_novo(alvos):
                 f'<p>Estas perguntas a skill sabe fazer e não foram respondidas. '
                 f'<b>Silêncio não é saúde</b>: enquanto elas não responderem, a auditoria não '
                 f'pode assinar que está tudo convergido.</p>{linhas_mudas}</div>')
+
+        # o bloco diz "sem dado"; o motivo de cada resposta vazia fica aqui, agrupado
+        ja_ditos = {(m.get("componente"), m.get("pergunta")) for m in (a.get("cobertura") or {}).get("mudos") or []}
+        vazias = [{"componente": c.get("nome"), "pergunta": r.get("pergunta"), "motivo": r.get("motivo")}
+                  for c in a.get("componentes") or [] if c.get("papel") in PAPEIS_COM_BLOCO
+                  for r in c.get("respostas") or [] if r.get("sem_dados") or r.get("erro_interno")
+                  if (c.get("nome"), r.get("pergunta")) not in ja_ditos]
+        if vazias:
+            linhas.append(f'<div class="item"><div class="dt"><b>'
+                          f'{_plural(len(vazias), "medida sem resposta", "medidas sem resposta")}</b>'
+                          f'<span class="p">{_e(a.get("nome"))}</span></div>{_mudos_por_motivo(vazias)}</div>')
 
         # `analise` é prosa que o agente escreveu POR CIMA do fato — não é medida. Incluí-la
         # aqui fazia a lacuna encolher conforme o agente falava mais: 54 componentes sem
@@ -2228,153 +1676,447 @@ def _pendencias_novo(alvos):
     return "".join(linhas)
 
 
-def _historico_novo(h):
-    if not h:
-        return ""
-    novos, resolvidos = len(h.get("novos") or []), len(h.get("resolvidos") or [])
-    vs = h.get("vs")
-    return (f'<div class="duas">'
-            f'<div class="neg"><p class="ch2">{_ic("achado")}<b>Apareceram</b></p>'
-            f'<p class="qt n">{novos}<em>desde {_e(_quando(vs)) if vs else "a rodada anterior"}</em></p></div>'
-            f'<div class="bom"><p class="ch2">{_ic("bom")}<b>Sumiram</b></p>'
-            f'<p class="qt n">{resolvidos}<em>resolvidos</em></p></div></div>')
-
-
-def _recomendacoes_novo(recs):
+def _recomendacao_inteira(ordem, r):
     """Com o comando pronto — e so para EXIBIR. Quem decide aplicar e o dono, depois
     de ler o 'quando nao fazer' da regra."""
-    if not recs:
+    cmd = f'<pre>{_e(r.get("comando"))}</pre>' if r.get("comando") else ""
+    # `alto` numa etiqueta e `medio` na coluna da direita eram duas palavras soltas:
+    # uma e IMPACTO, a outra e ESFORCO, e nada na pagina dizia qual era qual.
+    etiquetas = "".join(f'<span class="tag">{rotulo} {_e(v)}</span>'
+                        for rotulo, v in (("impacto", r.get("impacto")),
+                                          ("alvo", r.get("alvo"))) if v)
+    tags = f'<div class="tags">{etiquetas}</div>' if etiquetas else ""
+    # .rec e uma grade de TRES colunas: o numero, o miolo e o esforco a direita.
+    # Com dois filhos o miolo caia na coluna de 40px e saia uma palavra por linha.
+    return (f'<div class="rec{" top" if ordem == 1 else ""}">'
+            f'<span class="o n">{ordem}</span>'
+            f'<div><h4>{_e(r.get("titulo"))}</h4>'
+            f'<p>{_e(r.get("porque"))}</p>{tags}{cmd}</div>'
+            f'<span class="quando">esforço'
+            f'<em>{_e(r.get("esforco") or "—")}</em></span></div>')
+
+
+def _so_o_comando(ordem, r):
+    """Título e motivo já estão na capa: aqui fica o que ela não traz, ligado pelo número."""
+    esforco = f' · esforço {_e(r.get("esforco"))}' if r.get("esforco") else ""
+    return f'<div class="bl-cmd"><p class="bl-mini">Prioridade {ordem}{esforco}</p><pre>{_e(r.get("comando"))}</pre></div>'
+
+
+PAPEIS_COM_BLOCO = {"entrada", "fila", "banco", "cache", "maquina", "app"}
+
+
+def _parte(ident, titulo, sub, corpo):
+    return (f'<section class="bl-parte" id="{_e(ident)}"><div class="bl-parte-t"><h2>{_e(titulo)}</h2>'
+            f'<span class="bl-mini">{_e(sub)}</span></div>{corpo}</section>')
+
+
+def _servicos_de(alvo):
+    servicos = (alvo.get("fatos") or {}).get("services")
+    return servicos if isinstance(servicos, list) else []
+
+
+def _conta_sistemas(alvos):
+    """A mesma stack em dois alvos são dois sistemas. Sem serviço, a saúde lista os endpoints."""
+    sistemas = {(a.get("nome"), stacks.stack_of(s.get("name"))) for a in alvos for s in _servicos_de(a)}
+    return len(sistemas) or sum(1 for a in _da_rodada(alvos) if a.get("tipo") == "http")
+
+
+def _mudos_de(alvos):
+    return [m for a in alvos for m in (a.get("cobertura") or {}).get("mudos") or []]
+
+
+def _certificados_de(alvos):
+    """`fatos.certificado` sem `dias` é o motivo de não ter lido: esse vai para as pendências."""
+    certificados = []
+    for a in alvos:
+        certificado = (a.get("fatos") or {}).get("certificado") or {}
+        if "dias" in certificado:
+            certificados.append({"nome": a.get("nome"), "dias": certificado["dias"]})
+    return certificados
+
+
+CATEGORIA_DO_PAPEL = {"entrada": "proxy", "fila": "filas", "banco": "bancos", "cache": "cache", "busca": "busca",
+                      "storage": "armazenamento", "observabilidade": "observabilidade", "maquina": "máquinas"}
+MOTIVOS_CURTOS = (("senha_env", "falta a senha no ambiente"),
+                  ("etiqueta", "a métrica não identifica o serviço"),
+                  ("não expõem o dado", "não há exporter ligado"),
+                  ("não declara", "não há fonte declarada"),
+                  ("não respondeu", "a fonte não respondeu"),
+                  ("orçamento", "o tempo de coleta acabou"))
+MOTIVO_GENERICO = "a fonte não trouxe o dado"
+# Prefixo do texto do coletor: `na()` só guarda o motivo, e a linha da capa não comporta a frase.
+CATEGORIAS_DA_LACUNA = (("métricas", "métricas"), ("tendências", "tendências"),
+                        ("tasks", "tarefas"), ("ligação de", "tarefas"),
+                        (USO_POR_NO, "máquinas"), ("máquina", "máquinas"),
+                        ("containers", "containers"), ("docker", "dados do Docker"),
+                        ("o componente declarado", "componentes declarados"),
+                        ("componente ignorado", "componentes declarados"))
+LACUNA_GENERICA = "outros dados"
+
+
+def _da_rodada(alvos):
+    return [a for a in alvos if a.get("coletado") is not False]
+
+
+def _filas_lidas(alvo, mudo):
+    """Sem o ritmo, as filas continuam medidas: a capa não pode dizer que faltaram."""
+    return any(r.get("pergunta") == "fila.filas" and r.get("valor") and not r.get("sem_dados")
+               for c in alvo.get("componentes") or [] if c.get("nome") == mudo.get("componente")
+               for r in c.get("respostas") or [])
+
+
+def _medidas_que_faltaram(alvos):
+    """`<identidade>` diz que o papel é palpite, não que faltou medida: esse vai para o Registro."""
+    faltas = []
+    for indice, a in enumerate(alvos):
+        papeis = {c.get("nome"): c.get("papel") for c in a.get("componentes") or []}
+        faltas += [((indice, m.get("componente")), papeis.get(m.get("componente")), m.get("motivo"))
+                   for m in (a.get("cobertura") or {}).get("mudos") or []
+                   if m.get("componente") and m.get("pergunta") != "<identidade>"
+                   and not (m.get("pergunta") == "fila.taxa_entrada_saida" and _filas_lidas(a, m))]
+    return faltas
+
+
+def _e_fato(valor):
+    """`{"status": "n/a"}` e `na()` dizem que o dado faltou: o alvo que só tem isso não trouxe nada."""
+    if isinstance(valor, dict) and (valor.get("status") == "n/a" or ("valor" in valor and valor["valor"] is None)):
+        return False
+    return valor not in (None, "", [], {})
+
+
+def _trouxe_fatos(alvo):
+    return any(_e_fato(v) for v in (alvo.get("fatos") or {}).values())
+
+
+def _categoria_da_lacuna(lacuna):
+    texto = str(lacuna.get("o_que") or lacuna.get("what") or lacuna.get("motivo") or lacuna.get("reason"))
+    return next((rotulo for prefixo, rotulo in CATEGORIAS_DA_LACUNA if texto.startswith(prefixo)), LACUNA_GENERICA)
+
+
+def _faltou(alvos):
+    """Categorias e não nomes: uma linha de capa não comporta a lista, que fica no Registro. O alvo
+    só é citado quando não trouxe fatos: é a lacuna maior e não pode cair no corte."""
+    rodada = _da_rodada(alvos)
+    vazios = [a for a in rodada if not _trouxe_fatos(a)]
+    sem_dados = sorted({a["nome"] for a in vazios if nao_coletado_vigente(a) and a.get("nome")})
+    parciais = dict.fromkeys(_categoria_da_lacuna(n) for a in rodada if _trouxe_fatos(a)
+                             for n in nao_coletado_vigente(a))
+    por_papel = {}
+    for chave, papel, _ in _medidas_que_faltaram(rodada):
+        por_papel.setdefault(papel if papel in CATEGORIA_DO_PAPEL else "app", set()).add(chave)
+    categorias = list(parciais) + [rotulo for papel, rotulo in CATEGORIA_DO_PAPEL.items()
+                                   if papel in por_papel and rotulo not in parciais]
+    servicos = len(por_papel.get("app", ()))
+    return sem_dados + categorias + ([_plural(servicos, "serviço", "serviços")] if servicos else [])
+
+
+def _motivo_curto(motivo):
+    return next((curto for trecho, curto in MOTIVOS_CURTOS if trecho in str(motivo)), MOTIVO_GENERICO)
+
+
+def _motivo_do_que_faltou(alvos):
+    """Conta componente, não pergunta: um serviço mudo em três perguntas tem um motivo só."""
+    rodada = _da_rodada(alvos)
+    pares = {(chave, _motivo_curto(motivo)) for chave, _, motivo in _medidas_que_faltaram(rodada)}
+    pares |= {((i, "alvo", j), _motivo_curto(n.get("motivo") or n.get("reason")))
+              for i, a in enumerate(rodada) for j, n in enumerate(nao_coletado_vigente(a))}
+    votos = Counter(curto for _, curto in pares)
+    return min(votos, key=lambda curto: (-votos[curto], curto)) if votos else None
+
+
+def _fora_da_rodada(alvos):
+    nomes = [a["nome"] for a in alvos if a.get("coletado") is False]
+    return f'<p class="bl-fora">Fora desta rodada: {_e(", ".join(nomes))}</p>' if nomes else ""
+
+
+def _balanco(alvos, nota, fortes, fracos):
+    """Medidas e o que o agente escreveu, em duas colunas curtas."""
+    from lib.balanco import pontos
+    from lib.capa import _legivel
+    from lib.html_comum import painel
+
+    def coluna(titulo, itens):
+        linhas = "".join(f"<li>{_e(_legivel(i))}</li>" for i in itens)
+        return f"<div><h4>{titulo}</h4><ul>{linhas}</ul></div>" if linhas else ""
+    bons, ruins = pontos(alvos, nota, fortes, fracos)
+    colunas = coluna("Pontos positivos", bons) + coluna("Pontos de atenção", ruins)
+    return painel("Pontos positivos e pontos de atenção", "", f'<div class="bl-livre bl-bal" id="pontos-positivos-e-de-atencao">{colunas}</div>',
+                  cheio=True) if colunas else ""
+
+
+def _inventario_da_rodada(inventario, alvos):
+    fora = {a.get("nome") for a in alvos if a.get("coletado") is False}
+    return [i for i in inventario if i.get("nome") not in fora]
+
+
+def _alvos_da_rodada(inventario):
+    """Onde cada alvo vive: o inventário saiu da capa, e sem o endereço ele é só um nome."""
+    if not inventario:
         return ""
-    itens = []
-    for ordem, r in enumerate(recs, 1):
-        cmd = f'<pre>{_e(r.get("comando"))}</pre>' if r.get("comando") else ""
-        # `alto` numa etiqueta e `medio` na coluna da direita eram duas palavras soltas:
-        # uma e IMPACTO, a outra e ESFORCO, e nada na pagina dizia qual era qual.
-        etiquetas = "".join(f'<span class="tag">{rotulo} {_e(v)}</span>'
-                            for rotulo, v in (("impacto", r.get("impacto")),
-                                              ("alvo", r.get("alvo"))) if v)
-        tags = f'<div class="tags">{etiquetas}</div>' if etiquetas else ""
-        # .rec e uma grade de TRES colunas: o numero, o miolo e o esforco a direita.
-        # Com dois filhos o miolo caia na coluna de 40px e saia uma palavra por linha.
-        itens.append(f'<div class="rec{" top" if ordem == 1 else ""}">'
-                     f'<span class="o n">{ordem}</span>'
-                     f'<div><h4>{_e(r.get("titulo"))}</h4>'
-                     f'<p>{_e(r.get("porque"))}</p>{tags}{cmd}</div>'
-                     f'<span class="quando">esforço'
-                     f'<em>{_e(r.get("esforco") or "—")}</em></span></div>')
-    return "".join(itens)
+    itens = "".join(f'<span class="nome">{_e(i.get("nome"))} · {_e(i.get("onde"))}</span>'
+                    for i in sorted(inventario, key=lambda x: str(x.get("nome"))))
+    return f'<h3>Alvos desta rodada</h3><div class="nomes">{itens}</div>'
+
+
+def _so_em_contagem(itens, corte):
+    """Só regra inteira de baixa gravidade: um achado alto nunca some junto com os baixos."""
+    return corte["baixos_em_contagem"] and all(x.get("severidade") in ("low", "info") for x in itens)
+
+
+def _a_cobrar(achados):
+    """Esperado descreve o normal: a capa não o cobra, e os Problemas também não."""
+    return [a for a in achados if not a.get("esperada") and not esperada(a.get("regra"))]
+
+
+def _regras_visiveis(achados, corte):
+    return {regra for regra, itens in _agrupar_por_regra(_a_cobrar(achados)) if not _so_em_contagem(itens, corte)}
+
+
+def _problemas(achados, recomendacoes, corte):
+    baixos, corpo = [], ""
+    for regra, itens in _agrupar_por_regra(_a_cobrar(achados)):
+        if _so_em_contagem(itens, corte):
+            baixos.append((regra, len(itens)))
+            continue
+        recs = [r for r in recomendacoes if r.get("regra") == regra]
+        corpo += _achado_bloco(regra, itens, completo=True, limite=corte["afetados_max"], recomendacoes=recs)
+    if baixos:
+        corpo += ('<ul class="bl-baixos">'
+                  + "".join(f"<li>{_e(rule_meta(r).get('label', r))}: {n}</li>" for r, n in baixos) + "</ul>")
+    return corpo
+
+
+def _esperados_em_contagem(achados):
+    quantos = len(achados) - len(_a_cobrar(achados))
+    if not quantos:
+        return ""
+    texto = "achado esperado não entra aqui: descreve" if quantos == 1 \
+        else "achados esperados não entram aqui: descrevem"
+    return f'<p class="bl-mini">{quantos} {texto} o funcionamento normal.</p>'
+
+
+def _texto_de_comando(texto):
+    return " ".join(html.unescape(str(texto)).split())
+
+
+def _comandos_exibidos(problemas):
+    """Comparar com o bloco inteiro, e não por trecho: `docker ps` não está dentro de `docker ps -a`."""
+    return {_texto_de_comando(t) for t in re.findall(r"<(?:pre|code)>(.*?)</(?:pre|code)>", problemas, re.S)}
+
+
+def _outras_recomendacoes(recomendacoes, regras, problemas=""):
+    """Nenhuma some: a da capa perde o que repete, e só sai daqui quando o comando já está no
+    problema agrupado. Sem comando, a capa já a mostra por inteiro. Fora da capa, este é o único
+    lugar do texto dela."""
+    from lib.capa import MAXIMO_DE_PRIORIDADES
+    exibidos = _comandos_exibidos(problemas)
+    inteiras, comandos = "", ""
+    for ordem, r in enumerate(recomendacoes, 1):
+        if r.get("regra") in regras:
+            continue
+        if ordem > MAXIMO_DE_PRIORIDADES:
+            inteiras += _recomendacao_inteira(ordem, r)
+        elif r.get("comando") and _texto_de_comando(r["comando"]) not in exibidos:
+            comandos += _so_o_comando(ordem, r)
+    return f"<h3>Outras recomendações</h3>{comandos}{inteiras}" if comandos or inteiras else ""
+
+
+SINAL_DA_SAIDA = {"137": "SIGKILL", "143": "SIGTERM"}
+
+
+def _saidas_do_no(no):
+    """Os códigos, sem contagem: `failed_examples` é amostra, e "×3" ao lado de 17 falhadas mentiria."""
+    codigos = {_exit_code(exemplo)[1] or "?" for exemplo in no.get("failed_examples") or []}
+    return " · ".join(f"exit {codigo}" + (f" ({SINAL_DA_SAIDA[codigo]})" if codigo in SINAL_DA_SAIDA else "")
+                      for codigo in sorted(codigos))
+
+
+def _nos_resumidos(alvos):
+    com_nos = [a for a in alvos if (a.get("fatos") or {}).get("nodes")]
+    return [{"nome": (f'{a.get("nome")} · {n.get("hostname")}' if len(com_nos) > 1 else n.get("hostname")),
+             "lider": n.get("leader"), "estado": n.get("state"), "tarefas": n.get("tasks_running"),
+             "falhadas": n.get("tasks_failed"), "saidas": _saidas_do_no(n),
+             "capacidade": _fmt_capacity(n.get("capacity")), "engine": n.get("engine")}
+            for a in com_nos for n in a["fatos"]["nodes"]]
+
+
+def _linha_de_disco(nome, disco):
+    if isinstance(disco, dict):
+        return f'Disco de {nome}: não coletado, {disco.get("reason")}.' if disco.get("status") == "n/a" else ""
+    tipos = " · ".join(f'{d.get("tipo")} {d.get("tamanho")} ({d.get("recuperavel")} recuperável)' for d in disco or [])
+    return f"Disco do nó conectado em {nome}: {tipos}." if tipos else ""
+
+
+def _linha_de_tls(nome, tls):
+    """Validade do acesso ao cluster. A capa traz o certificado dos endpoints, que é outro."""
+    if not isinstance(tls, dict):
+        return ""
+    if tls.get("status") == "n/a":
+        return f'TLS do acesso a {nome}: {tls.get("reason")}.'
+    certs = tls.get("certs") or []
+    if not certs:
+        return ""
+    primeiro = min(certs, key=lambda c: c["days_left"])
+    dias = primeiro["days_left"]
+    prazo = f"vence em {dias} dias" if dias >= 0 else f"venceu há {-dias} dias"
+    return (f'TLS do acesso a {nome}: {_plural(len(certs), "certificado", "certificados")}, '
+            f'o primeiro ({primeiro.get("file")}) {prazo}.')
+
+
+def _capacidade(alvos):
+    linhas = []
+    for a in alvos:
+        fatos = a.get("fatos") or {}
+        nome = a.get("nome")
+        linhas += [_linha_de_disco(nome, fatos.get("disk")), _linha_de_tls(nome, fatos.get("tls"))]
+    return [linha for linha in linhas if linha]
+
+
+def _dados_com_corte(papel, alvos, corte):
+    from lib.dados_blocos import dados_do_papel
+    dados = dados_do_papel(papel, alvos)
+    if papel == "consumo" and dados.get("itens"):
+        ordem = sorted(dados["itens"], key=lambda i: (-(i.get("cpu") or 0), i.get("nome") or ""))
+        dados["itens"] = ordem[:corte["consumo_max"]]
+    if papel == "fila":
+        dados["filas_max"] = corte["filas_max"]
+    if papel == "entrada":
+        dados["top"] = corte["urls_geral"]
+    if papel == "urls":
+        dados["limites"] = {k: v for k, v in corte.items() if k.startswith("urls_")}
+    if papel == "maquinas":
+        dados.update(nos=_nos_resumidos(alvos), capacidade=_capacidade(alvos))
+    return dados
+
+
+def _outros_papeis(alvos):
+    from lib.html_comum import painel
+    outros = [c for a in alvos for c in a.get("componentes") or [] if c.get("papel") not in PAPEIS_COM_BLOCO]
+    if not outros:
+        return ""
+    return painel("Outros sistemas", "sem bloco próprio", f'<div class="bl-livre">{_camadas(outros)}</div>', cheio=True)
+
+
+def _fontes_das_medidas(alvos):
+    """Número sem fonte não existe: os blocos mostram o número, e a fonte vale uma vez, aqui."""
+    from lib.blocos.entrada import FAIXA_DE_LATENCIA
+    from lib.html_comum import inteiro
+    respostas = [r for a in alvos for c in a.get("componentes") or [] for r in c.get("respostas") or []
+                 if not r.get("sem_dados")]
+    fontes = sorted({str(r["fonte"]) for r in respostas if r.get("fonte")})
+    if not fontes:
+        return ""
+    faixa = ""
+    if any(r.get("pergunta") == "entrada.latencia" for r in respostas):
+        faixa = (f' Tempo de resposta: bom até {inteiro(FAIXA_DE_LATENCIA["bom_ate"])} ms, '
+                 f'ruim a partir de {inteiro(FAIXA_DE_LATENCIA["ruim_a_partir"])} ms.')
+    return f'<p class="bl-mini">Fonte das medidas: {_e(" · ".join(fontes))}.{_e(faixa)}</p>'
+
+
+def _blocos_tecnicos(alvos, corte):
+    from lib.blocos import render_bloco
+
+    def blocos(*papeis):
+        return "".join(render_bloco(p, _dados_com_corte(p, alvos, corte)) for p in papeis)
+    return (blocos("maquinas", "entrada", "urls", "fila")
+            + f'<div class="bl-par">{blocos("banco", "cache", "consumo", "falhas")}</div>'
+            + _outros_papeis(alvos) + _fontes_das_medidas(alvos))
+
+
+CAMPOS_DA_RECOMENDACAO = ("alvo", "titulo", "porque", "comando", "impacto", "esforco")
+
+
+def _sem_segredo(texto):
+    """Sem o limite de 200 caracteres de `scrub_text`: comando cortado no meio é comando errado."""
+    return scrub_text(texto, limit=None) if texto else texto
+
+
+def _redigir_texto_do_agente(r):
+    """Cópia do report com o que o agente escreveu redigido. Quem escreve por cima dos fatos
+    copia URL com credencial do que leu, e a allowlist da coleta não passa por esses campos."""
+    def recomendacao(rec):
+        return dict(rec, **{k: _sem_segredo(rec[k]) for k in CAMPOS_DA_RECOMENDACAO if k in rec})
+
+    def componente(c):
+        return dict(c, analise=_sem_segredo(c.get("analise")))
+
+    def alvo(a):
+        analises = {k: _sem_segredo(v) for k, v in (a.get("components_analysis") or {}).items()}
+        return dict(a, analise=_sem_segredo(a.get("analise")), components_analysis=analises,
+                    componentes=[componente(c) for c in a.get("componentes") or []])
+    return dict(r, resumo=_sem_segredo(r.get("resumo")),
+                fortes=[_sem_segredo(i) for i in r.get("fortes") or []],
+                fracos=[_sem_segredo(i) for i in r.get("fracos") or []],
+                recomendacoes=[recomendacao(x) for x in r.get("recomendacoes") or []],
+                alvos=[alvo(a) for a in r["alvos"]])
 
 
 def render_html_v3(r):
-    """Monta o relatorio por acao. Uma passada de substituicao, sempre: substituir em
-    laco reprocessaria o texto ja inserido, e um `%%AGIR%%` escrito pelo agente no
-    resumo injetaria uma secao inteira no relatorio."""
-    from lib.nota import nota_de_estabilidade
-    from lib.triagem import triar, cascata
+    """Monta as cinco partes do relatorio. Uma passada de substituicao, sempre: substituir em
+    laco reprocessaria o texto ja inserido, e um `%%CORPO%%` escrito pelo agente no resumo
+    injetaria uma secao inteira no relatorio."""
+    from lib import orcamento_paginas as op
+    from lib.capa import render_capa, saude_por_sistema
+    from lib.dados_blocos import dados_do_papel, medidas_por_stack
 
+    if r.get("schema_version") == 3:      # o erro de schema continua sendo o de `montar_contexto`
+        r = _redigir_texto_do_agente(r)
     ctx = montar_contexto(r)
     alvos = ctx["alvos"]
-    principal = _alvo_principal(alvos)
-    achados = (principal or {}).get("achados") or ctx["achados"]
-    t = triar(achados)
-    nota = nota_de_estabilidade((principal or {}).get("dimensoes") or {})
-
-    quantos = len(ctx["inventario"])
+    achados = ctx["achados"]
+    inventario = _inventario_da_rodada(ctx["inventario"], alvos)
+    quantos = len(inventario)
+    cobrados = _a_cobrar(achados)
     titulo = f'Auditoria de infraestrutura — {_plural(quantos, "alvo", "alvos")}'
 
-    # ---------------------------------------------------------------- topo
-    # As recomendacoes do agente vinham DENTRO da faixa "Agir agora" e so quando ela
-    # tinha corpo. Numa rodada real sem nenhum achado critico, as 8 recomendacoes —
-    # com comando pronto, o conteudo mais acionavel do documento — nao apareceram em
-    # nenhuma das 31 paginas. Elas abrem o relatorio: e a resposta a "o que eu faco".
-    # A ordem segue o movimento: as duas seções de DECISÃO primeiro, juntas, e só depois
-    # as de medida. "Se isto falhar" vinha depois de "Instrumentos", no meio do bloco de
-    # medição — e é a seção que mais se parece com uma decisão em todo o documento.
-    cluster = (
-        _sec("corrigir", "O que fazer primeiro",
-             "a leitura do agente sobre os fatos, com o comando pronto para exibir",
-             _recomendacoes_novo(ctx["recomendacoes"]), mov="decidir")
-        + _sec("falhar", "Se isto falhar", "consequência a partir do que existe hoje",
-               _impacto(((principal or {}).get("fatos") or {}).get("impact_points")),
-               mov="decidir")
-        + _sec("cluster", "Cluster", _e(f'{len((principal or {}).get("fatos", {}).get("nodes") or [])} nós · '
-                                      f'{t["total"]} achados nesta rodada'),
-             _kpis_novo(principal, t) + _dimensoes_novo(principal)
-             + _divergencias(principal or {}) + _cascata(cascata(t)), mov="medir")
-        + _sec("metrica", "Instrumentos", "mostrador só onde a pergunta declara faixa",
-               _instrumentos(alvos), mov="medir")
-        + _sec("no", "Nós e capacidade", "o que cada nó carrega",
-               _nos_novo(((principal or {}).get("fatos") or {}).get("nodes"))
-               + _node_failures(((principal or {}).get("fatos") or {}).get("nodes") or [])
-               + _disk(((principal or {}).get("fatos") or {}).get("disk"))
-               + _tls(((principal or {}).get("fatos") or {}).get("tls")), mov="medir")
-    )
-
-    # ------------------------------------------------------------- faixa 1
-    agir = t["faixas"]["agir"]["achados"]
-    corpo_agir = "".join(_achado_bloco(regra, itens, completo=True)
-                         for regra, itens in _agrupar_por_regra(agir))
-    if corpo_agir:
-        corpo_agir = '<p class="sub2">O achado e o runbook completo</p>' + corpo_agir
-    faixa1 = _faixa(1, "Agir agora",
-                    f'{len(_agrupar_por_regra(agir))} regra(s) · {_plural(len(agir), "ocorrência", "ocorrências")}',
-                    "o prejuízo cresce enquanto você lê", corpo_agir, mov="consertar")
-
-    # ------------------------------------------------------------- faixa 2
-    prog = t["faixas"]["programar"]["achados"]
-    corpo_prog = "".join(_achado_bloco(regra, itens, completo=False)
-                         for regra, itens in _agrupar_por_regra(prog))
-    faixa2 = _faixa(2, "Programar",
-                    f'{len(_agrupar_por_regra(prog))} regra(s) · {_plural(len(prog), "achado", "achados")}',
-                    "tem conserto conhecido e cabe numa janela", corpo_prog, mov="consertar")
-
-    # ------------------------------------------------------------- faixa 3
-    reg = t["faixas"]["registrar"]["achados"]
-    pend, aceites = _pendencias_novo(alvos), _aceites_novo(ctx["aceites"])
-    corpo_reg = (
-        _sec("bom", "Pontos positivos e negativos", "cada um com a evidência que o sustenta",
-             _pontos(ctx["fortes"], ctx["fracos"]), mov="registrar")
-        + _sec("aplicacoes", "Por aplicação", "as rotas que o proxy entrega em cada stack",
-               _aplicacoes_stack((principal or {}).get("fatos"),
-                                 (principal or {}).get("components_analysis")), mov="medir")
-        + _sec("rede", "Redes, secrets e configs", "inventário — só o nome, nunca o valor",
-               _rede_e_segredos((principal or {}).get("fatos")), mov="medir")
-        + _sec("aplicacoes", "Topologia · sistemas por camada",
-               "recebe · processa · enfileira · guarda · observa",
-               _camadas((principal or {}).get("componentes")), mov="medir")
-        + _sec("cobertura", "Práticas e higiene",
-               _plural(len(reg), "achado sem prazo", "achados sem prazo"),
-               "".join(_achado_bloco(regra, itens, completo=False)
-                       for regra, itens in _agrupar_por_regra(reg)), mov="consertar")
-        + _sec("aceito", "Riscos aceitos", "decididos pelo dono, com data de revisão",
-               aceites, mov="registrar")
-        + _sec("metrica", "O que falta declarar",
-               "silêncio com causa: resolver é editar o alvos.toml", pend, mov="registrar")
-        + _sec("historico", "Desde a auditoria anterior",
-               "o que mudou entre as duas fotografias", _historico_novo(ctx["historico"]),
-               mov="registrar")
-    )
-    faixa3 = _faixa(3, "Registrar e seguir",
-                    _plural(len(reg), "achado", "achados"),
-                    "o retrato, para comparar na próxima rodada", corpo_reg, mov="registrar")
-
-    resumo = (_rich(ctx["resumo"]) if ctx["resumo"]
-              else f'<p>{_e(nota["porque"].capitalize())}.</p>')
-
+    urls = dados_do_papel("urls", alvos)
+    top = (r.get("opcoes") or {}).get("top")   # vale também no aperto de páginas: foi pedido
+    corte = op.cortes({"achados": len(cobrados), "regras": len(_agrupar_por_regra(cobrados)),
+                       "sistemas": _conta_sistemas(alvos), "aceites": len(ctx["aceites"]),
+                       "pendencias": len(_mudos_de(alvos)),
+                       "filas": len(dados_do_papel("fila", alvos).get("filas") or []),
+                       "recomendacoes": len(ctx["recomendacoes"]),
+                       "pontos_de_falha": len(dados_do_papel("falhas", alvos).get("itens") or []),
+                       "nos": sum(len((a.get("fatos") or {}).get("nodes") or []) for a in alvos),
+                       "consumo": len(dados_do_papel("consumo", alvos).get("itens") or []),
+                       "urls": op.linhas_de_urls(urls, top), "urls_sites": len(urls.get("sites") or []),
+                       "top": top})
+    resumo = _rich(_EMOJI_DE_ESTADO.sub(_palavra_de_estado, ctx["resumo"])) if ctx["resumo"] else ""
+    ctx["certificados"] = _certificados_de(alvos)
+    por_nome = sorted(alvos, key=lambda x: x.get("nome") or "")
+    # O alvo com série vem primeiro: um alvo sem medida, à frente na ordem, apagaria a capa.
+    ctx["tendencias"] = next((a["tendencias"] for a in por_nome
+                              if any((a.get("tendencias") or {}).values())),
+                             next((a["tendencias"] for a in por_nome if a.get("tendencias")), {}))
+    ctx["motivo_do_que_faltou"] = _motivo_do_que_faltou(alvos)
+    # Report anterior à nota não a traz; afirmar "nenhum serviço foi medido" seria falso.
+    nota = r.get("nota_geral") or nota_geral(alvos, r.get("aceites") or [])
+    capa = render_capa(ctx, nota, resumo, _faltou(alvos))
+    avisos = f'<p class="bl-aviso">{_e(" ".join(corte["avisos"]))}</p>' if corte["avisos"] else ""
+    saude = _parte("saude-por-sistema", "Saúde por sistema", "Disponibilidade dos últimos 7 dias",
+                   saude_por_sistema(alvos, ctx["aceites"], corte["juntar_online"],
+                                     medidas_por_stack(alvos)))
+    balanco = _balanco(alvos, nota, ctx["fortes"], ctx["fracos"])
+    detalhes = _parte("detalhes-tecnicos", "Detalhes técnicos", "por tipo de sistema",
+                      _blocos_tecnicos(alvos, corte))
+    agrupados = _problemas(achados, ctx["recomendacoes"], corte)
+    problemas = _parte("problemas", "Problemas", "cada um explicado uma vez",
+                       ((agrupados + _outras_recomendacoes(ctx["recomendacoes"], _regras_visiveis(achados, corte),
+                                                          agrupados))
+                       or '<p class="bl-mini">Nenhum problema nesta rodada.</p>') + _esperados_em_contagem(achados))
+    registro = _parte("registro", "Registro", "riscos aceitos e o que falta declarar",
+                      '<h3 id="riscos-aceitos">Riscos aceitos</h3>'
+                      + (_aceites_novo(ctx["aceites"]) or '<p class="bl-mini">Nenhum risco aceito.</p>')
+                      + '<h3 id="o-que-falta-declarar">O que falta declarar</h3>'
+                      + (_pendencias_novo(alvos) or '<p class="bl-mini">Nada a declarar.</p>')
+                      + f'<p class="nota-legenda">{NOTA_DO_PAPEL}</p>'
+                      + "".join(_divergencias(a) for a in alvos)
+                      + _alvos_da_rodada(inventario))
     repl = {
         "%%TITLE%%": _e(titulo),
         "%%FONTES%%": _fontes(),
-        "%%NOTA_TITULO%%": _e(nota["titulo"]),
-        "%%NOTA_TEXTO%%": resumo,
-        "%%CARTAO_ESTADO%%": _cartao_estado(principal),
-        "%%CLUSTER%%": cluster,
-        "%%FORA%%": _fora(alvos),
-        "%%INDICE%%": _indice(t, presentes={n for n, faixa in
-                                            ((1, faixa1), (2, faixa2), (3, faixa3)) if faixa},
-                              secoes=_secoes_do_documento(cluster, faixa1, faixa2, faixa3)),
-        "%%AGIR%%": faixa1,
-        "%%PROGRAMAR%%": faixa2,
-        "%%REGISTRAR%%": faixa3,
+        "%%CAPA%%": f'<div id="bl-capa">{capa}</div>{avisos}{_fora_da_rodada(alvos)}',
+        "%%CORPO%%": saude + balanco + detalhes + problemas + registro,
     }
     with open(TEMPLATE_V3, encoding="utf-8") as f:
         pagina = f.read()

@@ -5,7 +5,7 @@
 # compartilham vocabulário. O que existe para qualquer uma é o que o CONTAINER consome, e isso
 # quem mede é o exporter de container, não a aplicação.
 #
-# As duas consultas abaixo não foram inventadas: são as que já rodavam em `lib/enrich.py`
+# As consultas de CPU e memória não foram inventadas: são as que já rodavam em `lib/enrich.py`
 # contra um cluster real, com 43 séries respondidas em cada uma.
 familia = "cadvisor"
 prioridade = 40
@@ -36,3 +36,16 @@ valor = "decimal"
 id = "app.memoria"
 query = 'sum(container_memory_usage_bytes{%SELETOR%})'
 valor = "inteiro"
+
+# Parte das horas de 7 dias, a retenção medida, em que o serviço teve container. Sem o `or`, a
+# hora sem série sumiria da média e todo serviço daria 100%. O ramo que completa a hora conta o
+# cluster inteiro, sem `%SELETOR%`: ele vale 0 quando o serviço sumiu e os outros continuam
+# sendo raspados, e não existe na hora sem scrape, que assim fica fora da média. `vector(0)`
+# existiria nela também, e o buraco do Prometheus viraria indisponibilidade do serviço. O `and`
+# final devolve "sem dados" em vez de 0% quando a fonte não publica `container_last_seen`.
+# Serviço criado há menos de 7 dias conta as horas anteriores como indisponíveis, então pode
+# aparecer abaixo do real.
+[[pergunta]]
+id = "app.disponibilidade_7d"
+query = '100 * avg_over_time(((count(container_last_seen{name!="",%SELETOR%}) > bool 0) or 0 * count(container_last_seen{name!=""}))[7d:1h]) and on () count(container_last_seen{name!="",%SELETOR%})'
+valor = "decimal"

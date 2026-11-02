@@ -8,7 +8,8 @@ O papel é o que decide QUAIS PERGUNTAS o componente recebe. Papel errado não �
 cosmético: é perguntar de fila para um banco.
 """
 
-PAPEIS = ("entrada", "fila", "banco", "cache", "busca", "storage", "observabilidade", "app")
+PAPEIS = ("entrada", "fila", "banco", "cache", "busca", "storage", "observabilidade", "maquina",
+          "app")
 
 POR_KIND = {
     "ingress/proxy": "entrada", "proxy": "entrada", "api-gateway": "entrada",

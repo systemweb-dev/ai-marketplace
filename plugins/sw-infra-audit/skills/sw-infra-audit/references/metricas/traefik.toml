@@ -32,3 +32,37 @@ desempate = "chave"
 id = "entrada.latencia"
 query = 'histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{%SELETOR%}[%JANELA%]))) * 1000'
 valor = "decimal"
+
+# --- quem recebeu os acessos
+#
+# Por `router`, não por `service`: a rota é o que liga o número ao domínio (a regra `Host` nas
+# `routing_labels` dos serviços), e `service` identifica só o backend. Os valores têm a forma
+# `<nome>@swarm`. Roteador sem 5xx não tem série em `erros`: fica None, nunca 0.
+[[pergunta]]
+id = "entrada.por_servico"
+chave = "router"
+ordenar_por = "acessos"
+desempate = "nome"
+valor = "inteiro"
+
+  [[pergunta.campo]]
+  nome = "acessos"
+  query = 'sum by (router) (increase(traefik_router_requests_total{%SELETOR%}[%JANELA%]))'
+
+  [[pergunta.campo]]
+  nome = "erros"
+  query = 'sum by (router) (increase(traefik_router_requests_total{code=~"5..",%SELETOR%}[%JANELA%]))'
+
+  [[pergunta.campo]]
+  nome = "resposta"
+  query = '1000 * histogram_quantile(0.95, sum by (le, router) (rate(traefik_router_request_duration_seconds_bucket{%SELETOR%}[%JANELA%])))'
+
+# Tendências da capa: a fonte inteira, em `query_range`. Sem nenhum 5xx a série do numerador nem
+# existe, e `or vector(0)` faz isso sair como 0% em vez de "sem dado".
+[[tendencia]]
+nome = "erros"
+query = '(sum(rate(traefik_service_requests_total{code=~"5.."}[1h])) or vector(0)) / sum(rate(traefik_service_requests_total[1h])) * 100'
+
+[[tendencia]]
+nome = "resposta"
+query = 'histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket[1h]))) * 1000'

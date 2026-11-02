@@ -4,11 +4,15 @@ A ordem é a prioridade declarada — menor vence, porque o mais específico sab
 genérico. Empate resolve pelo id, em ordem lexical: sem ordem total, duas fontes equivalentes
 produziriam relatórios diferentes para a mesma entrada.
 """
-from lib.adaptadores import admin_http, promql
+from lib.adaptadores import admin_http, exec_leitura, logql, promql
 
+# `logql` antes do `promql`: nesta pergunta o motivo dele é o que explica a falta, não o "o
+# exporter não expõe". Nas outras ele passa a vez sem custo.
 REGISTRO = {
     admin_http.ID: {"modulo": admin_http, "prioridade": 20},
+    logql.ID: {"modulo": logql, "prioridade": 25},
     promql.ID: {"modulo": promql, "prioridade": 30},
+    exec_leitura.ID: {"modulo": exec_leitura, "prioridade": 40},
 }
 
 

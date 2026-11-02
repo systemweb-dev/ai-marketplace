@@ -8,6 +8,26 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.19.0): **relatório simples para leigos e técnicos.** Uma rodada real caiu de dezenas
+  para cerca de 20 páginas. A capa traz nota geral, serviços online, tendências, resumo de até duas frases,
+  prioridades e o que mudou. Depois vêm saúde por sistema, blocos próprios por tipo (máquinas, sites,
+  filas, bancos, cache, consumo e pontos de falha), problemas agrupados e registro. A nota pesa 70%
+  serviços online, 20% redundância e 10% práticas, com teto de 59 para queda e 79 para problema alto, e
+  revoga a regra anterior contra nota única. A coleta ganhou node-exporter por nó, sites por rota com
+  domínio, acerto de cache, disponibilidade e previsão de disco e tendências por `query_range`. O corte
+  de páginas é por contagem, avisado no próprio relatório. Alvo fora da rodada vira uma linha.
+  Filas podem ser lidas por dentro do container, sem senha, com comando de leitura fixo em catálogo por
+  produto: é a única exceção à proibição de `exec`, sem shell nem argumento livre.
+  Com `logs_url` no alvo, o adaptador `logql` lê o log de acesso do proxy, normaliza identificadores e
+  mostra as URLs mais acessadas, com erros e lentidão. Só o host, o caminho, o status e a duração saem do Loki.
+  Sites e URLs mostram o top 15. No PDF, painel não se parte entre folhas, comando não é cortado e cada
+  problema começa em folha própria.
+  A rodada pergunta sempre, com padrão, as horas de acessos, o top de sites e URLs e o tempo de coleta
+  (`--janela-horas`, `--top`, `--orcamento`). "Pontos positivos e pontos de atenção" vem logo depois da
+  saúde por sistema, montado das medidas; o que o agente escreve entra depois.
+  Só segmento com cara de rota aparece nas URLs: o resto vira `:token`. Valor de cabeçalho em label do proxy
+  é redigido, e a conexão ignora proxy do ambiente.
+
 - `sw-brainstorming` (v0.8.2) e `sw-plan` (v0.7.1): o resumo do spec e o do plano passam de 15 para
   30 a 50 linhas, com fluxo, decisões, riscos e o que está em aberto.
 - `sw-brainstorming` (v0.8.1): meta de até 80 linhas para o spec no modo Direto e o gatilho "vale a
@@ -307,6 +327,8 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   uma ponta só faz o acoplamento novo sumir em silêncio quando a outra ponta já estava lá.
 
 ### Corrigido
+- `sw-infra-audit` (v0.19.0): serviço com réplicas parciais contava como online,
+  a redação agora cobre senha em argumento, variável e cabeçalho, e o resumo longo é recusado.
 - `sw-brainstorming` (v0.8.0): removido do plugin um dossiê vazio que ia publicado por engano.
 - `sw-dead-code-scan` (v0.3.1): números errados no `SKILL.md` e nas entradas das v0.2.0 e v0.3.0. A
   skill de referência tem nenhum candidato de alta e 2 de média, não "zero candidatos"; o ensaio em

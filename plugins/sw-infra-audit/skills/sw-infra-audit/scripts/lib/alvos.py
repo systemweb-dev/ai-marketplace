@@ -16,7 +16,7 @@ OBRIGATORIOS = {
     "http": ("url",),
 }
 OPCIONAIS = {
-    "docker": ("metricas_url",),
+    "docker": ("metricas_url", "logs_url", "rotulos"),
     "http": (),
 }
 COMUNS = ("nome", "tipo", "componente")
@@ -144,9 +144,14 @@ def ler(caminho):
         if faltando:
             raise AlvoInvalido(f"{caminho.name}: alvo {nome!r} ({tipo}) sem {', '.join(faltando)}")
 
-        for campo in ("url", "metricas_url"):
+        for campo in ("url", "metricas_url", "logs_url"):
             if bruto.get(campo):
                 _checar_url(nome, campo, bruto[campo])
+
+        rotulos = bruto.get("rotulos", {})
+        if not isinstance(rotulos, dict) or not all(isinstance(v, str) for v in rotulos.values()):
+            raise AlvoInvalido(f"{caminho.name}: alvo {nome!r}: rotulos é uma tabela "
+                               f"stack = \"Nome do sistema\"")
 
         registro = dict(bruto)
         registro["componente"] = _checar_componentes(caminho, nome,

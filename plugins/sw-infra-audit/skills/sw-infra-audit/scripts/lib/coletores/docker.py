@@ -11,8 +11,10 @@ from lib.runner import run
 import inspect
 import json
 from lib import cert, discover, impact, metrics, produtos, stacks
+from lib.coletores.docker_allowlist import ID_DE_TASK, inspect_de_task
 from lib.coletores.docker_report import na, new_report, split_image
 
+USO_POR_NO = "uso de CPU/mem em tempo real por nó"
 DEFAULT_TIMEOUT = 15
 
 # A tabela de produtos saiu daqui para `references/produtos.toml`: era a terceira lista
@@ -79,6 +81,45 @@ def _completed_job(tasks):
         return False
     return (any(_state(t) == "Complete" for t in tasks)
             and not any(_state(t) == "Running" for t in tasks))
+
+
+_ID_DE_CONTAINER = re.compile(r"[0-9a-f]{12,64}")
+_TAMANHO_DO_ID_CURTO = 12
+
+
+def _exporter_por_container(servicos, rodar, avisar=None):
+    """`{id curto do container: hostname}` das tasks em execução do exporter de nó.
+
+    O `nodename` das séries dele é o id curto do container, e `instance` é um IP interno que
+    muda. A ligação com a máquina só existe no Swarm, e é daqui que ela sai.
+
+    Devolve também os serviços cuja listagem falhou: sem isso, "não consegui ler" e "não há
+    exporter" sairiam iguais no relatório. `avisar(serviço, nó, saída)` recebe cada task em
+    execução que o inspect não ligou a um container.
+    """
+    mapa, falhas = {}, []
+    for servico in servicos if isinstance(servicos, list) else []:
+        nome = servico.get("name")
+        rotulo = f'{servico.get("image") or ""}:{servico.get("tag") or ""} {nome or ""}'
+        if not nome or not produtos.container_liga_no(rotulo):
+            continue
+        bruto = rodar(["docker", "service", "ps", nome, "--filter", "desired-state=running",
+                       "--no-trunc", "--format", "{{json .}}"])
+        if bruto is None:
+            falhas.append(nome)
+            continue
+        for task in _jlines(bruto):
+            id_da_task, no = task.get("ID"), task.get("Node")
+            if (_state(task) != "Running" or not no
+                    or not ID_DE_TASK.fullmatch(str(id_da_task or ""))):
+                continue
+            saida = rodar(inspect_de_task(id_da_task))
+            container = (saida or "").strip()
+            if _ID_DE_CONTAINER.fullmatch(container):
+                mapa[container[:_TAMANHO_DO_ID_CURTO]] = no
+            elif avisar:
+                avisar(nome, no, saida)
+    return mapa, falhas
 
 
 def assemble_report(run_fn, timeout, context, generated_at, connected_node):
@@ -186,7 +227,7 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "tasks_failed": len(failed) if tasks_ok else None,
                 "failed_examples": [f'{t.get("Name")}: {_task_err(t)}' for t in failed[:3]],
             })
-        r["not_collected"].append({"what": "uso de CPU/mem em tempo real por nó",
+        r["not_collected"].append({"what": USO_POR_NO,
                                    "reason": "requer Prometheus/cAdvisor (capacidade é reportada)"})
 
     # --- disco (nó conectado): imagens/containers/volumes/cache e o que dá pra recuperar
@@ -234,6 +275,20 @@ def assemble_report(run_fn, timeout, context, generated_at, connected_node):
                 "failed_reason": _task_err(failed[0]) if failed else None,
             })
             r["findings"].extend(findings_for_workload({**red, **img}, scope="cluster-wide"))
+
+    # --- quem é cada exporter de nó: o que liga a série do Prometheus ao hostname
+    def _sem_ligacao(servico, no, saida):
+        # o erro desta chamada é o último da lista, e `_why` devolveria o primeiro da coleta
+        motivo = ((errs[-1]["reason"] if errs else "inspect indisponível") if saida is None
+                  else "o inspect não devolveu o id do container")
+        r["not_collected"].append({"what": f"ligação de {servico} ao nó {no}", "reason": motivo})
+
+    exporter, sem_listagem = _exporter_por_container(r["services"], _run, _sem_ligacao)
+    if exporter:
+        r["exporter_por_container"] = exporter
+    for nome in sem_listagem:
+        r["not_collected"].append({"what": f"tasks de {nome}",
+                                   "reason": _why("service ps indisponível")})
 
     # --- containers (SÓ o nó conectado — escopo anotado em scope)
     ps_raw = _run(["docker", "ps", "--format", "{{json .}}"])
@@ -347,7 +402,7 @@ def coletar(alvo, contexto):
 
     fatos = {chave: bruto.get(chave) for chave in
              ("nodes", "services", "networks", "secrets", "configs", "stacks", "tls", "scope",
-              "impact_points", "disk")
+              "impact_points", "disk", "exporter_por_container")
              if bruto.get(chave) is not None}
 
     # cada serviço vira um componente: é o papel dele que decide quais perguntas ele recebe.
@@ -381,6 +436,8 @@ def coletar(alvo, contexto):
         # um `monitoring_agent` rodando um exporter escaparia.
         componente["exportador"] = produtos.e_exportador(
             f"{servico.get('image') or ''} {nome}")
+        # Só o que veio da imagem abre o `exec` de leitura: `papel` declarado não basta.
+        componente["produto"] = produtos.nome_do_caminho(servico.get("image"))
         endereco = declarado.get("metricas_url") or alvo.get("metricas_url")
         if endereco:
             componente["metricas_url"] = endereco

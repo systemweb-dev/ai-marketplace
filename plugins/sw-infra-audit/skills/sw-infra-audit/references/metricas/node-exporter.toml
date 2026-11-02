@@ -1,0 +1,58 @@
+# Família de exporter: node-exporter. É ela que responde pelo papel `maquina`.
+#
+# A identidade do nó não está nas séries de CPU, memória e disco. `instance` é um IP interno que
+# muda, e `nodename` só existe em `node_uname_info`, valendo o id curto do container do exporter.
+# Por isso a consulta junta pela `node_uname_info` daquele container, e quem diz qual é o
+# container de cada nó é o coletor docker.
+familia = "node-exporter"
+prioridade = 50
+
+papel = "maquina"
+# NÃO prova papel: mede a máquina, e o nó já vem do Swarm.
+identifica_papel = false
+
+[identificacao]
+metrica_presente = "node_uname_info"
+
+[seletor]
+etiqueta = "nodename"
+# O valor vem do componente, nunca do nome dele nem do exporter inteiro.
+valor_do_componente = true
+
+[[pergunta]]
+id = "maquina.cpu"
+query = '100 - avg(rate(node_cpu_seconds_total{mode="idle"}[%JANELA%]) * on (instance, job) group_left () node_uname_info{%SELETOR%}) * 100'
+valor = "decimal"
+
+[[pergunta]]
+id = "maquina.memoria"
+query = '100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * on (instance, job) group_left () node_uname_info{%SELETOR%}'
+valor = "decimal"
+
+# `max`: o mesmo ponto de montagem pode vir de mais de um dispositivo, e vale o mais cheio.
+[[pergunta]]
+id = "maquina.disco"
+query = 'max(100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * on (instance, job) group_left () node_uname_info{%SELETOR%})'
+valor = "decimal"
+
+# `deriv` é a regressão de `predict_linear`, e responde em quantos dias enche sem fixar horizonte.
+# Sete dias é a retenção medida. Vale o dispositivo que enche primeiro. Disco parado dá divisão
+# por zero, e o adaptador descarta infinito como "sem dados". Por isso, quando nenhum dispositivo
+# enche, a consulta devolve -1, que o bloco de máquinas escreve como "estável".
+[[pergunta]]
+id = "maquina.disco_dias"
+query = 'min((node_filesystem_avail_bytes{mountpoint="/"} / (-deriv(node_filesystem_avail_bytes{mountpoint="/"}[7d]) * 86400)) * on (instance, job) group_left () node_uname_info{%SELETOR%} >= 0 < Inf) or min(clamp((node_filesystem_avail_bytes{mountpoint="/"} / (-deriv(node_filesystem_avail_bytes{mountpoint="/"}[7d]) * 86400)) * on (instance, job) group_left () node_uname_info{%SELETOR%}, -1, -1))'
+valor = "decimal"
+
+# Tendências da capa: a fonte inteira, em `query_range`.
+[[tendencia]]
+nome = "cpu"
+query = '100 - avg(rate(node_cpu_seconds_total{mode="idle"}[1h])) * 100'
+
+[[tendencia]]
+nome = "memoria"
+query = '100 * (1 - sum(node_memory_MemAvailable_bytes) / sum(node_memory_MemTotal_bytes))'
+
+[[tendencia]]
+nome = "disco"
+query = 'max(100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}))'

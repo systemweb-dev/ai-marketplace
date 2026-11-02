@@ -20,7 +20,7 @@ PASTA_PADRAO = "docs/infra"
 # o que o arquivo do projeto pode definir — nada além disto
 PROJETO_PERMITE = ("alvos", "aceite", "relatorio", "severidade", "insights")
 RELATORIO_PERMITE = ("pasta", "formato", "ignorar_em", "ip_completo")
-INSIGHTS_PERMITE = ("janela", "limite_de_lista")
+INSIGHTS_PERMITE = ("janela", "limite_de_lista", "top")
 # o aceite é o único bloco do arquivo que APAGA achado: um erro de digitação aqui
 # (`compomente`) viraria aceite do alvo inteiro, silenciosamente mais amplo que o pedido
 ACEITE_PERMITE = ("alvo", "componente", "regra", "objeto", "motivo", "desde", "revisar_em")

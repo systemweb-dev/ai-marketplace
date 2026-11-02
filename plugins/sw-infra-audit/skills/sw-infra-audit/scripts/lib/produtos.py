@@ -35,6 +35,9 @@ def _validar(produto, onde):
         raise ProdutosInvalidos(f"{onde}: `exportador` de {produto['nome']!r} precisa ser "
                                 f"booleano — um texto qualquer passaria como verdadeiro e "
                                 f"silenciaria o papel de um produto inteiro")
+    if "container_liga_no" in produto and not isinstance(produto["container_liga_no"], bool):
+        raise ProdutosInvalidos(f"{onde}: `container_liga_no` de {produto['nome']!r} precisa ser "
+                                f"booleano")
     rotas = produto.get("rotas")
     if rotas is not None:
         for obrigatorio in ("prefixo", "sufixo_da_regra"):
@@ -85,6 +88,15 @@ def kind_do_caminho(caminho_da_imagem, produtos=None):
             # não-objetivos deste ciclo. Produto sem `kind` casa e devolve None: ele é
             # conhecido, e o que se sabe dele é que não é nenhum dos tipos.
             return produto.get("kind")
+    return None
+
+
+def nome_do_caminho(caminho_da_imagem, produtos=None):
+    """O nome do primeiro produto cujo trecho aparece no caminho — ou None."""
+    alvo = (caminho_da_imagem or "").lower()
+    for produto in (produtos if produtos is not None else carregar()):
+        if any(t in alvo for t in produto["imagem"]):
+            return produto["nome"]
     return None
 
 
@@ -139,6 +151,18 @@ def e_exportador(texto, produtos=None):
                if produto.get("exportador"))
 
 
+def container_liga_no(texto, produtos=None):
+    """O container deste produto identifica o nó onde ele roda?
+
+    Olha o texto inteiro, tag incluída: em bundle de monitoramento o caminho da imagem não diz
+    nada, e o produto só aparece na tag ou no nome do serviço.
+    """
+    alvo = (texto or "").lower()
+    return any(any(t in alvo for t in produto["imagem"])
+               for produto in (produtos if produtos is not None else carregar())
+               if produto.get("container_liga_no"))
+
+
 def prefixos_de_rota(produtos=None):
     """Os prefixos de label que carregam configuração de ROTEAMENTO, e sobrevivem à redação.
 
@@ -149,6 +173,13 @@ def prefixos_de_rota(produtos=None):
     return tuple(p["rotas"]["prefixo"]
                  for p in (produtos if produtos is not None else carregar())
                  if p.get("rotas"))
+
+
+def nome_da_rota(chave, produtos=None):
+    """O nome da rota numa label de regra (`traefik.http.routers.<nome>.rule`) — ou None."""
+    if not e_regra_de_rota(chave, produtos):
+        return None
+    return str(chave).rsplit(".", 1)[0].partition(".routers.")[2] or None
 
 
 def e_regra_de_rota(chave, produtos=None):

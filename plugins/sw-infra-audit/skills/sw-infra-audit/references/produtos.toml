@@ -212,6 +212,7 @@ nome = "node-exporter"
 imagem = ["node-exporter", "node_exporter"]
 exportador = true
 socket_esperado = true
+container_liga_no = true        # o `nodename` das séries é o id curto do container dele
   [produto.metricas]
   familia = "node_exporter"
   porta = 9100

@@ -1,0 +1,11 @@
+# Consulta fixa do log de acesso. Nada aqui vem do alvos.toml, e `lib/catalogo_logs.py` recusa
+# qualquer forma que não termine em `line_format` com os quatro campos.
+#
+# Os logs brutos trazem cabeçalhos com Cookie e Authorization: por isso `json` extrai só os
+# campos nomeados e `line_format` reescreve a linha. Agregação no LogQL (`sum by`) estoura
+# `maximum of series (500)` por causa dos rótulos de arquivo; quem agrega é o Python.
+familia = "traefik"
+pergunta = "entrada.urls_mais_acessadas"
+rota = "/loki/api/v1/query_range"
+seletor = '{job="traefik"}'
+consulta = '%SELETOR% |= "RequestPath" | json h="RequestHost", p="RequestPath", s="DownstreamStatus", d="Duration" | __error__="" | line_format "{{.h}}\t{{.p}}\t{{.s}}\t{{.d}}"'

@@ -2,7 +2,8 @@
 name: sw-infra-audit
 description: >-
   Audita a infraestrutura de forma READ-ONLY e gera um relatório técnico (HTML + PDF opcional)
-  com inventário, achados triados POR AÇÃO e riscos aceitos. Trabalha por ALVOS: cluster Docker
+  com inventário, nota geral, problemas agrupados, blocos por tipo de sistema e riscos aceitos.
+  Trabalha por ALVOS: cluster Docker
   (context/Swarm) e endpoint HTTP (saúde + validade do certificado). Use SEMPRE que o usuário
   quiser um raio-x da infra ou de parte dela — "audita minha infra", "como está o cluster",
   "o que pode cair primeiro", "relatório da infraestrutura", "esse certificado vence quando?",
@@ -40,6 +41,7 @@ Vale em todos os pontos de decisão desta skill:
 | **Componente calado** (passo 3b, antes de interpretar) | declarar a fonte agora — `metricas_url` para proxy e aplicação, `admin_url` + `senha_env` para fila — para o relatório sair com medida em vez de rótulo? |
 | Achado que o dono já conhece | registrar como risco aceito, com motivo e prazo? |
 | Aceite vencido no relatório | renovar, deixar vencer ou resolver o achado? |
+| **Opções da rodada** (sempre, junto da confirmação dos alvos) | horas de acessos, top de sites e URLs, tempo de coleta — cada uma com o padrão como primeira opção |
 | **No fim** | gerar o PDF também? |
 
 Para resposta aberta (um motivo de aceite, um endereço), ofereça as opções prováveis e conte
@@ -52,10 +54,13 @@ suprir leitura que você não fez.
 
 ## Garantias inegociáveis
 
-- **Nada é alterado.** Só comandos de leitura, por allowlist. Nunca `rm/kill/restart/exec/create/
-  update/scale/prune`, `logs`, `cp`, `secret inspect`.
+- **Nada é alterado.** Só comandos de leitura, por allowlist.
+  `exec` só para leitura, comando fixo do catálogo, sem shell. Tudo o mais continua proibido:
+  `rm/kill/restart/create/update/scale/prune`, `logs`, `cp`, `secret inspect`.
 - **Nenhum segredo sai.** O relatório mostra **nomes** de secrets e **chaves** de env, nunca
-  valores, nunca string de conexão. A senha de um alvo nunca é gravada em lugar nenhum.
+  valores, nunca string de conexão. A senha de um alvo nunca é gravada em lugar nenhum. Texto do
+  agente e comando também são redigidos: flag, variável, `Authorization`, `-p` do mysql e URL com
+  senha saem com `***`, enquanto `$SENHA` e nomes sem valor ficam como estão.
 - **Egress fechado.** Só se fala com host declarado no `alvos.toml` **e** confirmado na rodada.
 - **Não consegui ver ≠ está ruim.** Falha de acesso vira `nao_coletado` com motivo, nunca achado,
   e a dimensão fica sem nota.
@@ -123,15 +128,21 @@ responde o que souber e carimba a **fonte**.
 
 | Adaptador | Fala com | Estado |
 |---|---|---|
-| `promql` | o Prometheus declarado em `metricas_url` (a API `/api/v1/query`) | funciona |
+| `promql` | o Prometheus declarado em `metricas_url`, só leitura (`/api/v1/query` e `/api/v1/query_range`) | funciona |
 | `admin_http` | API de administração do componente — hoje, filas de broker AMQP | funciona |
+| `exec_leitura` | comando fixo de `references/execs/<familia>.toml` dentro do container, sem senha e só no nó do context; última fonte | funciona |
+| `logql` | o Loki declarado em `logs_url`, só `GET` em `/loki/api/v1/query_range`, com a consulta fixa de `references/logs/<familia>.toml`; responde às URLs mais acessadas | funciona |
 | `sql` | Postgres/MySQL por cliente de linha de comando | próximo ciclo |
-| `logql` | agregador de log, só consulta agregada | próximo ciclo |
 
 O conhecimento de cada família de exporter vive em `references/metricas/<familia>.toml` —
 identificação pela **série que existe** (não pelo nome da imagem, que mente com fork e tag
 genérica), etiqueta de seletor e uma consulta por pergunta. Acrescentar um produto é escrever
 um arquivo; nenhum `if produto ==` no código.
+
+**Tendências da capa:** erros, resposta, CPU, memória e disco, em 24 horas com passo de 1 hora, via
+`/api/v1/query_range`. **Máquinas:** a família `node-exporter` responde pelo papel `maquina`, e o nó é
+ligado a `fatos.nodes` pelo container do exporter. **Disponibilidade e previsão de disco** usam 7 dias,
+a retenção real medida, e não 30: a consulta nunca promete janela que o Prometheus não guarda.
 
 Duas coisas valem saber sobre como o `promql` liga série a componente, porque é onde ele erra
 quando erra. Primeiro, a família só concorre se **responde pergunta do papel** daquele
@@ -154,10 +165,12 @@ pelas chaves do JSON de identificação e extrai por uma **linguagem fechada** (
 campos, transformações e contas declaradas). Não há expressão arbitrária — o que não cabe nela
 vira adaptador próprio, com código e teste.
 
-**Papel `fila`** — duas fontes respondem, e a mais específica vence. A **API de administração**
+**Papel `fila`** — três fontes respondem, e a mais específica vence. A **API de administração**
 traz vhost e taxa de entrada × saída, e por isso vem primeiro; o **exporter no Prometheus**
 responde filas e consumidores sem credencial nenhuma, para quem não quer criar usuário no
-broker. Vale saber que o plugin oficial **agrega** por padrão: sem
+broker. Por último, o **`exec_leitura`** lê as filas por dentro do container, sem senha e sem taxa
+(o ritmo sai como "não medido"), com fonte `exec:rabbitmq`; se o container estiver em outro nó, a
+resposta fica `sem dados` com o motivo. Vale saber que o plugin oficial **agrega** por padrão: sem
 `prometheus.return_per_object_metrics` (ou um scrape em `/metrics/per-object`), a etiqueta por
 fila não existe, e a resposta sai como `sem dados` dizendo exatamente isso — não como "a fonte
 não respondeu", que mandaria caçar problema de rede.
@@ -172,9 +185,13 @@ fila, identificado como `nome@vhost` (ex.: `emails@staging`). O limiar vê **tod
 relatório mostra as 10 primeiras de cada lista e diz quantas ficaram de fora — a lista completa
 fica no `report.json`.
 
-Declare o componente quando quiser corrigir o papel ou apontar a fonte:
+Declare o componente quando quiser corrigir o papel ou apontar a fonte. A tabela opcional `rotulos`
+dá nome legível à stack em "Saúde por sistema":
 
 ```toml
+[alvo.rotulos]
+loja = "Loja virtual"
+
 [[alvo.componente]]
 nome = "traefik"
 papel = "entrada"
@@ -192,6 +209,33 @@ usuario = "auditoria"           # opcional; o padrão é `guest`
 entra** no `alvos.toml`, no argv, no `report.json`, no HTML nem no PDF. Ela é amarrada ao
 (alvo, host, porta) daquele componente: não serve para outro destino. Senha escrita na própria
 URL (`http://usuario:senha@host`) é **recusada** ao ler o `alvos.toml`.
+
+**URLs mais acessadas** vêm do log de acesso do proxy, e só se o alvo docker declarar a `logs_url`
+(opcional, a raiz do Loki, com egress só para ela):
+
+```toml
+[[alvo]]
+nome = "producao"
+tipo = "docker"
+context = "producao"
+logs_url = "http://loki.interno:3100"
+```
+
+- **Fonte:** 24 janelas de 1 hora ancoradas no `--at`, com `limit=5000` e `direction=backward`. A
+  pergunta `entrada.urls_mais_acessadas` roda por último, com o que sobrou do orçamento do alvo; sem
+  `logs_url` ela sai da conta da cobertura, e o bloco diz "não medido" com a instrução. Fonte declarada
+  que falha vira `sem dados` com motivo, sem derrubar a coleta.
+- **Amostra:** janela que bate no limite conta como amostrada, e janela não lida fica fora de
+  `janelas.cobertas`. Quando não cobriu tudo, o relatório diz "amostra": os números valem como
+  ordem de grandeza, não como contagem total.
+- **Proteção de dados:** os logs brutos têm cabeçalhos com Cookie e Authorization. A consulta sempre
+  passa por `line_format`, que reescreve a linha em host, caminho, status e duração; a skill nunca lê
+  linha sem ele, nunca grava a linha bruta e nunca imprime cabeçalho. O catálogo só aceita essa forma, e linha
+  fora dela é descartada. Consulta e fragmento saem do caminho, IDs numéricos, UUID e hexa viram `:id`,
+  e segmento com 24 caracteres ou mais vira `:token`. Vão ao `report.json` só o caminho agregado, com
+  até 200 caracteres e passado por `scrub_text`, e o top 50 por site, com acessos, % de 5xx e p95.
+- **Limite do Loki:** agregar no LogQL (`sum by`) estoura `maximum of series (500)` por causa dos
+  rótulos de arquivo. Por isso a consulta traz linhas e quem agrega é o Python.
 
 O `nome` do componente é o nome do **serviço** como o Docker o mostra; declaração que não casa
 com nenhum serviço aparece em "não coletado", com a sugestão do nome certo quando houver um
@@ -228,16 +272,33 @@ todos os declarados entram.
 ### 2. Confirmação — obrigatória, e antes de qualquer conexão
 
 Mostre via `AskUserQuestion` **todos** os alvos da rodada, com **nome, tipo e onde**, e peça a
-confirmação. Alvo não confirmado **não é tocado** — mas ainda aparece no relatório como
-`sem dados`, para o inventário não mentir por omissão.
+confirmação. Alvo não confirmado **não é tocado**: fica no `report.json` e o relatório mostra uma linha
+"Fora desta rodada" com os nomes, para o inventário não mentir por omissão.
 
 Alvo de produção merece atenção redobrada na pergunta: diga o que será executado nele.
+
+### 2b. Opções da rodada — sempre pergunte, sempre com padrão
+
+Numa só chamada de `AskUserQuestion`, depois da confirmação dos alvos. O padrão é a **primeira opção**,
+marcada "(Recomendado)", e vem do `config --explicar`. Sem resposta, siga com ele.
+
+| Pergunta | Opções | Flag |
+|---|---|---|
+| Quantas horas de acessos? | **24 h** · 6 h · 12 h · 48 h | `--janela-horas` |
+| Top de sites e URLs? | **15** · 10 · 20 | `--top` |
+| Tempo de coleta por alvo? | **120 s** · 240 s · 300 s | `--orcamento` |
+
+As horas valem para as URLs do Loki e para tráfego e latência do Prometheus. As tendências da capa seguem
+em 24 horas. As URLs são lidas por último, com o tempo que sobrar: cada hora custa cerca de 3 s, então
+janela maior pede mais tempo de coleta, senão o relatório sai como amostra. As escolhas ficam em
+`opcoes` no `report.json`, e regerar o relatório as mantém.
 
 ### 3. Coletar
 
 ```bash
 python3 <skill-dir>/scripts/collect.py --out docs/infra/<AAAA-MM-DD_HHMM> \
-  --at <ISO> --confirmar <nomes confirmados>
+  --at <ISO> --confirmar <nomes confirmados> \
+  --janela-horas <h> --top <n> --orcamento <s>
 ```
 
 - **Exit 0** → imprime o caminho do `report.json` e uma linha por alvo com saúde e tipo.
@@ -280,13 +341,15 @@ regra:
 
 | Campo | O que escrever |
 |---|---|
-| `resumo` | 2 a 4 frases dizendo **por que** o veredito é esse |
-| `fortes` / `fracos` | o que está bom e o que preocupa, em lista |
-| `recomendacoes` | `{alvo, titulo, porque, comando, impacto, esforco}` — **com o comando pronto** |
+| `resumo` | até 2 frases e 280 caracteres dizendo **por que** o veredito é esse. Acima disso, `build_report.py` sai com código 2 e não gera relatório: reescreva. Sem 🔴🟡🟢 |
+| `fortes` / `fracos` | só o que as medidas não dizem: o relatório já monta os pontos positivos e de atenção a partir delas, e estes itens entram depois |
+| `recomendacoes` | `{alvo, titulo, porque, comando, impacto, esforco, regra?}` — **com o comando pronto**. Com `regra`, o comando vai para o problema agrupado; sem ela, para "Outras recomendações". Nenhuma some |
 | `alvos[].analise` | o que aquele componente é e o que preocupa nele |
 
 Use `dimensoes`, `fatos` e `achados` de cada alvo. O que estiver em `nao_coletado` **precisa
-aparecer no resumo**: relatório com buraco explícito é honesto; relatório que cala é mentira.
+aparecer no resumo**, em poucas palavras: relatório com buraco explícito é honesto; relatório que cala é mentira. A exceção é o aviso de uso
+por nó quando todas as máquinas foram medidas: ele nasce antes da medida e o relatório o omite.
+`resumo`, `fortes`, `fracos`, `recomendacoes` e `analise` passam por redação antes de sair no relatório.
 
 ### 5. Relatório
 
@@ -294,59 +357,35 @@ aparecer no resumo**: relatório com buraco explícito é honesto; relatório qu
 python3 <skill-dir>/scripts/build_report.py --dir docs/infra/<AAAA-MM-DD_HHMM> --formato html
 ```
 
-Gera `relatorio.html` — arquivo único, A4 **paisagem**, com as fontes embutidas em base64
-(o PDF é gerado sem rede). O índice do topo é **clicável também no PDF** — o Chromium converte
-as âncoras em link com destino de página —, então quem receber o arquivo navega sem rolar. Ele
-anuncia as **três faixas de ação e todas as seções**, com o link de cada uma: num documento de
-trinta e tantas páginas, anunciar só as faixas obriga a rolar atrás do resto.
+Gera `relatorio.html` — arquivo único, A4 **paisagem**, com as fontes embutidas em base64 (o PDF é
+gerado sem rede). Cinco partes, nesta ordem:
 
-**O relatório abre com "O que fazer primeiro"** — as `recomendacoes` que você escreveu, com o
-comando pronto. Elas moravam dentro da faixa "Agir agora" e só apareciam quando ela tinha corpo:
-numa rodada sem nenhum achado crítico, as oito recomendações da auditoria não saíram em nenhuma
-das 31 páginas.
+1. **Capa:** nota, serviços online, tendências, veredito, seu `resumo`, "O que fazer primeiro", o que
+   mudou, certificados e uma linha do que não foi medido, por categoria e com o motivo mais comum.
+2. **Saúde por sistema:** uma linha por stack, com o nome de `rotulos` quando houver, seguida de
+   **Pontos positivos e pontos de atenção**, montados por `lib/balanco.py` a partir das medidas.
+3. **Detalhes técnicos:** blocos por papel em `scripts/lib/blocos/`: máquinas, entrada, fila, banco,
+   cache, consumo e pontos únicos de falha. Papel sem bloco usa a tabela genérica. Sem fonte, o bloco
+   diz "não medido" com o motivo, nunca zero. Em sites, rota medida sem série de 5xx mostra "nenhum";
+   sem medida de acessos ou com a consulta de erros falhando, "sem dado".
+4. **Problemas:** um bloco por regra, explicado uma vez, com afetados, ação e verificação.
+5. **Registro:** riscos aceitos com vencidos em destaque e o que falta declarar.
 
-**A frase que vale para todas as ocorrências é escrita uma vez.** Quando o `detalhe` é idêntico
-em todas as ocorrências de uma regra, ele descreve a **regra**, não a ocorrência, e sobe para o
-cabeçalho do bloco; a lista fica só com os nomes, em etiquetas que usam a largura do papel. O
-mesmo vale para o silêncio: as perguntas sem resposta são agrupadas **pelo motivo**, com a
-contagem na frente. Numa rodada real isso era a mesma frase impressa 61, 49, 34 e 55 vezes.
+Redes, secrets e configs ficam só no `report.json`.
 
-**O sistema cuja medição inteira é número vira linha de tabela, não cartão.** Trinta e cinco
-componentes respondiam só `CPU em uso` e `memória em uso`: em cartão, são setenta números que
-não dá para comparar; em coluna, o maior salta aos olhos.
+**"O que fazer primeiro"** mostra até 5 itens. Suas `recomendacoes` vêm antes; as vagas restantes usam
+os problemas mais graves, com rótulo legível, gravidade e quem age derivado da categoria (Segurança,
+Infraestrutura ou Aplicação). Achado esperado ou informativo não entra.
 
-**O documento tem quatro movimentos, e a cor é o que os separa.** `Decidir` (o que fazer e o
-que cai se falhar) · `Medir` (cluster, nós, aplicações, topologia) · `Consertar` (as faixas de
-achado e as práticas) · `Registrar` (pontos, riscos aceitos, o que falta, o histórico). Cada um
-pinta a **lombada** da seção e o título dela, e o índice os usa para agrupar — é ali que a
-lombada ganha legenda.
-
-Eles andam numa **matiz só** — a da marca —, numa escada do azul fechado ao azul lavado. A
-razão não é estética: a paleta já gasta matiz em **gravidade** (vermelho `alto`, âmbar `médio`,
-verde `ok`), e dar matiz também ao movimento põe as duas coisas disputando o mesmo sinal. Num
-documento de cinquenta páginas quem perde a disputa é a gravidade — a única das duas que muda o
-que você faz hoje. Navegação anda no eixo da **intensidade**; gravidade fica com a **cor**.
-
-**O relatório é organizado por AÇÃO, não por gravidade.** Três faixas, nesta ordem:
-
-| Faixa | O que cai nela | O que ela promete |
-|---|---|---|
-| **Agir agora** | crítico e alto | o prejuízo cresce enquanto você lê |
-| **Programar** | médio | tem conserto conhecido e cabe numa janela |
-| **Registrar e seguir** | baixo e informativo | o retrato, para comparar na próxima rodada |
-
-Achado marcado como **esperada** não entra em faixa nenhuma — ele descreve o normal —, mas
-continua contado, para o gráfico de cascata do topo não mentir. A ordem dentro da faixa é
-severidade, depois regra e objeto: mesma entrada, mesma ordem, sempre.
-
-A capa abre com uma **nota de estabilidade** derivada das dimensões por regra, não escrita pelo
-agente: título reinventado a cada rodada torna duas auditorias incomparáveis. A interpretação do
-agente continua logo abaixo, no `resumo`.
+**Limite de 1 página + 20.** O corte é por contagem, antes de renderizar, igual no HTML e no PDF:
+achados baixos viram contagem, afetados ficam nos 8 primeiros, consumo em top 4, filas em 8 e sistemas
+online se juntam numa linha. O relatório avisa cada corte, e o completo fica no `report.json`. Riscos
+aceitos e o que falta declarar nunca são cortados: se só eles passarem do limite, ele cede e o
+relatório diz isso.
 
 ### 6. Informar
 
-Caminho do relatório · quantos alvos em cada estado (**não invente uma nota única da infra**) ·
-quantos achados em cada faixa de ação · o que ficou `sem dados` e por quê · riscos aceitos, com
+Caminho do relatório · a nota geral e os serviços online · quantos problemas por gravidade · o que ficou `sem dados` e por quê · riscos aceitos, com
 os vencidos em destaque · e o que mudou desde a auditoria anterior.
 
 ### 7. Ofereça o PDF — no fim, não antes
@@ -401,8 +440,34 @@ inclusive as que ficarem órfãs no futuro. Para uma fila, use `--componente` e
 
 **Saúde é operação, não higiene.** Um cluster que está rodando não vira crítico porque tem
 imagem sem digest. Por alvo: 🔴 algo fora do ar · 🟡 rodando com risco conhecido · 🟢 convergido
-· `sem dados` quando não foi coletado. **Não existe nota única da infraestrutura** — o topo mostra
-a contagem por estado. Número único vira meta, e meta vira teatro.
+· `sem dados` quando não foi coletado.
+
+**Nota geral.** A nota da capa sai de `scripts/lib/nota.py`, nunca do agente, somando todos os alvos
+medidos, sem média entre alvos: **70%** serviços online, **20%** estabilidade (serviços com mais de uma
+réplica) e **10%** boas práticas (média de segurança e higiene).
+
+- **Tetos:** até **59** com serviço ou nó fora do ar; até **79** com problema alto, crítico ou serviço
+  parcial. Alerta não tem teto. Valem depois dos aceites: vencido volta a contar, e aceite em `OPS_NODE_DOWN`
+  não tira o teto.
+- **Faixas:** **80 ou mais** Bom · **60 a 79** Atenção · **abaixo de 60** Crítico. O veredito é fixo por faixa.
+- **Parcela não medida** sai da conta, os pesos são renormalizados e a nota aparece como **parcial**,
+  sem verde. A trava de cobertura também tira o verde. Sem nenhum serviço medido, não há nota.
+
+| Estado do serviço | Regra | Na conta de online |
+|---|---|---|
+| Online | todas as réplicas no ar; com falha no histórico, conta como **com alerta** e mantém `OPS_TASK_FAILING` em Problemas | online |
+| Parcial | parte das réplicas no ar | não online |
+| Fora do ar | desejado acima de 0, nenhuma réplica, sem aceite vigente | não online |
+| Parado de propósito | desejado 0, job concluído ou `OPS_SERVICE_STOPPED` com aceite vigente | fora da conta |
+| Sem dado | réplicas desconhecidas | fora da conta |
+
+Endpoint HTTP conta como um serviço: responde é online; `http_fora_do_ar`, timeout ou conexão
+recusada é fora do ar.
+
+A capa mostra "N com alerta" em amarelo. A barra usa vermelho só para fora do ar e amarelo para
+parcial e alerta, e cita até 5 nomes curtos no total. A linha **Por que esta nota** sai das parcelas,
+do teto e dos nomes, sem frase genérica. O `report.json` grava `com_alerta`, `limites` (a causa de
+cada teto) e `pendencias` (pontos que faltam para 100 em cada parcela).
 
 **Cobertura da medição: o verde exige ter medido.** Se uma pergunta que produz achado (a que
 declara `limiar`) fica sem resposta, um achado podia ter nascido e não nasceu — então o alvo
@@ -439,9 +504,8 @@ achado: a skill não tem como medir estado interno de um agente.
 - **Broker com estatísticas desligadas** não informa contadores: a pergunta vira `sem dados`
   com esse motivo, em vez de "nenhuma fila parada".
 - **SSH não** — auditar host por comando remoto é outra superfície, e fica para depois.
-- **Uso de CPU e memória por nó não existe sem stack de métricas** — a coleta reporta
-  **capacidade** (vCPU e GB do nó), não consumo. Sem `metricas_url` declarada, consumo sai
-  como `sem dados`, nunca estimado.
+- **Uso de CPU e memória por nó exige `node-exporter`** no Prometheus de `metricas_url`. Sem ele, a
+  coleta reporta só **capacidade** (vCPU e GB do nó), e o consumo sai como `sem dados`, nunca estimado.
 - **Kubernetes não** — os alvos são Docker (context/Swarm) e endpoint HTTP.
 - **Não é monitoramento.** É fotografia sob demanda, não alerta contínuo.
 - **Porta em 0.0.0.0** significa publicada em todas as interfaces, **não** alcançável da internet:
@@ -453,6 +517,9 @@ achado: a skill não tem como medir estado interno de um agente.
   `redis` exigiria saber que um é fork do outro, que é conhecimento de produto por nome, e é
   disto que a identificação está sendo tirada.
 - **Métricas de runtime** só existem se o alvo declarar `metricas_url`.
+- **URLs mais acessadas** só existem com `logs_url`, e erros e lentidão olham só o top 50 por site:
+  uma URL pouco acessada com muito erro pode ficar de fora. Slug longo, com 24 caracteres ou mais, vira
+  `:token` junto com os tokens, porque a skill prefere perder a rota a gravar um segredo.
 - **`metricas_url` é a API de um Prometheus**, não um `/metrics` cru. As perguntas são
   consultas PromQL com janela (`increase(...[24h])`), e um raspão instantâneo de exporter não
   tem onde avaliá-las. Endereço que não responde a `/api/v1/query` vira uma nota no alvo

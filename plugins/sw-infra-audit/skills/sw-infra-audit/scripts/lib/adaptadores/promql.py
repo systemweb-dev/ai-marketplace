@@ -51,24 +51,53 @@ def base_de(url):
     return base_da_fonte(url)
 
 
-def _consultar(base, query, timeout, at=None):
-    """Uma consulta instantânea. Devolve a lista de séries, ou None quando não deu para ler."""
-    url = f"{base.rstrip('/')}/api/v1/query?query={quote(query)}"
-    instante = momento(at)
-    if instante is not None:
-        url += f"&time={instante}"
+def _baixar(url, timeout):
+    """O JSON da resposta, ou None quando não deu para ler."""
     # NotConfirmed NÃO é capturado: destino fora da allowlist é erro de programação, e os
     # outros coletores deixam propagar. Engolir aqui faria bug virar "fonte indisponível".
-    codigo, corpo = http_get.get_com_status(url, [http_get.destino(base)], timeout=timeout)
+    codigo, corpo = http_get.get_com_status(url, [http_get.destino(url)], timeout=timeout)
     if codigo != 200 or not corpo:
         return None
     try:
         dados = json.loads(corpo)
     except ValueError:
         return None
-    if dados.get("status") != "success":
+    return dados if isinstance(dados, dict) else None
+
+
+def _consultar(base, query, timeout, at=None):
+    """Uma consulta instantânea. Devolve a lista de séries, ou None quando não deu para ler."""
+    url = f"{base.rstrip('/')}/api/v1/query?query={quote(query)}"
+    instante = momento(at)
+    if instante is not None:
+        url += f"&time={instante}"
+    dados = _baixar(url, timeout)
+    if dados is None or dados.get("status") != "success":
         return None
     return dados.get("data", {}).get("result", [])
+
+
+def serie(base, query, fim, timeout, horas=24, passo=3600):
+    """Os valores de uma série em `/api/v1/query_range`, ou None quando não há o que desenhar.
+
+    `fim` vem de `momento`, e por isso `None` e não falsidade: 0 é um instante válido. Ponto que
+    não é número sai, porque um NaN aborta a gravação do `report.json` inteiro.
+    """
+    if fim is None:
+        return None
+    url = (f"{base.rstrip('/')}/api/v1/query_range?query={quote(query)}"
+           f"&start={fim - horas * 3600}&end={fim}&step={passo}")
+    corpo = _baixar(url, timeout)
+    if corpo is None or corpo.get("status") != "success":
+        return None
+    try:
+        resultado = corpo["data"]["result"]
+        if len(resultado) != 1:
+            return None
+        valores = [_converter(ponto[1], "decimal") for ponto in resultado[0]["values"]]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return [v for v in valores if v is not None] or None
 
 
 def alcancavel(base, contexto):
@@ -150,6 +179,12 @@ def _sem_dados(pergunta, motivo):
     return {"pergunta": pergunta, "sem_dados": True, "motivo": motivo}
 
 
+def _nao_publicada(pergunta, motivo):
+    """A fonte respondeu e não tem a série. É a ausência que não conta contra a cobertura, e só
+    ela: fonte que falhou, sem identificar o componente, volta `_sem_dados` puro."""
+    return dict(_sem_dados(pergunta, motivo), nao_publica=True)
+
+
 def _interpolar(query, seletor, contexto):
     return (str(query).replace("%SELETOR%", seletor)
             .replace("%JANELA%", str(contexto.get("janela", "24h"))))
@@ -172,10 +207,12 @@ def _lista_de_campos(pergunta, declarada, base, seletor, contexto, fonte):
     nomes = [campo["nome"] for campo in declarada["campo"]]
     itens = {}
     respondeu = series = False
+    falhos = []
     for campo in declarada["campo"]:
         resultado = _consultar(base, _interpolar(campo["query"], seletor, contexto),
                                contexto["timeout"], contexto.get("at"))
         if resultado is None:
+            falhos.append(campo["nome"])
             continue
         respondeu = True
         series = series or bool(resultado)
@@ -197,10 +234,12 @@ def _lista_de_campos(pergunta, declarada, base, seletor, contexto, fonte):
             return _sem_dados(pergunta, f"as consultas responderam, mas nenhuma série traz a "
                                         f"etiqueta `{etiqueta}` — o exporter está publicando "
                                         f"a métrica agregada, sem separar por objeto")
-        return _sem_dados(pergunta, "nenhuma das consultas desta família devolveu série")
+        return _nao_publicada(pergunta, "nenhuma das consultas desta família devolveu série")
 
     montados = [dict({"nome": chave}, **{nome: medidos.get(nome) for nome in nomes})
                 for chave, medidos in itens.items()]
+    if falhos:      # campo ausente porque a série não existe é medida; porque a consulta falhou, não
+        montados = [dict(item, nao_respondeu=falhos) for item in montados]
     ordem, desempate = declarada["ordenar_por"], declarada["desempate"]
     # do maior para o menor pelo campo DECLARADO; empate pelo campo de identidade, nunca pela
     # ordem da resposta — que é o que faria o topo mudar entre rodadas sem nada ter mudado.
@@ -236,7 +275,9 @@ def perguntar(pergunta, componente, contexto):
             return _sem_dados(pergunta, "a fonte de métrica não respondeu")
         resolvido = cache.get("resolvido", {}).get(componente.get("nome")) or {}
         motivo = identificacao.motivo_da_falta(resolvido, pergunta)
-        if not motivo and resolvido.get("familias"):
+        if motivo:
+            return _sem_dados(pergunta, motivo)
+        if resolvido.get("familias"):
             # A família FOI reconhecida; ela é que não publica este dado. Dizer "não reconheci
             # a família" aqui manda o dono procurar exporter que já existe — degradação de
             # motivo em escala, que é o que o passe não pode introduzir.
@@ -247,8 +288,11 @@ def perguntar(pergunta, componente, contexto):
                       if len(nomes) == 1 else
                       f"os exporters {', '.join(nomes[:-1])} e {nomes[-1]} não expõem o dado "
                       f"desta pergunta")
-        return _sem_dados(pergunta, motivo or "a fonte respondeu, mas não reconheci a família "
-                                              "de métrica deste componente")
+            return _nao_publicada(pergunta, motivo)
+        motivo = "a fonte respondeu, mas não reconheci a família de métrica deste componente"
+        if cache.get("fonte_viva", {}).get(base):
+            return _nao_publicada(pergunta, motivo)
+        return _sem_dados(pergunta, motivo)
 
     # `familia_da_pergunta` só devolve família que DECLARA a pergunta, então o ramo antigo de
     # "não expõe o dado desta pergunta" aqui virou inalcançável — ele vive agora no ramo
@@ -276,13 +320,13 @@ def perguntar(pergunta, componente, contexto):
         return {"pergunta": pergunta, "fonte": fonte, "valor": itens}
 
     if not resultado:
-        return _sem_dados(pergunta, "a consulta não devolveu série")
+        return _nao_publicada(pergunta, "a consulta não devolveu série")
     if len(resultado) > 1:
         # escalar com várias séries significa seletor frouxo: escolher uma seria inventar
         return _sem_dados(pergunta, f"a consulta devolveu {len(resultado)} séries onde se "
                                     f"esperava uma — o seletor não distingue este componente")
     valor = _converter(resultado[0]["value"][1], tipo)
     if valor is None:
-        return _sem_dados(pergunta, "a fonte devolveu um valor que não é número (sem amostras "
-                                    "na janela)")
+        return _nao_publicada(pergunta, "a fonte devolveu um valor que não é número (sem amostras "
+                                        "na janela)")
     return {"pergunta": pergunta, "fonte": fonte, "valor": valor}
