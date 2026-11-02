@@ -130,7 +130,7 @@ Coleta parcial é **válida**: qualquer valor pode ser `{"status":"n/a","reason"
 {
   "schema_version": 1,
   "generated_at": "2026-08-04T14:32:00Z",   // passado pelo caller (não Date.now no script)
-  "cluster": { "context": "systemweb-prod", "engine_version": "...", "swarm": true },
+  "cluster": { "context": "prod-exemplo", "engine_version": "...", "swarm": true },
   "scope": { "connected_node": "node-1", "container_checks_cover": "only_connected_node" },
   "health": { "verdict": "green|yellow|red", "counts": { "nodes": 3, "services": 12, "unhealthy": 1 } },
   "nodes":    [ { "id", "role", "availability", "state", "leader": true, "capacity": {"nano_cpus","mem_bytes"}, "reservations_sum": {...} } ],

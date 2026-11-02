@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<!--
+  mockup-preview harness — copy this file, then fill the marked regions.
+  THROWAWAY: it doesn't need to follow the project's CSS conventions
+  (kebab-case / inline styles are fine here). Only the code applied to the
+  real component later follows the project rules.
+
+  Regions to fill:
+    1. <title>     — name of the screen/component being explored
+    2. TOKENS      — paste the real design tokens into BOTH [data-theme] blocks
+    3. FONT <link> — swap to the project's real font if not Inter
+    4. .stage      — one <section class="variation"> per variation
+
+  Built-in chrome (no need to touch it):
+    • Top bar     — variation tabs · compare side by side · viewport (+ free width switch) ·
+                    comment mode · theme · detector badge · side panel toggle
+    • Side panel  — the active variation (title, trade-off, "Seguir com esta"), its knobs, its
+                    direction (palette + fonts read from the rendered CSS, and title/body font
+                    fields that take ANY Google Fonts family), the comments, and the detector
+    • Knobs       — 0-4 live controls per variation, declared in data-knobs on the <section>
+                    (range → --k-<id>, steps → data-k-<id>, toggle → both). See the example
+                    above the first variation.
+    • Compare     — every variation side by side; each column is its own CSS container,
+                    so @container rules still work (📱 + compare = the mobile versions side by side)
+    • Feedback    — with scripts/serve.py, comments on an element and the chosen variation are
+                    saved to .mockup/comentarios.json and .mockup/escolha.json for the agent to read.
+    • Keys        — ← → variation · C compare · 1-4 width · L free width · K comment · T theme · P panel
+
+  Title font field overrides h1-h6 inside the variations; the body field overrides the rest.
+  Mark display text that isn't a heading with data-titulo to have it follow the title font.
+
+  Anti-slop detector: `python3 scripts/detectar.py index.html` scans only the DESIGN (markup
+  inside .variation and CSS after `harness:fim`); this chrome never produces findings.
+
+  Responsive: the canvas (.hz-frame) is a CSS container. Write responsive rules with
+  @container (max-width: ...) so the viewport toggle triggers REAL breakpoints. Prefer
+  intrinsic layouts (auto-fit/minmax, flex-wrap, clamp) so it reflows cleanly.
+
+  URL state: every click rewrites the URL, so live-reload keeps the state and the URL can be
+  shared. Params: ?vw=mobile|tablet|desktop|full|livre (&w=<px> with livre), ?theme=light|dark,
+  ?v=<n> (1-based variation), ?font=<Google Font> (body), ?font-titulo=<Google Font>,
+  ?k=<id>:<valor>,... (knobs of the ACTIVE variation), ?comparar=1, ?painel=0, ?limpo=1
+  (hide all chrome, canvas only). Used for fast no-click screenshots.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório de infra</title>
+
+<!-- 3. FONT — replace href + family if the project uses another font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ============================================================
+     2. TOKENS — paste the project's real values into BOTH blocks.
+     They live on [data-theme] so the canvas can switch live.
+     This is what makes the mockup faithful: same colors/spacing/radius
+     as production.
+     Os valores abaixo são de EXEMPLO (slate + azul + Inter): um placeholder
+     para o canvas funcionar, nunca um design. Sem design system no projeto,
+     cada variação declara a PRÓPRIA paleta e fonte (SKILL.md, passo 2).
+     ============================================================ */
+  [data-theme="light"] {--bg-primary:#f7f7f7;--bg-secondary:#ffffff;--bg-card:#ffffff;--text-primary:#17171a;--text-secondary:#66676e;--border-color:#e3e3e5;--accent-primary:#2a5f86;--radius-md:3px;--radius-lg:4px;--font-sans:'Figtree',system-ui,sans-serif;}
+  [data-theme="dark"] {--bg-primary:#111113;--bg-secondary:#1a1a1d;--bg-card:#1a1a1d;--text-primary:#f3f3f4;--text-secondary:#a0a1a7;--border-color:#2c2c31;--accent-primary:#7fb6e0;--radius-md:3px;--radius-lg:4px;--font-sans:'Figtree',system-ui,sans-serif;}
+
+  /* harness:inicio — casca do preview, não é design. O detector (scripts/detectar.py)
+     ignora tudo até harness:fim; escreva o CSS do mockup DEPOIS dele. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    --hz-bg: #eceff3; --hz-surface: #ffffff; --hz-line: #dde2e8; --hz-ink: #111827;
+    --hz-soft: #5b6472; --hz-muted: #8a93a1; --hz-chip: #f1f3f6; --hz-hover: #e6e9ee;
+    --hz-ok: #15803d; --hz-warn: #b45309; --hz-bad: #b91c1c; --hz-azul: #2563eb;
+    font: 500 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--hz-ink);
+    background: var(--hz-bg);
+    display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+  }
+  .hz-ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
+            stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- barra: uma linha, baixa ---- */
+  .hz-toolbar {
+    display: flex; align-items: center; gap: 0.5rem; height: 46px; padding: 0 0.6rem;
+    background: var(--hz-surface); border-bottom: 1px solid var(--hz-line); min-width: 0;
+  }
+  .hz-group { display: flex; align-items: center; gap: 2px; }
+  .hz-group--tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .hz-group--tabs::-webkit-scrollbar { display: none; }
+  .hz-seg { display: flex; gap: 2px; padding: 2px; background: var(--hz-chip); border-radius: 8px; }
+  .hz-btn {
+    height: 30px; min-width: 30px; padding: 0 0.55rem; border: 0; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    background: transparent; color: var(--hz-soft); font: inherit; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .hz-btn[hidden] { display: none; }
+  .hz-btn:hover { background: var(--hz-hover); color: var(--hz-ink); }
+  .hz-btn:focus-visible, .hz-campo:focus-visible, .hz-switch input:focus-visible + i { outline: 2px solid var(--hz-azul); outline-offset: 1px; }
+  .hz-seg .hz-btn.is-active { background: var(--hz-surface); color: var(--hz-ink); box-shadow: 0 1px 2px rgb(17 24 39 / .14); }
+  .hz-tab { max-width: 15rem; overflow: hidden; text-overflow: ellipsis; color: var(--hz-soft); }
+  .hz-tab.is-active { background: var(--hz-ink); color: #fff; }
+  .hz-btn.is-on { background: var(--hz-ink); color: #fff; }
+  .hz-sep { width: 1px; height: 20px; background: var(--hz-line); margin: 0 0.2rem; flex: none; }
+  .hz-selo { gap: 0.45rem; background: var(--hz-chip); }
+  .hz-selo i { width: 8px; height: 8px; border-radius: 99px; background: var(--hz-muted); }
+  .hz-selo[data-estado="limpo"] i { background: var(--hz-ok); }
+  .hz-selo[data-estado="aviso"] i { background: var(--hz-warn); }
+  .hz-selo[data-estado="falha"] i { background: var(--hz-bad); }
+
+  .hz-switch { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--hz-soft); font-weight: 600; cursor: pointer; padding: 0 0.3rem; user-select: none; }
+  .hz-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .hz-switch i { width: 28px; height: 16px; border-radius: 99px; background: #cbd2db; position: relative; transition: background .15s; }
+  .hz-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 99px; background: #fff; transition: transform .15s; }
+  .hz-switch input:checked + i { background: var(--hz-ink); }
+  .hz-switch input:checked + i::after { transform: translateX(12px); }
+
+  /* ---- área: canvas + painel ---- */
+  .hz-main { display: grid; grid-template-columns: minmax(0, 1fr) 312px; min-height: 0; }
+  body[data-painel="fechado"] .hz-main { grid-template-columns: minmax(0, 1fr); }
+  body[data-painel="fechado"] .hz-panel { display: none; }
+
+  .hz-stage-wrap { overflow: auto; padding: 1.25rem; display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
+  .hz-stage { width: 100%; position: relative; transition: max-width .2s ease; }
+  .hz-stage[data-vw="mobile"]  { max-width: 390px; }
+  .hz-stage[data-vw="tablet"]  { max-width: 768px; }
+  .hz-stage[data-vw="desktop"] { max-width: 1280px; }
+  .hz-stage[data-vw="full"]    { max-width: none; }
+  .hz-stage[data-vw="livre"]   { max-width: none; flex: none; transition: none; }
+
+  /* Largura total = o design sozinho, de borda a borda: sem margem, moldura nem cantos. */
+  .hz-stage-wrap:has(> .hz-stage[data-vw="full"]:not([data-comparar])) { padding: 0; }
+  .hz-stage[data-vw="full"]:not([data-comparar]) .hz-frame { border: 0; border-radius: 0; min-height: calc(100vh - 46px); }
+  .hz-frame {
+    background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans);
+    border: 1px solid #cfd6df; border-radius: 0.9rem; overflow: hidden;
+    min-height: calc(100vh - 46px - 2.5rem); padding: 1.75rem;
+    container-type: inline-size; container-name: stage;
+  }
+
+  .variation { display: none; }
+  .variation.is-active { display: block; }
+
+  /* Fontes escolhidas no painel: qualquer família do Google Fonts, só visualização. */
+  .hz-frame[data-fonte-corpo] .variation,
+  .hz-frame[data-fonte-corpo] .variation :not(h1, h2, h3, h4, h5, h6, [data-titulo], code, pre, kbd, samp, :is(h1, h2, h3, h4, h5, h6, [data-titulo]) *) { font-family: var(--hz-fonte-corpo) !important; }
+  /* Só o corpo trocado: o título mantém a fonte que tinha (guardada pelo JS antes da troca),
+     senão herdaria a do corpo do elemento em volta. */
+  .hz-frame[data-fonte-corpo]:not([data-fonte-titulo]) .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]) { font-family: var(--hz-fonte-original) !important; }
+  .hz-frame[data-fonte-titulo] .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]),
+  .hz-frame[data-fonte-titulo] .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]) * { font-family: var(--hz-fonte-titulo) !important; }
+
+  /* ---- comparar lado a lado: cada variação vira uma coluna e um container próprio ---- */
+  .hz-stage[data-comparar] { max-width: none; width: 100%; }
+  .hz-frame[data-comparar] {
+    background: transparent; border: 0; padding: 0; overflow: visible; min-height: 0;
+    display: grid; grid-auto-flow: column; gap: 1rem; align-items: start;
+    grid-auto-columns: var(--hz-col, minmax(420px, 1fr));
+  }
+  .hz-stage[data-comparar][data-vw="mobile"] { --hz-col: 390px; }
+  .hz-stage[data-comparar][data-vw="tablet"] { --hz-col: 768px; }
+  .hz-frame[data-comparar] .variation {
+    display: block; container-type: inline-size;
+    background: var(--bg-primary); border: 1px solid #cfd6df; border-radius: 0.9rem;
+    padding: 1.5rem; min-height: 60vh;
+  }
+  .hz-frame[data-comparar] .variation { cursor: pointer; transition: box-shadow .15s; }
+  .hz-frame[data-comparar] .variation[data-foco] { box-shadow: 0 0 0 2px var(--hz-ink, #111827); cursor: auto; }
+  .hz-frame[data-comparar] .variation::before {
+    content: attr(data-title); display: block; margin: -0.25rem 0 1rem;
+    font: 600 12px/1.3 system-ui, sans-serif !important; color: var(--text-secondary);
+  }
+
+  /* ---- largura livre: alça na borda direita, com a medida em px ---- */
+  .hz-alca {
+    position: absolute; top: 0; right: -14px; width: 14px; height: 100%; cursor: ew-resize;
+    display: none; align-items: flex-start; justify-content: center; touch-action: none;
+  }
+  .hz-alca::before { content: ""; position: sticky; top: 45%; width: 4px; height: 44px; border-radius: 99px; background: #9aa3b0; margin-top: 40vh; }
+  .hz-alca:hover::before, .hz-alca[data-arrastando]::before { background: var(--hz-ink); }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) .hz-alca { display: flex; }
+  .hz-medida {
+    position: absolute; top: -1.05rem; right: 0; font: 600 11px/1 ui-monospace, SFMono-Regular, monospace;
+    color: var(--hz-soft); display: none;
+  }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) .hz-medida { display: block; }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) { margin-top: 0.6rem; }
+
+  /* ---- modo comentário: contorno no elemento sob o mouse, pinos numerados ---- */
+  body[data-comentando] .hz-frame .variation, body[data-comentando] .hz-frame .variation * { cursor: crosshair !important; }
+  .hz-alvo { outline: 2px dashed var(--hz-azul) !important; outline-offset: 2px !important; }
+  .hz-destaque { outline: 3px solid #f59e0b !important; outline-offset: 3px !important; transition: outline-color .3s; }
+  .hz-pinos { position: absolute; inset: 0; pointer-events: none; }
+  .hz-pino {
+    position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+    width: 22px; height: 22px; border-radius: 99px 99px 99px 2px; border: 2px solid #fff;
+    background: var(--hz-azul); color: #fff; font: 700 11px/18px system-ui, sans-serif; text-align: center;
+    box-shadow: 0 2px 6px rgb(17 24 39 / .3);
+  }
+  .hz-balao {
+    position: fixed; z-index: 10; width: 280px; padding: 0.75rem; display: grid; gap: 0.5rem;
+    background: var(--hz-surface); border: 1px solid var(--hz-line); border-radius: 10px;
+    box-shadow: 0 12px 32px rgb(17 24 39 / .18); font: 500 13px/1.4 system-ui, sans-serif; color: var(--hz-ink);
+  }
+  .hz-balao[hidden] { display: none; }
+  .hz-balao small { color: var(--hz-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hz-balao textarea { font: inherit; min-height: 76px; resize: vertical; padding: 0.5rem; border: 1px solid var(--hz-line); border-radius: 6px; }
+  .hz-balao div { display: flex; justify-content: flex-end; gap: 0.4rem; }
+
+  /* ---- painel lateral: topo fixo com a variação, abas embaixo, uma seção por vez ---- */
+  .hz-panel {
+    background: var(--hz-surface); border-left: 1px solid var(--hz-line); overflow: auto;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .hz-panel-topo { padding: 1rem 1rem 0.9rem; }
+  .hz-caption { color: var(--hz-soft); line-height: 1.5; }
+  .hz-caption b { display: block; color: var(--hz-ink); font-size: 14px; margin-bottom: 0.2rem; }
+  .hz-dica { color: var(--hz-muted); margin-top: 0.4rem; }
+  .hz-dica[hidden] { display: none; }
+  .hz-escolha { margin-top: 0.8rem; }
+  .hz-escolha:empty { display: none; }
+  .hz-primario { background: var(--hz-ink); color: #fff; width: 100%; height: 34px; }
+  .hz-primario:hover { background: #1f2937; color: #fff; }
+  .hz-primario:disabled { opacity: .45; cursor: not-allowed; }
+  .hz-escolha-estado { color: var(--hz-ok); font-weight: 600; margin-top: 0.5rem; }
+  .hz-escolha-estado:empty { display: none; }
+
+  .hz-abas {
+    position: sticky; top: 0; z-index: 1; display: flex; gap: 0.1rem; padding: 0 0.6rem;
+    background: var(--hz-surface); border-top: 1px solid var(--hz-line); border-bottom: 1px solid var(--hz-line);
+  }
+  .hz-aba {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+    height: 38px; border: 0; background: none; font: inherit; font-weight: 600; color: var(--hz-muted);
+    cursor: pointer; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap;
+  }
+  .hz-aba:hover { color: var(--hz-ink); }
+  .hz-aba[aria-selected="true"] { color: var(--hz-ink); box-shadow: inset 0 -2px 0 var(--hz-ink); }
+  .hz-aba:focus-visible { outline: 2px solid var(--hz-azul); outline-offset: -2px; }
+  .hz-conta { min-width: 17px; height: 17px; padding: 0 0.3rem; border-radius: 99px; background: var(--hz-chip);
+              color: var(--hz-soft); font-size: 11px; line-height: 17px; text-align: center; }
+  .hz-conta:empty { display: none; }
+  .hz-ponto { width: 7px; height: 7px; border-radius: 99px; background: var(--hz-muted); }
+  .hz-ponto[data-estado="limpo"] { background: var(--hz-ok); }
+  .hz-ponto[data-estado="aviso"] { background: var(--hz-warn); }
+  .hz-ponto[data-estado="falha"] { background: var(--hz-bad); }
+  .hz-pane { padding: 1rem; display: grid; align-content: start; gap: 0.9rem; }
+  .hz-pane[hidden] { display: none; }
+
+  .hz-link { border: 0; background: none; font: inherit; font-weight: 600; color: var(--hz-soft); cursor: pointer; padding: 0; }
+  .hz-link:hover { color: var(--hz-ink); text-decoration: underline; }
+  .hz-link[hidden] { display: none; }
+  .hz-restaurar { justify-self: end; }
+  .hz-vazio { color: var(--hz-muted); }
+  .hz-vazio[hidden] { display: none; }
+
+  .hz-knobs { display: grid; gap: 0.9rem; }
+  .hz-knobs[hidden] { display: none; }
+  .hz-knob { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.35rem 0.5rem; color: var(--hz-soft); }
+  .hz-knob > span:first-child { color: var(--hz-ink); font-weight: 600; }
+  .hz-knob input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--hz-ink); }
+  .hz-knob output { font-variant-numeric: tabular-nums; color: var(--hz-ink); grid-row: 1; grid-column: 2; }
+  .hz-knob .hz-seg { grid-column: 1 / -1; }
+  .hz-knob .hz-seg button { flex: 1; font: inherit; font-weight: 600; border: 0; background: transparent; padding: 0.35rem 0.5rem; border-radius: 6px; cursor: pointer; color: var(--hz-soft); }
+  .hz-knob .hz-seg button.is-active { background: var(--hz-surface); color: var(--hz-ink); box-shadow: 0 1px 2px rgb(17 24 39 / .14); }
+  .hz-knob input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--hz-ink); }
+  .hz-knobs .hz-nota { color: var(--hz-warn); }
+
+  .hz-direcao { display: grid; gap: 0.6rem; }
+  .hz-paleta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .hz-cor { display: grid; gap: 0.2rem; justify-items: center; font: 500 10px/1 ui-monospace, SFMono-Regular, monospace; color: var(--hz-soft); }
+  .hz-cor i { width: 30px; height: 30px; border-radius: 6px; border: 1px solid rgb(17 24 39 / .12); }
+  .hz-tipos { display: grid; gap: 0.2rem; color: var(--hz-soft); }
+  .hz-tipos b { color: var(--hz-ink); font-weight: 600; }
+  .hz-fontes { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.5rem; align-items: center; margin-top: 0.4rem; }
+  .hz-fontes label { color: var(--hz-soft); font-weight: 600; }
+  .hz-campo { height: 30px; font: inherit; padding: 0 0.5rem; border: 1px solid var(--hz-line); border-radius: 6px; background: var(--hz-surface); color: var(--hz-ink); min-width: 0; }
+  .hz-fonte-estado { grid-column: 1 / -1; color: var(--hz-muted); min-height: 1em; }
+  .hz-fonte-estado[data-erro] { color: var(--hz-bad); }
+
+  .hz-lista { list-style: none; display: grid; gap: 0.6rem; }
+  .hz-lista li { padding: 0.55rem 0.65rem; border-radius: 8px; background: var(--hz-chip); display: grid; gap: 0.2rem; }
+  .hz-lista li[data-local] { cursor: pointer; }
+  .hz-lista li[data-local]:hover { background: var(--hz-hover); }
+  .hz-lista .hz-li-topo { font-weight: 700; color: var(--hz-ink); display: flex; justify-content: space-between; gap: 0.5rem; }
+  .hz-lista .hz-li-topo small { font-weight: 600; }
+  .hz-lista li[data-sev="falha"] .hz-li-topo small { color: var(--hz-bad); }
+  .hz-lista li[data-sev="aviso"] .hz-li-topo small { color: var(--hz-warn); }
+  .hz-lista code { font: 12px/1.4 ui-monospace, SFMono-Regular, monospace; color: var(--hz-soft); overflow-wrap: anywhere; }
+  .hz-lista .hz-li-texto { color: var(--hz-soft); }
+  .hz-resumo { color: var(--hz-soft); margin-bottom: 0.6rem; }
+
+  body[data-limpo] .hz-toolbar, body[data-limpo] .hz-panel, body[data-limpo] .hz-pinos,
+  body[data-limpo] .hz-alca, body[data-limpo] .hz-medida { display: none !important; }
+  body[data-limpo] { grid-template-rows: 1fr; }
+  body[data-limpo] .hz-main { grid-template-columns: minmax(0, 1fr); }
+  body[data-limpo] .hz-stage-wrap { padding: 0; }
+  body[data-limpo] .hz-frame { min-height: 100vh; }
+
+  @media (max-width: 900px) {
+    .hz-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .hz-panel { border-left: 0; border-top: 1px solid var(--hz-line); max-height: 40vh; }
+    .hz-label-longa { display: none; }
+  }
+
+  /* Accessibility: respect reduced motion for any animation you add. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* harness:fim */
+
+  /* ============================================================
+     Component styles go here, scoped under .mock so they don't leak.
+     Use var(--bg-card) etc. for fidelity. For responsive behavior use
+     @container (max-width: 480px) { ... } — the viewport toggle drives it.
+     ============================================================ */
+
+
+  .variation{--tinta2:#3f4046;--crit:#b02a37;--warn:#8a5806;--ok:#12683f;--disp:'Bricolage Grotesque',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-sans);padding:28px;font-size:15px;line-height:1.55}
+  .variation ::selection{background:var(--text-primary);color:var(--bg-card)}
+  .folha{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);padding:38px 44px;max-width:1120px;margin:0 auto 26px}
+  .mini{font:500 12.5px/1.4 var(--font-sans);color:var(--text-secondary)}
+  .topo{display:flex;justify-content:space-between;gap:20px;margin-bottom:24px}
+  .tt{font-family:var(--disp);letter-spacing:-.015em;font-weight:700}
+  .nivel{display:inline-block;font:600 12.5px/1 var(--font-sans);padding:5px 8px;border-radius:var(--radius-md)}
+  .alto{color:var(--crit);background:color-mix(in srgb,var(--crit) 11%,var(--bg-card))}
+  .medio{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--bg-card))}
+  .bom{color:var(--ok);background:color-mix(in srgb,var(--ok) 11%,var(--bg-card))}
+  .naoviu{margin-top:20px;padding-top:12px;border-top:1px solid var(--border-color);color:var(--text-secondary);font-size:13.5px}
+  .naoviu b{color:var(--text-primary);font-weight:600}
+  .prob h2{font:700 25px/1.15 var(--disp);letter-spacing:-.015em;margin:10px 0 18px;max-width:30ch}
+  .pgrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px}
+  .prob h3{font:600 13px/1.3 var(--font-sans);color:var(--text-secondary);margin:0 0 5px}
+  .prob p{max-width:62ch;margin-bottom:15px}
+  .prob pre{background:#16171d;color:#e8e9ee;border-radius:var(--radius-md);padding:12px 14px;font:400 12.3px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+  .svc{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+  .svc span{font:400 12px/1 var(--mono);padding:5px 7px;background:var(--bg-primary);border-radius:var(--radius-md)}
+  /* V1: a frase manda */
+  .v1 .veredito{font-size:calc(37px * var(--k-escala,1));line-height:1.1;max-width:24ch;margin-bottom:12px}
+  .v1 .tese{font-size:16.5px;color:var(--tinta2);max-width:92ch;margin-bottom:26px}
+  .v1 ol{list-style:none}.v1 li{display:grid;grid-template-columns:96px minmax(0,1fr) 170px;gap:16px;align-items:start;padding:12px 0;border-top:1px solid var(--border-color)}
+  .v1 li b{font-weight:600}.v1 li p{color:var(--tinta2);font-size:14.4px}
+  .v1 .mudou{display:flex;gap:30px;flex-wrap:wrap;margin-top:20px;font-size:14.5px}
+  .v1 .mudou b{font-weight:600}
+  .v1 li .nivel{justify-self:start}
+  .v3 .naoviu{margin-top:0;border-top:0}
+  .nota{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:30px;align-items:center;padding:16px 20px;background:var(--bg-primary);border-radius:var(--radius-md);margin-bottom:24px}
+  .nota .num{font:700 calc(48px * var(--k-escala,1))/1 var(--disp);letter-spacing:-.02em}.nota .num small{font:500 15px/1 var(--font-sans);color:var(--text-secondary);letter-spacing:0}
+  .nota .on{font:700 28px/1.05 var(--disp)}.nota .rot{display:block;font:500 12.5px/1.3 var(--font-sans);color:var(--text-secondary);margin-top:6px}
+  .nota .conta{font-size:13px;line-height:1.45;color:var(--text-secondary)}
+  .nota-v{display:grid;gap:14px;margin:12px 0 16px}.nota-v .num{font:700 52px/1 var(--disp)}.nota-v .num small{font:500 15px var(--font-sans);color:var(--text-secondary)}.nota-v .on{font:700 22px/1.1 var(--disp)}
+  @container (max-width:760px){.nota{grid-template-columns:1fr;gap:12px}}
+  .painel{display:grid;grid-template-columns:1fr 1fr 1fr 1.2fr;gap:10px;margin-bottom:8px}
+  .bloco{padding:15px 17px;border-radius:var(--radius-md);background:var(--bg-primary)}
+  .bloco .rot{display:block;font:600 12.5px/1.3 var(--font-sans);color:var(--text-secondary)}
+  .bloco .grande{font:700 44px/1.05 var(--disp);letter-spacing:-.02em;margin:5px 0 3px}.bloco .grande small{font:500 15px var(--font-sans);letter-spacing:0}
+  .tom-warn{background:color-mix(in srgb,var(--warn) 17%,var(--bg-card));color:#6c4403}.tom-warn .rot{color:#6c4403}
+  .tom-ok{background:color-mix(in srgb,var(--ok) 15%,var(--bg-card));color:#0d5733}.tom-ok .rot{color:#0d5733}
+  .barra-m{height:7px;border-radius:2px;background:color-mix(in srgb,var(--crit) 35%,var(--bg-card));overflow:hidden;margin-top:9px}.barra-m i{display:block;height:100%;background:var(--ok)}
+  .bloco dl{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin-top:9px;font-size:14px}.bloco dd{font:500 14px/1.3 var(--mono)}
+  .c-ok{color:var(--ok)}.c-warn{color:var(--warn)}.c-crit{color:var(--crit)}
+  .conta{font-size:12.8px;color:var(--text-secondary);margin-bottom:22px}
+  .v1 .alto{color:#fff;background:var(--crit)}.v1 .medio{color:#fff;background:var(--warn)}
+  .v1 .veredito{font-size:calc(33px * var(--k-escala,1));max-width:none;margin-bottom:8px}.v1 .tese{margin-bottom:18px}
+  @container (max-width:760px){.painel{grid-template-columns:1fr 1fr}}
+  .capa2{padding:0;overflow:hidden}.hero{display:grid;grid-template-columns:minmax(0,1.5fr) auto auto;gap:34px;align-items:center;background:#17171a;color:#f3f3f4;padding:32px 36px}
+  .h-m{color:#b5b6bc}.hero h1{font-size:calc(31px * var(--k-escala,1));line-height:1.12;margin:9px 0;max-width:24ch}.hero p{color:#d3d4d8;font-size:15px;max-width:52ch}
+  .hero-n{display:flex;gap:13px;align-items:center;max-width:190px}.anel{width:96px;height:96px;flex:none}.anum{font:700 34px 'Bricolage Grotesque',sans-serif;fill:#f3f3f4}
+  .hero-n b{display:block;color:#f0bb55;font:600 16px var(--font-sans)}.hero-n span{font-size:12px;line-height:1.35;color:#b5b6bc}
+  .hero-on{width:190px}.on-g{font:700 50px/1 var(--disp);color:#5fd89f;margin-right:7px}.hero-on span{font-size:13px;color:#d3d4d8}.seg{display:flex;gap:2px;height:8px;margin:9px 0}.seg i{background:#3fbf83;border-radius:2px}.seg u{background:#f0707d;border-radius:2px}.hero-on small{font-size:11.5px;line-height:1.35;color:#b5b6bc;display:block}
+  .mets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:1px solid var(--border-color)}.met{padding:15px 18px 11px;border-right:1px solid var(--border-color)}.met:last-child{border-right:0}.met span{display:block;font-size:12.3px;color:var(--text-secondary)}.met b{font:700 25px/1.2 var(--disp)}.spark{display:block;width:100%;height:26px;margin-top:4px}
+  .corpo{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(235px,1fr);gap:38px;padding:24px 36px 8px}.s{font:600 14px/1.3 var(--font-sans);margin-bottom:6px}.s2{margin-top:20px}
+  .prio{list-style:none}.prio li{display:grid;grid-template-columns:62px minmax(0,1fr) 110px;gap:11px;padding:9px 0;border-top:1px solid var(--border-color);align-items:start}.prio li .nivel{justify-self:start}.prio b{font-weight:600;font-size:14.6px}.prio p{font-size:13.2px;color:var(--text-secondary)}
+  .dl{list-style:none}.dl li{padding:7px 0;border-top:1px solid var(--border-color);font-size:13.2px}.dl b{display:block;font-weight:600}.dl span{color:var(--text-secondary)}
+  .cert div{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--border-color);font-size:12.6px}.cert .n{font:400 11.8px var(--mono);overflow-wrap:anywhere}.cert b{white-space:nowrap}
+  .capa2 .naoviu{margin:6px 36px 20px}
+  .t2{font-size:23px;margin-bottom:14px}.sis{width:100%;border-collapse:collapse;font-size:13.6px}.sis th{text-align:left;font:600 12.2px/1.3 var(--font-sans);color:var(--text-secondary);padding:0 12px 8px 0}.sis td{padding:9px 12px 9px 0;border-top:1px solid var(--border-color);white-space:nowrap}.sis .n{font:400 12.8px var(--mono)}.est{font-weight:600}
+  .pt{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:9px}.bar{display:inline-block;width:64px;height:7px;background:var(--border-color);border-radius:2px;overflow:hidden;vertical-align:middle;margin-right:7px}.bar i{display:block;height:100%}.pc{font:400 12.5px var(--mono)}
+  .f-ok{background:var(--ok)}.f-warn{background:var(--warn)}.f-crit{background:var(--crit)}
+  @container (max-width:760px){.hero,.corpo,.mets{grid-template-columns:1fr}.sis{display:block;overflow-x:auto}}
+  .v1 .dl li{display:block;grid-template-columns:none}.hero-n span{display:block}
+  .mos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 32px}.box.larga{grid-column:1/-1}.box h3{font:600 14px/1.3 var(--font-sans);margin-bottom:7px}.mini-t{font-size:12.8px}.mini-t td{white-space:normal;padding:7px 10px 7px 0}.mini-t th{font-size:11.6px}
+  @container (max-width:760px){.mos{grid-template-columns:1fr}}
+  .fd .t2{margin:0}.fd-t{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:16px}
+  .pn{border:1px solid var(--border-color);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-card);min-width:0}.pn.full{margin-bottom:14px}
+  .pn>header{display:flex;justify-content:space-between;align-items:center;gap:12px;height:42px;padding:0 16px;background:var(--bg-primary);border-bottom:1px solid var(--border-color)}
+  .pn>header h3{font:600 14px/1 var(--font-sans)}.pn>header span{font-size:12.3px;color:var(--text-secondary)}
+  .par{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .tb{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13.4px}.tb th{height:34px;padding:0 16px;font:600 11.8px/1 var(--font-sans);color:var(--text-secondary);border-bottom:1px solid var(--border-color)}
+  .tb td{height:40px;padding:0 16px;border-bottom:1px solid var(--border-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tb tr:last-child td{border-bottom:0}
+  .tb .e{text-align:left}.tb .d{text-align:right;font-variant-numeric:tabular-nums}.tb .r{padding-left:6px}.tb b{font-weight:600}
+  .maqs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.maq{padding:13px 16px 15px;border-right:1px solid var(--border-color)}.maq:last-child{border-right:0}
+  .maq header{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}.maq header b{font-weight:600;font-size:14px}.st{font-size:12px;font-weight:600}.st .pt{margin-right:5px;width:7px;height:7px}
+  .med{display:grid;grid-template-columns:1fr auto;gap:3px 8px;margin-top:9px;font-size:12.6px;color:var(--text-secondary)}.med b{font-weight:600;font-variant-numeric:tabular-nums}.med .bar2{grid-column:1/-1}
+  .bar2{display:block;height:6px;background:var(--border-color);border-radius:2px;overflow:hidden}.bar2 i{display:block;height:100%}
+  .cel{display:grid;grid-template-columns:36px minmax(0,1fr);gap:7px;align-items:center}.cel .pc{text-align:right;font:500 12.3px var(--font-sans);font-variant-numeric:tabular-nums}
+  .nome{display:flex;align-items:center}.nome .pt{margin-right:9px;flex:none}
+  @container (max-width:760px){.par,.maqs{grid-template-columns:1fr}.maq{border-right:0;border-bottom:1px solid var(--border-color)}.pn{overflow-x:auto}.tb{min-width:560px}}
+  .fd{padding:28px 26px}.tb{font-size:13px}.tb th{padding:0 8px;font-size:11.4px}.tb td{padding:0 8px;overflow:visible;text-overflow:clip}.tb th:first-child,.tb td:first-child{padding-left:14px}.tb th:last-child,.tb td:last-child{padding-right:14px}.pn>header{padding:0 14px}
+  .tb td .mini{font-size:11.8px}
+  .site{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr) 120px;gap:24px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border-color)}.site:last-child{border-bottom:0}
+  .s-n b,.s-t b{display:block;font-weight:600;font-size:14px}.s-t b{font-size:18px;font-family:var(--disp);text-align:right}.s-n span,.s-t span{display:block;font-size:12px;color:var(--text-secondary)}.s-t span{text-align:right}
+  .stk{display:flex;gap:2px;height:10px;border-radius:2px;overflow:hidden}.s-l{display:flex;gap:14px;margin-top:6px;font-size:11.8px;color:var(--text-secondary)}.s-l .pt{width:7px;height:7px;margin-right:5px}
+  .fxs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.fx{padding:13px 16px;border-right:1px solid var(--border-color)}.fx:last-child{border-right:0}.fx-t{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.fx-t b{font-weight:600;font-size:14px}
+  .tag-ok,.tag-warn,.tag-crit{font-size:11.6px;font-weight:600;padding:3px 7px;border-radius:var(--radius-md)}.tag-ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,var(--bg-card))}.tag-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,var(--bg-card))}.tag-crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 12%,var(--bg-card))}
+  .fluxo{display:grid;grid-template-columns:1fr 16px 1.15fr 16px 1fr;gap:5px;align-items:center}.fluxo div{text-align:center}.fluxo span{display:block;font-size:11px;color:var(--text-secondary)}.fluxo b{font-weight:600;font-size:13px}.mid{padding:6px 4px;border-radius:var(--radius-md);background:var(--bg-primary)}.mid b{font:700 17px var(--disp)}.m-crit{background:color-mix(in srgb,var(--crit) 12%,var(--bg-card))}.m-crit b{color:var(--crit)}
+  .seta{display:block;height:0;border-top:2px solid var(--text-secondary);position:relative}.seta::after{content:'';position:absolute;right:-1px;top:-5px;width:6px;height:8px;background:var(--text-secondary);clip-path:polygon(0 0,100% 50%,0 100%)}
+  .fx p{font-size:12px;color:var(--text-secondary);margin-top:9px;text-align:center}
+  .db,.cache{display:grid;grid-template-columns:96px minmax(0,1fr);gap:15px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border-color)}.db:last-child,.cache{border-bottom:0}.db b,.cache b{display:block;font-weight:600;font-size:14px}.db span,.cache span{font-size:12.2px;color:var(--text-secondary)}.db dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin-top:5px;font-size:12.2px}.db dt{color:var(--text-secondary)}.db dd{text-align:right;font-variant-numeric:tabular-nums}
+  .arco{width:96px}.anum2{font:700 15px 'Bricolage Grotesque',sans-serif;fill:#17171a}.anelc{width:88px}.anum3{font:700 15px 'Bricolage Grotesque',sans-serif;fill:#17171a}.cache .med{margin-top:9px}.cache p{margin-top:5px}
+  .rk{display:grid;grid-template-columns:16px minmax(0,1fr) 88px 62px 48px;gap:10px;align-items:center;height:47px;padding:0 16px;border-bottom:1px solid var(--border-color);font-size:13px}.rk:last-child{border-bottom:0}.rk b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pos{color:var(--text-secondary);font-size:12px}.rb{height:7px;background:var(--border-color);border-radius:2px;overflow:hidden}.rb i{display:block;height:100%;background:var(--accent-primary)}.rk .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .sp{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr);gap:9px;align-items:center;min-height:62px;padding:9px 16px;border-bottom:1px solid var(--border-color)}.sp:last-child{border-bottom:0}.sp b{display:block;font-weight:600;font-size:13.5px}.sp span{font-size:12px;color:var(--text-secondary)}.imp{padding:7px 9px;border-radius:var(--radius-md);font-size:12.6px;font-weight:600}.imp-crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 11%,var(--bg-card))}.imp-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,var(--bg-card))}
+  .par{grid-auto-rows:1fr}.par .pn{display:flex;flex-direction:column}.par .pn>:not(header){flex:0 0 auto}
+  @container (max-width:760px){.site,.fxs,.par{grid-template-columns:1fr}.fx{border-right:0;border-bottom:1px solid var(--border-color)}.par{grid-auto-rows:auto}}
+  .par .pn .cache{flex:1 1 auto}.par .pn .sp,.par .pn .rk{flex:1 1 auto}
+  .q{display:grid;grid-template-columns:190px minmax(0,1fr) 170px;gap:26px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border-color)}.q:last-child{border-bottom:0}
+  .q-crit{background:color-mix(in srgb,var(--crit) 5%,var(--bg-card))}
+  .q-n b{display:block;font-weight:600;font-size:15px;margin-top:6px}.q-n span:last-child{font-size:12.2px;color:var(--text-secondary)}
+  .q-f{display:grid;grid-template-columns:72px minmax(0,1fr) 72px;gap:14px;align-items:center}.q-v span{display:block;font-size:11.4px;color:var(--text-secondary)}.q-v b{font-weight:600;font-size:13.6px;font-variant-numeric:tabular-nums}.q-v.d{text-align:right}
+  .q-num{display:block;font-size:12.3px;color:var(--text-secondary);margin-bottom:5px;text-align:center}.q-num b{font:700 19px var(--disp);color:var(--text-primary);margin-right:3px}
+  .q-bar{display:block;height:12px;border-radius:2px;background:var(--bg-primary);box-shadow:inset 0 0 0 1px var(--border-color);overflow:hidden}.q-bar i{display:block;height:100%}
+  .q-s{text-align:right}.q-s b{display:block;font:700 18px var(--disp)}.q-s span{font-size:12.2px;color:var(--text-secondary)}
+  @container (max-width:760px){.q{grid-template-columns:1fr;gap:10px}.q-s{text-align:left}}
+  /* V2: lado a lado */
+  .v2 .duo{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(0,1.5fr);gap:38px}
+  .v2 .lado{background:var(--bg-primary);margin:-38px 0 -38px -44px;padding:38px 28px 38px 44px;border-radius:var(--radius-lg) 0 0 var(--radius-lg)}
+  .v2 .lado h1{font-size:30px;line-height:1.12;margin:12px 0}
+  .v2 .lado p{font-size:14.5px;color:var(--tinta2)}
+  .v2 h2.sec{font:600 14px/1.3 var(--font-sans);margin:22px 0 6px}
+  .v2 .delta{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}.v2 .delta b{font-family:var(--mono);font-weight:500}
+  .v2 table{width:100%;border-collapse:collapse;font-size:14.3px}
+  .v2 th{text-align:left;font:600 12.5px/1.3 var(--font-sans);color:var(--text-secondary);padding:0 12px 8px 0}
+  .v2 td{padding:11px 12px 11px 0;border-top:1px solid var(--border-color);vertical-align:top}
+  /* V3: mais denso */
+  .v3 .folha{padding:calc(30px * var(--k-ar,1)) 36px}
+  .v3 .barra{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-bottom:12px;border-bottom:2px solid var(--text-primary)}
+  .v3 .barra .tt{font-size:25px}
+  .v3 .perg{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;padding:14px 0;border-bottom:1px solid var(--border-color)}
+  .v3 .perg>h2{font:600 15px/1.3 var(--font-sans)}
+  .v3 .linha{display:grid;grid-template-columns:minmax(0,1fr) 84px 150px;gap:12px;padding:4px 0;font-size:14px}
+  .v3 .linha em{font-style:normal;color:var(--text-secondary)}
+  .v3 .n{font:500 13px/1.5 var(--mono)}
+  @container (max-width:760px){.pgrid,.v2 .duo,.v3 .perg{grid-template-columns:1fr}.v1 li{grid-template-columns:1fr}.v2 .lado{margin:0;padding:18px}.folha{padding:24px}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="hz-i-mobile" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="hz-i-tablet" viewBox="0 0 24 24"><rect x="4.5" y="2.5" width="15" height="19" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="hz-i-desktop" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="hz-i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="hz-i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="hz-i-lua" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></symbol>
+  <symbol id="hz-i-comparar" viewBox="0 0 24 24"><rect x="3" y="4" width="7.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/></symbol>
+  <symbol id="hz-i-painel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="hz-i-comentar" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 8.5h7M8.5 11.5h4"/></symbol>
+</svg>
+
+<div class="hz-toolbar">
+  <div class="hz-group hz-group--tabs" id="hz-tabs"><!-- variation tabs injected here when >1 --></div>
+
+  <button class="hz-btn" id="hz-comparar" title="Comparar as variações lado a lado · C" aria-pressed="false">
+    <svg class="hz-ico"><use href="#hz-i-comparar"/></svg><span class="hz-label-longa">Comparar</span></button>
+  <span class="hz-sep"></span>
+  <div class="hz-seg" role="group" aria-label="Largura da tela">
+    <button class="hz-btn" data-vw="mobile"  title="Mobile (390px) · 1"><svg class="hz-ico"><use href="#hz-i-mobile"/></svg></button>
+    <button class="hz-btn" data-vw="tablet"  title="Tablet (768px) · 2"><svg class="hz-ico"><use href="#hz-i-tablet"/></svg></button>
+    <button class="hz-btn is-active" data-vw="desktop" title="Desktop (1280px) · 3"><svg class="hz-ico"><use href="#hz-i-desktop"/></svg></button>
+    <button class="hz-btn" data-vw="full" title="Largura total, sem moldura · 4"><svg class="hz-ico"><use href="#hz-i-full"/></svg></button>
+  </div>
+  <label class="hz-switch" title="Largura livre: arraste a borda do canvas · L">
+    <input type="checkbox" role="switch" id="hz-livre"><i></i><span class="hz-label-longa">Livre</span></label>
+  <span class="hz-sep"></span>
+  <button class="hz-btn" id="hz-comentar" title="Comentar: clique num elemento e escreva o ajuste · K" aria-pressed="false">
+    <svg class="hz-ico"><use href="#hz-i-comentar"/></svg><span class="hz-label-longa">Comentar</span></button>
+  <button class="hz-btn" id="hz-theme" title="Alternar tema do canvas · T"><svg class="hz-ico"><use href="#hz-i-sol"/></svg></button>
+  <span class="hz-sep"></span>
+  <button class="hz-btn hz-selo" id="hz-detector-selo" data-estado="carregando" title="Detector anti-slop"><i></i><span>Detector</span></button>
+  <button class="hz-btn" id="hz-painel-botao" title="Mostrar ou esconder o painel · P" aria-pressed="true"><svg class="hz-ico"><use href="#hz-i-painel"/></svg></button>
+</div>
+
+<div class="hz-main">
+  <div class="hz-stage-wrap">
+    <div class="hz-stage" data-vw="desktop">
+      <span class="hz-medida" id="hz-medida"></span>
+      <div class="hz-frame" data-theme="light">
+
+      <!-- ============================================================
+           4. VARIATIONS — one <section> per variation. They show ONE AT A
+           TIME via the top tabs (no vertical stacking), or all together in
+           Compare mode. Give each a short data-title (tab label) and
+           data-desc (trade-off, shown in the side panel).
+           For a single variation, the tabs bar stays hidden automatically.
+           ============================================================ -->
+
+      <!-- KNOBS (opcional, 0 a 4 por variação): ajustes que o usuário mexe AO VIVO, sem
+           gerar de novo. Declare em data-knobs e escreva o CSS da variação contra eles:
+             range  → variável  --k-<id>        ex.: opacity: var(--k-acento, .5)
+             steps  → atributo  data-k-<id>     ex.: .variation[data-k-densidade="compacta"] .x {...}
+             toggle → --k-<id> (0|1) e o atributo data-k-<id> presente quando ligado
+           data-knobs='[
+             {"id":"acento","tipo":"range","min":0,"max":1,"passo":0.05,"padrao":0.5,"rotulo":"Acento"},
+             {"id":"densidade","tipo":"steps","opcoes":["arejada","compacta"],"padrao":"arejada","rotulo":"Densidade"},
+             {"id":"serifa","tipo":"toggle","padrao":false,"rotulo":"Título serifado"}]'
+           Na URL: ?k=acento:0.8,densidade:compacta abre direto nesse estado. -->
+      <section class="variation is-active v1" data-title="Primeira página" data-desc="Faixa escura com a nota, tendências, prioridades, saúde dos sistemas e detalhes técnicos." data-knobs='[{"id":"escala","tipo":"range","min":0.85,"max":1.15,"passo":0.05,"padrao":1,"rotulo":"Tamanho do título"}]'>
+<div class="folha capa2"><header class="hero"><div class="hero-t"><div class="mini h-m">Cluster Aurora · Auditoria de 26/10/2026 · comparada com 23/10</div><h1 class="tt">Quase tudo no ar, mas dois problemas pedem atenção hoje.</h1><p>Os clientes conseguem comprar, mas 3 serviços de apoio estão fora. O restante pode entrar na próxima janela.</p></div>
+<div class="hero-n"><svg class="anel" viewBox="0 0 112 112" role="img" aria-label="Nota 79 de 100"><circle cx="56" cy="56" r="46" fill="none" stroke="#3a3b42" stroke-width="10"/><circle cx="56" cy="56" r="46" fill="none" stroke="#e0a93c" stroke-width="10" stroke-linecap="round" stroke-dasharray="228.3 289.0" transform="rotate(-90 56 56)"/><text x="56" y="63" text-anchor="middle" class="anum">79</text></svg><div><b>Atenção</b><span>Nota geral, limitada a 79 por haver problema alto aberto</span></div></div>
+<div class="hero-on"><b class="on-g">64</b><span>de 67 serviços online</span><div class="seg"><i style="flex:64"></i><u style="flex:3"></u></div><small>Fora: pagamento-worker, relatorios e busca-indexador</small></div></header>
+<div class="mets"><div class="met"><span>Erros nos sites</span><b class="c-ok">0,4%</b><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="0.0,4.0 16.7,15.0 33.3,9.5 50.0,20.5 66.7,26.0 83.3,20.5 100.0,26.0" fill="none" stroke="#12683f" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div><div class="met"><span>Tempo de resposta</span><b class="c-warn">612 ms</b><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="0.0,26.0 16.7,23.2 33.3,24.6 50.0,17.5 66.7,12.7 83.3,6.1 100.0,4.0" fill="none" stroke="#8a5806" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div><div class="met"><span>CPU das máquinas</span><b class="c-ok">41%</b><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="0.0,4.0 16.7,13.8 33.3,8.9 50.0,18.7 66.7,26.0 83.3,16.2 100.0,21.1" fill="none" stroke="#12683f" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div><div class="met"><span>Memória</span><b class="c-warn">78%</b><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="0.0,26.0 16.7,22.3 33.3,18.7 50.0,16.8 66.7,11.3 83.3,7.7 100.0,4.0" fill="none" stroke="#8a5806" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div><div class="met"><span>Disco</span><b class="c-crit">91%</b><svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="0.0,26.0 16.7,22.0 33.3,18.0 50.0,16.0 66.7,12.0 83.3,8.0 100.0,4.0" fill="none" stroke="#b02a37" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div></div>
+<div class="corpo"><div><h2 class="s">O que fazer primeiro</h2><ol class="prio"><li><span class="nivel alto">Alto</span><div><b>Avisos de pedido estão parados</b><p>A fila “emails” acumula 18.204 mensagens sem ninguém lendo.</p></div><span class="mini">Operação</span></li><li><span class="nivel alto">Alto</span><div><b>Pagamento reinicia sozinho</b><p>6 falhas nas últimas 24 horas.</p></div><span class="mini">Desenvolvimento</span></li><li><span class="nivel medio">Médio</span><div><b>Disco da máquina db-1 está em 91%</b><p>No ritmo atual, enche em 9 dias.</p></div><span class="mini">Operação</span></li><li><span class="nivel medio">Médio</span><div><b>67 serviços têm permissão demais</b><p>Uma invasão em um deles alcança mais coisas.</p></div><span class="mini">Desenvolvimento</span></li><li><span class="nivel medio">Médio</span><div><b>54 serviços não avisam quando travam</b><p>Podem parar sem serem reiniciados.</p></div><span class="mini">Desenvolvimento</span></li></ol></div><aside><h2 class="s">Desde 23/10</h2><ul class="dl"><li><b class="c-ok">3 melhoraram</b><span>Serviços ganharam limite de memória</span></li><li><b class="c-crit">1 piorou</b><span>A fila “emails” parou</span></li><li><b class="c-warn">1 novo</b><span>Versão diferente de Docker entre máquinas</span></li></ul><h2 class="s s2">Certificados</h2><div class="cert"><div><span class="n">loja.exemplo.com.br</span><b class="c-ok">71 dias</b></div><div><span class="n">pagamentos.exemplo.com.br</span><b class="c-warn">12 dias</b></div><div><span class="n">admin.exemplo.com.br</span><b class="c-ok">64 dias</b></div></div></aside></div>
+<p class="naoviu"><b>Não medido:</b> bancos e cache, porque não há exporter ligado. Isso não significa que estão bem.</p></div>
+<div class="folha fd"><div class="fd-t"><h2 class="tt t2">Saúde por sistema</h2><span class="mini">Disponibilidade dos últimos 30 dias</span></div><section class="pn full"><header><h3>10 sistemas</h3><span>4 online · 5 com atenção · 1 parado</span></header><table class="tb"><colgroup><col style="width:23%"><col style="width:8%"><col style="width:14%"><col style="width:11%"><col style="width:10%"><col style="width:17%"><col style="width:17%"></colgroup><thead><tr><th class="e">Sistema</th><th class="d">Online</th><th class="e">Estado</th><th class="d">Disponível</th><th class="d">Resposta</th><th class="e">CPU</th><th class="e">Memória</th></tr></thead><tbody><tr><td class="e"><span class="nome"><i class="pt f-ok"></i><b>Loja virtual</b></span></td><td class="d">9/9</td><td class="e"><b class="c-ok">Online</b></td><td class="d">99,98%</td><td class="d">184 ms</td><td class="e"><span class="cel"><span class="pc">34%</span><span class="bar2"><i class="f-ok" style="width:34%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">62%</span><span class="bar2"><i class="f-ok" style="width:62%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Pagamento</b></span></td><td class="d">3/4</td><td class="e"><b class="c-warn">Instável</b></td><td class="d">99,12%</td><td class="d">612 ms</td><td class="e"><span class="cel"><span class="pc">58%</span><span class="bar2"><i class="f-ok" style="width:58%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">74%</span><span class="bar2"><i class="f-warn" style="width:74%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-crit"></i><b>Notificações</b></span></td><td class="d">4/5</td><td class="e"><b class="c-crit">Parado</b></td><td class="d">97,40%</td><td class="d"><span class="mini">sem dado</span></td><td class="e"><span class="cel"><span class="pc">12%</span><span class="bar2"><i class="f-ok" style="width:12%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">41%</span><span class="bar2"><i class="f-ok" style="width:41%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Banco de dados</b></span></td><td class="d">2/2</td><td class="e"><b class="c-warn">Sem dado</b></td><td class="d"><span class="mini">sem dado</span></td><td class="d"><span class="mini">sem dado</span></td><td class="e"><span class="mini">sem dado</span></td><td class="e"><span class="mini">sem dado</span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Cache</b></span></td><td class="d">1/1</td><td class="e"><b class="c-warn">Sem dado</b></td><td class="d"><span class="mini">sem dado</span></td><td class="d"><span class="mini">sem dado</span></td><td class="e"><span class="mini">sem dado</span></td><td class="e"><span class="mini">sem dado</span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Fila de mensagens</b></span></td><td class="d">1/1</td><td class="e"><b class="c-warn">Acumula</b></td><td class="d">100%</td><td class="d"><span class="mini">sem dado</span></td><td class="e"><span class="cel"><span class="pc">22%</span><span class="bar2"><i class="f-ok" style="width:22%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">57%</span><span class="bar2"><i class="f-ok" style="width:57%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-ok"></i><b>Proxy de entrada</b></span></td><td class="d">2/2</td><td class="e"><b class="c-ok">Online</b></td><td class="d">100%</td><td class="d">9 ms</td><td class="e"><span class="cel"><span class="pc">18%</span><span class="bar2"><i class="f-ok" style="width:18%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">29%</span><span class="bar2"><i class="f-ok" style="width:29%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-ok"></i><b>Painel administrativo</b></span></td><td class="d">6/6</td><td class="e"><b class="c-ok">Online</b></td><td class="d">99,95%</td><td class="d">231 ms</td><td class="e"><span class="cel"><span class="pc">21%</span><span class="bar2"><i class="f-ok" style="width:21%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">48%</span><span class="bar2"><i class="f-ok" style="width:48%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Relatórios</b></span></td><td class="d">4/5</td><td class="e"><b class="c-warn">Parcial</b></td><td class="d">98,70%</td><td class="d">1,4 s</td><td class="e"><span class="cel"><span class="pc">47%</span><span class="bar2"><i class="f-ok" style="width:47%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">66%</span><span class="bar2"><i class="f-ok" style="width:66%"></i></span></span></td></tr><tr><td class="e"><span class="nome"><i class="pt f-warn"></i><b>Busca</b></span></td><td class="d">3/4</td><td class="e"><b class="c-warn">Parcial</b></td><td class="d">99,31%</td><td class="d">96 ms</td><td class="e"><span class="cel"><span class="pc">39%</span><span class="bar2"><i class="f-ok" style="width:39%"></i></span></span></td><td class="e"><span class="cel"><span class="pc">71%</span><span class="bar2"><i class="f-warn" style="width:71%"></i></span></span></td></tr></tbody></table></section></div><div class="folha fd fdt"><div class="fd-t"><h2 class="tt t2">Detalhes técnicos</h2><span class="mini">Janela: últimas 24 horas</span></div><section class="pn full"><header><h3>Máquinas</h3><span>4 online · 1 disco acima de 85%</span></header><div class="maqs"><article class="maq"><header><b>manager-1</b><span class="st c-ok"><i class="pt f-ok"></i>Online</span></header><div class="med"><span>CPU</span><b class="c-ok">37%</b><span class="bar2"><i class="f-ok" style="width:37%"></i></span></div><div class="med"><span>Memória</span><b class="c-ok">64%</b><span class="bar2"><i class="f-ok" style="width:64%"></i></span></div><div class="med"><span>Disco</span><b class="c-ok">58%</b><span class="bar2"><i class="f-ok" style="width:58%"></i></span></div></article><article class="maq"><header><b>worker-1</b><span class="st c-ok"><i class="pt f-ok"></i>Online</span></header><div class="med"><span>CPU</span><b class="c-ok">52%</b><span class="bar2"><i class="f-ok" style="width:52%"></i></span></div><div class="med"><span>Memória</span><b class="c-warn">81%</b><span class="bar2"><i class="f-warn" style="width:81%"></i></span></div><div class="med"><span>Disco</span><b class="c-warn">73%</b><span class="bar2"><i class="f-warn" style="width:73%"></i></span></div></article><article class="maq"><header><b>worker-2</b><span class="st c-ok"><i class="pt f-ok"></i>Online</span></header><div class="med"><span>CPU</span><b class="c-ok">44%</b><span class="bar2"><i class="f-ok" style="width:44%"></i></span></div><div class="med"><span>Memória</span><b class="c-warn">76%</b><span class="bar2"><i class="f-warn" style="width:76%"></i></span></div><div class="med"><span>Disco</span><b class="c-ok">66%</b><span class="bar2"><i class="f-ok" style="width:66%"></i></span></div></article><article class="maq"><header><b>db-1</b><span class="st c-ok"><i class="pt f-ok"></i>Online</span></header><div class="med"><span>CPU</span><b class="c-ok">31%</b><span class="bar2"><i class="f-ok" style="width:31%"></i></span></div><div class="med"><span>Memória</span><b class="c-ok">69%</b><span class="bar2"><i class="f-ok" style="width:69%"></i></span></div><div class="med"><span>Disco</span><b class="c-crit">91%</b><span class="bar2"><i class="f-crit" style="width:91%"></i></span></div></article></div></section><section class="pn full"><header><h3>Sites</h3><span>3 monitorados · 1 com atenção</span></header><div class="site"><div class="s-n"><b>loja.exemplo.com.br</b><span>1,2 mi de acessos</span></div><div class="s-b"><div class="stk"><i class="f-ok" style="flex:97.9"></i><i class="f-warn" style="flex:1.8"></i><i class="f-crit" style="flex:0.6"></i></div><div class="s-l"><span><i class="pt f-ok"></i>97,9% ok</span><span><i class="pt f-warn"></i>1,8% 4xx</span><span><i class="pt f-crit"></i>0,3% 5xx</span></div></div><div class="s-t"><b class="c-ok">184 ms</b><span>tempo de resposta</span></div></div><div class="site"><div class="s-n"><b>api.exemplo.com.br</b><span>842 mil de acessos</span></div><div class="s-b"><div class="stk"><i class="f-ok" style="flex:96.4"></i><i class="f-warn" style="flex:2.7"></i><i class="f-crit" style="flex:0.9"></i></div><div class="s-l"><span><i class="pt f-ok"></i>96,4% ok</span><span><i class="pt f-warn"></i>2,7% 4xx</span><span><i class="pt f-crit"></i>0,9% 5xx</span></div></div><div class="s-t"><b class="c-warn">612 ms</b><span>tempo de resposta</span></div></div><div class="site"><div class="s-n"><b>admin.exemplo.com.br</b><span>38 mil de acessos</span></div><div class="s-b"><div class="stk"><i class="f-ok" style="flex:98.1"></i><i class="f-warn" style="flex:1.8"></i><i class="f-crit" style="flex:0.6"></i></div><div class="s-l"><span><i class="pt f-ok"></i>98,1% ok</span><span><i class="pt f-warn"></i>1,8% 4xx</span><span><i class="pt f-crit"></i>0,1% 5xx</span></div></div><div class="s-t"><b class="c-ok">231 ms</b><span>tempo de resposta</span></div></div></section><section class="pn full"><header><h3>Filas</h3><span>1 parada · 1 lenta · 1 fluindo</span></header><div class="qs"><div class="q q-crit"><div class="q-n"><span class="tag-crit">Parada</span><b>emails</b><span>0 consumidores</span></div>
+<div class="q-f"><div class="q-v"><span>Entra</span><b>320/min</b></div><div class="q-tubo"><span class="q-num"><b>18.204</b> na fila</span><span class="q-bar"><i class="f-crit" style="width:100%"></i></span></div><div class="q-v d"><span>Sai</span><b>0/min</b></div></div>
+<div class="q-s"><b class="c-crit">+320/min</b><span>Crescendo sem parar</span></div></div><div class="q q-warn"><div class="q-n"><span class="tag-warn">Lenta</span><b>notas-fiscais</b><span>2 consumidores</span></div>
+<div class="q-f"><div class="q-v"><span>Entra</span><b>44/min</b></div><div class="q-tubo"><span class="q-num"><b>86</b> na fila</span><span class="q-bar"><i class="f-warn" style="width:8%"></i></span></div><div class="q-v d"><span>Sai</span><b>41/min</b></div></div>
+<div class="q-s"><b class="c-warn">+3/min</b><span>Crescendo devagar</span></div></div><div class="q q-ok"><div class="q-n"><span class="tag-ok">Fluindo</span><b>pedidos</b><span>4 consumidores</span></div>
+<div class="q-f"><div class="q-v"><span>Entra</span><b>510/min</b></div><div class="q-tubo"><span class="q-num"><b>12</b> na fila</span><span class="q-bar"><i class="f-ok" style="width:2%"></i></span></div><div class="q-v d"><span>Sai</span><b>512/min</b></div></div>
+<div class="q-s"><b class="c-ok">−2/min</b><span>Sob controle</span></div></div></div></section><div class="par"><section class="pn "><header><h3>Bancos de dados</h3><span>2 medidos</span></header><div class="db"><svg class="arco" viewBox="0 0 96 54" role="img" aria-label="42% das conexões"><path d="M10 48 A38 38 0 0 1 86 48" fill="none" stroke="#e3e3e5" stroke-width="9" stroke-linecap="round"/><path d="M10 48 A38 38 0 0 1 86 48" fill="none" stroke="#12683f" stroke-width="9" stroke-linecap="round" stroke-dasharray="50.1 119.4"/><text x="48" y="46" text-anchor="middle" class="anum2">42%</text></svg><div><b>MariaDB principal</b><span>212 de 500 conexões</span><dl><dt>Tamanho</dt><dd>86 GB</dd><dt>Crescimento</dt><dd>+1,2 GB em 24 h</dd></dl></div></div><div class="db"><svg class="arco" viewBox="0 0 96 54" role="img" aria-label="19% das conexões"><path d="M10 48 A38 38 0 0 1 86 48" fill="none" stroke="#e3e3e5" stroke-width="9" stroke-linecap="round"/><path d="M10 48 A38 38 0 0 1 86 48" fill="none" stroke="#12683f" stroke-width="9" stroke-linecap="round" stroke-dasharray="22.7 119.4"/><text x="48" y="46" text-anchor="middle" class="anum2">19%</text></svg><div><b>PostgreSQL relatórios</b><span>38 de 200 conexões</span><dl><dt>Tamanho</dt><dd>24 GB</dd><dt>Crescimento</dt><dd>+90 MB em 24 h</dd></dl></div></div></section><section class="pn "><header><h3>Cache</h3><span>1 medido</span></header><div class="cache"><svg class="anelc" viewBox="0 0 76 76" role="img" aria-label="96% de acerto"><circle cx="38" cy="38" r="30" fill="none" stroke="#e3e3e5" stroke-width="8"/><circle cx="38" cy="38" r="30" fill="none" stroke="#12683f" stroke-width="8" stroke-dasharray="181.0 188.5" transform="rotate(-90 38 38)"/><text x="38" y="43" text-anchor="middle" class="anum3">96%</text></svg><div><b>Redis</b><span>96% das leituras encontradas no cache</span><div class="med"><span>Memória</span><b class="c-ok">45%</b><span class="bar2"><i class="f-ok" style="width:45%"></i></span></div><p class="mini">1,8 GB de 4 GB · sem evicções</p></div></div></section><section class="pn "><header><h3>Maiores consumidores</h3><span>Top 4 por CPU</span></header><div class="rk"><span class="pos">1</span><b>pagamento-worker</b><span class="rb"><i style="width:100%"></i></span><span class="v">1,4 cores</span><span class="v">1,9 GB</span></div><div class="rk"><span class="pos">2</span><b>relatorios</b><span class="rb"><i style="width:79%"></i></span><span class="v">1,1 cores</span><span class="v">1,6 GB</span></div><div class="rk"><span class="pos">3</span><b>loja-api</b><span class="rb"><i style="width:64%"></i></span><span class="v">0,9 cores</span><span class="v">1,2 GB</span></div><div class="rk"><span class="pos">4</span><b>busca-indexador</b><span class="rb"><i style="width:50%"></i></span><span class="v">0,7 cores</span><span class="v">2,3 GB</span></div></section><section class="pn "><header><h3>Pontos únicos de falha</h3><span>3 sem reserva real</span></header><div class="sp"><div><b>MariaDB principal</b><span>Sem réplica</span></div><i class="seta"></i><div class="imp imp-crit">Loja e pagamento param</div></div><div class="sp"><div><b>Redis</b><span>Sem réplica</span></div><i class="seta"></i><div class="imp imp-warn">Carrinho fica lento</div></div><div class="sp"><div><b>Proxy em manager-1</b><span>2 cópias no mesmo nó</span></div><i class="seta"></i><div class="imp imp-crit">Sites saem do ar</div></div></section></div></div><div class="folha prob "><span class="nivel medio">Médio · Desenvolvimento age</span><h2>67 serviços têm mais permissão que o necessário</h2><div class="pgrid"><div><h3>O que significa</h3><p>Esses serviços rodam como administrador da máquina. Se um for invadido, o atacante começa com poder demais.</p><h3>O que fazer</h3><p>Trocar o usuário na imagem de cada serviço, começando pelos que recebem acesso externo.</p><h3>Como conferir</h3><pre>docker service inspect loja-api --format '{{.Spec.TaskTemplate.ContainerSpec.User}}'</pre></div><div><h3>Afetados: 67 serviços</h3><div class="svc"><span>loja-api</span><span>loja-web</span><span>pagamento-worker</span><span>estoque-api</span><span>notas-fiscais-integracao</span><span>relatorios</span><span>busca-indexador</span><span>admin-web</span></div><p class="mini">e mais 59 no report.json</p><h3>Fonte da regra</h3><p class="mini">Inspeção do Docker em 26/10, 18:52. Um risco foi aceito até 12/2026.</p></div></div></div></section>
+  </aside>
+</div>
+
+<div class="hz-balao" id="hz-balao" hidden role="dialog" aria-label="Novo comentário">
+  <small id="hz-balao-alvo"></small>
+  <textarea id="hz-balao-texto" placeholder="O que ajustar aqui?"></textarea>
+  <div><button class="hz-btn" id="hz-balao-cancelar" type="button">Cancelar</button>
+       <button class="hz-btn is-on" id="hz-balao-salvar" type="button">Salvar</button></div>
+</div>
+
+<script>
+  // ---- harness behavior: tabs · compare · width · theme · fonts · knobs · direction ·
+  //      comments · choice · detector · panel · URL state · keys ----
+  let pronto = false;   // salvarEstado() só grava depois de ler a URL inicial, senão a apagaria
+  const $ = id => document.getElementById(id);
+  const frame    = document.querySelector('.hz-frame');
+  const stage    = document.querySelector('.hz-stage');
+  const caption  = $('hz-caption');
+  const tabsWrap = $('hz-tabs');
+  const variations = Array.from(document.querySelectorAll('.variation'));
+  const servido = location.protocol.startsWith('http');   // serve.py: detector, comentários, escolha
+
+  function el(tag, classe, texto) {
+    const n = document.createElement(tag);
+    if (classe) n.className = classe;
+    if (texto !== undefined) n.textContent = texto;
+    return n;
+  }
+
+  async function api(caminho, dados) {
+    const opcoes = dados === undefined ? { cache: 'no-store' }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) };
+    const r = await fetch(caminho, opcoes);
+    const corpo = await r.json();
+    if (!r.ok) throw new Error(corpo.erro || ('HTTP ' + r.status));
+    return corpo;
+  }
+
+  function showCaption(section) {
+    caption.replaceChildren();
+    const t = section.dataset.title || '';
+    const d = section.dataset.desc || '';
+    if (t) caption.appendChild(el('b', '', t));
+    if (d) caption.appendChild(document.createTextNode(d));
+  }
+
+  // ---- knobs: 0 a 4 ajustes por variação, declarados em data-knobs (JSON) ----
+  // Mexer num knob não gera nada de novo: ele só troca uma variável CSS ou um atributo na
+  // própria <section>, e o CSS da variação responde. Rótulo é sempre TEXTO (textContent).
+  const knobsWrap = $('hz-knobs');
+  const knobsVazio = $('hz-knobs-vazio');
+  const MAX_KNOBS = 4;
+  const ID_VALIDO = /^[a-z0-9][a-z0-9-]*$/;
+  const TIPOS = ['range', 'steps', 'toggle'];
+  // `!!"false"` é verdadeiro em JavaScript: um toggle com padrão "false" abria LIGADO.
+  const comoBool = v => v === true || ['1', 'true', 'on', 'sim'].includes(String(v).toLowerCase());
+  const valores = new Map();            // <section> -> { id: valor } (sobrevive à troca de aba)
+
+  function lerKnobs(section) {
+    const cru = section.dataset.knobs;
+    if (!cru) return { lista: [], notas: [] };
+    let lista;
+    try { lista = JSON.parse(cru); } catch (e) {
+      return { lista: [], notas: ['data-knobs inválido nesta variação (JSON quebrado)'] };
+    }
+    if (!Array.isArray(lista)) return { lista: [], notas: ['data-knobs precisa ser uma lista'] };
+    const notas = [];
+    const vistos = new Set();
+    const validos = lista.filter(k => {
+      if (!k || !ID_VALIDO.test(String(k.id || ''))) {
+        notas.push('knob com id inválido ignorado (use a-z, 0-9 e hífen)'); return false;
+      }
+      const tipo = k.tipo || 'range';
+      if (!TIPOS.includes(tipo)) {
+        notas.push('knob "' + k.id + '": tipo "' + tipo + '" não existe (range, steps ou toggle)'); return false;
+      }
+      if (tipo === 'steps' && !(Array.isArray(k.opcoes) && k.opcoes.length)) {
+        notas.push('knob "' + k.id + '": steps sem opções'); return false;
+      }
+      if (vistos.has(k.id)) {
+        notas.push('knob "' + k.id + '" repetido nesta variação: só o primeiro vale'); return false;
+      }
+      vistos.add(k.id);
+      return true;
+    });
+    if (validos.length > MAX_KNOBS) notas.push('mais de ' + MAX_KNOBS + ' knobs: só os ' + MAX_KNOBS + ' primeiros aparecem');
+    return { lista: validos.slice(0, MAX_KNOBS), notas };
+  }
+
+  // Todo valor passa por aqui antes de valer: faixa limitada ao min/max, opção dentro da lista,
+  // toggle como booleano. Sem isso, `?k=acento:7` gravava 7 e o slider mostrava 1.
+  function normalizar(k, bruto) {
+    if (k.tipo === 'toggle') return comoBool(bruto);
+    if (k.tipo === 'steps') return k.opcoes.includes(bruto) ? bruto : padraoDe(k);
+    const min = k.min !== undefined ? Number(k.min) : 0;
+    const max = k.max !== undefined ? Number(k.max) : 1;
+    const n = Number(bruto);
+    if (bruto === '' || bruto === null || Number.isNaN(n)) return padraoDe(k);
+    return Math.min(max, Math.max(min, n));
+  }
+
+  function padraoDe(k) {
+    if (k.tipo === 'toggle') return comoBool(k.padrao);
+    if (k.tipo === 'steps') return k.opcoes.includes(k.padrao) ? k.padrao : k.opcoes[0];
+    const min = k.min !== undefined ? Number(k.min) : 0;
+    const max = k.max !== undefined ? Number(k.max) : 1;
+    const n = Number(k.padrao);
+    return Number.isNaN(n) || k.padrao === undefined ? min : Math.min(max, Math.max(min, n));
+  }
+
+  function aplicarKnob(section, k, bruto) {
+    const valor = normalizar(k, bruto);
+    const nome = 'k-' + k.id;
+    if (k.tipo === 'steps') {
+      section.setAttribute('data-' + nome, valor);
+    } else if (k.tipo === 'toggle') {
+      section.style.setProperty('--' + nome, valor ? '1' : '0');
+      section.toggleAttribute('data-' + nome, !!valor);
+    } else {
+      section.style.setProperty('--' + nome, String(valor));
+    }
+    (valores.get(section) || valores.set(section, {}).get(section))[k.id] = valor;
+    salvarEstado();
+    depoisDeMudar();
+  }
+
+  function valorInicial(section, k) {
+    const guardado = (valores.get(section) || {})[k.id];
+    return guardado !== undefined ? guardado : padraoDe(k);
+  }
+
+  function controle(section, k) {
+    const rotulo = el('label', 'hz-knob');
+    rotulo.appendChild(el('span', '', k.rotulo || k.id));
+    const atual = valorInicial(section, k);
+    if (k.tipo === 'steps') {
+      const seg = el('span', 'hz-seg');
+      (k.opcoes || []).forEach(opcao => {
+        const b = el('button', '', opcao);
+        b.type = 'button';
+        b.classList.toggle('is-active', opcao === atual);
+        b.addEventListener('click', () => {
+          seg.querySelectorAll('button').forEach(x => x.classList.toggle('is-active', x === b));
+          aplicarKnob(section, k, opcao);
+        });
+        seg.appendChild(b);
+      });
+      rotulo.appendChild(seg);
+    } else if (k.tipo === 'toggle') {
+      const caixa = el('input');
+      caixa.type = 'checkbox';
+      caixa.checked = !!atual;
+      caixa.addEventListener('change', () => aplicarKnob(section, k, caixa.checked));
+      rotulo.appendChild(caixa);
+    } else {
+      const faixa = el('input');
+      faixa.type = 'range';
+      faixa.min = k.min !== undefined ? k.min : 0;
+      faixa.max = k.max !== undefined ? k.max : 1;
+      faixa.step = k.passo !== undefined ? k.passo : 0.05;
+      faixa.value = atual;
+      faixa.setAttribute('value', atual);
+      const saida = el('output', '', atual);
+      faixa.addEventListener('input', () => {
+        saida.textContent = faixa.value;
+        aplicarKnob(section, k, faixa.value);
+      });
+      rotulo.append(saida, faixa);
+    }
+    return rotulo;
+  }
+
+  // Desenha os knobs de uma ou de várias variações (no modo comparar, agrupados por título).
+  function desenharKnobs(secoes) {
+    knobsWrap.replaceChildren();
+    let algum = false;
+    secoes.forEach(section => {
+      const { lista, notas } = lerKnobs(section);
+      if (!lista.length && !notas.length) return;
+      lista.forEach(k => knobsWrap.appendChild(controle(section, k)));
+      notas.forEach(n => knobsWrap.appendChild(el('span', 'hz-nota', n)));
+      algum = true;
+    });
+    knobsWrap.hidden = !algum;
+    knobsVazio.hidden = algum;
+    $('hz-knobs-restaurar').hidden = !algum;
+    $('hz-conta-ajustes').textContent = secoes.reduce((n, sec) => n + lerKnobs(sec).lista.length, 0) || '';
+  }
+
+  // Todas as variações começam nos padrões: o CSS de cada uma tem valor desde o primeiro render.
+  variations.forEach(section => lerKnobs(section).lista.forEach(k => aplicarKnob(section, k, valorInicial(section, k))));
+
+  $('hz-knobs-restaurar').addEventListener('click', () => {
+    const alvo = [variations[foco]].filter(Boolean);
+    alvo.forEach(sec => lerKnobs(sec).lista.forEach(k => aplicarKnob(sec, k, padraoDe(k))));
+    desenharKnobs(alvo);
+  });
+
+  // ---- abas e comparar ----
+  // `ativa` é a aba (uma variação na tela); `foco` é a variação que o painel mostra. Fora do
+  // comparar são a mesma; no comparar, clicar numa coluna muda só o foco.
+  const compararBtn = $('hz-comparar');
+  let ativa = 0, foco = 0;
+  function comparando() { return frame.hasAttribute('data-comparar'); }
+
+  function focar(i) {
+    foco = i;
+    variations.forEach((v, j) => v.toggleAttribute('data-foco', comparando() && i === j));
+    if (variations[i]) { showCaption(variations[i]); desenharKnobs([variations[i]]); }
+    $('hz-dica-comparar').hidden = !comparando();
+    desenharEscolha();
+    depoisDeMudar();
+  }
+
+  function setComparar(ligar) {
+    frame.toggleAttribute('data-comparar', ligar);
+    stage.toggleAttribute('data-comparar', ligar);
+    compararBtn.classList.toggle('is-on', ligar);
+    compararBtn.setAttribute('aria-pressed', String(ligar));
+    if (ligar) {
+      tabsWrap.querySelectorAll('.hz-tab').forEach(b => b.classList.remove('is-active'));
+      focar(ativa);
+    } else {
+      activate(ativa);
+    }
+    salvarEstado();
+  }
+
+  function activate(i) {
+    ativa = i;
+    if (comparando()) { setComparar(false); return; }
+    variations.forEach((v, j) => v.classList.toggle('is-active', i === j));
+    tabsWrap.querySelectorAll('.hz-tab').forEach((b, j) => b.classList.toggle('is-active', i === j));
+    focar(i);
+    salvarEstado();
+  }
+
+  // No comparar, clicar numa coluna a põe em foco no painel (o clique segue para o mockup).
+  frame.addEventListener('pointerdown', e => {
+    if (!comparando() || document.body.hasAttribute('data-comentando')) return;
+    const i = variations.indexOf(e.target.closest('.variation'));
+    if (i >= 0 && i !== foco) focar(i);
+  });
+
+  // Tabs and compare only when there's more than one variation.
+  if (variations.length > 1) {
+    variations.forEach((v, i) => {
+      const b = el('button', 'hz-btn hz-tab' + (i === 0 ? ' is-active' : ''), v.dataset.title || ('Variação ' + (i + 1)));
+      b.addEventListener('click', () => activate(i));
+      tabsWrap.appendChild(b);
+    });
+    compararBtn.addEventListener('click', () => setComparar(!comparando()));
+  } else {
+    compararBtn.hidden = true;
+  }
+  if (variations[0]) { showCaption(variations[0]); desenharKnobs([variations[0]]); }
+
+  // ---- abas do painel: uma seção por vez; a última aberta fica lembrada neste navegador ----
+  const ABAS = ['ajustes', 'direcao', 'comentarios', 'detector'];
+  function abrirAba(nome) {
+    if (!ABAS.includes(nome)) nome = 'ajustes';
+    ABAS.forEach(a => {
+      $('hz-aba-' + a).setAttribute('aria-selected', String(a === nome));
+      $('hz-aba-' + a).tabIndex = a === nome ? 0 : -1;
+      $('hz-pane-' + a).hidden = a !== nome;
+    });
+    try { localStorage.setItem('hz-aba', nome); } catch (e) {}
+    depoisDeMudar();
+  }
+  ABAS.forEach((a, i) => {
+    const b = $('hz-aba-' + a);
+    b.addEventListener('click', () => abrirAba(a));
+    b.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault(); e.stopPropagation();
+      const prox = ABAS[(i + (e.key === 'ArrowRight' ? 1 : -1) + ABAS.length) % ABAS.length];
+      abrirAba(prox); $('hz-aba-' + prox).focus();
+    });
+  });
+
+  // ---- largura: 4 fixas + livre (switch), que mostra uma alça na borda do canvas ----
+  const livreSw = $('hz-livre');
+  const medida = $('hz-medida');
+  const LARGURAS = ['mobile', 'tablet', 'desktop', 'full'];
+  let larguraLivre = 1024;
+
+  function setVw(vw) {
+    const btn = document.querySelector('.hz-btn[data-vw="' + vw + '"]');
+    if (!btn) return;
+    document.querySelectorAll('.hz-btn[data-vw]').forEach(x => x.classList.toggle('is-active', x === btn));
+    stage.dataset.vw = vw;
+    livreSw.checked = false;
+    stage.style.removeProperty('width');
+    stage.style.removeProperty('--hz-col');
+    salvarEstado();
+    depoisDeMudar();
+  }
+  document.querySelectorAll('.hz-btn[data-vw]').forEach(btn => btn.addEventListener('click', () => setVw(btn.dataset.vw)));
+
+  function setLivre(px) {
+    const wrap = stage.parentElement;
+    const maximo = Math.max(320, wrap.clientWidth - 48);
+    larguraLivre = Math.round(Math.min(maximo, Math.max(280, px)));
+    stage.dataset.vw = 'livre';
+    livreSw.checked = true;
+    document.querySelectorAll('.hz-btn[data-vw]').forEach(x => x.classList.remove('is-active'));
+    stage.style.width = larguraLivre + 'px';
+    stage.style.setProperty('--hz-col', larguraLivre + 'px');
+    medida.textContent = larguraLivre + 'px';
+    salvarEstado();
+    depoisDeMudar();
+  }
+  livreSw.addEventListener('change', () => {
+    if (livreSw.checked) setLivre(stage.getBoundingClientRect().width || larguraLivre);
+    else setVw('desktop');
+  });
+
+  // A alça segue o ponteiro: o canvas é centralizado, então cada px arrastado vale dois de largura.
+  const alca = $('hz-alca');
+  alca.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    alca.setPointerCapture(e.pointerId);
+    alca.dataset.arrastando = '';
+    const x0 = e.clientX, w0 = stage.getBoundingClientRect().width;
+    const mover = ev => setLivre(w0 + (ev.clientX - x0) * 2);
+    const soltar = () => { delete alca.dataset.arrastando; alca.removeEventListener('pointermove', mover); };
+    alca.addEventListener('pointermove', mover);
+    alca.addEventListener('pointerup', soltar, { once: true });
+    alca.addEventListener('pointercancel', soltar, { once: true });
+  });
+
+  // ---- tema ----
+  const themeBtn = $('hz-theme');
+  function setTheme(t) {
+    frame.dataset.theme = t;
+    themeBtn.querySelector('use').setAttribute('href', t === 'dark' ? '#hz-i-lua' : '#hz-i-sol');
+    themeBtn.title = t === 'dark' ? 'Tema escuro (clique para claro) · T' : 'Tema claro (clique para escuro) · T';
+    salvarEstado();
+    depoisDeMudar();
+  }
+  themeBtn.addEventListener('click', () => setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark'));
+
+  // ---- fontes: QUALQUER família do Google Fonts, carregada na hora (título e corpo) ----
+  // Pede os pesos 400-800; família que não tem todos devolve erro, então tenta só o nome.
+  const SUGESTOES = ['Inter', 'DM Sans', 'Manrope', 'Plus Jakarta Sans', 'Figtree', 'Outfit', 'Sora',
+    'Space Grotesk', 'Bricolage Grotesque', 'IBM Plex Sans', 'Work Sans', 'Fraunces', 'Newsreader',
+    'Instrument Serif', 'Lora', 'Playfair Display', 'DM Serif Display', 'JetBrains Mono',
+    'IBM Plex Mono', 'system-ui'];
+  SUGESTOES.forEach(nome => { const o = el('option'); o.value = nome; $('hz-fontes-sugestoes').appendChild(o); });
+  const NOME_FONTE = /^[A-Za-z0-9][A-Za-z0-9 -]{0,59}$/;   // aspas e ; nunca entram no CSS
+  const fontesCarregadas = new Map();   // nome -> Promise
+  const fonteEstado = $('hz-fonte-estado');
+
+  function linkGoogle(familia) {
+    return new Promise((ok, falha) => {
+      const l = el('link');
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=' + familia + '&display=swap';
+      l.onload = () => ok();
+      l.onerror = () => { l.remove(); falha(); };
+      document.head.appendChild(l);
+    });
+  }
+  function carregarFonte(nome) {
+    if (nome === 'system-ui') return Promise.resolve();
+    if (!fontesCarregadas.has(nome)) {
+      const familia = nome.trim().replace(/ +/g, '+');
+      fontesCarregadas.set(nome, linkGoogle(familia + ':wght@400;500;600;700;800')
+        .catch(() => linkGoogle(familia))
+        .catch(() => { fontesCarregadas.delete(nome); throw new Error('não encontrada'); }));
+    }
+    return fontesCarregadas.get(nome);
+  }
+  function pilha(nome) {
+    return nome === 'system-ui' ? "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+                                : "'" + nome + "', system-ui, sans-serif";
+  }
+  const fonteAtual = { titulo: '', corpo: '' };
+  function guardarFonteDosTitulos() {
+    const antes = ['corpo', 'titulo'].map(p => [p, frame.getAttribute('data-fonte-' + p)]);
+    antes.forEach(([p]) => frame.removeAttribute('data-fonte-' + p));
+    frame.querySelectorAll('.variation :is(h1, h2, h3, h4, h5, h6, [data-titulo])')
+      .forEach(h => h.style.setProperty('--hz-fonte-original', getComputedStyle(h).fontFamily));
+    antes.forEach(([p, v]) => { if (v !== null) frame.setAttribute('data-fonte-' + p, v); });
+  }
+  async function aplicarFonte(papel, bruto) {
+    const nome = (bruto || '').trim().replace(/\s+/g, ' ');
+    const campo = $('hz-fonte-' + papel);
+    campo.value = nome;
+    delete fonteEstado.dataset.erro;
+    if (!nome) {
+      fonteAtual[papel] = '';
+      frame.removeAttribute('data-fonte-' + papel);
+      fonteEstado.textContent = 'Qualquer família do Google Fonts. Vazio volta à do projeto.';
+      salvarEstado(); depoisDeMudar();
+      return;
+    }
+    if (!NOME_FONTE.test(nome)) {
+      fonteEstado.dataset.erro = ''; fonteEstado.textContent = 'Nome de fonte inválido: use letras, números, espaço e hífen.';
+      return;
+    }
+    fonteEstado.textContent = 'Carregando ' + nome + '…';
+    try {
+      await carregarFonte(nome);
+    } catch (e) {
+      fonteEstado.dataset.erro = '';
+      fonteEstado.textContent = '"' + nome + '" não existe no Google Fonts (confira a grafia).';
+      return;
+    }
+    fonteAtual[papel] = nome;
+    guardarFonteDosTitulos();
+    frame.style.setProperty('--hz-fonte-' + papel, pilha(nome));
+    frame.setAttribute('data-fonte-' + papel, nome);
+    fonteEstado.textContent = 'Visualizando ' + [fonteAtual.titulo && 'título em ' + fonteAtual.titulo,
+      fonteAtual.corpo && 'corpo em ' + fonteAtual.corpo].filter(Boolean).join(' e ') + '.';
+    salvarEstado();
+    if (document.fonts) document.fonts.ready.then(depoisDeMudar); else depoisDeMudar();
+  }
+  ['titulo', 'corpo'].forEach(papel => $('hz-fonte-' + papel)
+    .addEventListener('change', e => aplicarFonte(papel, e.target.value)));
+
+  // ---- direção: paleta e tipografia lidas do CSS já renderizado de cada variação ----
+  function hex(cor) {
+    const m = cor.match(/rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[,/ ]+([\d.]+%?))?\)/);
+    if (!m) return null;
+    const a = m[4] === undefined ? 1 : (m[4].endsWith('%') ? parseFloat(m[4]) / 100 : Number(m[4]));
+    if (a < 0.35) return null;   // transparente ou véu: não é cor da paleta
+    return '#' + [m[1], m[2], m[3]].map(n => Math.round(Number(n)).toString(16).padStart(2, '0')).join('');
+  }
+  function lerDirecao(section) {
+    const cores = new Map(), titulo = new Map(), corpo = new Map();
+    const conta = (mapa, chave, peso) => chave && mapa.set(chave, (mapa.get(chave) || 0) + peso);
+    [section, ...section.querySelectorAll('*')].forEach(n => {
+      const s = getComputedStyle(n);
+      const temTexto = Array.from(n.childNodes).some(c => c.nodeType === 3 && c.textContent.trim());
+      if (temTexto) conta(cores, hex(s.color), 2);
+      conta(cores, hex(s.backgroundColor), 3);
+      if (parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none') conta(cores, hex(s.borderTopColor), 1);
+      if (temTexto) {
+        const familia = s.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        conta(n.matches('h1, h2, h3, h4, h5, h6, [data-titulo]') ? titulo : corpo,
+              familia + ' ' + s.fontWeight, 1);
+      }
+    });
+    // Sem fundo próprio (uma variação só), o fundo que se vê é o do canvas.
+    if (!hex(getComputedStyle(section).backgroundColor)) conta(cores, hex(getComputedStyle(frame).backgroundColor), 4);
+    const top = (mapa, n) => [...mapa.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
+    return { cores: top(cores, 8), titulo: top(titulo, 2), corpo: top(corpo, 2) };
+  }
+  function desenharDirecao() {
+    const wrap = $('hz-direcao');
+    wrap.replaceChildren();
+    [variations[foco]].filter(Boolean).forEach(section => {
+      const d = lerDirecao(section);
+      const paleta = el('div', 'hz-paleta');
+      d.cores.forEach(c => {
+        const item = el('span', 'hz-cor');
+        const amostra = el('i'); amostra.style.background = c;
+        item.title = c; item.append(amostra, el('span', '', c.slice(1)));
+        paleta.appendChild(item);
+      });
+      const tipos = el('div', 'hz-tipos');
+      if (d.titulo.length) { const t = el('span'); t.append(el('b', '', 'Título '), d.titulo.join(' · ')); tipos.appendChild(t); }
+      if (d.corpo.length) { const t = el('span'); t.append(el('b', '', 'Corpo '), d.corpo.join(' · ')); tipos.appendChild(t); }
+      if (!d.cores.length && !d.titulo.length && !d.corpo.length) tipos.appendChild(el('span', 'hz-vazio', 'Variação vazia.'));
+      wrap.append(paleta, tipos);
+    });
+  }
+
+  // ---- escolha: "Seguir com esta" grava .mockup/escolha.json para o agente ler ----
+  const escolhaWrap = $('hz-escolha');
+  const escolhaEstado = $('hz-escolha-estado');
+  function desenharEscolha() {
+    escolhaWrap.replaceChildren();
+    if (!variations.length) return;
+    [foco].forEach(i => {
+      const b = el('button', 'hz-btn hz-primario', 'Seguir com esta');
+      b.type = 'button';
+      if (!servido) { b.disabled = true; b.title = 'Precisa do scripts/serve.py: diga a escolha no chat.'; }
+      b.addEventListener('click', () => escolher(i));
+      escolhaWrap.appendChild(b);
+    });
+  }
+  async function escolher(i) {
+    const sec = variations[i];
+    try {
+      const r = await api('/__escolha', {
+        variacao: i + 1, titulo: sec.dataset.title || 'Variação ' + (i + 1),
+        knobs: Object.assign({}, valores.get(sec) || {}), vw: stage.dataset.vw,
+        theme: frame.dataset.theme, fonte_titulo: fonteAtual.titulo || null, fonte_corpo: fonteAtual.corpo || null });
+      escolhaEstado.textContent = 'Escolhida: ' + r.titulo + '. Volte ao chat e diga "escolhi".';
+    } catch (e) {
+      escolhaEstado.textContent = 'Não gravou (' + e.message + '). Diga a escolha no chat.';
+    }
+  }
+  if (servido) api('/__escolha').then(r => { if (r) escolhaEstado.textContent = 'Escolhida: ' + r.titulo + '.'; }).catch(() => {});
+
+  // ---- comentários: clique num elemento, escreva o ajuste; o agente lê .mockup/comentarios.json ----
+  const comentarBtn = $('hz-comentar');
+  const balao = $('hz-balao');
+  const balaoTexto = $('hz-balao-texto');
+  const pinos = $('hz-pinos');
+  let comentarios = [];
+  let alvoAtual = null, alvoBalao = null;
+
+  if (!servido) { comentarBtn.disabled = true; comentarBtn.title = 'Comentar precisa do scripts/serve.py'; }
+
+  function setComentando(ligar) {
+    if (!servido) return;
+    document.body.toggleAttribute('data-comentando', ligar);
+    comentarBtn.classList.toggle('is-on', ligar);
+    comentarBtn.setAttribute('aria-pressed', String(ligar));
+    if (ligar) abrirAba('comentarios');
+    else { marcarAlvo(null); fecharBalao(); }
+  }
+  comentarBtn.addEventListener('click', () => setComentando(!document.body.hasAttribute('data-comentando')));
+
+  function marcarAlvo(n) {
+    if (alvoAtual) alvoAtual.classList.remove('hz-alvo');
+    alvoAtual = n;
+    if (n) n.classList.add('hz-alvo');
+  }
+  // Caminho estável do elemento dentro da variação: tag, até 2 classes e a posição entre irmãos.
+  function seletorDe(n, section) {
+    const partes = [];
+    for (let atual = n; atual && atual !== section; atual = atual.parentElement) {
+      const classes = Array.from(atual.classList).filter(c => !c.startsWith('hz-')).slice(0, 2);
+      let parte = atual.tagName.toLowerCase() + classes.map(c => '.' + CSS.escape(c)).join('');
+      const irmaos = Array.from(atual.parentElement.children).filter(x => x.tagName === atual.tagName);
+      if (irmaos.length > 1) parte += ':nth-of-type(' + (irmaos.indexOf(atual) + 1) + ')';
+      partes.unshift(parte);
+    }
+    return partes.join(' > ');
+  }
+  function acharPorSeletor(section, seletor) {
+    if (!seletor) return section;
+    try { return section.querySelector(':scope > ' + seletor); } catch (e) { return null; }
+  }
+
+  frame.addEventListener('mouseover', e => {
+    if (!document.body.hasAttribute('data-comentando') || !balao.hidden) return;
+    const n = e.target.closest('.variation') ? e.target : null;
+    marcarAlvo(n);
+  });
+  frame.addEventListener('click', e => {
+    if (!document.body.hasAttribute('data-comentando')) return;
+    const section = e.target.closest('.variation');
+    if (!section) return;
+    e.preventDefault(); e.stopPropagation();
+    marcarAlvo(e.target);
+    alvoBalao = e.target;
+    const trecho = (e.target.textContent || '').trim().replace(/\s+/g, ' ');
+    $('hz-balao-alvo').textContent = (section.dataset.title || 'Variação') + (trecho ? ' · "' + trecho.slice(0, 60) + '"' : '');
+    balao.hidden = false;
+    const r = balao.getBoundingClientRect();
+    balao.style.left = Math.min(e.clientX + 12, innerWidth - r.width - 12) + 'px';
+    balao.style.top = Math.min(e.clientY + 12, innerHeight - r.height - 12) + 'px';
+    balaoTexto.value = '';
+    balaoTexto.focus();
+  }, true);
+
+  function fecharBalao() { balao.hidden = true; alvoBalao = null; }
+  $('hz-balao-cancelar').addEventListener('click', () => { fecharBalao(); marcarAlvo(null); });
+  async function salvarComentario() {
+    const texto = balaoTexto.value.trim();
+    if (!texto || !alvoBalao) return;
+    const section = alvoBalao.closest('.variation');
+    const i = variations.indexOf(section);
+    try {
+      await api('/__comentarios', {
+        variacao: i + 1, titulo: section.dataset.title || 'Variação ' + (i + 1),
+        seletor: seletorDe(alvoBalao, section),
+        trecho: (alvoBalao.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 200),
+        texto, vw: stage.dataset.vw, theme: frame.dataset.theme });
+      fecharBalao(); marcarAlvo(null);
+      carregarComentarios();
+    } catch (e) {
+      $('hz-balao-alvo').textContent = 'Não gravou: ' + e.message;
+    }
+  }
+  $('hz-balao-salvar').addEventListener('click', salvarComentario);
+  balaoTexto.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) salvarComentario();
+    if (e.key === 'Escape') { fecharBalao(); marcarAlvo(null); }
+  });
+
+  async function carregarComentarios() {
+    if (!servido) return;
+    try { comentarios = await api('/__comentarios'); } catch (e) { comentarios = []; }
+    desenharComentarios();
+  }
+  function alvoDoComentario(c) {
+    const section = variations[c.variacao - 1];
+    return section ? acharPorSeletor(section, c.seletor) : null;
+  }
+  function desenharComentarios() {
+    const lista = $('hz-com-lista');
+    lista.replaceChildren();
+    $('hz-com-vazio').hidden = comentarios.length > 0;
+    $('hz-conta-comentarios').textContent = comentarios.length || '';
+    comentarios.forEach((c, n) => {
+      const li = el('li');
+      const topo = el('span', 'hz-li-topo');
+      topo.append(el('span', '', (n + 1) + '. ' + (c.titulo || 'Variação ' + c.variacao)));
+      const resolver = el('button', 'hz-link', 'Resolver');
+      resolver.type = 'button';
+      resolver.addEventListener('click', async ev => {
+        ev.stopPropagation();
+        try { await api('/__comentarios/apagar', { id: c.id }); } catch (e) {}
+        carregarComentarios();
+      });
+      topo.appendChild(resolver);
+      li.append(topo);
+      if (c.trecho) li.append(el('code', '', '"' + c.trecho.slice(0, 80) + '"'));
+      li.append(el('span', 'hz-li-texto', c.texto));
+      if (alvoDoComentario(c)) {
+        li.dataset.local = '';
+        li.title = 'Mostrar no canvas';
+        li.addEventListener('click', () => mostrarNoCanvas(alvoDoComentario(c)));
+      }
+      lista.appendChild(li);
+    });
+    posicionarPinos();
+  }
+  function posicionarPinos() {
+    pinos.replaceChildren();
+    const base = stage.getBoundingClientRect();
+    comentarios.forEach((c, n) => {
+      const alvo = alvoDoComentario(c);
+      if (!alvo || !alvo.getClientRects().length) return;   // variação escondida
+      const r = alvo.getBoundingClientRect();
+      const pino = el('span', 'hz-pino', String(n + 1));
+      pino.title = c.texto;
+      pino.style.left = (r.left - base.left) + 'px';
+      pino.style.top = (r.top - base.top) + 'px';
+      pino.addEventListener('click', () => mostrarNoCanvas(alvo));
+      pinos.appendChild(pino);
+    });
+  }
+
+  function mostrarNoCanvas(alvo) {
+    if (!alvo) return;
+    const section = alvo.closest('.variation');
+    const i = variations.indexOf(section);
+    if (!comparando() && i >= 0 && i !== ativa) activate(i);
+    else if (comparando() && i >= 0 && i !== foco) focar(i);
+    alvo.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    alvo.classList.add('hz-destaque');
+    setTimeout(() => alvo.classList.remove('hz-destaque'), 1600);
+  }
+
+  // ---- painel lateral: lembra se estava aberto (conveniência deste navegador) ----
+  const painelBtn = $('hz-painel-botao');
+  function setPainel(aberto) {
+    document.body.dataset.painel = aberto ? 'aberto' : 'fechado';
+    painelBtn.classList.toggle('is-on', aberto);
+    painelBtn.setAttribute('aria-pressed', String(aberto));
+    try { localStorage.setItem('hz-painel', aberto ? '1' : '0'); } catch (e) {}
+    depoisDeMudar();
+  }
+  painelBtn.addEventListener('click', () => setPainel(document.body.dataset.painel === 'fechado'));
+
+  // ---- detector: o servidor de preview (serve.py) responde /__detector ----
+  // Cada achado aponta o elemento: a linha do index.html vira uma regra CSS (seletor) ou uma
+  // tag dentro de uma variação (contando as tags de abertura desde o <section>).
+  const selo = $('hz-detector-selo');
+  const detResumo = $('hz-det-resumo');
+  const detLista = $('hz-det-lista');
+  let fonteHtml = '';
+
+  function semComentarios(txt) { return txt.replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' ')); }
+  function localizarAchado(a) {
+    if (!fonteHtml || !a.linha) return null;
+    const src = semComentarios(fonteHtml);
+    const linhas = src.split('\n');
+    const inicio = linhas.slice(0, a.linha - 1).reduce((t, l) => t + l.length + 1, 0);
+    const fim = inicio + (linhas[a.linha - 1] || '').length;
+    // Dentro de <style>: acha a regra que contém a linha e usa o seletor dela.
+    const abreStyle = src.lastIndexOf('<style', inicio), fechaStyle = src.lastIndexOf('</style>', inicio);
+    if (abreStyle > fechaStyle) {
+      let prof = 0, abre = -1;
+      for (let p = fim; p > abreStyle; p--) {
+        if (src[p] === '}' && p < fim) prof++;
+        else if (src[p] === '{') { if (prof === 0) { abre = p; break; } prof--; }
+      }
+      if (abre < 0) return null;
+      const corte = Math.max(src.lastIndexOf('}', abre - 1), src.lastIndexOf('{', abre - 1),
+                             src.lastIndexOf('*/', abre - 1) + 1, src.indexOf('>', abreStyle));
+      const seletor = src.slice(corte + 1, abre).trim();
+      if (!seletor || seletor.startsWith('@')) return null;
+      try {
+        return Array.from(frame.querySelectorAll(seletor)).find(n => n.closest('.variation')) || null;
+      } catch (e) { return null; }
+    }
+    // No markup: qual variação contém a linha, e qual tag de abertura dela.
+    const re = /<section\b[^>]*\bclass="[^"]*\bvariation\b[^"]*"/g;
+    let m, secao = -1, inicioSecao = 0;
+    while ((m = re.exec(src)) && m.index <= fim) { secao++; inicioSecao = m.index; }
+    const section = variations[secao];
+    if (!section) return null;
+    const tags = src.slice(inicioSecao, inicio).match(/<[a-zA-Z][^>]*>/g) || [];
+    const naLinha = /<[a-zA-Z]/.test(linhas[a.linha - 1] || '');
+    const ordem = tags.length - 1 + (naLinha ? 1 : 0);   // 0 é o próprio <section>
+    const todos = [section, ...section.querySelectorAll('*')];
+    const candidato = todos[ordem] || section;
+    // Confere pelo trecho quando é texto: evita apontar o vizinho se o JS mexeu no DOM.
+    const pelaFrase = a.trecho && todos.reverse().find(n => (n.textContent || '').includes(a.trecho));
+    return candidato.textContent.includes(a.trecho) || !pelaFrase ? candidato : pelaFrase;
+  }
+
+  function mostrarDetector(r) {
+    detLista.replaceChildren();
+    if (r.erro) {
+      selo.dataset.estado = 'erro'; selo.querySelector('span').textContent = 'Detector: erro';
+      detResumo.textContent = r.erro; return;
+    }
+    const falhas = r.achados.filter(a => a.severidade === 'falha').length;
+    const avisos = r.achados.length - falhas;
+    selo.dataset.estado = $('hz-ponto-detector').dataset.estado = falhas ? 'falha' : (avisos ? 'aviso' : 'limpo');
+    selo.querySelector('span').textContent = falhas || avisos
+      ? [falhas && falhas + (falhas > 1 ? ' falhas' : ' falha'), avisos && avisos + (avisos > 1 ? ' avisos' : ' aviso')].filter(Boolean).join(' · ')
+      : 'Limpo';
+    detResumo.textContent = r.variacoes + (r.variacoes === 1 ? ' variação analisada. ' : ' variações analisadas. ')
+      + (r.achados.length ? 'Clique num achado para ver onde está.' : 'Nenhum padrão genérico encontrado.')
+      + (r.ignoradas && r.ignoradas.length ? ' Ignoradas por declaração: ' + r.ignoradas.join(', ') + '.' : '');
+    r.achados.forEach(a => {
+      const li = el('li');
+      li.dataset.sev = a.severidade;
+      const topo = el('span', 'hz-li-topo');
+      topo.append(el('span', '', a.regra), el('small', '', a.severidade + ' · linha ' + a.linha));
+      li.append(topo, el('code', '', a.trecho), el('span', 'hz-li-texto', a.dica));
+      const alvo = localizarAchado(a);
+      if (alvo) {
+        li.dataset.local = '';
+        li.title = 'Mostrar no canvas';
+        li.addEventListener('click', () => mostrarNoCanvas(localizarAchado(a)));
+      }
+      detLista.appendChild(li);
+    });
+  }
+  if (servido) {
+    Promise.all([api('/__detector'), fetch(location.pathname, { cache: 'no-store' }).then(r => r.text()).catch(() => '')])
+      .then(([r, html]) => { fonteHtml = html; mostrarDetector(r); })
+      .catch(() => { selo.dataset.estado = 'erro'; detResumo.textContent = 'O servidor não respondeu ao detector.'; });
+  } else {
+    detResumo.textContent = 'Aberto como arquivo: sirva com scripts/serve.py para ver o detector aqui, ou rode scripts/detectar.py no terminal.';
+  }
+  selo.addEventListener('click', () => {
+    setPainel(true);
+    abrirAba('detector');
+  });
+
+  // ---- depois de qualquer mudança visual: repinta a direção e reposiciona os pinos ----
+  let quadro = 0;
+  function depoisDeMudar() {
+    if (!pronto) return;
+    cancelAnimationFrame(quadro);
+    quadro = requestAnimationFrame(() => { desenharDirecao(); posicionarPinos(); });
+  }
+  new ResizeObserver(depoisDeMudar).observe(stage);
+
+  // ---- estado na URL: cada clique reescreve a URL (sem recarregar). O live-reload recarrega a
+  // MESMA URL, então aba, comparar, largura, tema, fontes e knobs sobrevivem a cada edição do
+  // index.html; e copiar a URL compartilha exatamente o que está na tela.
+  function salvarEstado() {
+    if (!pronto) return;
+    const q = new URLSearchParams();
+    if (stage.dataset.vw !== 'desktop') q.set('vw', stage.dataset.vw);
+    if (stage.dataset.vw === 'livre') q.set('w', String(larguraLivre));
+    if (frame.dataset.theme === 'dark') q.set('theme', 'dark');
+    if (comparando()) q.set('comparar', '1');
+    else if (ativa > 0) q.set('v', String(ativa + 1));
+    if (fonteAtual.corpo) q.set('font', fonteAtual.corpo);
+    if (fonteAtual.titulo) q.set('font-titulo', fonteAtual.titulo);
+    const sec = variations[ativa];
+    if (sec && !comparando()) {
+      const mudados = lerKnobs(sec).lista
+        .filter(k => (valores.get(sec) || {})[k.id] !== padraoDe(k))
+        .map(k => k.id + ':' + (valores.get(sec) || {})[k.id]);
+      if (mudados.length) q.set('k', mudados.join(','));
+    }
+    if (document.body.dataset.limpo) q.set('limpo', '1');
+    const texto = q.toString().replace(/%3A/g, ':').replace(/%2C/g, ',');
+    try { history.replaceState(null, '', location.pathname + (texto ? '?' + texto : '')); } catch (e) {}
+  }
+
+  // ---- atalhos ----
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.body.hasAttribute('data-comentando') && balao.hidden) { setComentando(false); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest('input, select, textarea, [contenteditable]')) return;
+    const tecla = e.key.toLowerCase();
+    if ((tecla === 'arrowright' || tecla === 'arrowleft') && variations.length > 1) {
+      const passo = tecla === 'arrowright' ? 1 : -1;
+      activate((ativa + passo + variations.length) % variations.length);
+    } else if (tecla === 'c' && variations.length > 1) setComparar(!comparando());
+    else if (tecla === 't') setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark');
+    else if (tecla === 'p') setPainel(document.body.dataset.painel === 'fechado');
+    else if (tecla === 'k') setComentando(!document.body.hasAttribute('data-comentando'));
+    else if (tecla === 'l') { livreSw.checked = !livreSw.checked; livreSw.dispatchEvent(new Event('change')); }
+    else if (/^[1-4]$/.test(tecla)) setVw(LARGURAS[Number(tecla) - 1]);
+    else return;
+    e.preventDefault();
+  });
+
+  // Initial state from the URL — ?vw=mobile&theme=dark&v=2 — so a screenshot or a
+  // shared link opens straight in that state, with NO clicks (fast auto-checks).
+  const p = new URLSearchParams(location.search);
+  if (p.get('vw') === 'livre') setLivre(Number(p.get('w')) || larguraLivre);
+  else if (p.get('vw')) setVw(p.get('vw'));
+  if (p.get('theme') === 'dark' || p.get('theme') === 'light') setTheme(p.get('theme'));
+  const vi = parseInt(p.get('v'), 10);
+  if (!Number.isNaN(vi) && variations[vi - 1]) activate(vi - 1);
+  let painelSalvo = null;
+  try { painelSalvo = localStorage.getItem('hz-painel'); } catch (e) {}
+  setPainel(p.get('painel') === '0' ? false : p.get('painel') === '1' ? true : painelSalvo !== '0');
+  // ?limpo=1 esconde a casca (barra e painel): screenshot só do design.
+  if (p.has('limpo')) document.body.dataset.limpo = '1';
+  // ?k=acento:0.8,densidade:compacta — ajusta os knobs da variação ativa, sem clique
+  const kp = p.get('k');
+  const ativaSec = variations.find(v => v.classList.contains('is-active'));
+  if (kp && ativaSec) {
+    const porId = Object.fromEntries(lerKnobs(ativaSec).lista.map(k => [k.id, k]));
+    kp.split(',').forEach(par => {
+      const corte = par.indexOf(':');
+      if (corte < 0) return;
+      const k = porId[par.slice(0, corte)];
+      if (k) aplicarKnob(ativaSec, k, par.slice(corte + 1));
+    });
+    desenharKnobs([ativaSec]);
+  }
+  if (p.get('comparar') === '1' && variations.length > 1) setComparar(true);
+  desenharEscolha();
+  let abaSalva = null;
+  try { abaSalva = localStorage.getItem('hz-aba'); } catch (e) {}
+  abrirAba(abaSalva || 'ajustes');
+  pronto = true;
+  if (p.get('font')) aplicarFonte('corpo', p.get('font'));
+  if (p.get('font-titulo')) aplicarFonte('titulo', p.get('font-titulo'));
+  carregarComentarios();
+  depoisDeMudar();
+</script>
+</body>
+</html>
