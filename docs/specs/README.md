@@ -6,6 +6,7 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 <!-- DOSSIES:START -->
 | Trabalho | Estado | Criado | Tem |
 |---|---|---|---|
+| [sw-refactor: refatoração pelos padrões do projeto](2026-11-03-sw-refactor-refatoracao-pelos-padroes-do-projeto/spec.md) | ⚪ concluído | 2026-11-03 | plano 10/10, 3 ref |
 | [Relatório de infra simples e por tipo de sistema](2026-11-01-relatorio-de-infra-simples-e-por-tipo-de-sistema/spec.md) | ⚪ concluído | 2026-11-01 | plano 17/17, 2 ref |
 | [Grafo de import real para PHP e TypeScript, resolvido por evidencia](2026-10-07-grafo-de-import-real-para-php-e-typescript-resolvido-por-evidencia/spec.md) | ⚪ concluído | 2026-10-07 | plano 16/16, 2 ref |
 | [sw-codebase-guide: skill que le um projeto e escreve a documentacao dele](2026-10-06-sw-codebase-guide-skill-que-le-um-projeto-e-escreve-a-documentacao-dele/spec.md) | ⚪ concluído | 2026-10-06 | plano 10/10, 1 ref |
