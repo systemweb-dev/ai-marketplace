@@ -8,6 +8,9 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-refactor` (v0.1.0): **skill nova.** Descobre os padrões do próprio projeto com subagentes,
+  aponta os desvios e refatora em etapas com testes verdes antes e depois. A primeira rodada passa
+  pelo projeto inteiro e grava `docs/sw-refactor/patterns.md` e `state.md`, com aprovação.
 - `sw-brainstorming` (v0.8.3): o resumo do spec vira a opção **Resumir** do gate de revisão, antes da
   aprovação, e sai em mensagem normal com títulos fixos e nomes concretos do spec. Ele não pode mais
   ir dentro do `AskUserQuestion`, onde virava poucas linhas.

@@ -1,0 +1,8 @@
+{
+  "name": "sw-refactor",
+  "description": "Refatora seguindo os padrões do PRÓPRIO projeto: descobre como o código costuma resolver cada coisa (nomes, erros, validação, camadas, resposta, config, complexidade), aponta o que está fora do padrão e alinha em etapas, com testes verdes antes e depois. Quando o projeto não tem padrão, propõe o idiomático da linguagem e da versão do framework em uso. Agnóstica de linguagem. A primeira rodada passa pelo projeto inteiro; as seguintes partem do registro em docs/sw-refactor/. Use quando o usuário quiser padronizar ou refatorar além de um diff — \"refatora seguindo o padrão do projeto\", \"padroniza o código\", \"o que está fora do padrão?\", \"deixa tudo do mesmo jeito\", \"esse código da IA não segue o projeto\", \"moderniza esse legado\", \"simplifica esse módulo\", \"tem três jeitos de fazer a mesma coisa aqui\". NÃO use para revisar um diff (sw-code-review), remover código morto (sw-dead-code-scan), escrever testes (sw-auto-test), migrar versão de framework ou formatar código. Interação em português, toda decisão via AskUserQuestion.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}
