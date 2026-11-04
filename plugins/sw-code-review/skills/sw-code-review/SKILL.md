@@ -47,6 +47,7 @@ find . -maxdepth 5 -type f \( \
   -path "*.claude/rules/*.md" -o \
   -path "*.claude/CLAUDE.md" -o \
   -name "CONTRIBUTING.md" -o \
+  -path "*docs/sw-refactor/patterns.md" -o \
   -name "STYLE.md" -o \
   -name ".editorconfig" \
 \) 2>/dev/null

@@ -473,3 +473,7 @@ Depois:
 
 Regra aplicada: .claude/rules/naming-conventions.md (metodos privados em _camelCase)
 ```
+
+**Padrão repetido:** quando um achado de 5l ou 5m se repete em 3 ou mais arquivos, inclua no fim
+da review uma linha: "O mesmo desvio aparece em N arquivos. Para alinhar o projeto inteiro, use a
+`sw-refactor`." Só sugere: não chama a skill.
