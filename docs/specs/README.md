@@ -16,7 +16,7 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 | [Evolucao incremental da sw-flow-diagram](2026-09-21-evolucao-incremental-da-sw-flow-diagram/spec.md) | ⚪ concluído | 2026-09-21 | plano 7/7 |
 | [sw-infra-audit: auditoria de infraestrutura por alvos](2026-09-19-sw-infra-audit-auditoria-de-infraestrutura-por-alvos/spec.md) | ⚪ concluído | 2026-09-19 | plano 15/15 |
 | [Insights por sistema e remediacao na sw-infra-audit](2026-09-19-insights-por-sistema-e-remediacao-na-sw-infra-audit/spec.md) | ⚪ concluído | 2026-09-19 | plano 16/16, 3 ref |
-| [Auditoria do host por SSH somente leitura](2026-09-19-auditoria-do-host-por-ssh-somente-leitura/spec.md) | 🟢 aprovado | 2026-09-19 | — |
+| [Auditoria do host por SSH somente leitura, com descoberta do que roda nele](2026-09-19-auditoria-do-host-por-ssh-somente-leitura/spec.md) | ⚪ concluído | 2026-09-19 | plano 15/15 |
 | [Diagnóstico de testes na sw-auto-test](2026-09-18-diagnostico-de-testes-na-sw-auto-test/spec.md) | ⚪ concluído | 2026-09-18 | plano 15/17, briefing |
 | [sw-pr-message](2026-09-10-sw-pr-message/spec.md) | ⚪ concluído | 2026-09-10 | plano 14/14, 3 ref |
 | [sw-cluster-audit — auditoria read-only de cluster → relatório](2026-08-04-sw-cluster-audit/spec.md) | ⚪ concluído | 2026-08-04 | plano 0/11 |
