@@ -8,6 +8,11 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.20.0): **servidor fora do cluster.** Alvo `tipo = "host"` lido por SSH (disco,
+  memória, carga, boot, kernel e sistema), com `configurar.py descobrir` para achar o que roda nele
+  (systemd, portas, containers) e gravar os componentes confirmados no `alvos.toml`. Disco e memória
+  acima de 90% viram achado também nos nós do cluster. Regras novas: `disco_quase_cheio`,
+  `memoria_sem_folga`, `servico_declarado_ausente`, `SEC_BIND_ALL_INTERFACES`.
 - `sw-refactor` (v0.1.0): **skill nova.** Descobre os padrões do próprio projeto com subagentes,
   aponta os desvios e refatora em etapas com testes verdes antes e depois. A primeira rodada passa
   pelo projeto inteiro e grava `docs/sw-refactor/patterns.md` e `state.md`, com aprovação.

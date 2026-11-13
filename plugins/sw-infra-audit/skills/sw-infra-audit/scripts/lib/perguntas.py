@@ -119,12 +119,15 @@ _p("cache.acerto", "cache", "Taxa de acerto", "escalar", unidade="%", opcional=T
 
 # --- papel `maquina`: um componente por nó do cluster, medido pelo exporter de nó. Opcionais
 # porque o cluster pode não ter esse exporter, e a ausência dele não é defeito da medição.
-# Sem limiar: o relatório já pinta os percentuais, e achado de capacidade é outra decisão.
+# Sem limiar (o catálogo recusa limiar em opcional): o achado de capacidade vem de
+# lib/capacidade.py, que só lê resposta com número — para host e nó do cluster.
 _p("maquina.cpu", "maquina", "CPU", "escalar", unidade="%", opcional=True)
 _p("maquina.memoria", "maquina", "Memória", "escalar", unidade="%", opcional=True)
 _p("maquina.disco", "maquina", "Disco", "escalar", unidade="%", opcional=True)
 # Negativo quer dizer "não está enchendo": a consulta devolve -1 e o bloco escreve "estável".
 _p("maquina.disco_dias", "maquina", "Dias até encher o disco", "escalar", unidade="dias", opcional=True)
+_p("maquina.carga", "maquina", "Carga (5 min, por CPU)", "escalar", unidade="%", opcional=True)
+_p("maquina.desde_o_boot", "maquina", "Desde o último boot", "escalar", unidade="dias", opcional=True)
 
 
 # O limiar é um produtor de achado, ao lado de `lib/rules.py` e do coletor http. Declarar o que

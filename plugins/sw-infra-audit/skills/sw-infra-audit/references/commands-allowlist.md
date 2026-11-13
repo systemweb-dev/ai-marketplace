@@ -67,3 +67,10 @@ Anônimo, pelo mesmo `lib/http_get.py`, para as URLs mais acessadas.
 | Redirect | não é seguido |
 | Resposta acima de 32 MB por janela | recusada com o motivo dito, nunca cortada em silêncio |
 | Linha bruta | nunca lida, gravada ou impressa; `Cookie` e `Authorization` não saem da consulta |
+
+## Perfil ssh
+
+Molde único: `ssh -o BatchMode=yes -o ConnectTimeout=<n> -o RemoteCommand=none -o RequestTTY=no
+[-p <porta>] <usuario@host> <comando>`. O comando é um texto literal de `references/host/linux.toml`;
+o runner recusa qualquer outro antes do subprocesso. O texto passa pelo shell de login do servidor, e
+por isso o catálogo proíbe `;`, `|`, `&`, `$`, crase, `<`, `>`, `%` e quebra de linha.

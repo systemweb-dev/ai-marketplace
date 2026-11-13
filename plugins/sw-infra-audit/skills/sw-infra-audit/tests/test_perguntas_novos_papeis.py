@@ -17,7 +17,7 @@ from lib.perguntas import PERGUNTAS, REGRAS_PRODUZIDAS, do_papel
     ("app", 3),       # cpu, memória e disponibilidade — do exporter de container, não da app
     ("banco", 2),     # conexões e tamanho
     ("cache", 3),     # memória em uso, chaves descartadas e taxa de acerto, opcional
-    ("maquina", 4),   # CPU, memória, disco e dias até encher, todas opcionais
+    ("maquina", 6),   # CPU, memória, disco, dias até encher, carga e boot, todas opcionais
 ])
 def test_papel_passa_a_ter_pergunta(papel, esperadas):
     assert len(do_papel(papel)) == esperadas
@@ -115,6 +115,9 @@ def test_toda_pergunta_declarada_tem_alguem_que_a_responda():
 
     for arquivo in (raiz / "logs").glob("*.toml"):
         respondidas.add(tomllib.loads(arquivo.read_text(encoding="utf-8"))["pergunta"])
+
+    from lib.adaptadores import ssh
+    respondidas |= set(ssh.LEITURAS)   # o adaptador ssh responde sem arquivo de família
 
     orfas = sorted(set(PERGUNTAS) - respondidas)
 

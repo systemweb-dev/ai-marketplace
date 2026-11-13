@@ -1,0 +1,22 @@
+# Comandos de LEITURA que a skill roda num host por SSH — literais, sem vaga nenhuma.
+#
+# O ssh entrega cada texto ao shell de login do servidor: por isso nada aqui interpola, e o
+# carregador recusa `;`, `|`, `&`, `$`, crase, `<`, `>`, `%` e quebra de linha. Distribuição que
+# precisar de outro comando ganha outro arquivo, não um `if`.
+
+# Processos de sistema que escutam porta e não interessam à auditoria (nome como o `ss` mostra).
+ignorar = ["sshd", "systemd-resolve", "systemd-network", "chronyd", "systemd-timesyn",
+           "rpcbind", "avahi-daemon", "cupsd", "dhclient", "master", "exim4", "dnsmasq"]
+
+[comando]
+usuario = "id -un"
+kernel = "uname -sr"
+sistema = "cat /etc/os-release"
+disco = "df -P -k"
+memoria = "cat /proc/meminfo"
+carga = "cat /proc/loadavg"
+cpus = "nproc"
+boot = "cat /proc/uptime"
+servicos = "systemctl list-units --type=service --state=running --no-legend --plain --no-pager"
+portas = "ss -ltnpH"
+containers = '''docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' '''

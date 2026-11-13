@@ -14,22 +14,48 @@ from urllib.parse import urlparse
 OBRIGATORIOS = {
     "docker": ("context",),
     "http": ("url",),
+    "host": ("ssh_destino",),
 }
 OPCIONAIS = {
     "docker": ("metricas_url", "logs_url", "rotulos"),
     "http": (),
+    "host": ("porta", "metricas_url", "acesso_restrito"),
 }
+# `usuario@host`, os DOIS lados começando por letra ou número. Sem a âncora no primeiro caractere,
+# `-Jevil@host` passaria e viraria OPÇÃO do ssh — comando na máquina de quem audita. `fullmatch`,
+# não `$`: `$` casa antes de um "\n" no fim.
+DESTINO = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9][A-Za-z0-9._-]*")
 COMUNS = ("nome", "tipo", "componente")
 # o que um [[alvo.componente]] pode declarar. A senha nunca vem aqui: `senha_env` guarda o
 # NOME da variável de ambiente onde ela mora.
 COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env",
-                      "usuario")
+                      "usuario", "produto", "portas", "origem")
+# De onde veio o componente descoberto — chave de comparação entre rodadas. O texto vem do servidor
+# (nome de unit, container ou processo), por isso o alfabeto é fechado: aspas, `\`, `[` ou quebra de
+# linha injetariam TOML quando a skill grava o arquivo.
+ORIGEM = re.compile(r"(unidade|container|processo):[A-Za-z0-9][A-Za-z0-9._@:-]{0,127}")
 NOME_VALIDO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 ESQUEMAS = ("http", "https")
 
 
 class AlvoInvalido(Exception):
     """Alvo que a skill se recusa a usar."""
+
+
+def _checar_host(caminho, nome, bruto):
+    destino = bruto.get("ssh_destino")
+    if isinstance(destino, str) and ":" in destino:
+        raise AlvoInvalido(f"{caminho.name}: alvo {nome!r}: ssh_destino não leva porta "
+                           f"(`usuario@host:2222` o ssh não entende); declare `porta = 2222`")
+    if not isinstance(destino, str) or not DESTINO.fullmatch(destino):
+        raise AlvoInvalido(f"{caminho.name}: alvo {nome!r}: ssh_destino precisa ser usuario@host, "
+                           f"os dois lados começando por letra ou número")
+    porta = bruto.get("porta")
+    if porta is not None and (type(porta) is not int or not 1 <= porta <= 65535):
+        raise AlvoInvalido(f"{caminho.name}: alvo {nome!r}: porta precisa ser inteiro de 1 a 65535")
+    restrito = bruto.get("acesso_restrito")
+    if restrito is not None and type(restrito) is not bool:
+        raise AlvoInvalido(f"{caminho.name}: alvo {nome!r}: acesso_restrito é true ou false")
 
 
 def _checar_url(nome, campo, valor):
@@ -74,7 +100,7 @@ def _checar_componentes(caminho, nome_do_alvo, brutos):
                                f"não existe: {', '.join(desconhecidos)}. Permitidos: "
                                f"{', '.join(COMPONENTE_PERMITE)}")
         nome = bruto.get("nome")
-        if not isinstance(nome, str) or not NOME_VALIDO.match(nome):
+        if not isinstance(nome, str) or not NOME_VALIDO.fullmatch(nome):
             raise AlvoInvalido(f"{caminho.name}: componente de {nome_do_alvo!r} sem nome válido "
                                f"({nome!r})")
         if nome.casefold() in vistos:
@@ -85,6 +111,21 @@ def _checar_componentes(caminho, nome_do_alvo, brutos):
         if papel is not None and papel not in PAPEIS:
             raise AlvoInvalido(f"{caminho.name}: componente {nome!r} tem papel {papel!r}; "
                                f"os papéis são {', '.join(PAPEIS)}")
+        produto = bruto.get("produto")
+        if produto is not None:
+            from lib.produtos import carregar as carregar_produtos
+            if produto not in {p["nome"] for p in carregar_produtos()}:
+                raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r} tem "
+                                   f"produto {produto!r}, que não está em references/produtos.toml")
+        origem = bruto.get("origem")
+        if origem is not None and (not isinstance(origem, str) or not ORIGEM.fullmatch(origem)):
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r} tem "
+                               f"origem fora do formato unidade:|container:|processo:<nome>")
+        portas = bruto.get("portas")
+        if portas is not None and (not isinstance(portas, list) or not all(
+                type(p) is int and 1 <= p <= 65535 for p in portas)):
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: portas "
+                               f"é lista de inteiros de 1 a 65535")
         for campo in ("admin_url", "metricas_url"):
             if bruto.get(campo):
                 _checar_url(f"{nome_do_alvo}/{nome}", campo, bruto[campo])
@@ -120,7 +161,7 @@ def ler(caminho):
     alvos, vistos = [], set()
     for bruto in brutos:
         nome = bruto.get("nome")
-        if not isinstance(nome, str) or not NOME_VALIDO.match(nome):
+        if not isinstance(nome, str) or not NOME_VALIDO.fullmatch(nome):
             raise AlvoInvalido(f"{caminho.name}: nome de alvo inválido: {nome!r} — use letras, "
                                f"números, ponto, hífen ou sublinhado (o nome vira pasta e chave "
                                f"de histórico)")
@@ -147,6 +188,8 @@ def ler(caminho):
         for campo in ("url", "metricas_url", "logs_url"):
             if bruto.get(campo):
                 _checar_url(nome, campo, bruto[campo])
+        if tipo == "host":
+            _checar_host(caminho, nome, bruto)
 
         rotulos = bruto.get("rotulos", {})
         if not isinstance(rotulos, dict) or not all(isinstance(v, str) for v in rotulos.values()):

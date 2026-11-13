@@ -226,6 +226,96 @@ def ignorar(args) -> int:
     return EXIT_OK
 
 
+def _alvo_host(args):
+    _, infra, _ = _caminhos(args)
+    lidos, _ = alvos_mod.ler(infra)
+    alvo = next((a for a in lidos if a["nome"] == args.alvo), None)
+    if alvo is None or alvo["tipo"] != "host":
+        raise alvos_mod.AlvoInvalido(f"{args.alvo!r} não é um alvo host em {infra}")
+    return alvo, infra
+
+
+def _ler_fontes(alvo):
+    """As três fontes da descoberta; None numa delas = não medida. None no todo = sem sessão."""
+    from lib import catalogo_host, runner
+
+    comandos, erros = catalogo_host.carregar()["comandos"], []
+    rodar = lambda chave: runner.run_ssh(alvo["ssh_destino"], alvo.get("porta"), comandos[chave],
+                                         20, erros)
+    if rodar("usuario") is None:
+        return None, (erros[0]["reason"] if erros else "o ssh falhou sem detalhe")
+    return {chave: rodar(chave) for chave in ("servicos", "portas", "containers")}, None
+
+
+def descobrir(args) -> int:
+    from lib import catalogo_host, descoberta, produtos, redact
+
+    try:
+        alvo, infra = _alvo_host(args)
+    except (alvos_mod.AlvoInvalido, ConfigInvalida) as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_ERRO
+    saidas, motivo = _ler_fontes(alvo)
+    if saidas is None:
+        print(redact.scrub_text(motivo), file=sys.stderr)
+        return EXIT_ERRO
+    resultado = descoberta.descobrir(saidas, produtos.carregar(), catalogo_host.carregar()["ignorar"])
+    if not args.gravar:
+        print(json.dumps(resultado, ensure_ascii=False, indent=2))
+        return EXIT_OK
+    return _gravar_descobertos(alvo, infra, resultado, args)
+
+
+def _gravar_descobertos(alvo, infra, resultado, args) -> int:
+    from datetime import date
+
+    from lib import gravacao_alvos
+    from lib.config import exigir_pasta_protegida
+
+    pedidos = [n.strip() for n in args.gravar.split(",") if n.strip()]
+    papeis = dict(p.split("=", 1) for p in args.papel if "=" in p)
+    por_nome = {c["nome"]: c for c in resultado["candidatos"] if c["gravavel"]}
+    faltando = [n for n in pedidos if n not in por_nome]
+    if faltando:
+        print(f"não há candidato gravável com nome {', '.join(faltando)}", file=sys.stderr)
+        return EXIT_ERRO
+    ja = {c.get("origem") for c in alvo["componente"]}
+    novos = [dict(por_nome[n], papel=papeis.get(n, por_nome[n]["papel"]))
+             for n in pedidos if por_nome[n]["origem"] not in ja]
+    if not novos:
+        print("nada novo para gravar: todos já estão no alvos.toml")
+        return EXIT_OK
+    try:
+        exigir_pasta_protegida(infra)
+    except ConfigInvalida as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_ERRO
+    original = Path(infra).read_text(encoding="utf-8")
+    backup = Path(f"{infra}.bak")
+    # nasce 600: escrever antes do chmod deixaria o inventário legível por outros usuários da
+    # máquina na janela entre os dois
+    backup.touch(mode=0o600, exist_ok=True)
+    backup.chmod(0o600)
+    backup.write_text(original, encoding="utf-8")
+    nomes_antes = [a["nome"] for a in alvos_mod.ler(infra)[0]]
+    esperado = [c.get("origem") for c in alvo["componente"]] + [c["origem"] for c in novos]
+    try:
+        Path(infra).write_text(gravacao_alvos.inserir(original, alvo["nome"], novos,
+                                                      date.today().isoformat()), encoding="utf-8")
+        lidos = alvos_mod.ler(infra)[0]
+        relido = next(a for a in lidos if a["nome"] == alvo["nome"])
+        if [a["nome"] for a in lidos] != nomes_antes or \
+                [c.get("origem") for c in relido["componente"]] != esperado:
+            raise gravacao_alvos.GravacaoInvalida("a releitura não trouxe exatamente o pedido")
+    except (gravacao_alvos.GravacaoInvalida, alvos_mod.AlvoInvalido, StopIteration) as erro:
+        Path(infra).write_text(original, encoding="utf-8")
+        print(f"gravação desfeita: {erro}. O arquivo voltou ao original; cópia em {backup}",
+              file=sys.stderr)
+        return EXIT_ERRO
+    print(f"gravados {len(novos)} componente(s) em {infra}; cópia anterior em {backup}")
+    return EXIT_OK
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Configuração da sw-infra-audit.")
     sub = ap.add_subparsers(dest="comando", required=True)
@@ -256,13 +346,21 @@ def main(argv=None) -> int:
     alv.add_argument("--sugerir", action="store_true", required=True)
     alv.add_argument("--context", required=True, help="context docker de onde partir")
 
+    des = sub.add_parser("descobrir", help="lista (e, com --gravar, grava) o que roda num host")
+    des.add_argument("--alvo", required=True)
+    des.add_argument("--gravar", default=None, help="nomes separados por vírgula")
+    des.add_argument("--papel", action="append", default=[], help="nome=papel, repetível")
+    des.add_argument("--infra", default=None)
+    des.add_argument("--padrao", default=None)
+    des.add_argument("--projeto", default=None)
+
     ign = sub.add_parser("ignorar", help="põe a pasta do relatório no .gitignore")
     ign.add_argument("--repo", default=".")
     ign.add_argument("--pasta", default="docs/infra")
 
     args = ap.parse_args(argv)
     return {"config": explicar, "migrar": migrar, "aceitar": aceitar, "alvos": sugerir,
-            "ignorar": ignorar}[args.comando](args)
+            "ignorar": ignorar, "descobrir": descobrir}[args.comando](args)
 
 
 if __name__ == "__main__":

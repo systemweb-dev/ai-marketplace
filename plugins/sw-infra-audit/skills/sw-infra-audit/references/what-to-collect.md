@@ -20,3 +20,10 @@ valores sensíveis (basicauth/token/cred em URL) redigidos.
 ## Logs de acesso (só com `logs_url`)
 
 Do Loki declarado no alvo docker, por 24 janelas de 1 hora: host, caminho agregado, status e duração, sempre por `line_format`. Vão ao `report.json` só o top 50 por site, com acessos, % de 5xx e p95, e as janelas cobertas; a linha bruta nunca é gravada.
+
+## Alvo `host` (SSH)
+
+Lido com os comandos de `references/host/linux.toml`: usuário (`id -un`), kernel, sistema, disco
+(maior uso entre sistemas de arquivos reais), memória (MemAvailable), carga de 5 min por CPU, tempo
+desde o boot, e — para a descoberta e a comparação — serviços do systemd, portas em escuta com o
+processo e containers locais. Nunca: linha de comando, pid, ambiente, arquivo de configuração, log.

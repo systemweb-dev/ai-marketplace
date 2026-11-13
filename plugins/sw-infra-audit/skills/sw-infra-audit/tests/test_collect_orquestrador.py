@@ -278,7 +278,7 @@ def test_sem_registro_explicito_a_skill_usa_os_coletores_de_verdade(tmp_path, mo
     """Rodando pela linha de comando ninguém passa `coletores`: se o registro padrão não existir,
     a auditoria devolve "sem coletor nesta versão" para tudo — e foi o que aconteceu."""
     padrao = collect.coletores_padrao()
-    assert set(padrao) == {"docker", "http"} and all(callable(f) for f in padrao.values())
+    assert set(padrao) == {"docker", "http", "host"} and all(callable(f) for f in padrao.values())
 
     (tmp_path / "alvos.toml").write_text(
         '[[alvo]]\nnome = "site"\ntipo = "http"\nurl = "http://127.0.0.1:1/x"\n', encoding="utf-8")

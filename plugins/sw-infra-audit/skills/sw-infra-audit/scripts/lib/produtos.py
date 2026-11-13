@@ -19,18 +19,29 @@ class ProdutosInvalidos(Exception):
     """Arquivo de produtos que a skill se recusa a interpretar."""
 
 
+SINAIS = ("imagem", "unidade", "processo")
+
+
 def _validar(produto, onde):
-    for obrigatorio in ("nome", "imagem"):
-        if not produto.get(obrigatorio):
-            raise ProdutosInvalidos(f"{onde}: produto sem {obrigatorio!r}")
-    if not isinstance(produto["imagem"], list):
-        raise ProdutosInvalidos(f"{onde}: `imagem` de {produto['nome']!r} precisa ser lista de "
-                                f"trechos, mesmo com um só")
-    for trecho in produto["imagem"]:
-        if not isinstance(trecho, str) or not trecho or trecho != trecho.lower():
-            raise ProdutosInvalidos(f"{onde}: trecho {trecho!r} de {produto['nome']!r} precisa "
-                                    f"ser texto minúsculo e não vazio — o casamento é feito "
-                                    f"sobre o caminho da imagem já em minúsculas")
+    if not produto.get("nome"):
+        raise ProdutosInvalidos(f"{onde}: produto sem 'nome'")
+    if not any(produto.get(s) for s in SINAIS):
+        raise ProdutosInvalidos(f"{onde}: produto {produto['nome']!r} sem imagem, unidade nem "
+                                f"processo — não haveria como reconhecê-lo")
+    for sinal in SINAIS:
+        valores = produto.get(sinal)
+        if valores is None:
+            continue
+        if not isinstance(valores, list):
+            raise ProdutosInvalidos(f"{onde}: `{sinal}` de {produto['nome']!r} precisa ser lista "
+                                    f"de trechos, mesmo com um só")
+        for trecho in valores:
+            if not isinstance(trecho, str) or not trecho or trecho != trecho.lower():
+                raise ProdutosInvalidos(f"{onde}: trecho {trecho!r} de {produto['nome']!r} precisa "
+                                        f"ser texto minúsculo e não vazio")
+            if sinal == "processo" and len(trecho) > 15:
+                raise ProdutosInvalidos(f"{onde}: processo {trecho!r} de {produto['nome']!r} tem "
+                                        f"mais de 15 caracteres; o `ss` corta o nome em 15")
     if "exportador" in produto and not isinstance(produto["exportador"], bool):
         raise ProdutosInvalidos(f"{onde}: `exportador` de {produto['nome']!r} precisa ser "
                                 f"booleano — um texto qualquer passaria como verdadeiro e "
@@ -81,7 +92,7 @@ def kind_do_caminho(caminho_da_imagem, produtos=None):
     """O `kind` do primeiro produto cujo trecho aparece no caminho — ou None."""
     alvo = (caminho_da_imagem or "").lower()
     for produto in (produtos if produtos is not None else carregar()):
-        if any(t in alvo for t in produto["imagem"]):
+        if any(t in alvo for t in produto.get("imagem", ())):
             # O PRIMEIRO que casa vence, tenha `kind` ou não. Pular quem não declara `kind`
             # fazia `postgres-exporter` atravessar o próprio bloco e cair no de `postgres`,
             # entrando no inventário como um banco — mudando saúde e impacto, que são
@@ -95,7 +106,7 @@ def nome_do_caminho(caminho_da_imagem, produtos=None):
     """O nome do primeiro produto cujo trecho aparece no caminho — ou None."""
     alvo = (caminho_da_imagem or "").lower()
     for produto in (produtos if produtos is not None else carregar()):
-        if any(t in alvo for t in produto["imagem"]):
+        if any(t in alvo for t in produto.get("imagem", ())):
             return produto["nome"]
     return None
 
@@ -106,7 +117,7 @@ def kind_da_tag(primeiro_segmento, com_estado, produtos=None):
     alvo = (primeiro_segmento or "").lower()
     for produto in (produtos if produtos is not None else carregar()):
         kind = produto.get("kind")
-        if kind and kind not in com_estado and any(t == alvo for t in produto["imagem"]):
+        if kind and kind not in com_estado and any(t == alvo for t in produto.get("imagem", ())):
             return kind
     return None
 
@@ -114,7 +125,7 @@ def kind_da_tag(primeiro_segmento, com_estado, produtos=None):
 def socket_esperado(texto, produtos=None):
     """Montar o `docker.sock` é o funcionamento deste produto?"""
     alvo = (texto or "").lower()
-    return any(any(t in alvo for t in produto["imagem"])
+    return any(any(t in alvo for t in produto.get("imagem", ()))
                for produto in (produtos if produtos is not None else carregar())
                if produto.get("socket_esperado"))
 
@@ -125,7 +136,7 @@ def candidatos_de_metrica(produtos=None):
     for produto in (produtos if produtos is not None else carregar()):
         m = produto.get("metricas")
         if m:
-            saida.append((tuple(produto["imagem"]), m["familia"], m["porta"], m["caminho"],
+            saida.append((tuple(produto.get("imagem", ())), m["familia"], m["porta"], m["caminho"],
                           m["prioridade"], m["entrega"]))
     return saida
 
@@ -146,7 +157,7 @@ def e_exportador(texto, produtos=None):
     ninguém listou) deixa algo provisório, que é o estado de hoje; nunca carimba errado.
     """
     alvo = (texto or "").lower()
-    return any(any(t in alvo for t in produto["imagem"])
+    return any(any(t in alvo for t in produto.get("imagem", ()))
                for produto in (produtos if produtos is not None else carregar())
                if produto.get("exportador"))
 
@@ -158,7 +169,7 @@ def container_liga_no(texto, produtos=None):
     nada, e o produto só aparece na tag ou no nome do serviço.
     """
     alvo = (texto or "").lower()
-    return any(any(t in alvo for t in produto["imagem"])
+    return any(any(t in alvo for t in produto.get("imagem", ()))
                for produto in (produtos if produtos is not None else carregar())
                if produto.get("container_liga_no"))
 
@@ -193,3 +204,21 @@ def e_regra_de_rota(chave, produtos=None):
                and alvo.endswith(p["rotas"]["sufixo_da_regra"])
                for p in (produtos if produtos is not None else carregar())
                if p.get("rotas"))
+
+
+def por_processo(nome, produtos=None):
+    """O produto cujo `processo` é EXATAMENTE este nome (como o `ss` mostra) — ou None."""
+    alvo = (nome or "").lower()
+    for produto in (produtos if produtos is not None else carregar()):
+        if alvo in produto.get("processo", ()):
+            return produto
+    return None
+
+
+def por_unidade(unidade, produtos=None):
+    """O primeiro produto com um trecho de `unidade` no nome da unit — ou None."""
+    alvo = (unidade or "").lower().removesuffix(".service")
+    for produto in (produtos if produtos is not None else carregar()):
+        if any(t in alvo for t in produto.get("unidade", ())):
+            return produto
+    return None

@@ -332,9 +332,11 @@ def coletores_padrao():
     """O registro de verdade. Importado aqui dentro para o módulo não puxar coletor à toa —
     e para o teste conseguir rodar o orquestrador com coletores falsos."""
     from lib.coletores import docker as coletor_docker
+    from lib.coletores import host as coletor_host
     from lib.coletores import http as coletor_http
 
-    return {"docker": coletor_docker.coletar, "http": coletor_http.coletar}
+    return {"docker": coletor_docker.coletar, "http": coletor_http.coletar,
+            "host": coletor_host.coletar}
 
 
 def onde_de(alvo):
@@ -343,6 +345,9 @@ def onde_de(alvo):
         return f"context: {alvo['context']}"
     if alvo["tipo"] == "http":
         return alvo["url"]
+    if alvo["tipo"] == "host":
+        porta = f":{alvo['porta']}" if alvo.get("porta") else ""
+        return f"ssh: {alvo['ssh_destino']}{porta}"
     return alvo.get("host", "")
 
 
@@ -525,6 +530,9 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
         registro["nao_coletado"].append(report_mod.na(
             "URLs mais acessadas: a `logs_url` está declarada, mas nenhum componente tem o papel "
             "`entrada` — declare `papel = \"entrada\"` no proxy"))
+    from lib import capacidade
+    for componente in registro["componentes"]:
+        componente["achados"].extend(capacidade.achados(componente))
     promover_achados(registro)
 
     extras = resultado.get("nao_coletado", [])

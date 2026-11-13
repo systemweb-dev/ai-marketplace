@@ -46,6 +46,8 @@ socket_esperado = true          # lê o daemon para descobrir as rotas; é como 
 [[produto]]
 nome = "nginx"
 imagem = ["nginx"]
+unidade = ["nginx"]
+processo = ["nginx"]
 kind = "proxy"
 
 [[produto]]
@@ -110,6 +112,9 @@ imagem = ["postgres-exporter", "postgres_exporter",
           # `postgresql-exporter` casa o bloco de `postgres` e sai `banco` — a tabela
           # invertida de D4 de volta, e no lado inseguro (confirmado, não provisório).
           "postgresql-exporter", "postgresql_exporter", "pg-exporter", "pgexporter"]
+# no host: a unit do pacote é `prometheus-postgres-exporter`, e o `ss` corta o processo em 15
+unidade = ["postgres-exporter", "postgres_exporter"]
+processo = ["postgres_export"]
 exportador = true
 
 [[produto]]
@@ -117,11 +122,15 @@ nome = "mysqld-exporter"
 imagem = ["mysqld-exporter", "mysqld_exporter",
           # `mysql-exporter`, sem o `d`, casa o bloco de `mysql` e sai `banco`
           "mysql-exporter", "mysql_exporter"]
+unidade = ["mysqld-exporter", "mysqld_exporter"]
+processo = ["mysqld_exporter"]
 exportador = true
 
 [[produto]]
 nome = "redis-exporter"
 imagem = ["redis-exporter", "redis_exporter", "valkey-exporter", "valkey_exporter"]
+unidade = ["redis-exporter", "redis_exporter"]
+processo = ["redis_exporter"]
 exportador = true
 
 # --- quem guarda em memória
@@ -130,6 +139,8 @@ exportador = true
 [[produto]]
 nome = "redis"
 imagem = ["redis"]
+unidade = ["redis"]
+processo = ["redis-server"]
 kind = "cache/fila"
 
 [[produto]]
@@ -141,22 +152,37 @@ kind = "cache"
 [[produto]]
 nome = "postgres"
 imagem = ["postgres"]
+unidade = ["postgresql"]
+processo = ["postgres"]
 kind = "banco"
 
 [[produto]]
 nome = "mysql"
 imagem = ["mysql"]
+unidade = ["mysql"]
+processo = ["mysqld"]
 kind = "banco"
 
 [[produto]]
 nome = "mariadb"
 imagem = ["mariadb"]
+unidade = ["mariadb"]
+processo = ["mariadbd"]
 kind = "banco"
 
 [[produto]]
 nome = "mongo"
 imagem = ["mongo"]
+unidade = ["mongod"]
+processo = ["mongod"]
 kind = "banco"
+
+[[produto]]
+nome = "qdrant"
+imagem = ["qdrant"]
+unidade = ["qdrant"]
+processo = ["qdrant"]
+kind = "busca"
 
 [[produto]]
 nome = "elasticsearch"

@@ -56,7 +56,8 @@ def test_dois_containers_no_mesmo_no_nao_escolhem_um():
 
 def test_perguntas_sao_opcionais_e_sem_limiar():
     assert [p["id"] for p in perguntas.do_papel("maquina")] == [
-        "maquina.cpu", "maquina.memoria", "maquina.disco", "maquina.disco_dias"]
+        "maquina.cpu", "maquina.memoria", "maquina.disco", "maquina.disco_dias",
+        "maquina.carga", "maquina.desde_o_boot"]
     assert all(p["opcional"] and not p["limiar"] for p in perguntas.do_papel("maquina"))
 
 
@@ -258,8 +259,11 @@ def test_ponta_a_ponta_cada_no_recebe_o_numero_do_seu_container(monkeypatch):
 
     maquinas = _por_nome(registro)
     valor = {n: {r["pergunta"]: r.get("valor") for r in c["respostas"]} for n, c in maquinas.items()}
-    assert valor == {"db-1": dict.fromkeys(perguntas.ORDEM["maquina"], 11.5),
-                     "web-1": dict.fromkeys(perguntas.ORDEM["maquina"], 77.0)}
+    # carga e boot são respondidas pelo ssh (alvo host); o node-exporter do catálogo não as mede
+    so_ssh = {"maquina.carga", "maquina.desde_o_boot"}
+    medidas = [p for p in perguntas.ORDEM["maquina"] if p not in so_ssh]
+    assert valor == {"db-1": {**dict.fromkeys(medidas, 11.5), **dict.fromkeys(so_ssh)},
+                     "web-1": {**dict.fromkeys(medidas, 77.0), **dict.fromkeys(so_ssh)}}
     assert maquinas["db-1"]["respostas"][0]["fonte"] == "promql:node-exporter"
     assert maquinas["db-1"]["papel_origem"] == "declarado"
     assert sum(1 for c in consultas if f'nodename="{ID_A}"' in c) == 4
