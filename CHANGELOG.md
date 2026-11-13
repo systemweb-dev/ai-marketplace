@@ -335,6 +335,8 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
   uma ponta só faz o acoplamento novo sumir em silêncio quando a outra ponta já estava lá.
 
 ### Corrigido
+- `sw-infra-audit` (v0.19.1): as URLs mais acessadas têm orçamento próprio (`limites.orcamento_urls`,
+  120 s). Antes rodavam com a sobra do orçamento do alvo e ficavam de fora em toda rodada real.
 - `sw-infra-audit` (v0.19.0): serviço com réplicas parciais contava como online,
   a redação agora cobre senha em argumento, variável e cabeçalho, e o resumo longo é recusado.
 - `sw-brainstorming` (v0.8.0): removido do plugin um dossiê vazio que ia publicado por engano.

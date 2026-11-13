@@ -14,6 +14,7 @@ top = 15                      # linhas das tabelas de sites e URLs
 [limites]
 timeout_por_comando = 20      # segundos por comando de coleta
 orcamento_por_alvo = 120      # segundos por alvo; o que passar disso vira "sem dados"
+orcamento_urls = 120          # segundos só para as URLs mais acessadas, fora do orçamento do alvo
 http_timeout = 8              # segundos por requisição do coletor http
 
 [historico]

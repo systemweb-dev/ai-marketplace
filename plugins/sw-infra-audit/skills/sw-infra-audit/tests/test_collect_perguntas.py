@@ -132,7 +132,7 @@ def test_orcamento_esgotado_corta_as_perguntas_seguintes(tmp_path):
     args = [a if a != "60" else "0" for a in ambiente(tmp_path)]
     (tmp_path / "default.toml").write_text(
         '[relatorio]\npasta = "docs/infra"\n[limites]\ntimeout_por_comando = 5\n'
-        'orcamento_por_alvo = 0\n', encoding="utf-8")
+        'orcamento_por_alvo = 0\norcamento_urls = 0\n', encoding="utf-8")
 
     collect.main([*args, "--confirmar", "cluster"],
                  coletores={"docker": coletor_com_componente()}, adaptadores=[Lento])

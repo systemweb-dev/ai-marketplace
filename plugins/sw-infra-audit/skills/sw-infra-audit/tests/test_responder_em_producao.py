@@ -118,3 +118,24 @@ def test_se_ninguem_responde_o_erro_interno_aparece():
 
     assert all(r.get("erro_interno") for r in componente["respostas"])
     assert "bug do adaptador" in componente["respostas"][0]["motivo"]
+
+
+def test_as_perguntas_por_ultimo_tem_orcamento_proprio():
+    """As URLs ficavam de fora em toda rodada real: rodavam com a sobra do alvo, e a sobra acabava
+    antes. Com orçamento próprio, o alvo esgotado não as apaga."""
+    from lib.perguntas import do_papel
+    ultimas = {p["id"] for p in do_papel("entrada") if p.get("por_ultimo")}
+    contador = Contador()
+
+    def coletor(alvo_, contexto):
+        return {"saude": "🟢", "componentes": [{"nome": "proxy", "papel": "entrada"}]}
+
+    contexto = dict(_contexto(), orcamento=0, orcamento_urls=60)
+    registro = collect.coletar_alvo({"nome": "prod", "tipo": "docker", "context": "prod"},
+                                    coletor, contexto, [contador])
+
+    respostas = {r["pergunta"]: r for r in registro["componentes"][0]["respostas"]}
+    assert ultimas, "o papel entrada precisa ter pergunta por_ultimo para este teste valer"
+    assert all(respostas[i].get("valor") == 1 for i in ultimas)
+    assert any(r.get("motivo") == "orçamento do alvo esgotado"
+               for i, r in respostas.items() if i not in ultimas)

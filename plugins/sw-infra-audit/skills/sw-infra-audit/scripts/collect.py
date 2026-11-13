@@ -272,8 +272,9 @@ def identificar(componentes, contexto, adaptadores, prazo, fonte_do_alvo=None):
 def responder(componente, contexto, adaptadores, prazo, por_ultimo=False):
     """Faz as perguntas do papel do componente e guarda a resposta com a fonte.
 
-    `por_ultimo` escolhe a passada: as perguntas caras rodam depois de todas as outras. Sobrar
-    pouco para elas é o desenho, e por isso o orçamento esgotado ali não vira lacuna.
+    `por_ultimo` escolhe a passada: as perguntas caras rodam depois de todas as outras, com
+    orçamento PRÓPRIO (`orcamento_urls`). Com a sobra do alvo, as URLs ficavam de fora em toda
+    rodada real; o orçamento esgotado nesta passada continua não virando lacuna.
 
     Cada pergunta tem o seu contorno: bug de adaptador vira `erro_interno` DAQUELA pergunta e a
     coleta segue. Sem isso, uma pergunta quebrada apagaria o inventário inteiro do alvo.
@@ -517,8 +518,9 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
     for componente in registro["componentes"]:
         responder(componente, contexto, adaptadores, prazo)
     registro["tendencias"] = tendencias_do_alvo(registro, alvo, contexto, prazo)
+    prazo_ultimo = Prazo(contexto.get("orcamento_urls", 120))
     for componente in registro["componentes"]:
-        responder(componente, contexto, adaptadores, prazo, por_ultimo=True)
+        responder(componente, contexto, adaptadores, prazo_ultimo, por_ultimo=True)
     if alvo.get("logs_url") and not any(c["papel"] == "entrada" for c in registro["componentes"]):
         registro["nao_coletado"].append(report_mod.na(
             "URLs mais acessadas: a `logs_url` está declarada, mas nenhum componente tem o papel "
@@ -614,6 +616,7 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
     # sem padrão, um limite ausente viraria espera infinita no coletor
     contexto = {"timeout": limite("limites.timeout_por_comando", 20),
                 "orcamento": limite("limites.orcamento_por_alvo", 120),
+                "orcamento_urls": limite("limites.orcamento_urls", 120),
                 "http_timeout": limite("limites.http_timeout", 8),
                 # a janela dos insights é ancorada no --at pelo adaptador; aqui só o tamanho
                 "janela": limite("insights.janela", "24h"),
@@ -631,7 +634,8 @@ def main(argv=None, coletores=None, adaptadores=None) -> int:
         return EXIT_PARADA
 
     relatorio = report_mod.novo(generated_at=args.at)
-    relatorio["opcoes"] = {"janela": contexto["janela"], "orcamento": contexto["orcamento"], "top": top}
+    relatorio["opcoes"] = {"janela": contexto["janela"], "orcamento": contexto["orcamento"],
+                           "orcamento_urls": contexto["orcamento_urls"], "top": top}
     for alvo in escolhidos:
         if alvo["nome"] not in confirmados:
             registro = report_mod.novo_alvo(alvo["nome"], alvo["tipo"], onde_de(alvo))

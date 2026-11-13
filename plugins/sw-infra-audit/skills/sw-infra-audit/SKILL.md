@@ -222,7 +222,8 @@ logs_url = "http://loki.interno:3100"
 ```
 
 - **Fonte:** 24 janelas de 1 hora ancoradas no `--at`, com `limit=5000` e `direction=backward`. A
-  pergunta `entrada.urls_mais_acessadas` roda por último, com o que sobrou do orçamento do alvo; sem
+  pergunta `entrada.urls_mais_acessadas` roda por último, com orçamento próprio
+  (`limites.orcamento_urls`, 120 s), separado do orçamento do alvo; sem
   `logs_url` ela sai da conta da cobertura, e o bloco diz "não medido" com a instrução. Fonte declarada
   que falha vira `sem dados` com motivo, sem derrubar a coleta.
 - **Amostra:** janela que bate no limite conta como amostrada, e janela não lida fica fora de
@@ -289,8 +290,9 @@ marcada "(Recomendado)", e vem do `config --explicar`. Sem resposta, siga com el
 | Tempo de coleta por alvo? | **120 s** · 240 s · 300 s | `--orcamento` |
 
 As horas valem para as URLs do Loki e para tráfego e latência do Prometheus. As tendências da capa seguem
-em 24 horas. As URLs são lidas por último, com o tempo que sobrar: cada hora custa cerca de 3 s, então
-janela maior pede mais tempo de coleta, senão o relatório sai como amostra. As escolhas ficam em
+em 24 horas. As URLs são lidas por último, com orçamento próprio (`limites.orcamento_urls`, 120 s): o
+tempo do alvo não as come mais. Cada hora custa cerca de 3 s, então janela acima de 24 h pede aumentar
+`orcamento_urls` no `config.toml`, senão o relatório sai como amostra. As escolhas ficam em
 `opcoes` no `report.json`, e regerar o relatório as mantém.
 
 ### 3. Coletar
