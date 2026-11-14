@@ -7,6 +7,7 @@ código.
 
 O que não couber aqui não ganha arquivo: vira adaptador próprio, com código e teste.
 """
+import json
 import math
 import re
 from datetime import datetime
@@ -138,9 +139,10 @@ def derivar(documento, declarada):
         valores = _valores(documento, [declarada["de"], declarada["menos"]])
         return None if valores is None else _inteiro_se_der(valores[0] - valores[1])
 
-    if tipo == "razao":
+    if tipo == "razao" or "denominador_soma" in declarada:
+        # `percentual_de` sobre uma soma é a taxa de acerto do Redis: hits / (hits + misses)
         caminhos = [declarada["numerador"], *declarada["denominador_soma"]]
-    else:                                   # percentual_de
+    else:                                   # percentual_de sobre um denominador só
         caminhos = [declarada["numerador"], declarada["denominador"]]
     valores = _valores(documento, caminhos)
     if valores is None:
@@ -156,7 +158,7 @@ def derivar(documento, declarada):
 
 ORDENS = ("asc", "desc")
 _OBRIGATORIAS = {"razao": ("numerador", "denominador_soma"),
-                 "percentual_de": ("numerador", "denominador"),
+                 "percentual_de": ("numerador",),
                  "diferenca": ("de", "menos"),
                  "soma": ("parcelas",)}
 _LISTAS = {"razao": ("denominador_soma",), "soma": ("parcelas",)}
@@ -178,6 +180,17 @@ def _validar_derivacao(nome, declarada):
             # sem esta checagem virava lista de CARACTERES: devolvia None para sempre, calado.
             raise ExtracaoInvalida(
                 f"{nome!r}: {chave!r} precisa ser uma lista de ponteiros não vazia")
+    if tipo == "percentual_de":
+        presentes = [c for c in ("denominador", "denominador_soma") if c in declarada]
+        if len(presentes) != 1:
+            raise ExtracaoInvalida(
+                f"a derivação {nome!r} é do tipo 'percentual_de' e declara `denominador` ou "
+                f"`denominador_soma` — um dos dois")
+        if presentes == ["denominador_soma"] and (
+                not isinstance(declarada["denominador_soma"], list)
+                or not declarada["denominador_soma"]):
+            raise ExtracaoInvalida(
+                f"{nome!r}: 'denominador_soma' precisa ser uma lista de ponteiros não vazia")
 
 
 def validar_declaracao(declarada):
@@ -321,3 +334,46 @@ def _total(item):
     """Ordem total, para quando valor e desempate empatam. Repr estável de um dicionário de
     escalares — é só um critério de desempate, não precisa ser bonito."""
     return repr(sorted((str(k), str(v)) for k, v in item.items()))
+
+
+FORMATOS = ("tsv", "json", "chave_valor")
+
+
+def documento(texto, formato, colunas=None, separador=None):
+    """A saída de um cliente de produto como documento para `extrair`. None = fora do formato.
+
+    `tsv` vira `{"linhas": [{coluna: texto}]}` — objeto, e não lista, porque `extrair` sem `lista`
+    lê um objeto: o escalar aponta para `/linhas/0/<coluna>`. Linha com menos campos que `colunas` é
+    saída que não se entendeu, e a leitura inteira vira None; campo a mais (coluna nova numa versão
+    do produto) fica de fora. `chave_valor` junta `chave<separador>valor`, ignorando linha vazia,
+    seção (`# Memory`) e linha sem separador. `json` é o JSON da saída. Nada aqui converte número:
+    quem converte é `transformar`, que já filtra NaN.
+    """
+    if formato not in FORMATOS:
+        raise ExtracaoInvalida(f"formato {formato!r} não existe; os permitidos são "
+                               f"{', '.join(FORMATOS)}")
+    texto = texto if isinstance(texto, str) else ""
+    if formato == "json":
+        try:
+            return json.loads(texto)
+        except ValueError:
+            return None
+    sep = separador or "\t"
+    linhas = [linha.rstrip("\r") for linha in texto.splitlines() if linha.strip()]
+    if formato == "chave_valor":
+        pares = {}
+        for linha in linhas:
+            if linha.lstrip().startswith("#") or sep not in linha:
+                continue
+            chave, _, valor = linha.partition(sep)
+            pares[chave.strip()] = valor.strip()
+        return pares or None
+    if not colunas:
+        raise ExtracaoInvalida("formato tsv sem `colunas`")
+    saida = []
+    for linha in linhas:
+        campos = linha.split(sep)
+        if len(campos) < len(colunas):
+            return None
+        saida.append({coluna: campo.strip() for coluna, campo in zip(colunas, campos)})
+    return {"linhas": saida}

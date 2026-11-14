@@ -92,9 +92,16 @@ def argv_ssh(destino, porta, comando, conexao=10):
             *(["-p", str(porta)] if porta else []), destino, comando]
 
 
-def run_ssh(destino, porta, comando, timeout, errors=None):
-    """Roda UM comando do catálogo de host. Destino, porta e comando são conferidos ANTES do
-    subprocesso; fora do permitido é bug de dev e levanta `NotAllowed`."""
+def run_ssh(destino, porta, comando, timeout, errors=None, vagas=None, entrada=None):
+    """Roda UM comando de host. Sem `vagas`, o comando é um texto literal do catálogo de host; com
+    `vagas`, é um molde dos catálogos, e `lib/vagas.py` o preenche com valores validados. Destino,
+    porta e comando são conferidos ANTES do subprocesso; fora do permitido é bug de dev e levanta
+    `NotAllowed`.
+
+    `entrada` vai pelo stdin do ssh (o arquivo de opções com a senha do banco) e nunca pelo argv. Sem
+    ela, o stdin é fechado: herdado da skill, um comando remoto poderia ler o terminal de quem audita.
+    """
+    from lib import vagas as vagas_mod
     from lib.alvos import DESTINO
     from lib.catalogo_host import comandos_permitidos
 
@@ -102,13 +109,23 @@ def run_ssh(destino, porta, comando, timeout, errors=None):
         raise NotAllowed("destino ssh fora do formato usuario@host")
     if porta is not None and (type(porta) is not int or not 1 <= porta <= 65535):
         raise NotAllowed("porta ssh fora de 1 a 65535")
-    if comando not in comandos_permitidos():
-        raise NotAllowed("comando remoto fora do catálogo de host")
+    if vagas is None:
+        if comando not in comandos_permitidos():
+            raise NotAllowed("comando remoto fora do catálogo de host")
+        remoto = comando
+    else:
+        try:
+            remoto = vagas_mod.preencher(comando, vagas)
+        except vagas_mod.VagaInvalida as erro:
+            raise NotAllowed(f"comando remoto recusado: {erro}") from None
+    if entrada is not None and not isinstance(entrada, str):
+        raise NotAllowed("a entrada do comando remoto precisa ser texto")
     label = f"ssh {destino}"
-    cmd = argv_ssh(destino, porta, comando, conexao=max(1, min(10, int(timeout))))
+    cmd = argv_ssh(destino, porta, remoto, conexao=max(1, min(10, int(timeout))))
+    kwargs = {"input": entrada} if entrada is not None else {"stdin": subprocess.DEVNULL}
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, shell=False,
-                           env=ambiente(None))
+                           env=ambiente(None), **kwargs)
     except subprocess.TimeoutExpired:
         _err(errors, label, f"timeout após {timeout}s")
         return None
@@ -118,8 +135,17 @@ def run_ssh(destino, porta, comando, timeout, errors=None):
     if p.returncode == 255:
         _err(errors, label, f"não abri a sessão para {destino} (a VPN está ligada?): "
                             f"{_clean(p.stderr)}")
+        _codigo(errors, 255)
         return None
     if p.returncode != 0:
         _err(errors, label, _clean(p.stderr) or f"saiu com código {p.returncode}")
+        _codigo(errors, p.returncode)
         return None
     return p.stdout
+
+
+def _codigo(errors, codigo):
+    """O código de saída junto do motivo: 127 (cliente ausente) e o código de um erro conhecido do
+    produto decidem a mensagem no adaptador de produto."""
+    if errors:
+        errors[-1]["codigo"] = codigo

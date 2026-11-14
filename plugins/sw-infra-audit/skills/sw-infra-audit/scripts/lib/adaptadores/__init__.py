@@ -4,7 +4,7 @@ A ordem é a prioridade declarada — menor vence, porque o mais específico sab
 genérico. Empate resolve pelo id, em ordem lexical: sem ordem total, duas fontes equivalentes
 produziriam relatórios diferentes para a mesma entrada.
 """
-from lib.adaptadores import admin_http, exec_leitura, logql, promql, ssh
+from lib.adaptadores import admin_http, exec_leitura, logql, produto_ssh, promql, ssh
 
 # `logql` antes do `promql`: nesta pergunta o motivo dele é o que explica a falta, não o "o
 # exporter não expõe". Nas outras ele passa a vez sem custo.
@@ -14,6 +14,8 @@ REGISTRO = {
     promql.ID: {"modulo": promql, "prioridade": 30},
     # depois do promql: o exporter de nó, quando existe, é a fonte mais rica da máquina
     ssh.ID: {"modulo": ssh, "prioridade": 35},
+    # cliente do produto no host: depois do exporter (que, quando existe, vence) e antes do exec
+    produto_ssh.ID: {"modulo": produto_ssh, "prioridade": 38},
     exec_leitura.ID: {"modulo": exec_leitura, "prioridade": 40},
 }
 

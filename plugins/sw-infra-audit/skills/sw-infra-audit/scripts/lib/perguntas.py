@@ -20,11 +20,12 @@ ORDEM = {}
 
 
 def _p(id, papel, titulo, forma, unidade=None, limiar=None, desempate=None, faixa=None, opcional=False,
-       por_ultimo=False):
+       por_ultimo=False, na_ordem=True):
     PERGUNTAS[id] = {"id": id, "papel": papel, "titulo": titulo, "forma": forma,
                      "unidade": unidade, "limiar": limiar, "desempate": desempate,
                      "faixa": faixa, "opcional": opcional, "por_ultimo": por_ultimo}
-    ORDEM.setdefault(papel, []).append(id)
+    if na_ordem:
+        ORDEM.setdefault(papel, []).append(id)
     return id
 
 
@@ -130,6 +131,45 @@ _p("maquina.carga", "maquina", "Carga (5 min, por CPU)", "escalar", unidade="%",
 _p("maquina.desde_o_boot", "maquina", "Desde o último boot", "escalar", unidade="dias", opcional=True)
 
 
+# --- perguntas de componente de HOST: fora do `ORDEM[papel]` de propósito. Ali elas cairiam também
+# nos clusters, sem quem respondesse, e a cobertura contaria cada uma como lacuna. Quem as escolhe é
+# `perguntas_do_componente`, só para componente com `origem` (veio de um servidor).
+#
+# As comuns valem para QUALQUER serviço de host, do banco ao app próprio. O papel delas é o
+# pseudo-papel `servico`, que não existe em `lib/papel.py`: nenhum componente É um serviço genérico.
+# Opcionais, sem CPU (uma leitura só daria a média desde o início) e sem limiar: serviço parado já é
+# `servico_declarado_ausente`.
+PAPEL_COMUM = "servico"
+COMUNS = []
+
+
+def _comum(id, titulo, forma, unidade=None):
+    _p(id, PAPEL_COMUM, titulo, forma, unidade=unidade, opcional=True, na_ordem=False)
+    COMUNS.append(id)
+
+
+_comum("servico.ativo", "Estado do serviço", "escalar")
+_comum("servico.desde", "No ar há", "escalar", unidade="dias")
+_comum("servico.reinicios", "Reinícios", "escalar", unidade="reinícios")
+_comum("servico.memoria", "Memória do serviço", "escalar", unidade="bytes")
+# Só para componente com `backup_pasta`; o achado de atraso nasce em lib/limites_produto.py.
+_p("banco.backup_idade", "banco", "Idade do backup mais novo", "escalar", unidade="dias",
+   opcional=True, na_ordem=False)
+
+# Só os catálogos de produto (references/produtos-host/) respondem estas: nenhum exporter conhecido
+# as publica no mesmo formato. Sem faixa e sem limiar; os achados vêm de lib/limites_produto.py.
+_p("banco.tamanho_por_banco", "banco", "Tamanho por banco", "lista", unidade="bytes",
+   desempate="nome", opcional=True, na_ordem=False)
+_p("banco.uso_de_conexoes", "banco", "Conexões em uso contra o limite", "escalar", unidade="%",
+   opcional=True, na_ordem=False)
+_p("banco.consultas_lentas", "banco", "Consultas lentas desde o início", "escalar",
+   unidade="consultas", opcional=True, na_ordem=False)
+_p("banco.binlog", "banco", "Arquivos de binlog", "lista", unidade="bytes", desempate="nome",
+   opcional=True, na_ordem=False)
+_p("busca.colecoes", "busca", "Coleções", "lista", unidade="pontos", desempate="nome",
+   opcional=True, na_ordem=False)
+
+
 # O limiar é um produtor de achado, ao lado de `lib/rules.py` e do coletor http. Declarar o que
 # ele produz — derivado, nunca digitado — é o que deixa o teste do registro de regras enxergar
 # os três produtores em vez de dois.
@@ -143,3 +183,33 @@ def do_papel(papel):
     produziria `sem dados` em série, e isso é ruído, não honestidade.
     """
     return [PERGUNTAS[id] for id in ORDEM.get(papel, [])]
+
+
+def perguntas_do_componente(componente):
+    """As perguntas DESTE componente, na ordem: as do papel; e, só se ele veio de um host
+    (`origem`), as comuns, a idade do backup (com `backup_pasta`) e as do catálogo do produto.
+    Pergunta repetida (`banco.tamanho` do papel e do catálogo) entra uma vez, na primeira posição.
+
+    Componente de alvo `docker` não tem `origem`: recebe exatamente `do_papel` — um `produto`
+    declarado ali não puxa catálogo nenhum. Catálogo inválido não derruba a coleta: as perguntas dele
+    ficam de fora aqui, e o adaptador de produto diz o motivo nas que o papel já pergunta.
+    """
+    ids = list(ORDEM.get(componente.get("papel"), []))
+    if componente.get("origem"):
+        from lib import catalogo_produto
+
+        ids += COMUNS
+        if componente.get("backup_pasta"):
+            ids.append("banco.backup_idade")
+        try:
+            catalogo = catalogo_produto.do_produto(componente.get("produto"))
+        except catalogo_produto.CatalogoInvalido:
+            catalogo = None
+        if catalogo:
+            ids += [p["id"] for p in catalogo["pergunta"]]
+    vistos, saida = set(), []
+    for id_ in ids:
+        if id_ not in vistos:
+            vistos.add(id_)
+            saida.append(PERGUNTAS[id_])
+    return saida

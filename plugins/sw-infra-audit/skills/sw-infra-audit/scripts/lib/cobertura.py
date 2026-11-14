@@ -37,7 +37,7 @@ def medir(alvo):
     `mudos`, como `<identidade>`: papel errado faz as perguntas erradas, e isso é lacuna de
     medição tanto quanto pergunta sem resposta.
     """
-    from lib.perguntas import do_papel
+    from lib.perguntas import perguntas_do_componente
 
     perguntadas = respondidas = 0
     mudos = []
@@ -67,7 +67,7 @@ def medir(alvo):
                           "uma `metricas_url` cujo exporter o reconheça")
             mudos.append({"componente": componente.get("nome"),
                           "pergunta": "<identidade>", "motivo": motivo})
-        catalogo = {p["id"]: p for p in do_papel(componente.get("papel"))}
+        catalogo = {p["id"]: p for p in perguntas_do_componente(componente)}
         if not catalogo:
             continue
         perguntadas += len(catalogo)
@@ -107,10 +107,10 @@ _GRAVIDADE = {"🟢": 0, "🟡": 1, "🔴": 2}
 
 def _exigidos_pelas_mudas(alvo, aceites_vigentes, severidade_por_pergunta):
     """O estado que cada pergunta com limiar sem resposta exige; None quando ela não trava."""
-    from lib.perguntas import do_papel
+    from lib.perguntas import perguntas_do_componente
 
     for componente in alvo.get("componentes") or []:
-        catalogo = {p["id"]: p for p in do_papel(componente.get("papel"))}
+        catalogo = {p["id"]: p for p in perguntas_do_componente(componente)}
         por_id = {r.get("pergunta"): r for r in (componente.get("respostas") or [])}
         for id_pergunta, pergunta in catalogo.items():
             limiar = pergunta.get("limiar")

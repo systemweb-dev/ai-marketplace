@@ -75,7 +75,9 @@ def coletar(alvo, contexto):
                "respostas": [], "achados": []}
     if alvo.get("metricas_url"):
         maquina["metricas_url"] = alvo["metricas_url"]
-    declarados = [dict(c, papel_origem="declarado", respostas=[], achados=[])
+    # o destino ssh vai junto: é por ele que as perguntas comuns e as de produto chegam ao servidor
+    declarados = [{**c, "papel_origem": "declarado", "ssh_destino": alvo["ssh_destino"],
+                   "porta": alvo.get("porta"), "respostas": [], "achados": []}
                   for c in alvo.get("componente", []) if c.get("nome") != alvo["nome"]]
     notas = _comparar(alvo, contexto, declarados, erros)
     return {"saude": "🟢", "fatos": fatos, "componentes": [maquina, *declarados], "achados": [],

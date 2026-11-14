@@ -74,3 +74,22 @@ Molde único: `ssh -o BatchMode=yes -o ConnectTimeout=<n> -o RemoteCommand=none 
 [-p <porta>] <usuario@host> <comando>`. O comando é um texto literal de `references/host/linux.toml`;
 o runner recusa qualquer outro antes do subprocesso. O texto passa pelo shell de login do servidor, e
 por isso o catálogo proíbe `;`, `|`, `&`, `$`, crase, `<`, `>`, `%` e quebra de linha.
+
+## Moldes e vagas (alvo host)
+
+Além dos comandos literais, `references/host/linux.toml` tem a tabela `[molde]`, e cada catálogo de
+`references/produtos-host/` tem o `[cliente]` por modo de leitura. Molde é comando com vaga: o runner
+recebe molde e vagas, confere que o molde está num catálogo e monta o comando com `lib/vagas.py`, antes
+do subprocesso.
+
+| Vaga | De onde vem | Validação |
+|---|---|---|
+| `{sql}` | literal de um catálogo de produto | precisa ser uma consulta de catálogo, sem `"`, `$`, crase, `\`, `%`, `<`, `>` ou quebra de linha; no molde, sempre entre aspas duplas |
+| `{unidade}` `{container}` | `origem` do componente, sem o `tipo:` | `[A-Za-z0-9][A-Za-z0-9._@:-]{0,127}` |
+| `{porta}` | `portas` do componente ou `porta_padrao` do catálogo | inteiro de 1 a 65535 |
+| `{colecao}` | resposta do Qdrant | `[A-Za-z0-9_-]{1,64}`; fora disso o item é pulado e dito |
+| `{backup_pasta}` | `alvos.toml` | absoluto, `[A-Za-z0-9._/-]`, sem `..` |
+
+O processo não tem vaga: `ps -e -o comm=,rss=,etimes=` é literal e o filtro pelo nome é feito na skill.
+A senha do MariaDB/MySQL vai pelo stdin do ssh (`--defaults-extra-file=/dev/stdin`); sem ela, o stdin
+do ssh é fechado (`/dev/null`).

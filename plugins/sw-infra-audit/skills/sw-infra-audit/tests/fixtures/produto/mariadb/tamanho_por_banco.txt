@@ -1,0 +1,4 @@
+information_schema	212992
+mysql	5644288
+performance_schema	0
+sys	32768

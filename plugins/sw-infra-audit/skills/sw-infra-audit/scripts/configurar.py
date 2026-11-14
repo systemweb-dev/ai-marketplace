@@ -315,6 +315,89 @@ def _gravar_descobertos(alvo, infra, resultado, args) -> int:
     print(f"gravados {len(novos)} componente(s) em {infra}; cópia anterior em {backup}")
     return EXIT_OK
 
+USUARIO_DE_LEITURA = re.compile(r"[A-Za-z0-9._@-]{1,64}")
+NOME_DE_VARIAVEL = re.compile(r"[A-Z_][A-Z0-9_]{0,63}")
+
+
+def _campos_de_leitura(args, componente):
+    """Os `(campo, valor)` a gravar, ou ValueError com a frase para o dono. Nada aqui toca arquivo."""
+    from lib import catalogo_produto
+    from lib.vagas import pasta_valida
+
+    if componente.get("papel") not in ("banco", "cache", "busca"):
+        raise ValueError(f"leitura só vale para componente de papel banco, cache ou busca; "
+                         f"{componente['nome']!r} tem papel {componente.get('papel')!r}")
+    campos = [("leitura", args.modo)]
+    if args.modo == "senha":
+        if not args.usuario or not args.senha_env:
+            raise ValueError("--modo senha exige --usuario e --senha-env (o NOME da variável de "
+                             "ambiente, nunca a senha)")
+        catalogo = catalogo_produto.do_produto(componente.get("produto"))
+        if catalogo is None or "senha" not in catalogo["cliente"]:
+            raise ValueError(f"o produto {componente.get('produto')!r} não tem leitura com senha "
+                             f"nesta versão (só MariaDB e MySQL)")
+        if not USUARIO_DE_LEITURA.fullmatch(args.usuario):
+            raise ValueError("--usuario só com letras, números, ponto, hífen, sublinhado e @")
+        if not NOME_DE_VARIAVEL.fullmatch(args.senha_env):
+            raise ValueError("--senha-env é o NOME de uma variável de ambiente, em maiúsculas "
+                             "(ex.: SENHA_BANCO_01)")
+        campos += [("usuario", args.usuario), ("senha_env", args.senha_env)]
+    elif args.usuario or args.senha_env:
+        raise ValueError("--usuario e --senha-env só valem com --modo senha")
+    if args.modo == "container" and not str(componente.get("origem") or "").startswith("container:"):
+        raise ValueError("--modo container só vale para componente com origem container:<nome>")
+    if args.backup_pasta is not None:
+        if not pasta_valida(args.backup_pasta):
+            raise ValueError("--backup-pasta precisa ser caminho absoluto só com letras, números, "
+                             "ponto, hífen, sublinhado e barra, sem `..`")
+        campos.append(("backup_pasta", args.backup_pasta))
+    if args.backup_max_dias is not None:
+        if args.backup_pasta is None and not componente.get("backup_pasta"):
+            raise ValueError("--backup-max-dias precisa de --backup-pasta")
+        if not 1 <= args.backup_max_dias <= 365:
+            raise ValueError("--backup-max-dias vai de 1 a 365")
+        campos.append(("backup_max_dias", args.backup_max_dias))
+    return campos
+
+
+def leitura(args) -> int:
+    from lib import gravacao_alvos
+
+    try:
+        alvo, infra = _alvo_host(args)
+        componente = next((c for c in alvo["componente"] if c["nome"] == args.componente), None)
+        if componente is None:
+            raise alvos_mod.AlvoInvalido(f"o alvo {args.alvo!r} não tem componente "
+                                         f"{args.componente!r}")
+        campos = _campos_de_leitura(args, componente)
+        exigir_pasta_protegida(infra)
+        original = Path(infra).read_text(encoding="utf-8")
+        novo = gravacao_alvos.acrescentar_campos(original, alvo["nome"], componente["nome"], campos)
+    except (alvos_mod.AlvoInvalido, ConfigInvalida, ValueError, gravacao_alvos.GravacaoInvalida) as erro:
+        print(str(erro), file=sys.stderr)
+        return EXIT_ERRO
+    backup = Path(f"{infra}.bak")
+    backup.touch(mode=0o600, exist_ok=True)
+    backup.chmod(0o600)
+    backup.write_text(original, encoding="utf-8")
+    novos = dict(campos)
+    esperado = [{**a, "componente": [{**c, **novos} if (a["nome"] == alvo["nome"]
+                                                        and c["nome"] == componente["nome"]) else c
+                                     for c in a["componente"]]}
+                for a in alvos_mod.ler(infra)[0]]
+    try:
+        Path(infra).write_text(novo, encoding="utf-8")
+        if alvos_mod.ler(infra)[0] != esperado:
+            raise gravacao_alvos.GravacaoInvalida("a releitura não trouxe exatamente o pedido")
+    except (gravacao_alvos.GravacaoInvalida, alvos_mod.AlvoInvalido) as erro:
+        Path(infra).write_text(original, encoding="utf-8")
+        print(f"gravação desfeita: {erro}. O arquivo voltou ao original; cópia em {backup}",
+              file=sys.stderr)
+        return EXIT_ERRO
+    print(f"leitura de {componente['nome']} gravada ({', '.join(c for c, _ in campos)}); cópia "
+          f"anterior em {backup}")
+    return EXIT_OK
+
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Configuração da sw-infra-audit.")
@@ -353,6 +436,18 @@ def main(argv=None) -> int:
     des.add_argument("--infra", default=None)
     des.add_argument("--padrao", default=None)
     des.add_argument("--projeto", default=None)
+    lei = sub.add_parser("leitura", help="grava como a skill lê um componente de host")
+    lei.add_argument("--alvo", required=True)
+    lei.add_argument("--componente", required=True)
+    lei.add_argument("--modo", required=True, choices=alvos_mod.LEITURAS)
+    lei.add_argument("--usuario", default=None)
+    lei.add_argument("--senha-env", dest="senha_env", default=None,
+                     help="o NOME da variável de ambiente, nunca a senha")
+    lei.add_argument("--backup-pasta", dest="backup_pasta", default=None)
+    lei.add_argument("--backup-max-dias", dest="backup_max_dias", type=int, default=None)
+    lei.add_argument("--infra", default=None)
+    lei.add_argument("--padrao", default=None)
+    lei.add_argument("--projeto", default=None)
 
     ign = sub.add_parser("ignorar", help="põe a pasta do relatório no .gitignore")
     ign.add_argument("--repo", default=".")
@@ -360,7 +455,7 @@ def main(argv=None) -> int:
 
     args = ap.parse_args(argv)
     return {"config": explicar, "migrar": migrar, "aceitar": aceitar, "alvos": sugerir,
-            "ignorar": ignorar, "descobrir": descobrir}[args.comando](args)
+            "ignorar": ignorar, "descobrir": descobrir, "leitura": leitura}[args.comando](args)
 
 
 if __name__ == "__main__":

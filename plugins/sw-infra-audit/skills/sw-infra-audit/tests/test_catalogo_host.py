@@ -3,7 +3,7 @@ import pytest
 from lib import catalogo_host
 
 CHAVES = {"usuario", "kernel", "sistema", "disco", "memoria", "carga", "cpus", "boot",
-          "servicos", "portas", "containers"}
+          "servicos", "portas", "containers", "processos"}
 
 
 def test_o_catalogo_da_skill_traz_todos_os_comandos_e_a_lista_ignorar():

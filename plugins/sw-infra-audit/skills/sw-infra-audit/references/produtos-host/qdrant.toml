@@ -1,0 +1,32 @@
+# Leitura do Qdrant pela API HTTP local, com o `curl` do servidor: a lista de coleções e, para cada
+# uma, pontos e status. `-f` faz HTTP de erro virar código 22. Qdrant com chave de API fica para uma
+# próxima versão. A porta é a de `portas` do componente quando a padrão não está lá.
+produto = "qdrant"
+porta_padrao = 6333
+
+[cliente]
+socket = 'curl -s -f -m 5 "http://127.0.0.1:{porta}{sql}"'
+
+[[erro]]
+codigo = 22
+motivo = "o Qdrant recusou a leitura (pede chave de API?); Qdrant com chave fica para uma próxima versão"
+
+[[erro]]
+codigo = 7
+motivo = "o Qdrant não respondeu em 127.0.0.1 na porta declarada"
+
+[[erro]]
+codigo = 28
+motivo = "o Qdrant não respondeu em 5 segundos"
+
+# nome de coleção fora de [A-Za-z0-9_-]{1,64} é pulado, sem consulta, e a resposta diz quantos
+[[pergunta]]
+id = "busca.colecoes"
+formato = "json"
+enumerar = { sql = "/collections", lista = "/result/collections", campo = "name" }
+sql = "/collections/{colecao}"
+lista = "/itens"
+campos = { nome = "/nome", pontos = "/resposta/result/points_count", status = "/resposta/result/status" }
+transformar = { nome = "texto", pontos = "inteiro", status = "texto" }
+ordenar_por = "pontos"
+desempate = "nome"

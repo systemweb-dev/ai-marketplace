@@ -8,6 +8,14 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.21.0): **coleta por produto em servidores host.** Todo componente descoberto num
+  host ganha estado, tempo no ar, reinícios e memória (systemd, container ou processo). MariaDB, MySQL,
+  Postgres, Redis e Qdrant trazem os dados do produto (tamanho por banco, conexões contra o limite,
+  lentas, binlog, memória e descartes, coleções e pontos) pelo cliente do próprio servidor, a partir de
+  catálogos em `references/produtos-host/` — produto novo é um arquivo. `configurar.py leitura` grava
+  como cada componente é lido (socket, senha, container ou nenhum) e a pasta do backup; a senha, só no
+  MariaDB/MySQL, vai pelo stdin do ssh. O catálogo de host passa a aceitar molde com vaga validada.
+  Regras novas: `backup_atrasado`, `conexoes_no_limite`.
 - `sw-infra-audit` (v0.20.0): **servidor fora do cluster.** Alvo `tipo = "host"` lido por SSH (disco,
   memória, carga, boot, kernel e sistema), com `configurar.py descobrir` para achar o que roda nele
   (systemd, portas, containers) e gravar os componentes confirmados no `alvos.toml`. Disco e memória

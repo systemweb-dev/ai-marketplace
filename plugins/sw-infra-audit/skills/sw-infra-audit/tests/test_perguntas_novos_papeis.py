@@ -117,7 +117,9 @@ def test_toda_pergunta_declarada_tem_alguem_que_a_responda():
         respondidas.add(tomllib.loads(arquivo.read_text(encoding="utf-8"))["pergunta"])
 
     from lib.adaptadores import ssh
-    respondidas |= set(ssh.LEITURAS)   # o adaptador ssh responde sem arquivo de família
+    respondidas |= set(ssh.RESPONDE)   # máquina, serviço e backup: o adaptador ssh, sem arquivo
+    from lib.adaptadores import produto_ssh
+    respondidas |= produto_ssh.respondidas()   # catálogos de produto em references/produtos-host/
 
     orfas = sorted(set(PERGUNTAS) - respondidas)
 

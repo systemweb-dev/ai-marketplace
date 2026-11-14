@@ -1,0 +1,40 @@
+# Leitura do Redis pelo `redis-cli` do próprio servidor: só o comando INFO, que traz memória,
+# descartes e acertos de uma vez. Redis com senha fica para uma próxima versão.
+produto = "redis"
+
+[cliente]
+socket = 'redis-cli "{sql}"'
+container = 'docker exec {container} redis-cli "{sql}"'
+
+# o redis-cli sai com código 0 e escreve o NOAUTH na saída: o adaptador procura o texto nos dois lugares
+[[erro]]
+contem = "NOAUTH"
+motivo = "o Redis pede senha; leitura de Redis com senha fica para uma próxima versão"
+
+[[erro]]
+contem = "Connection refused"
+motivo = "o Redis não respondeu em 127.0.0.1:6379 (o serviço está no ar?)"
+
+[[pergunta]]
+id = "cache.memoria_usada"
+sql = "INFO"
+formato = "chave_valor"
+separador = ":"
+campos = { valor = "/used_memory" }
+transformar = { valor = "bytes" }
+
+[[pergunta]]
+id = "cache.evicções"
+sql = "INFO"
+formato = "chave_valor"
+separador = ":"
+campos = { valor = "/evicted_keys" }
+transformar = { valor = "inteiro" }
+
+# hits / (hits + misses), desde o início do processo; sem leitura nenhuma não há taxa (None, não 0%)
+[[pergunta]]
+id = "cache.acerto"
+sql = "INFO"
+formato = "chave_valor"
+separador = ":"
+derivar = { valor = { tipo = "percentual_de", numerador = "/keyspace_hits", denominador_soma = ["/keyspace_hits", "/keyspace_misses"] } }

@@ -20,7 +20,10 @@ def test_pergunta_de_lista_exige_desempate():
 
 
 def test_toda_pergunta_pertence_a_um_papel_existente():
-    invalidos = sorted({p["papel"] for p in PERGUNTAS.values()} - set(PAPEIS))
+    """`servico` é o pseudo-papel das perguntas comuns de host: ninguém o declara num componente."""
+    from lib.perguntas import PAPEL_COMUM
+
+    invalidos = sorted({p["papel"] for p in PERGUNTAS.values()} - set(PAPEIS) - {PAPEL_COMUM})
     assert invalidos == [], f"pergunta de papel inexistente: {invalidos}"
 
 

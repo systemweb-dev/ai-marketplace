@@ -50,6 +50,9 @@ REGRAS = {
     # --- capacidade da máquina (lib/capacidade.py): só resposta com número produz achado
     "disco_quase_cheio":        {"severidade_padrao": "high",    "origem": "capacidade", "esperada": False},
     "memoria_sem_folga":        {"severidade_padrao": "medium",  "origem": "capacidade", "esperada": False},
+    # --- produto em host (lib/limites_produto.py): só resposta com número produz achado
+    "backup_atrasado":          {"severidade_padrao": "high",    "origem": "produto", "esperada": False},
+    "conexoes_no_limite":       {"severidade_padrao": "medium",  "origem": "produto", "esperada": False},
 }
 
 

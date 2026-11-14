@@ -2,7 +2,7 @@
 import json
 
 import collect
-from lib import capacidade, perguntas, rules
+from lib import capacidade, limites_produto, perguntas, rules
 from lib.coletores import host as coletor_host
 from lib.coletores import http as coletor_http
 from lib.regras import REGRAS, esperada, exigem_remediacao, severidade
@@ -21,6 +21,8 @@ def test_todo_produtor_declara_suas_regras_no_registro():
         sorted(capacidade.REGRAS_PRODUZIDAS - set(REGRAS))
     assert coletor_host.REGRAS_PRODUZIDAS <= set(REGRAS), \
         sorted(coletor_host.REGRAS_PRODUZIDAS - set(REGRAS))
+    assert limites_produto.REGRAS_PRODUZIDAS <= set(REGRAS), \
+        sorted(limites_produto.REGRAS_PRODUZIDAS - set(REGRAS))
 
 
 def test_o_registro_nao_guarda_regra_que_ninguem_produz():
@@ -28,7 +30,7 @@ def test_o_registro_nao_guarda_regra_que_ninguem_produz():
     catálogo é pior que ausência: dá a impressão de cobertura que não existe."""
     produzidas = (rules.REGRAS_PRODUZIDAS | coletor_http.REGRAS_PRODUZIDAS
                   | perguntas.REGRAS_PRODUZIDAS | capacidade.REGRAS_PRODUZIDAS
-                  | coletor_host.REGRAS_PRODUZIDAS)
+                  | coletor_host.REGRAS_PRODUZIDAS | limites_produto.REGRAS_PRODUZIDAS)
     assert set(REGRAS) == produzidas, sorted(set(REGRAS) ^ produzidas)
 
 

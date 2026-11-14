@@ -11,6 +11,8 @@ import tomllib
 from pathlib import Path
 from urllib.parse import urlparse
 
+from lib.vagas import pasta_valida
+
 OBRIGATORIOS = {
     "docker": ("context",),
     "http": ("url",),
@@ -29,7 +31,11 @@ COMUNS = ("nome", "tipo", "componente")
 # o que um [[alvo.componente]] pode declarar. A senha nunca vem aqui: `senha_env` guarda o
 # NOME da variável de ambiente onde ela mora.
 COMPONENTE_PERMITE = ("nome", "papel", "admin_url", "metricas_url", "senha_env",
-                      "usuario", "produto", "portas", "origem")
+                      "usuario", "produto", "portas", "origem",
+                      "leitura", "backup_pasta", "backup_max_dias")
+# Como a skill lê um componente de host. `senha` só funciona onde o catálogo do produto tem cliente
+# com senha (MariaDB e MySQL): quem confere é o `configurar.py leitura` e o adaptador de produto.
+LEITURAS = ("socket", "senha", "container", "nenhum")
 # De onde veio o componente descoberto — chave de comparação entre rodadas. O texto vem do servidor
 # (nome de unit, container ou processo), por isso o alfabeto é fechado: aspas, `\`, `[` ou quebra de
 # linha injetariam TOML quando a skill grava o arquivo.
@@ -80,7 +86,10 @@ def _checar_url(nome, campo, valor):
         raise AlvoInvalido(f"alvo {nome!r}: porta inválida em {campo} — {erro}") from erro
 
 
-def _checar_componentes(caminho, nome_do_alvo, brutos):
+SO_DE_HOST = ("origem", "leitura", "backup_pasta", "backup_max_dias")
+
+
+def _checar_componentes(caminho, nome_do_alvo, brutos, tipo=None):
     """Valida os blocos `[[alvo.componente]]`.
 
     O papel declarado aqui vence o que a imagem sugere — quando um serviço chamado `worker`
@@ -103,6 +112,10 @@ def _checar_componentes(caminho, nome_do_alvo, brutos):
         if not isinstance(nome, str) or not NOME_VALIDO.fullmatch(nome):
             raise AlvoInvalido(f"{caminho.name}: componente de {nome_do_alvo!r} sem nome válido "
                                f"({nome!r})")
+        de_host = [campo for campo in SO_DE_HOST if campo in bruto]
+        if de_host and tipo != "host":
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r} ({tipo}): "
+                               f"{', '.join(de_host)} só vale em alvo host")
         if nome.casefold() in vistos:
             raise AlvoInvalido(f"{caminho.name}: o componente {nome!r} de {nome_do_alvo!r} "
                                f"aparece duas vezes")
@@ -126,6 +139,25 @@ def _checar_componentes(caminho, nome_do_alvo, brutos):
                 type(p) is int and 1 <= p <= 65535 for p in portas)):
             raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: portas "
                                f"é lista de inteiros de 1 a 65535")
+        leitura = bruto.get("leitura")
+        if leitura is not None and leitura not in LEITURAS:
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: leitura "
+                               f"precisa ser uma de: {', '.join(LEITURAS)}")
+        if leitura == "senha" and not (bruto.get("usuario") and bruto.get("senha_env")):
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: "
+                               f'leitura = "senha" exige usuario e senha_env')
+        pasta = bruto.get("backup_pasta")
+        if pasta is not None and not pasta_valida(pasta):
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: "
+                               f"backup_pasta precisa ser caminho absoluto só com letras, números, "
+                               f"ponto, hífen, sublinhado e barra, sem `..`")
+        dias = bruto.get("backup_max_dias")
+        if dias is not None and (type(dias) is not int or not 1 <= dias <= 365):
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: "
+                               f"backup_max_dias precisa ser inteiro de 1 a 365")
+        if dias is not None and pasta is None:
+            raise AlvoInvalido(f"{caminho.name}: componente {nome!r} de {nome_do_alvo!r}: "
+                               f"backup_max_dias sem backup_pasta")
         for campo in ("admin_url", "metricas_url"):
             if bruto.get(campo):
                 _checar_url(f"{nome_do_alvo}/{nome}", campo, bruto[campo])
@@ -198,7 +230,7 @@ def ler(caminho):
 
         registro = dict(bruto)
         registro["componente"] = _checar_componentes(caminho, nome,
-                                                     registro.pop("componente", []))
+                                                     registro.pop("componente", []), tipo)
         alvos.append(registro)
     return alvos, avisos
 

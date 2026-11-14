@@ -1,0 +1,78 @@
+# Leitura do MySQL pelo cliente do próprio servidor, via SSH — só SHOW e SELECT. As consultas são as
+# do MariaDB; o MySQL 8 traz uma terceira coluna em SHOW BINARY LOGS, que o tsv ignora.
+produto = "mysql"
+
+[cliente]
+socket = 'mysql -N -B -e "{sql}"'
+senha = 'mysql --defaults-extra-file=/dev/stdin -N -B -e "{sql}"'
+container = 'docker exec {container} mysql -N -B -e "{sql}"'
+
+[[erro]]
+contem = "ERROR 1698"
+motivo = 'o root não entra pelo socket: declare leitura = "senha" com um usuário de leitura'
+
+[[erro]]
+contem = "ERROR 1045"
+modo = "senha"
+motivo = "o banco recusou o usuário e a senha declarados"
+
+[[erro]]
+contem = "ERROR 1045"
+motivo = 'o banco pediu senha: declare leitura = "senha" com um usuário de leitura'
+
+[[erro]]
+contem = "ERROR 2002"
+motivo = "o banco não respondeu no socket padrão (o serviço está no ar?)"
+
+[[erro]]
+contem = "You are not using binary logging"
+motivo = "o binlog está desligado neste servidor"
+nao_publica = true
+
+[[pergunta]]
+id = "banco.conexoes"
+sql = "SHOW GLOBAL STATUS"
+formato = "chave_valor"
+campos = { valor = "/Threads_connected" }
+transformar = { valor = "inteiro" }
+
+[[pergunta]]
+id = "banco.consultas_lentas"
+sql = "SHOW GLOBAL STATUS"
+formato = "chave_valor"
+campos = { valor = "/Slow_queries" }
+transformar = { valor = "inteiro" }
+
+[[pergunta]]
+id = "banco.uso_de_conexoes"
+sql = ["SHOW GLOBAL STATUS", "SHOW GLOBAL VARIABLES"]
+formato = "chave_valor"
+derivar = { valor = { tipo = "percentual_de", numerador = "/Threads_connected", denominador = "/max_connections" } }
+
+[[pergunta]]
+id = "banco.tamanho"
+sql = "SELECT SUM(data_length + index_length) FROM information_schema.tables"
+formato = "tsv"
+colunas = ["valor"]
+campos = { valor = "/linhas/0/valor" }
+transformar = { valor = "bytes" }
+
+[[pergunta]]
+id = "banco.tamanho_por_banco"
+sql = "SELECT table_schema, SUM(data_length + index_length) FROM information_schema.tables GROUP BY table_schema"
+formato = "tsv"
+colunas = ["nome", "bytes"]
+lista = "/linhas"
+campos = { nome = "/nome", bytes = "/bytes" }
+transformar = { bytes = "bytes" }
+ordenar_por = "bytes"
+desempate = "nome"
+
+[[pergunta]]
+id = "banco.binlog"
+sql = "SHOW BINARY LOGS"
+formato = "tsv"
+colunas = ["nome", "bytes"]
+lista = "/linhas"
+campos = { nome = "/nome", bytes = "/bytes" }
+transformar = { bytes = "bytes" }

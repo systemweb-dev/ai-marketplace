@@ -134,6 +134,32 @@ python3 <skill-dir>/scripts/configurar.py descobrir --alvo banco-01 --gravar mar
 A gravação só acrescenta blocos `[[alvo.componente]]`, faz `alvos.toml.bak` e desfaz se a releitura não
 bater. Nas rodadas seguintes a coleta compara o declarado com o encontrado e avisa o que é novo ou sumiu.
 
+**Como ler cada banco, cache e busca.** Depois do `--gravar`, para cada componente gravado de papel
+`banco`, `cache` ou `busca`, pergunte via `AskUserQuestion` como a skill o lê, e grave a resposta:
+
+- **Socket** (recomendado para MariaDB, Postgres e Redis instalados no servidor): o cliente do próprio
+  servidor, com o usuário do SSH, sem senha. No Postgres é `runuser -u postgres`, que exige `root`. No
+  Qdrant, é a API local em `127.0.0.1`.
+- **Senha** (só MariaDB e MySQL nesta versão): pergunte o usuário de leitura e o **nome** da variável
+  de ambiente que guarda a senha — nunca a senha. Diga ao dono para exportá-la antes da auditoria.
+- **Container**: o cliente dentro do container (`docker exec`), só para componente com origem
+  `container:`.
+- **Nenhum**: não ler; as perguntas do produto saem `sem dados` por escolha do dono.
+
+Para banco, pergunte também a pasta do backup (opcional) e o limite em dias (`2` é o padrão; backup
+semanal pede `7`).
+
+```bash
+python3 <skill-dir>/scripts/configurar.py leitura --alvo banco-01 --componente mariadb --modo socket \
+  --backup-pasta /var/backups/mysql --backup-max-dias 2
+python3 <skill-dir>/scripts/configurar.py leitura --alvo banco-01 --componente mysql --modo senha \
+  --usuario leitor --senha-env SENHA_BANCO_01
+```
+
+A gravação só acrescenta linhas no bloco do componente, com `alvos.toml.bak`; campo que já existe é
+recusado, e o dono corrige à mão. Se a auditoria trouxer "leitura não declarada" num componente de
+host, faça esta pergunta e grave antes da próxima rodada.
+
 ## Insights por sistema
 
 Cada componente do alvo (um serviço do swarm, um endpoint) recebe um **papel** — `entrada`,
@@ -304,7 +330,8 @@ confirmação. Alvo não confirmado **não é tocado**: fica no `report.json` e 
 
 Alvo de produção merece atenção redobrada na pergunta: diga o que será executado nele. Alvo host: diga
 que a skill vai entrar por SSH, com qual usuário (o destino mostra) e que roda só os comandos de
-`references/host/linux.toml`.
+`references/host/linux.toml` e, nos componentes com `leitura`, os clientes de
+`references/produtos-host/` (só `SHOW`, `SELECT`, `INFO` e `GET`).
 
 ### 2b. Opções da rodada — sempre pergunte, sempre com padrão
 
@@ -464,10 +491,11 @@ inclusive as que ficarem órfãs no futuro. Para uma fila, use `--componente` e
 | `aceitar` | Registrar um risco aceito no `config.toml` do projeto |
 | `ignorar` | Acertar o `.gitignore`: esconde a pasta, mantém o `config.toml` |
 | `descobrir --alvo <host> [--gravar <nomes>]` | Listar o que roda num host por SSH; com `--gravar`, acrescentar os componentes escolhidos |
+| `leitura --alvo <host> --componente <nome> --modo <modo>` | Gravar como a skill lê um banco, cache ou busca do host (`socket`, `senha`, `container`, `nenhum`) e, para banco, a pasta e o limite do backup |
 
 É o único que escreve fora da pasta do relatório. Nunca sobrescreve um `alvos.toml` existente: o
-`descobrir --gravar` só **acrescenta** blocos `[[alvo.componente]]`, com `alvos.toml.bak` e desfazendo
-se a releitura não bater.
+`descobrir --gravar` só **acrescenta** blocos `[[alvo.componente]]` e o `leitura` só **acrescenta**
+linhas ao componente escolhido — os dois com `alvos.toml.bak` e desfazendo se a releitura não bater.
 
 ## Como a saúde é calculada
 
@@ -522,8 +550,17 @@ achado: a skill não tem como medir estado interno de um agente.
 
 ## Limites
 
-- **Banco de dados ainda não** — Postgres e MySQL são o próximo ciclo. Alvo desse tipo no
-  `alvos.toml` é recusado com mensagem clara.
+- **Banco como alvo próprio não**: banco, cache e busca são lidos como componentes de um alvo `host`,
+  pelo cliente instalado no servidor (`mariadb`, `mysql`, `psql`, `redis-cli`, `curl`) e só com as
+  consultas de `references/produtos-host/<produto>.toml`. Alvo com `tipo = "postgres"` ou `"mysql"`
+  continua recusado.
+- **Senha só para MariaDB e MySQL**, e só pelo stdin do ssh (`--defaults-extra-file=/dev/stdin`):
+  nunca no argv, no log ou no `report.json`. Redis com senha e Qdrant com chave de API saem
+  `sem dados` dizendo que ficam para depois; Postgres entra pelo `runuser`, sem senha.
+- **Um banco por produto e host**: só o socket padrão. Dois MariaDB no mesmo servidor não se distinguem
+  nesta versão.
+- **Sem CPU por processo** e sem firewall. Os blocos do relatório para estes números são da parte C;
+  por enquanto eles aparecem nas respostas do componente.
 - **A API de administração tem rotas de escrita** (purgar fila, publicar mensagem, remover
   exchange) e rotas de leitura que devolvem segredo (definições exportadas, usuários,
   parâmetros de shovel, conexões). A skill **só faz GET**, e o catálogo em `references/apis/`
@@ -537,10 +574,10 @@ achado: a skill não tem como medir estado interno de um agente.
 - **Broker com estatísticas desligadas** não informa contadores: a pergunta vira `sem dados`
   com esse motivo, em vez de "nenhuma fila parada".
 - **SSH só para alvo `host` declarado.** A skill entra com a identidade SSH de quem audita (nos
-  servidores do dono, `root`) e roda só os comandos literais de `references/host/linux.toml`. A
+  servidores do dono, `root`) e roda só os comandos e moldes de `references/host/linux.toml` e de `references/produtos-host/`, com cada vaga validada. A
   restrição é da skill, não do servidor, e o `report.json` registra isso em `fatos.acesso` (a ficha
   do HTML ganha o texto na parte C). Sem `sudo`, sem escrita, sem log, sem conteúdo de arquivo de
-  configuração (o único arquivo lido é `/etc/os-release`, para o nome do sistema). Host novo só entra
+  configuração (o único arquivo lido é `/etc/os-release`, para o nome do sistema; a pasta de backup declarada é só listada). Host novo só entra
   se for declarado.
 - **Portas em escuta** servem só à descoberta: o relatório não traz lista de portas, só o achado de
   banco ou cache declarado escutando em todas as interfaces (`SEC_BIND_ALL_INTERFACES`), que não prova

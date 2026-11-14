@@ -27,3 +27,18 @@ Lido com os comandos de `references/host/linux.toml`: usuário (`id -un`), kerne
 (maior uso entre sistemas de arquivos reais), memória (MemAvailable), carga de 5 min por CPU, tempo
 desde o boot, e — para a descoberta e a comparação — serviços do systemd, portas em escuta com o
 processo e containers locais. Nunca: linha de comando, pid, ambiente, arquivo de configuração, log.
+
+## Componentes de um alvo `host`
+
+Todo componente declarado com `origem` ganha quatro perguntas comuns, lidas por SSH com os moldes de
+`references/host/linux.toml`: estado, tempo no ar, reinícios e memória — de `systemctl show` (unit),
+`docker inspect` e `docker stats` (container) ou `ps -e -o comm=,rss=,etimes=` (processo; a memória é a
+do processo mais antigo, nunca a soma dos workers). Banco com `backup_pasta` ganha a idade do backup
+mais novo, pela data no nome do arquivo (`AAAA-MM-DD` ou `AAAAMMDD`) ou, sem data, pelo mtime da
+listagem.
+
+Com `leitura` declarada, o catálogo do produto (`references/produtos-host/<produto>.toml`) acrescenta
+os dados dele, pelo cliente instalado no servidor: MariaDB/MySQL (tamanho, tamanho por banco, conexões e
+uso contra `max_connections`, consultas lentas, binlog), Postgres (tamanho, por banco, conexões e uso),
+Redis (memória, descartes, taxa de acerto) e Qdrant (coleções, pontos, status). Nunca: conteúdo de
+tabela, valor de variável que não seja contador ou limite, linha de comando, ambiente.

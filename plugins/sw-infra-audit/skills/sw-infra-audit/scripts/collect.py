@@ -282,9 +282,10 @@ def responder(componente, contexto, adaptadores, prazo, por_ultimo=False):
     A ordem dos adaptadores é a de especificidade: o primeiro que souber responder vence, e o
     motivo guardado é o do primeiro que tentou — é ele que explica o que falta declarar.
     """
-    from lib.perguntas import do_papel
+    from lib.perguntas import perguntas_do_componente
 
-    for pergunta in do_papel(componente.get("papel", "app")):
+    # o padrão `app` é o que o `do_papel` recebia aqui; `peneirar_componentes` já garante `papel`
+    for pergunta in perguntas_do_componente({"papel": "app", **componente}):
         if bool(pergunta.get("por_ultimo")) != por_ultimo:
             continue
         if prazo.esgotado():
@@ -314,11 +315,14 @@ def responder(componente, contexto, adaptadores, prazo, por_ultimo=False):
             # Guarda o motivo do primeiro adaptador que PODERIA responder. Um que nem conhece a
             # pergunta (`nao_se_aplica`) só fica se nenhum outro conhecer — senão um proxy sem
             # nada declarado seria mandado declarar `admin_url` em vez de `metricas_url`.
-            if resposta is None or (resposta.get("nao_se_aplica")
-                                    and not candidata.get("nao_se_aplica")):
+            # `explica_a_falta` vem do adaptador de produto num host: lá, "declare metricas_url"
+            # mandaria configurar o que não precisa, e o motivo dele é o que diz o que fazer.
+            if (resposta is None or candidata.get("explica_a_falta")
+                    or (resposta.get("nao_se_aplica") and not candidata.get("nao_se_aplica"))):
                 resposta = candidata
         if resposta is not None:
             resposta.pop("nao_se_aplica", None)   # marca interna, não é do relatório
+            resposta.pop("explica_a_falta", None)
             resposta = _sem_contadores(_sem_numero(resposta, pergunta),
                                        pergunta.get("limiar"))
             componente["respostas"].append(resposta)
@@ -530,9 +534,10 @@ def coletar_alvo(alvo, coletor, contexto, adaptadores=()):
         registro["nao_coletado"].append(report_mod.na(
             "URLs mais acessadas: a `logs_url` está declarada, mas nenhum componente tem o papel "
             "`entrada` — declare `papel = \"entrada\"` no proxy"))
-    from lib import capacidade
+    from lib import capacidade, limites_produto
     for componente in registro["componentes"]:
         componente["achados"].extend(capacidade.achados(componente))
+        componente["achados"].extend(limites_produto.achados(componente))
     promover_achados(registro)
 
     extras = resultado.get("nao_coletado", [])
