@@ -53,7 +53,8 @@ def test_nenhuma_classe_do_v3_fica_sem_regra():
 
 
 def test_nenhuma_classe_dos_blocos_fica_sem_regra():
-    fontes = list((LIB / "blocos").glob("*.py")) + [LIB / "html_comum.py", LIB / "capa.py"]
+    fontes = list((LIB / "blocos").glob("*.py")) + [LIB / "html_comum.py", LIB / "capa.py",
+                                                     LIB / "graficos.py", LIB / "cartao.py"]
     css = _css()
     achadas = set()
     for p in fontes:

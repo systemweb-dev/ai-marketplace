@@ -1,5 +1,6 @@
 import math
 
+from lib import cartao, graficos
 from lib.blocos import bloco
 from lib.html_comum import _e, inteiro, medido, nao_medido, painel, percentual, plural
 COLUNAS_DOS_NOS = (("Nó", "bl-e"), ("Estado", "bl-e"), ("Tarefas", "bl-d"), ("Falhadas", "bl-d"),
@@ -10,13 +11,19 @@ def _tom(uso):
     return "crit" if uso >= 85 else "warn" if uso >= 70 else "ok"
 
 
+MARCA_DE_USO = 90
+
+
 def _medida(rotulo, uso):
     if uso is None:
         return f'<div class="bl-med"><span>{rotulo}</span><b>{medido(uso)}</b></div>'
     tom = _tom(uso)
-    largura = min(max(uso, 0), 100)
+    titulo = f"{rotulo}: {percentual(uso)}, limite {MARCA_DE_USO}%"
+    # abaixo da marca a barra usa o acento; acima, cor de status com ícone e rótulo, nunca a cor sozinha
+    passou = uso > MARCA_DE_USO
+    alerta = graficos.etiqueta("crit", "acima do limite") if passou else ""
     return (f'<div class="bl-med"><span>{rotulo}</span><b class="bl-c-{tom}">{percentual(uso)}</b>'
-            f'<span class="bl-bar"><i class="bl-fl-{tom}" style="width:{largura:.0f}%"></i></span></div>')
+            f'{graficos.barra(uso, titulo, "crit" if passou else "acc", MARCA_DE_USO)}{alerta}</div>')
 
 
 def _previsao(dias):
@@ -32,10 +39,17 @@ def _previsao(dias):
     return f'<div class="bl-med"><span>Previsão do disco</span><b>{texto}</b></div>'
 
 
+def _boot(dias):
+    texto = "menos de 1 dia" if dias < 1 else plural(round(dias), "dia", "dias")
+    return f'<div class="bl-med"><span>Desde o boot</span><b>{texto}</b></div>'
+
+
 def _cartao(i):
+    carga = _medida("Carga", i["carga"]) if i.get("carga") is not None else ""
+    boot = _boot(i["boot"]) if i.get("boot") is not None else ""
     return (f'<article class="bl-maq"><header><b>{medido(i.get("nome"))}</b></header>'
             f'{_medida("CPU", i.get("cpu"))}{_medida("Memória", i.get("memoria"))}'
-            f'{_medida("Disco", i.get("disco"))}{_previsao(i.get("dias"))}</article>')
+            f'{_medida("Disco", i.get("disco"))}{carga}{_previsao(i.get("dias"))}{boot}</article>')
 
 
 def _linha_do_no(n):
@@ -69,6 +83,9 @@ def render(dados):
         resumo = plural(len(dados.get("nos") or []), "nó", "nós") if dados.get("nos") else ""
         return painel("Máquinas", resumo, nao_medido(dados.get("motivo", "sem fonte")) + nos, cheio=True)
     cheios = sum(1 for i in itens if i.get("disco") is not None and i["disco"] > 85)
-    medidas = sum(1 for i in itens if any(i.get(k) is not None for k in ("cpu", "memoria", "disco", "dias")))
+    medidas = sum(1 for i in itens if any(i.get(k) is not None for k in ("cpu", "memoria", "disco", "dias", "carga", "boot")))
     resumo = plural(medidas, "medida", "medidas") + (f" · {cheios} com disco acima de 85%" if cheios else "")
-    return painel("Máquinas", resumo, f'<div class="bl-maqs">{"".join(_cartao(i) for i in itens)}</div>{nos}', cheio=True)
+    problemas = "".join(cartao.cartao(p) for i in itens for p in i.get("problemas") or [])
+    cartoes = f'<div class="fxs bl-maq-fx">{problemas}</div>' if problemas else ""
+    return painel("Máquinas", resumo, f'<div class="bl-maqs">{"".join(_cartao(i) for i in itens)}</div>{cartoes}{nos}',
+                  cheio=True)

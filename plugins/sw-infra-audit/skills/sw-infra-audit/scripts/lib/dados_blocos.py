@@ -100,7 +100,7 @@ def _simples(papel, campos, rotulo_do_total=None, ajustar=None, manter_sem_medid
                 item = {"nome": comp.get("nome")}
                 item.update({k: _resposta(comp, p) for k, p in campos.items()})
                 if ajustar:
-                    ajustar(alvo, item)
+                    ajustar(alvo, comp, item)
                 if any(_medido(v) for k, v in item.items() if k != "nome"):
                     medidos.append((comp, item))
                 else:
@@ -135,7 +135,7 @@ def _nome_da_rota_medida(item):
     return str(item.get("nome") or "").split("@")[0]
 
 
-def _com_dominio(alvo, item):
+def _com_dominio(alvo, _comp, item):
     if not item.get("servicos"):
         return
     rotas = _rotas(alvo)
@@ -185,6 +185,74 @@ def _urls(alvos):
             "janelas": [m["janelas"] for m in medidas]}
 
 
+PAPEIS_EM_BLOCO_PROPRIO = {"banco", "busca", "maquina"}
+_DESCOBERTO = "descoberto e não declarado"
+
+
+def _motivo(comp, pergunta):
+    for r in comp.get("respostas") or []:
+        if r.get("pergunta") == pergunta and r.get("sem_dados"):
+            return r.get("motivo")
+    return None
+
+
+def _problemas_de(alvo, nome):
+    """Só no host: o cartão no bloco é para o que a auditoria do servidor achou."""
+    if alvo.get("tipo") != "host":
+        return []
+    from lib.cartao import cobrados
+    return [a for a in cobrados(alvo.get("achados") or []) if (a.get("componente") or alvo.get("nome")) == nome]
+
+
+def _com_problemas(alvo, comp, item):
+    problemas = _problemas_de(alvo, comp.get("nome"))
+    if problemas:
+        item["problemas"] = problemas
+
+
+def _do_banco(alvo, comp, item):
+    from lib.limites_produto import BACKUP_MAX_DIAS_PADRAO
+    if item.get("backup") is not None:
+        item["backup_max"] = comp.get("backup_max_dias") or BACKUP_MAX_DIAS_PADRAO
+    _com_problemas(alvo, comp, item)
+
+
+def _busca(alvos):
+    itens = [{"nome": c.get("nome"), "alvo": a.get("nome"), "colecoes": _resposta(c, "busca.colecoes"),
+              "motivo": _motivo(c, "busca.colecoes"), "problemas": _problemas_de(a, c.get("nome"))}
+             for a in alvos if a.get("tipo") == "host" for c in _componentes("busca", [a])]
+    return {"itens": itens} if itens else {"motivo": SEM_FONTE}
+
+
+def _servico(alvo, comp):
+    ausentes = {a.get("componente") for a in alvo.get("achados") or [] if a.get("regra") == "servico_declarado_ausente"}
+    return {"nome": comp.get("nome"), "papel": comp.get("papel"), "produto": comp.get("produto"),
+            "ativo": _resposta(comp, "servico.ativo"), "ausente": comp.get("nome") in ausentes,
+            "desde": _resposta(comp, "servico.desde"), "reinicios": _resposta(comp, "servico.reinicios"),
+            "memoria": _resposta(comp, "servico.memoria")}
+
+
+def _servidores(alvos):
+    from lib.cartao import cobrados
+    itens = []
+    for alvo in alvos:
+        if alvo.get("tipo") != "host" or alvo.get("coletado") is False:
+            continue
+        fatos = alvo.get("fatos") or {}
+        papeis = {c.get("nome"): c.get("papel") for c in alvo.get("componentes") or []}
+        todos = cobrados(alvo.get("achados") or [])
+        motivos = [str(n.get("motivo") or n.get("reason") or "") for n in alvo.get("nao_coletado") or []]
+        itens.append({
+            "nome": alvo.get("nome"), "sistema": fatos.get("sistema"), "kernel": fatos.get("kernel"),
+            "acesso": fatos.get("acesso"),
+            "servicos": [_servico(alvo, c) for c in alvo.get("componentes") or [] if c.get("papel") != "maquina"],
+            "problemas": [a for a in todos
+                          if papeis.get(a.get("componente") or alvo.get("nome")) not in PAPEIS_EM_BLOCO_PROPRIO],
+            "todos": todos, "descobertos": fatos.get("descobertos") or [],
+            "nao_medido": [m for m in motivos if m and not m.startswith(_DESCOBERTO)]})
+    return {"itens": itens} if itens else {}
+
+
 ADAPTADORES = {
     "fila": _filas,
     "urls": _urls,
@@ -192,12 +260,18 @@ ADAPTADORES = {
                                     "status": "entrada.distribuicao_de_status",
                                     "latencia": "entrada.latencia",
                                     "servicos": "entrada.por_servico"}, "Proxy (total)", _com_dominio),
-    "banco": _simples("banco", {"conexoes": "banco.conexoes", "tamanho": "banco.tamanho"}),
+    "banco": _simples("banco", {"conexoes": "banco.conexoes", "tamanho": "banco.tamanho",
+                                "uso": "banco.uso_de_conexoes", "por_banco": "banco.tamanho_por_banco",
+                                "lentas": "banco.consultas_lentas", "binlog": "banco.binlog",
+                                "backup": "banco.backup_idade"}, ajustar=_do_banco),
+    "busca": _busca,
+    "servidores": _servidores,
     "cache": _simples("cache", {"memoria": "cache.memoria_usada", "evictions": "cache.evicções",
                                 "acerto": "cache.acerto"}),
     "maquinas": _simples("maquina", {"cpu": "maquina.cpu", "memoria": "maquina.memoria",
-                                     "disco": "maquina.disco", "dias": "maquina.disco_dias"},
-                        manter_sem_medida=True),
+                                     "disco": "maquina.disco", "dias": "maquina.disco_dias",
+                                     "carga": "maquina.carga", "boot": "maquina.desde_o_boot"},
+                        ajustar=_com_problemas, manter_sem_medida=True),
     "consumo": _simples("app", {"cpu": "app.cpu", "memoria": "app.memoria"}),
 }
 

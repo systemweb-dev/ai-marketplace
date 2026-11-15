@@ -53,6 +53,7 @@ REGRAS = {
     # --- produto em host (lib/limites_produto.py): só resposta com número produz achado
     "backup_atrasado":          {"severidade_padrao": "high",    "origem": "produto", "esperada": False},
     "conexoes_no_limite":       {"severidade_padrao": "medium",  "origem": "produto", "esperada": False},
+    "servico_reiniciando":      {"severidade_padrao": "medium",  "origem": "produto", "esperada": False},
 }
 
 

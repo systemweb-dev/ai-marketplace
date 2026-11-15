@@ -20,13 +20,17 @@
  --campo2:color-mix(in srgb, var(--campo) 92%, var(--tinta));
  --accs:color-mix(in srgb, var(--acc) 12%, var(--campo));
  --crits:color-mix(in srgb, var(--crit) 12%, var(--campo));
- --oks:color-mix(in srgb, var(--ok) 12%, var(--campo))}
+ --oks:color-mix(in srgb, var(--ok) 12%, var(--campo));
+ --g-acc:#22659e;--g-ok:#12683f;--g-warn:#b7791f;--g-crit:#b02a37;--g-lim:#3f4046;
+ --g-trk:color-mix(in srgb,#22659e 13%,#ffffff);}
 @media screen and (prefers-color-scheme: dark){
   :root{--papel:#111113;--campo:#1a1a1d;--tinta:#f3f3f4;--tinta2:#c2c3c7;--fraco:#8f9096;
    --fio:#2c2c31;--linha:#242428;--acc:#7fb6e0;--crit:#ff7d88;--ok:#56d99a;--warn:#f5c451;
    --accs:color-mix(in srgb, var(--acc) 20%, var(--campo));
    --crits:color-mix(in srgb, var(--crit) 20%, var(--campo));
-   --oks:color-mix(in srgb, var(--ok) 20%, var(--campo))}
+   --oks:color-mix(in srgb, var(--ok) 20%, var(--campo));
+   --g-acc:#3f8fd0;--g-ok:#56d99a;--g-warn:#bf8a17;--g-crit:#cc3b4c;--g-lim:#c2c3c7;
+   --g-trk:color-mix(in srgb,#3f8fd0 22%,#1a1a1d);}
 }
 /* a cor E informacao aqui (gravidade, estado): sem isto o navegador branqueia o
    fundo ao imprimir e a faixa vermelha some */
@@ -890,6 +894,8 @@ section.sec[data-mov] .sh h2{color:var(--mov-txt)}
 .bl-med{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;margin-top:9px;font-size:12.6px;color:var(--fraco)}
 .bl-med b{font-weight:600;font-variant-numeric:tabular-nums}
 .bl-med .bl-bar{grid-column:1/-1}
+.bl-med .gf{grid-column:1/-1}
+.bl-med>.bl-tag-crit{grid-column:1/-1;justify-self:start}
 
 .bl-qs-l{min-width:0}
 .bl-qresto{margin:0;padding:10px 16px;border-top:1px solid var(--fio);font:500 13px/1.4 var(--sans);color:var(--tinta2)}
@@ -1071,6 +1077,98 @@ aside>.bl-tit:not(:first-child){margin-top:20px}
 .bl-prob>.bl-nivel{display:block;width:fit-content}
 .bl-livre .no .l{flex-wrap:wrap}
 .bl-aviso,.bl-fora{margin:0 0 14px;padding:0 4px;font-size:13px;line-height:1.4;color:var(--fraco)}
+/* GRAFICOS (lib/graficos.py). Cor so por token: o escuro tem os proprios passos, validados. */
+.gf{display:block;overflow:visible}
+.gf .gf-trk{fill:var(--g-trk)}
+.gf .gf-acc{fill:var(--g-acc)}
+.gf .gf-ok{fill:var(--g-ok)}
+.gf .gf-warn{fill:var(--g-warn)}
+.gf .gf-crit{fill:var(--g-crit)}
+.gf .gf-lim{fill:var(--g-lim)}
+.bl-tag-ok .ic,.bl-tag-warn .ic,.bl-tag-crit .ic,.bl-tag-neutro .ic{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
+.mt{display:grid;gap:var(--s1);min-width:0;margin-top:var(--s3);break-inside:avoid}
+.mt-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2)}
+.mt-l{display:grid;font-weight:600;font-size:14px;color:var(--tinta)}
+.mt-s{font-weight:400;font-size:12.5px;color:var(--fraco)}
+.mt-st{display:block}
+.mt-v{font:600 19px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em;white-space:nowrap}
+.mt-b{position:relative;padding-bottom:var(--s3)}
+.mt-lim{position:absolute;bottom:0;transform:translateX(-100%);padding-right:4px;font-size:11.5px;line-height:1.2;color:var(--fraco);white-space:nowrap}
+.br{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr) 5.5rem;row-gap:2px;column-gap:var(--s3);align-items:center;margin-top:var(--s1)}
+.br-r{display:contents}
+.br-l{font:500 13px/18px var(--mono);color:var(--tinta2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br-v{text-align:right;font:600 13.5px/18px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.br-sd{font-size:12.5px;color:var(--fraco);line-height:18px}
+.br-mais{font-size:12.5px;color:var(--fraco);margin-top:var(--s1)}
+/* SERVICOS DOS SERVIDORES, CARTAO DE PROBLEMA, INFORMATIVO E BUSCA.
+   Espaco pela escala --s*: grupo --s5, servidor --s7, itens --s3/--s4, linhas --s2. */
+.sv-topo{padding:var(--s4) var(--s5);border-bottom:1px solid var(--fio);background:color-mix(in srgb,var(--crit) 4%,var(--campo))}
+.sv-topo h4{font:700 19px/1.25 var(--disp);letter-spacing:-.012em;margin-bottom:var(--s2)}
+.ix li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px var(--s3);padding:var(--s2) 0;border-top:1px solid var(--linha)}
+.ix li:first-child{border-top:0}
+.ix-p{font-weight:600;color:var(--tinta);text-decoration:none}
+.ix .onde,.fx-p .onde{font:500 12.5px/1.4 var(--mono);color:var(--fraco);text-align:right}
+.srv{padding:var(--s5)}
+.srv+.srv{border-top:var(--s4) solid var(--papel)}
+.srv-h{display:grid;gap:var(--s2);padding-bottom:var(--s4);border-bottom:1px solid var(--fio);break-inside:avoid;break-after:avoid}
+.srv-h h4{font:700 22px/1.2 var(--disp);letter-spacing:-.015em}
+.srv-meta{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px var(--s3);margin:0;font-size:13.5px;color:var(--tinta2)}
+.srv-meta dt{color:var(--fraco)}
+.srv-meta dd{margin:0}
+.grp{margin-top:var(--s5)}
+.grp>h5{display:flex;align-items:center;gap:var(--s2);font:600 12px/1.3 var(--sans);color:var(--fraco);text-transform:uppercase;letter-spacing:.07em;margin:0 0 var(--s3);break-after:avoid}
+.grp>h5::after{content:"";flex:1;height:1px;background:var(--linha)}
+.sub-h{font:600 13.5px/1.3 var(--sans);color:var(--tinta2);margin:var(--s4) 0 var(--s2)}
+.grp>h5.sub-h{margin-top:var(--s5)}
+.bl-dbs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr))}
+.bl-dbs>.bl-db{border-right:1px solid var(--fio)}
+.fxs{display:grid;gap:var(--s3);margin-bottom:var(--s3)}
+.bl-maq-fx{padding:var(--s3)}
+.fx{display:grid;gap:var(--s2);padding:var(--s4);border-radius:var(--r);break-inside:avoid;border:1px solid color-mix(in srgb,var(--warn) 32%,var(--fio));background:color-mix(in srgb,var(--warn) 5%,var(--campo))}
+.fx.crit{border-color:color-mix(in srgb,var(--crit) 32%,var(--fio));background:color-mix(in srgb,var(--crit) 5%,var(--campo))}
+.fx-p{display:flex;flex-wrap:wrap;align-items:center;gap:4px var(--s2);margin:0;font:600 15.5px/1.4 var(--sans);color:var(--tinta)}
+.fx-p .onde{margin-left:auto}
+.fx-d{font-size:14px;color:var(--tinta2);margin:0}
+.fx-f{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s2);padding:var(--s3);border-radius:var(--r2);background:var(--campo);border:1px solid var(--linha)}
+.fx-i{width:16px;height:16px;margin-top:3px;color:var(--acc)}
+.fx-f p{font-size:14.5px;line-height:1.6;color:var(--tinta2);margin:0}
+.fx-f b{display:block;font:600 13px/1.4 var(--sans);color:var(--tinta);margin-bottom:2px}
+.fx-r{font:500 12px/1.4 var(--mono);color:var(--acc)}
+.svc{padding:var(--s2) 0;border-top:1px solid var(--linha);break-inside:avoid}
+.svc:first-child{border-top:0}
+.svc.alerta{background:color-mix(in srgb,var(--warn) 6%,var(--campo));margin:0 calc(-1 * var(--s2));padding-left:var(--s2);padding-right:var(--s2);border-radius:var(--r2)}
+.svc-t{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px var(--s3)}
+.svc-t b{font:600 15px/1.3 var(--mono);letter-spacing:-.02em}
+.tec{font:500 12px/1.4 var(--mono);color:var(--fraco);margin-left:var(--s1)}
+.st-ok{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:13.5px;color:var(--ok)}
+.fatos{display:flex;flex-wrap:wrap;gap:4px var(--s5);margin:var(--s1) 0 0}
+.fatos div{display:grid;min-width:7rem}
+.fatos dt{font-size:12.5px;color:var(--fraco)}
+.fatos dd{margin:0;font:600 14.5px/1.4 var(--mono);font-variant-numeric:tabular-nums}
+.rei-alto{display:inline-flex;align-items:center;gap:4px}
+.infs{display:grid;gap:var(--s2)}
+.inf{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s2);padding:var(--s3);border:1px solid var(--fio);border-radius:var(--r);background:var(--papel);break-inside:avoid}
+.inf-i{width:16px;height:16px;margin-top:3px;color:var(--fraco)}
+.inf-p{font:600 14.5px/1.45 var(--sans);color:var(--tinta2);margin:0}
+.inf-f{font-size:14px;line-height:1.6;color:var(--tinta2);margin:4px 0 0}
+.qd{display:grid;gap:var(--s2);margin-top:var(--s2)}
+.qd-r{display:grid;gap:var(--s1);padding-bottom:var(--s2);border-bottom:1px solid var(--linha)}
+.qd-r:last-child{border-bottom:0;padding-bottom:0}
+.qd-t{display:flex;flex-wrap:wrap;align-items:center;gap:4px var(--s2)}
+.qd-n{font:600 14.5px/1.3 var(--mono)}
+.qd-t .bl-tag-ok,.qd-t .bl-tag-warn,.qd-t .bl-tag-crit,.qd-t .bl-tag-neutro{margin-left:auto}
+.qd-g{display:grid;grid-template-columns:minmax(0,1fr) 8.5rem;gap:var(--s3);align-items:center}
+.bl-db .mt:first-of-type{margin-top:var(--s3)}
+@media (max-width:640px){
+  .srv{padding:var(--s4) var(--s3)}
+  .sv-topo{padding:var(--s4) var(--s3)}
+  .ix li{grid-template-columns:auto minmax(0,1fr)}
+  .ix .onde{grid-column:2;text-align:left}
+  .fx{padding:var(--s3)}
+  .fx-p .onde{margin-left:0;flex-basis:100%;text-align:left}
+  .br{grid-template-columns:minmax(0,6.5rem) minmax(0,1fr) 4.6rem;column-gap:var(--s2)}
+  .srv-meta{grid-template-columns:minmax(0,1fr)}
+}
 /* a capa inteira cabe na primeira folha A4 paisagem, sem empurrar o "não medido" para a seguinte */
 @media print{
   .bl-capa{margin-bottom:6px;zoom:.84}
@@ -1085,6 +1183,10 @@ aside>.bl-tit:not(:first-child){margin-top:20px}
   .rec>.quando{position:absolute;right:var(--s4);top:var(--s3)}
   /* painel que cabe numa folha não se parte; quem passa disso fragmenta sozinho */
   .bl-pn{break-inside:avoid}
+  .fx,.inf,.svc,.srv-h,.mt,.qd-r{break-inside:avoid}
+  .srv{padding:var(--s3) var(--s4)}
+  /* painel alto não pula de página inteiro: o `.bl-pn{break-inside:avoid}` deixava folha quase vazia */
+  .bl-pn:has(.srv),.bl-pn:has(.qd),.bl-pn:has(.bl-db .mt),.bl-db:has(.mt){break-inside:auto}
   .bl-tb th{height:26px;padding:3px 8px}
   .bl-tb td{height:29px;padding:4px 8px;line-height:1.25}
   .bl-sp{min-height:44px;padding:5px 16px}

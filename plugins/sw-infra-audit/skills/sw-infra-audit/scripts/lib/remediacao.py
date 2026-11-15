@@ -59,3 +59,22 @@ def para(regra, pasta=PASTA):
     """
     caminho = Path(pasta) / f"{regra}.md"
     return carregar_arquivo(caminho) if caminho.exists() else None
+
+
+def primeiro_passo(texto):
+    """O passo 1 de "Como resolver": é o que o cartão de problema mostra em "O que fazer".
+
+    Primeira linha não vazia, que abre com `1. `, até a linha em branco ou o `2.`, com os espaços
+    juntados num só. Bloco que abre com parágrafo devolve None: o teste estático acusa a ficha.
+    """
+    linhas = (texto or "").splitlines()
+    while linhas and not linhas[0].strip():
+        linhas.pop(0)
+    if not linhas or not linhas[0].lstrip().startswith("1. "):
+        return None
+    passo = []
+    for linha in linhas:
+        if passo and (not linha.strip() or re.match(r"\s*2\.\s", linha)):
+            break
+        passo.append(linha.strip())
+    return " ".join(" ".join(passo)[3:].split())

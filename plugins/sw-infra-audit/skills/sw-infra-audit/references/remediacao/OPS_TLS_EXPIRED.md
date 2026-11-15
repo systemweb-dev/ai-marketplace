@@ -11,12 +11,11 @@ dele, e descobrir isso no meio de um incidente é o pior momento possível.
 
 ## Como resolver
 
-Este caso tem runbook próprio: **leia `references/tls-renewal.md`** antes de agir. O resumo:
-
-1. Renove **mantendo a mesma autoridade certificadora**; trocar de CA obriga a atualizar todos
+1. Leia o runbook `references/tls-renewal.md` antes de agir: este caso tem procedimento próprio.
+2. Renove **mantendo a mesma autoridade certificadora**; trocar de CA obriga a atualizar todos
    os clientes ao mesmo tempo.
-2. Valide o par **antes** de aplicar.
-3. Reinicie o daemon (ele só relê o certificado ao subir) e confira os outros clientes.
+3. Valide o par **antes** de aplicar.
+4. Reinicie o daemon (ele só relê o certificado ao subir) e confira os outros clientes.
 
 ```bash
 openssl x509 -noout -dates -in cert.pem

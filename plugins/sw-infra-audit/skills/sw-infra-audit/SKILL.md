@@ -421,8 +421,12 @@ gerado sem rede). Cinco partes, nesta ordem:
    mudou, certificados e uma linha do que não foi medido, por categoria e com o motivo mais comum.
 2. **Saúde por sistema:** uma linha por stack, com o nome de `rotulos` quando houver, seguida de
    **Pontos positivos e pontos de atenção**, montados por `lib/balanco.py` a partir das medidas.
-3. **Detalhes técnicos:** blocos por papel em `scripts/lib/blocos/`: máquinas, entrada, fila, banco,
-   cache, consumo e pontos únicos de falha. Papel sem bloco usa a tabela genérica. Sem fonte, o bloco
+3. **Detalhes técnicos:** blocos por papel em `scripts/lib/blocos/`: servidores, máquinas, entrada,
+   fila, banco, cache, consumo, pontos únicos de falha e busca. Papel sem bloco usa a tabela genérica.
+   Servidores host ganham o bloco **Serviços dos servidores**, com índice de problemas no topo e uma área
+   por servidor (problemas e o que fazer, estado dos serviços, informativo). Bancos mostram conexões
+   contra o limite, tamanho por banco, lentas, binlog e idade do backup; Busca mostra as coleções do
+   Qdrant. Cada problema exibido traz o primeiro passo de como resolver, com link para a seção Problemas. Sem fonte, o bloco
    diz "não medido" com o motivo, nunca zero. Em sites, rota medida sem série de 5xx mostra "nenhum";
    sem medida de acessos ou com a consulta de erros falhando, "sem dado".
 4. **Problemas:** um bloco por regra, explicado uma vez, com afetados, ação e verificação.

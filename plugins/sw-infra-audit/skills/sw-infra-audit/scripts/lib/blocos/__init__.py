@@ -20,5 +20,5 @@ def render_bloco(papel, dados):
     return painel(papel.capitalize(), "dados coletados", f'<table class="bl-tb">{linhas}</table>')
 
 
-for _modulo in ("fila", "entrada", "banco", "cache", "maquinas", "consumo", "falhas", "urls"):
+for _modulo in ("fila", "entrada", "banco", "cache", "maquinas", "consumo", "falhas", "urls", "busca", "servidores"):
     import_module(f"lib.blocos.{_modulo}")

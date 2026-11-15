@@ -740,8 +740,7 @@ NOTA_DO_PAPEL = (
 
 
 ORDEM_SEVERIDADE = ("critical", "high", "medium", "low", "info")
-ROTULO_SEVERIDADE = {"critical": "Crítico", "high": "Alto", "medium": "Médio",
-                     "low": "Baixo", "info": "Informativo"}
+from lib.cartao import ROTULO as ROTULO_SEVERIDADE, cobrados
 
 
 def _origem_do_papel(componente):
@@ -1546,7 +1545,7 @@ def _achado_bloco(regra, itens, completo, limite=None, recomendacoes=()):
     direita = (f'<h4>Afetados: {_plural(len(itens), "ocorrência", "ocorrências")}</h4>'
                + _ocorrencias(itens, limite, detalhe_na_regra=bool(comum))
                + f'<h4>Fonte da regra</h4><p class="bl-mini regra">{_e(regra)}</p>')
-    return (f'<article class="bl-prob">{nivel}<h3>{_e(titulo)}</h3>'
+    return (f'<article class="bl-prob" id="regra-{_e(regra)}">{nivel}<h3>{_e(titulo)}</h3>'
             f'<div class="bl-pgrid"><div>{esquerda}</div><div>{direita}</div></div></article>')
 
 
@@ -1702,6 +1701,8 @@ def _so_o_comando(ordem, r):
     return f'<div class="bl-cmd"><p class="bl-mini">Prioridade {ordem}{esforco}</p><pre>{_e(r.get("comando"))}</pre></div>'
 
 
+# `busca` fica de fora: no cluster ela não tem pergunta e segue em "Outros sistemas"; a do host
+# tem bloco próprio, e `_outros_papeis` já pula os alvos host.
 PAPEIS_COM_BLOCO = {"entrada", "fila", "banco", "cache", "maquina", "app"}
 
 
@@ -1864,8 +1865,8 @@ def _so_em_contagem(itens, corte):
 
 
 def _a_cobrar(achados):
-    """Esperado descreve o normal: a capa não o cobra, e os Problemas também não."""
-    return [a for a in achados if not a.get("esperada") and not esperada(a.get("regra"))]
+    """Esperado descreve o normal: a capa não o cobra, os Problemas e os cartões também não."""
+    return cobrados(achados)
 
 
 def _regras_visiveis(achados, corte):
@@ -1991,7 +1992,8 @@ def _dados_com_corte(papel, alvos, corte):
 
 def _outros_papeis(alvos):
     from lib.html_comum import painel
-    outros = [c for a in alvos for c in a.get("componentes") or [] if c.get("papel") not in PAPEIS_COM_BLOCO]
+    outros = [c for a in alvos if a.get("tipo") != "host"
+              for c in a.get("componentes") or [] if c.get("papel") not in PAPEIS_COM_BLOCO]
     if not outros:
         return ""
     return painel("Outros sistemas", "sem bloco próprio", f'<div class="bl-livre">{_camadas(outros)}</div>', cheio=True)
@@ -2018,9 +2020,18 @@ def _blocos_tecnicos(alvos, corte):
 
     def blocos(*papeis):
         return "".join(render_bloco(p, _dados_com_corte(p, alvos, corte)) for p in papeis)
-    return (blocos("maquinas", "entrada", "urls", "fila")
-            + f'<div class="bl-par">{blocos("banco", "cache", "consumo", "falhas")}</div>'
-            + _outros_papeis(alvos) + _fontes_das_medidas(alvos))
+    # banco com dado de host (gráficos, cartões) não cabe em meia coluna: vai à largura toda
+    cheio = _banco_de_host(alvos)
+    par = ("cache", "consumo", "falhas") if cheio else ("banco", "cache", "consumo", "falhas")
+    return (blocos("servidores", "maquinas", "entrada", "urls", "fila")
+            + (blocos("banco") if cheio else "")
+            + f'<div class="bl-par">{blocos(*par)}</div>'
+            + blocos("busca") + _outros_papeis(alvos) + _fontes_das_medidas(alvos))
+
+
+def _banco_de_host(alvos):
+    return any(c.get("papel") == "banco" for a in alvos if a.get("tipo") == "host"
+               for c in a.get("componentes") or [])
 
 
 CAMPOS_DA_RECOMENDACAO = ("alvo", "titulo", "porque", "comando", "impacto", "esforco")
@@ -2071,6 +2082,7 @@ def render_html_v3(r):
 
     urls = dados_do_papel("urls", alvos)
     top = (r.get("opcoes") or {}).get("top")   # vale também no aperto de páginas: foi pedido
+    servidores = dados_do_papel("servidores", alvos).get("itens") or []
     corte = op.cortes({"achados": len(cobrados), "regras": len(_agrupar_por_regra(cobrados)),
                        "sistemas": _conta_sistemas(alvos), "aceites": len(ctx["aceites"]),
                        "pendencias": len(_mudos_de(alvos)),
@@ -2080,6 +2092,13 @@ def render_html_v3(r):
                        "nos": sum(len((a.get("fatos") or {}).get("nodes") or []) for a in alvos),
                        "consumo": len(dados_do_papel("consumo", alvos).get("itens") or []),
                        "urls": op.linhas_de_urls(urls, top), "urls_sites": len(urls.get("sites") or []),
+                       "servidores": len(servidores),
+                       "servicos_host": sum(len(s["servicos"]) for s in servidores),
+                       "cartoes": sum(len(s["todos"]) for s in servidores),
+                       "colecoes": sum(len(i.get("colecoes") or []) for i in
+                                       dados_do_papel("busca", alvos).get("itens") or []),
+                       "bancos_host": sum(1 for a in alvos if a.get("tipo") == "host"
+                                          for c in a.get("componentes") or [] if c.get("papel") == "banco"),
                        "top": top})
     resumo = _rich(_EMOJI_DE_ESTADO.sub(_palavra_de_estado, ctx["resumo"])) if ctx["resumo"] else ""
     ctx["certificados"] = _certificados_de(alvos)

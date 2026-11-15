@@ -15,7 +15,9 @@ def _linhas(c, afetados):
     return (c.get("regras", 0) * (22 + afetados // 6) + 2 * c.get("sistemas", 0) + 60
             + 5 * filas + 2 * consumo + 6 * c.get("recomendacoes", 0) + 5 * c.get("pontos_de_falha", 0)
             + 2 * c.get("nos", 0) + 3 * c.get("aceites", 0) + c.get("pendencias", 0)
-            + c.get("urls", 0))
+            + c.get("urls", 0)
+            + 40 * c.get("servidores", 0) + 10 * c.get("servicos_host", 0) + 13 * c.get("cartoes", 0)
+            + 2 * min(c.get("colecoes", 0), 8) + 6 * c.get("bancos_host", 0))
 
 
 def linhas_de_urls(dados, top=None):

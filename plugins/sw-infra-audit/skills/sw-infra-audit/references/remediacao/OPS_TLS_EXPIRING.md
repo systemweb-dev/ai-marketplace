@@ -11,8 +11,9 @@ inclui o pipeline de deploy, que você vai querer usar justamente para resolver.
 
 ## Como resolver
 
-**Leia `references/tls-renewal.md`.** Em resumo: renove mantendo a mesma CA, valide o par antes
-de aplicar, reinicie o daemon e atualize os outros clientes (CI, painel, máquinas de quem opera).
+1. Leia o runbook `references/tls-renewal.md` antes de agir.
+2. Renove mantendo a mesma CA, valide o par antes de aplicar, reinicie o daemon e atualize os outros
+   clientes (CI, painel, máquinas de quem opera).
 
 ```bash
 openssl x509 -noout -enddate -in cert.pem      # confirme o prazo real

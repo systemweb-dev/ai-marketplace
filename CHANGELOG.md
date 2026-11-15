@@ -8,6 +8,14 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-infra-audit` (v0.22.0): **relatório com servidores host e dados por produto.** Bloco novo
+  "Serviços dos servidores", com índice de problemas no topo e uma área por servidor (problemas e o que
+  fazer, estado dos serviços com reinícios e memória, informativo com descobertos e não medidos). Bancos
+  do cluster e do host no mesmo formato, com medidor de conexões contra o limite, tamanho por banco,
+  lentas, binlog e idade do backup; bloco novo "Busca" com as coleções do Qdrant. Máquinas ganham carga,
+  boot e barra com marca em 90%. Todo cartão de problema traz "O que fazer" com o primeiro passo da
+  remediação. Gráficos em SVG inline, legíveis no claro, no escuro e no PDF. Regra nova
+  `servico_reiniciando` (5 reinícios ou mais). A capa e a nota passam a contar os serviços do host.
 - `sw-infra-audit` (v0.21.0): **coleta por produto em servidores host.** Todo componente descoberto num
   host ganha estado, tempo no ar, reinícios e memória (systemd, container ou processo). MariaDB, MySQL,
   Postgres, Redis e Qdrant trazem os dados do produto (tamanho por banco, conexões contra o limite,

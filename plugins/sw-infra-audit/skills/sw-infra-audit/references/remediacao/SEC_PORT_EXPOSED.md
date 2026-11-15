@@ -13,7 +13,7 @@ precise reconfigurar nada, e sem aviso.
 ## Como resolver
 
 1. Descubra quem precisa alcançar a porta. Se for outro serviço do mesmo cluster, ela **não
-   precisa ser publicada**: a rede interna já resolve pelo nome do serviço.
+   precisa ser publicada**: a rede interna resolve pelo nome.
 2. Precisando publicar, publique na interface interna em vez de em todas.
 3. Se a porta é pública de propósito, deixe o firewall explícito — não conte com a sorte.
 

@@ -93,3 +93,21 @@ def test_relatorio_de_57_servicos_tem_no_maximo_21_paginas(tmp_path):
 @chromium
 def test_poucos_achados_em_muitas_regras_tem_no_maximo_21_paginas(tmp_path):
     assert paginas(br.build(_poucos_achados(), str(tmp_path), formato="html+pdf")["pdf"]) <= 21
+
+
+def test_orcamento_conta_servidores_servicos_cartoes_colecoes_e_bancos_de_host():
+    base = {"regras": 3, "sistemas": 5}
+    for campo in ("servidores", "servicos_host", "cartoes", "colecoes", "bancos_host"):
+        assert op._linhas({**base, campo: 2}, 8) > op._linhas(base, 8), campo
+
+
+@chromium
+def test_dois_hosts_somam_no_maximo_doze_paginas_e_nenhuma_fica_quase_vazia(tmp_path):
+    from tests.fixtures.relatorio_host import relatorio_com_hosts
+    from tests.test_ajustes_da_rodada_real import _preenchimento
+    (tmp_path / "sem").mkdir()
+    (tmp_path / "com").mkdir()
+    sem = br.build(relatorio_grande(), str(tmp_path / "sem"), formato="html+pdf")["pdf"]
+    com = br.build(relatorio_com_hosts(relatorio_grande()), str(tmp_path / "com"), formato="html+pdf")["pdf"]
+    assert paginas(com) - paginas(sem) <= 12
+    assert min(_preenchimento(com)[:-1]) >= 0.15, [round(p, 2) for p in _preenchimento(com)]

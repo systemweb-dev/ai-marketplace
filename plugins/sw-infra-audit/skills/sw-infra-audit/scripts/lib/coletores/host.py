@@ -22,7 +22,10 @@ PAPEIS_COM_DADO = {"banco", "cache", "busca", "fila"}
 
 
 def _comparar(alvo, contexto, declarados, erros):
-    """Declarado × encontrado, por `origem`. Ausência só vira achado se a fonte de origem respondeu."""
+    """Declarado × encontrado, por `origem`. Devolve (notas, descobertos).
+
+    Ausência só vira achado se a fonte de origem respondeu.
+    """
     saidas = {chave: _rodar(alvo, contexto, chave, erros) for chave in FONTE_DA_ORIGEM.values()}
     resultado = descoberta.descobrir(saidas, produtos.carregar(),
                                      catalogo_host.carregar()["ignorar"])
@@ -43,15 +46,17 @@ def _comparar(alvo, contexto, declarados, erros):
             comp["achados"].append({"regra": "SEC_BIND_ALL_INTERFACES", "severidade": "medium",
                                     "objeto": f"{comp['nome']}:{','.join(map(str, visto['portas']))}"})
     declaradas = {c.get("origem") for c in declarados}
+    descobertos = []
     # pela LISTA, não pelo dicionário: candidatos não graváveis compartilham a origem
     # "(não gravável)" e colapsariam numa chave só, perdendo a nota.
     for visto in resultado["candidatos"]:
         origem = visto["origem"]
         if visto["reconhecido"] and origem not in declaradas:
+            descobertos.append({"produto": visto["produto"], "origem": origem})
             notas.append(report_mod.na(f"descoberto e não declarado: {visto['produto']} "
                                        f"({origem}) — rode `configurar.py descobrir --alvo "
                                        f"{alvo['nome']}`"))
-    return notas
+    return notas, descobertos
 
 
 def coletar(alvo, contexto):
@@ -79,6 +84,8 @@ def coletar(alvo, contexto):
     declarados = [{**c, "papel_origem": "declarado", "ssh_destino": alvo["ssh_destino"],
                    "porta": alvo.get("porta"), "respostas": [], "achados": []}
                   for c in alvo.get("componente", []) if c.get("nome") != alvo["nome"]]
-    notas = _comparar(alvo, contexto, declarados, erros)
+    notas, descobertos = _comparar(alvo, contexto, declarados, erros)
+    if descobertos:
+        fatos["descobertos"] = descobertos
     return {"saude": "🟢", "fatos": fatos, "componentes": [maquina, *declarados], "achados": [],
             "nao_coletado": notas}

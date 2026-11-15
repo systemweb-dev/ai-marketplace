@@ -2,7 +2,7 @@ import math
 import re
 from datetime import datetime
 
-from lib import remediacao
+from lib import remediacao, servicos_host
 from lib.blocos.consumo import _cores as nucleos
 from lib.blocos.entrada import FAIXA_DE_LATENCIA
 from lib.blocos.maquinas import _tom as tom_de_uso
@@ -101,8 +101,11 @@ def _nomes_por_estado(ctx):
             if _conta_do_alvo(alvo, aceites)["fora"]:
                 nomes["fora"].append(alvo.get("nome"))
             continue
-        servicos = (alvo.get("fatos") or {}).get("services")
-        aceitos = _aceitos(alvo, aceites)
+        if alvo.get("tipo") == "host":
+            servicos, aceitos = servicos_host.servicos(alvo), servicos_host.aceitos(alvo, aceites)
+        else:
+            servicos = (alvo.get("fatos") or {}).get("services")
+            aceitos = _aceitos(alvo, aceites)
         for s in servicos if isinstance(servicos, list) else []:
             estado = estado_de(s, aceitos)
             if com_alerta(s, aceitos):
@@ -414,6 +417,16 @@ def saude_por_sistema(alvos, aceites, juntar_online=False, medidas=None):
     rodada = [a for a in alvos if a.get("coletado", True)]
     sistemas = {}
     for alvo in rodada:
+        if alvo.get("tipo") == "host":
+            aceitos = servicos_host.aceitos(alvo, aceites)
+            linhas = [(estado_de(s, aceitos), s.get("replicas"), s.get("name"))
+                      for s in servicos_host.servicos(alvo)]
+            if not linhas and not alvo.get("fatos"):
+                # host que não respondeu (VPN fora) fica visível como "Sem dado", nunca some da tabela
+                linhas = [("sem_dado", None, alvo.get("nome"))]
+            if linhas:      # host que respondeu e só tem a máquina não tem serviço a listar aqui
+                sistemas[alvo.get("nome")] = linhas
+            continue
         servicos = (alvo.get("fatos") or {}).get("services")
         if not isinstance(servicos, list):
             continue

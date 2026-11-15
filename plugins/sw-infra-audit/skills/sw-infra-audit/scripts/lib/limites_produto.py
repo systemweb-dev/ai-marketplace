@@ -1,4 +1,4 @@
-"""Achados de produto em host: backup atrasado e conexões no limite.
+"""Achados de produto em host: backup atrasado, conexões no limite e serviço reiniciando.
 
 No molde de `lib/capacidade.py`: as perguntas são opcionais (o catálogo recusa limiar em opcional), e
 só resposta COM número produz achado. Pasta vazia, leitura que falhou ou banco sem `backup_pasta`
@@ -8,7 +8,8 @@ import math
 
 BACKUP_MAX_DIAS_PADRAO = 2
 LIMITE_DE_CONEXOES = 80
-REGRAS_PRODUZIDAS = {"backup_atrasado", "conexoes_no_limite"}
+LIMITE_DE_REINICIOS = 5
+REGRAS_PRODUZIDAS = {"backup_atrasado", "conexoes_no_limite", "servico_reiniciando"}
 
 
 def _medida(componente, pergunta):
@@ -32,4 +33,9 @@ def achados(componente):
         saida.append({"regra": "conexoes_no_limite", "severidade": "medium",
                       "objeto": componente["nome"], "valor": uso,
                       "detalhe": f"{uso}% das conexões permitidas em uso"})
+    reinicios = _medida(componente, "servico.reinicios")
+    if reinicios is not None and reinicios >= LIMITE_DE_REINICIOS:
+        saida.append({"regra": "servico_reiniciando", "severidade": "medium",
+                      "objeto": componente["nome"], "valor": reinicios,
+                      "detalhe": f"{round(reinicios)} reinícios registrados pelo gerenciador do serviço"})
     return saida

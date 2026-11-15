@@ -43,3 +43,16 @@ def test_encontrado_e_nao_declarado_vira_nota_e_nao_achado(monkeypatch):
     assert any("descoberto e não declarado" in str(n) and "qdrant" in str(n)
                for n in registro["nao_coletado"])
     assert all(a["componente"] != "qdrant" for a in registro["achados"])
+
+
+def test_descoberto_e_nao_declarado_tambem_vai_estruturado_nos_fatos(monkeypatch):
+    registro = _coletar(monkeypatch, SAIDAS, [MARIADB])
+    descobertos = registro["fatos"]["descobertos"]
+    assert [d["produto"] for d in descobertos] == ["redis", "qdrant"]
+    assert all(set(d) == {"produto", "origem"} and d["origem"] for d in descobertos)
+
+
+def test_sem_descoberto_nao_ha_campo(monkeypatch):
+    saidas = {k: v for k, v in SAIDAS.items() if k not in ("servicos", "portas", "containers")}
+    registro = _coletar(monkeypatch, saidas, [MARIADB])
+    assert "descobertos" not in registro["fatos"]

@@ -34,6 +34,32 @@ RULE_META = {
 
 
 RULE_META.update({
+    "servico_declarado_ausente": {
+        "label": "Serviço declarado e não encontrado",
+        "what": "O alvos.toml declara este serviço no servidor, e a leitura do servidor não o encontrou.",
+        "why": "Ou o serviço caiu e não voltou, ou a declaração ficou velha: nos dois casos o relatório "
+               "não está olhando o que roda de verdade.",
+    },
+    "SEC_BIND_ALL_INTERFACES": {
+        "label": "Serviço de dados aberto em todas as interfaces",
+        "what": "Banco, cache ou busca escuta em 0.0.0.0, e não só na interface interna.",
+        "why": "Qualquer rede que alcance o servidor alcança o dado; uma senha fraca vira invasão.",
+    },
+    "backup_atrasado": {
+        "label": "Backup do banco atrasado",
+        "what": "O backup mais novo da pasta declarada é mais velho que o limite do banco.",
+        "why": "Se o banco se perder hoje, tudo o que foi gravado desde o último backup se perde junto.",
+    },
+    "conexoes_no_limite": {
+        "label": "Conexões do banco perto do limite",
+        "what": "Mais de 80% das conexões que o banco aceita estão em uso.",
+        "why": "No limite, conexão nova é recusada e a aplicação devolve erro para quem está usando.",
+    },
+    "servico_reiniciando": {
+        "label": "Serviço reiniciando repetidamente",
+        "what": "O serviço caiu e voltou 5 vezes ou mais desde que o gerenciador começou a contar.",
+        "why": "Cada queda derruba conexões; o reinício automático esconde que o serviço está caindo.",
+    },
     "SEC_DOCKER_SOCK_EXPECTED": {
         "label": "docker.sock em ferramenta que precisa dele",
         "what": "Monta o docker.sock — é assim que a ferramenta funciona (Traefik descobre serviços, "

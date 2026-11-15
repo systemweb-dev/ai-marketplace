@@ -85,7 +85,7 @@ def test_placeholder_escrito_pelo_agente_nao_injeta_secao():
     r = _relatorio()
     r["resumo"] = "o agente escreveu %%ACHADOS%% aqui"
     html = build_report.render_html_v3(r)
-    assert html.count("SEC_PORT_EXPOSED") == 1
+    assert html.replace('id="regra-SEC_PORT_EXPOSED"', "").count("SEC_PORT_EXPOSED") == 1
 
 
 def test_relatorio_sem_componente_nao_quebra():
@@ -118,7 +118,7 @@ def test_detalhes_seguem_a_ordem_dos_papeis_e_dizem_que_e_papel():
     relatório afirmar uma topologia que a skill nunca observou."""
     r = _com_componentes()
     r["alvos"][0]["componentes"].append(
-        {"nome": "busca", "papel": "busca", "achados": [], "analise": "",
+        {"nome": "outro", "papel": "desconhecido", "achados": [], "analise": "",
          "respostas": [{"pergunta": "x", "fonte": "promql:y", "valor": 1}]})
     html = build_report.render_html_v3(r)
 

@@ -87,6 +87,9 @@ def _conta_do_alvo(alvo, aceites):
         fora = codigo is None or codigo >= 500
         return {"online": 0 if fora else 1, "base": 1, "fora": int(fora), "parcial": 0, "com_alerta": 0,
                 "falhas_desconhecidas": 0}
+    if alvo.get("tipo") == "host":
+        from lib import servicos_host
+        return contar(servicos_host.servicos(alvo), servicos_host.aceitos(alvo, aceites))
     return contar((alvo.get("fatos") or {}).get("services") or [], _aceitos(alvo, aceites))
 
 
