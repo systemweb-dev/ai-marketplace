@@ -6,6 +6,7 @@ Tabela gerada por `scripts/dossie.py indice` — não edite à mão.
 <!-- DOSSIES:START -->
 | Trabalho | Estado | Criado | Tem |
 |---|---|---|---|
+| [Relatório mostrando servidores host e dados por produto](2026-11-14-relatorio-mostrando-servidores-host-e-dados-por-produto/spec.md) | ⚪ concluído | 2026-11-14 | plano 13/13, 2 ref |
 | [Coleta por produto em servidores host](2026-11-13-coleta-por-produto-em-servidores-host/spec.md) | ⚪ concluído | 2026-11-13 | plano 16/16, 1 ref |
 | [sw-refactor: refatoração pelos padrões do projeto](2026-11-03-sw-refactor-refatoracao-pelos-padroes-do-projeto/spec.md) | ⚪ concluído | 2026-11-03 | plano 10/10, 3 ref |
 | [Relatório de infra simples e por tipo de sistema](2026-11-01-relatorio-de-infra-simples-e-por-tipo-de-sistema/spec.md) | ⚪ concluído | 2026-11-01 | plano 17/17, 2 ref |

@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<!--
+  TRAVA DE IDENTIDADE (modo "mesma identidade", tokens do template_v3.html do sw-infra-audit):
+  papel #f7f7f7 com campo #ffffff e tinta #17171a, acento #2a5f86 (escuro: #111113 / #1a1a1d, acento #7fb6e0),
+  Bricolage Grotesque no display, Figtree no corpo e JetBrains Mono para nome técnico e número,
+  topologia de painéis bl-pn empilhados (pares lado a lado só onde cabem), superfície chapada com fio
+  1px #e3e3e5, raio 4px, cabeçalho de painel no tom do papel e nenhuma sombra, tom de relatório
+  sóbrio em português claro que diz o alerta por extenso e escreve "sem dado"/"não medido" em vez de 0.
+-->
+<!--
+  mockup-preview harness — copy this file, then fill the marked regions.
+  THROWAWAY: it doesn't need to follow the project's CSS conventions
+  (kebab-case / inline styles are fine here). Only the code applied to the
+  real component later follows the project rules.
+
+  Regions to fill:
+    1. <title>     — name of the screen/component being explored
+    2. TOKENS      — paste the real design tokens into BOTH [data-theme] blocks
+    3. FONT <link> — swap to the project's real font if not Inter
+    4. .stage      — one <section class="variation"> per variation
+
+  Built-in chrome (no need to touch it):
+    • Top bar     — variation tabs · compare side by side · viewport (+ free width switch) ·
+                    comment mode · theme · detector badge · side panel toggle
+    • Side panel  — the active variation (title, trade-off, "Seguir com esta"), its knobs, its
+                    direction (palette + fonts read from the rendered CSS, and title/body font
+                    fields that take ANY Google Fonts family), the comments, and the detector
+    • Knobs       — 0-4 live controls per variation, declared in data-knobs on the <section>
+                    (range → --k-<id>, steps → data-k-<id>, toggle → both). See the example
+                    above the first variation.
+    • Compare     — every variation side by side; each column is its own CSS container,
+                    so @container rules still work (📱 + compare = the mobile versions side by side)
+    • Feedback    — with scripts/serve.py, comments on an element and the chosen variation are
+                    saved to .mockup/comentarios.json and .mockup/escolha.json for the agent to read.
+    • Keys        — ← → variation · C compare · 1-4 width · L free width · K comment · T theme · P panel
+
+  Title font field overrides h1-h6 inside the variations; the body field overrides the rest.
+  Mark display text that isn't a heading with data-titulo to have it follow the title font.
+
+  Anti-slop detector: `python3 scripts/detectar.py index.html` scans only the DESIGN (markup
+  inside .variation and CSS after `harness:fim`); this chrome never produces findings.
+
+  Responsive: the canvas (.hz-frame) is a CSS container. Write responsive rules with
+  @container (max-width: ...) so the viewport toggle triggers REAL breakpoints. Prefer
+  intrinsic layouts (auto-fit/minmax, flex-wrap, clamp) so it reflows cleanly.
+
+  URL state: every click rewrites the URL, so live-reload keeps the state and the URL can be
+  shared. Params: ?vw=mobile|tablet|desktop|full|livre (&w=<px> with livre), ?theme=light|dark,
+  ?v=<n> (1-based variation), ?font=<Google Font> (body), ?font-titulo=<Google Font>,
+  ?k=<id>:<valor>,... (knobs of the ACTIVE variation), ?comparar=1, ?painel=0, ?limpo=1
+  (hide all chrome, canvas only). Used for fast no-click screenshots.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório: servidores host</title>
+
+<!-- 3. FONT — replace href + family if the project uses another font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* ============================================================
+     2. TOKENS — paste the project's real values into BOTH blocks.
+     They live on [data-theme] so the canvas can switch live.
+     This is what makes the mockup faithful: same colors/spacing/radius
+     as production.
+     Os valores abaixo são de EXEMPLO (slate + azul + Inter): um placeholder
+     para o canvas funcionar, nunca um design. Sem design system no projeto,
+     cada variação declara a PRÓPRIA paleta e fonte (SKILL.md, passo 2).
+     ============================================================ */
+  [data-theme="light"] {
+    --papel:#f7f7f7; --campo:#ffffff; --tinta:#17171a; --tinta2:#3f4046; --fraco:#66676e;
+    --fio:#e3e3e5; --linha:#eeeeef; --acc:#2a5f86; --crit:#b02a37; --ok:#12683f; --warn:#8a5806;
+    --accs:color-mix(in srgb, var(--acc) 12%, var(--campo));
+    --crits:color-mix(in srgb, var(--crit) 12%, var(--campo));
+    --oks:color-mix(in srgb, var(--ok) 12%, var(--campo));
+    --bg-primary: var(--papel); --bg-secondary: var(--campo); --bg-card: var(--campo);
+    --text-primary: var(--tinta); --text-secondary: var(--fraco); --border-color: var(--fio);
+    --accent-primary: var(--acc); --radius-md: 4px; --radius-lg: 4px;
+    --font-sans: "Figtree", system-ui, sans-serif;
+  }
+  [data-theme="dark"] {
+    --papel:#111113; --campo:#1a1a1d; --tinta:#f3f3f4; --tinta2:#c2c3c7; --fraco:#8f9096;
+    --fio:#2c2c31; --linha:#242428; --acc:#7fb6e0; --crit:#ff7d88; --ok:#56d99a; --warn:#f5c451;
+    --accs:color-mix(in srgb, var(--acc) 20%, var(--campo));
+    --crits:color-mix(in srgb, var(--crit) 20%, var(--campo));
+    --oks:color-mix(in srgb, var(--ok) 20%, var(--campo));
+    --bg-primary: var(--papel); --bg-secondary: var(--campo); --bg-card: var(--campo);
+    --text-primary: var(--tinta); --text-secondary: var(--fraco); --border-color: var(--fio);
+    --accent-primary: var(--acc); --radius-md: 4px; --radius-lg: 4px;
+    --font-sans: "Figtree", system-ui, sans-serif;
+  }
+
+  /* harness:inicio — casca do preview, não é design. O detector (scripts/detectar.py)
+     ignora tudo até harness:fim; escreva o CSS do mockup DEPOIS dele. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    --hz-bg: #eceff3; --hz-surface: #ffffff; --hz-line: #dde2e8; --hz-ink: #111827;
+    --hz-soft: #5b6472; --hz-muted: #8a93a1; --hz-chip: #f1f3f6; --hz-hover: #e6e9ee;
+    --hz-ok: #15803d; --hz-warn: #b45309; --hz-bad: #b91c1c; --hz-azul: #2563eb;
+    font: 500 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--hz-ink);
+    background: var(--hz-bg);
+    display: grid; grid-template-rows: auto 1fr; height: 100vh; overflow: hidden;
+  }
+  .hz-ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor;
+            stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- barra: uma linha, baixa ---- */
+  .hz-toolbar {
+    display: flex; align-items: center; gap: 0.5rem; height: 46px; padding: 0 0.6rem;
+    background: var(--hz-surface); border-bottom: 1px solid var(--hz-line); min-width: 0;
+  }
+  .hz-group { display: flex; align-items: center; gap: 2px; }
+  .hz-group--tabs { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .hz-group--tabs::-webkit-scrollbar { display: none; }
+  .hz-seg { display: flex; gap: 2px; padding: 2px; background: var(--hz-chip); border-radius: 8px; }
+  .hz-btn {
+    height: 30px; min-width: 30px; padding: 0 0.55rem; border: 0; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    background: transparent; color: var(--hz-soft); font: inherit; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+  }
+  .hz-btn[hidden] { display: none; }
+  .hz-btn:hover { background: var(--hz-hover); color: var(--hz-ink); }
+  .hz-btn:focus-visible, .hz-campo:focus-visible, .hz-switch input:focus-visible + i { outline: 2px solid var(--hz-azul); outline-offset: 1px; }
+  .hz-seg .hz-btn.is-active { background: var(--hz-surface); color: var(--hz-ink); box-shadow: 0 1px 2px rgb(17 24 39 / .14); }
+  .hz-tab { max-width: 15rem; overflow: hidden; text-overflow: ellipsis; color: var(--hz-soft); }
+  .hz-tab.is-active { background: var(--hz-ink); color: #fff; }
+  .hz-btn.is-on { background: var(--hz-ink); color: #fff; }
+  .hz-sep { width: 1px; height: 20px; background: var(--hz-line); margin: 0 0.2rem; flex: none; }
+  .hz-selo { gap: 0.45rem; background: var(--hz-chip); }
+  .hz-selo i { width: 8px; height: 8px; border-radius: 99px; background: var(--hz-muted); }
+  .hz-selo[data-estado="limpo"] i { background: var(--hz-ok); }
+  .hz-selo[data-estado="aviso"] i { background: var(--hz-warn); }
+  .hz-selo[data-estado="falha"] i { background: var(--hz-bad); }
+
+  .hz-switch { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--hz-soft); font-weight: 600; cursor: pointer; padding: 0 0.3rem; user-select: none; }
+  .hz-switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .hz-switch i { width: 28px; height: 16px; border-radius: 99px; background: #cbd2db; position: relative; transition: background .15s; }
+  .hz-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 99px; background: #fff; transition: transform .15s; }
+  .hz-switch input:checked + i { background: var(--hz-ink); }
+  .hz-switch input:checked + i::after { transform: translateX(12px); }
+
+  /* ---- área: canvas + painel ---- */
+  .hz-main { display: grid; grid-template-columns: minmax(0, 1fr) 312px; min-height: 0; }
+  body[data-painel="fechado"] .hz-main { grid-template-columns: minmax(0, 1fr); }
+  body[data-painel="fechado"] .hz-panel { display: none; }
+
+  .hz-stage-wrap { overflow: auto; padding: 1.25rem; display: flex; justify-content: center; align-items: flex-start; min-width: 0; }
+  .hz-stage { width: 100%; position: relative; transition: max-width .2s ease; }
+  .hz-stage[data-vw="mobile"]  { max-width: 390px; }
+  .hz-stage[data-vw="tablet"]  { max-width: 768px; }
+  .hz-stage[data-vw="desktop"] { max-width: 1280px; }
+  .hz-stage[data-vw="full"]    { max-width: none; }
+  .hz-stage[data-vw="livre"]   { max-width: none; flex: none; transition: none; }
+
+  /* Largura total = o design sozinho, de borda a borda: sem margem, moldura nem cantos. */
+  .hz-stage-wrap:has(> .hz-stage[data-vw="full"]:not([data-comparar])) { padding: 0; }
+  .hz-stage[data-vw="full"]:not([data-comparar]) .hz-frame { border: 0; border-radius: 0; min-height: calc(100vh - 46px); }
+  .hz-frame {
+    background: var(--bg-primary); color: var(--text-primary);
+    font-family: var(--font-sans);
+    border: 1px solid #cfd6df; border-radius: 0.9rem; overflow: hidden;
+    min-height: calc(100vh - 46px - 2.5rem); padding: 1.75rem;
+    container-type: inline-size; container-name: stage;
+  }
+
+  .variation { display: none; }
+  .variation.is-active { display: block; }
+
+  /* Fontes escolhidas no painel: qualquer família do Google Fonts, só visualização. */
+  .hz-frame[data-fonte-corpo] .variation,
+  .hz-frame[data-fonte-corpo] .variation :not(h1, h2, h3, h4, h5, h6, [data-titulo], code, pre, kbd, samp, :is(h1, h2, h3, h4, h5, h6, [data-titulo]) *) { font-family: var(--hz-fonte-corpo) !important; }
+  /* Só o corpo trocado: o título mantém a fonte que tinha (guardada pelo JS antes da troca),
+     senão herdaria a do corpo do elemento em volta. */
+  .hz-frame[data-fonte-corpo]:not([data-fonte-titulo]) .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]) { font-family: var(--hz-fonte-original) !important; }
+  .hz-frame[data-fonte-titulo] .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]),
+  .hz-frame[data-fonte-titulo] .variation :is(h1, h2, h3, h4, h5, h6, [data-titulo]) * { font-family: var(--hz-fonte-titulo) !important; }
+
+  /* ---- comparar lado a lado: cada variação vira uma coluna e um container próprio ---- */
+  .hz-stage[data-comparar] { max-width: none; width: 100%; }
+  .hz-frame[data-comparar] {
+    background: transparent; border: 0; padding: 0; overflow: visible; min-height: 0;
+    display: grid; grid-auto-flow: column; gap: 1rem; align-items: start;
+    grid-auto-columns: var(--hz-col, minmax(420px, 1fr));
+  }
+  .hz-stage[data-comparar][data-vw="mobile"] { --hz-col: 390px; }
+  .hz-stage[data-comparar][data-vw="tablet"] { --hz-col: 768px; }
+  .hz-frame[data-comparar] .variation {
+    display: block; container-type: inline-size;
+    background: var(--bg-primary); border: 1px solid #cfd6df; border-radius: 0.9rem;
+    padding: 1.5rem; min-height: 60vh;
+  }
+  .hz-frame[data-comparar] .variation { cursor: pointer; transition: box-shadow .15s; }
+  .hz-frame[data-comparar] .variation[data-foco] { box-shadow: 0 0 0 2px var(--hz-ink, #111827); cursor: auto; }
+  .hz-frame[data-comparar] .variation::before {
+    content: attr(data-title); display: block; margin: -0.25rem 0 1rem;
+    font: 600 12px/1.3 system-ui, sans-serif !important; color: var(--text-secondary);
+  }
+
+  /* ---- largura livre: alça na borda direita, com a medida em px ---- */
+  .hz-alca {
+    position: absolute; top: 0; right: -14px; width: 14px; height: 100%; cursor: ew-resize;
+    display: none; align-items: flex-start; justify-content: center; touch-action: none;
+  }
+  .hz-alca::before { content: ""; position: sticky; top: 45%; width: 4px; height: 44px; border-radius: 99px; background: #9aa3b0; margin-top: 40vh; }
+  .hz-alca:hover::before, .hz-alca[data-arrastando]::before { background: var(--hz-ink); }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) .hz-alca { display: flex; }
+  .hz-medida {
+    position: absolute; top: -1.05rem; right: 0; font: 600 11px/1 ui-monospace, SFMono-Regular, monospace;
+    color: var(--hz-soft); display: none;
+  }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) .hz-medida { display: block; }
+  .hz-stage[data-vw="livre"]:not([data-comparar]) { margin-top: 0.6rem; }
+
+  /* ---- modo comentário: contorno no elemento sob o mouse, pinos numerados ---- */
+  body[data-comentando] .hz-frame .variation, body[data-comentando] .hz-frame .variation * { cursor: crosshair !important; }
+  .hz-alvo { outline: 2px dashed var(--hz-azul) !important; outline-offset: 2px !important; }
+  .hz-destaque { outline: 3px solid #f59e0b !important; outline-offset: 3px !important; transition: outline-color .3s; }
+  .hz-pinos { position: absolute; inset: 0; pointer-events: none; }
+  .hz-pino {
+    position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+    width: 22px; height: 22px; border-radius: 99px 99px 99px 2px; border: 2px solid #fff;
+    background: var(--hz-azul); color: #fff; font: 700 11px/18px system-ui, sans-serif; text-align: center;
+    box-shadow: 0 2px 6px rgb(17 24 39 / .3);
+  }
+  .hz-balao {
+    position: fixed; z-index: 10; width: 280px; padding: 0.75rem; display: grid; gap: 0.5rem;
+    background: var(--hz-surface); border: 1px solid var(--hz-line); border-radius: 10px;
+    box-shadow: 0 12px 32px rgb(17 24 39 / .18); font: 500 13px/1.4 system-ui, sans-serif; color: var(--hz-ink);
+  }
+  .hz-balao[hidden] { display: none; }
+  .hz-balao small { color: var(--hz-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hz-balao textarea { font: inherit; min-height: 76px; resize: vertical; padding: 0.5rem; border: 1px solid var(--hz-line); border-radius: 6px; }
+  .hz-balao div { display: flex; justify-content: flex-end; gap: 0.4rem; }
+
+  /* ---- painel lateral: topo fixo com a variação, abas embaixo, uma seção por vez ---- */
+  .hz-panel {
+    background: var(--hz-surface); border-left: 1px solid var(--hz-line); overflow: auto;
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .hz-panel-topo { padding: 1rem 1rem 0.9rem; }
+  .hz-caption { color: var(--hz-soft); line-height: 1.5; }
+  .hz-caption b { display: block; color: var(--hz-ink); font-size: 14px; margin-bottom: 0.2rem; }
+  .hz-dica { color: var(--hz-muted); margin-top: 0.4rem; }
+  .hz-dica[hidden] { display: none; }
+  .hz-escolha { margin-top: 0.8rem; }
+  .hz-escolha:empty { display: none; }
+  .hz-primario { background: var(--hz-ink); color: #fff; width: 100%; height: 34px; }
+  .hz-primario:hover { background: #1f2937; color: #fff; }
+  .hz-primario:disabled { opacity: .45; cursor: not-allowed; }
+  .hz-escolha-estado { color: var(--hz-ok); font-weight: 600; margin-top: 0.5rem; }
+  .hz-escolha-estado:empty { display: none; }
+
+  .hz-abas {
+    position: sticky; top: 0; z-index: 1; display: flex; gap: 0.1rem; padding: 0 0.6rem;
+    background: var(--hz-surface); border-top: 1px solid var(--hz-line); border-bottom: 1px solid var(--hz-line);
+  }
+  .hz-aba {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+    height: 38px; border: 0; background: none; font: inherit; font-weight: 600; color: var(--hz-muted);
+    cursor: pointer; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap;
+  }
+  .hz-aba:hover { color: var(--hz-ink); }
+  .hz-aba[aria-selected="true"] { color: var(--hz-ink); box-shadow: inset 0 -2px 0 var(--hz-ink); }
+  .hz-aba:focus-visible { outline: 2px solid var(--hz-azul); outline-offset: -2px; }
+  .hz-conta { min-width: 17px; height: 17px; padding: 0 0.3rem; border-radius: 99px; background: var(--hz-chip);
+              color: var(--hz-soft); font-size: 11px; line-height: 17px; text-align: center; }
+  .hz-conta:empty { display: none; }
+  .hz-ponto { width: 7px; height: 7px; border-radius: 99px; background: var(--hz-muted); }
+  .hz-ponto[data-estado="limpo"] { background: var(--hz-ok); }
+  .hz-ponto[data-estado="aviso"] { background: var(--hz-warn); }
+  .hz-ponto[data-estado="falha"] { background: var(--hz-bad); }
+  .hz-pane { padding: 1rem; display: grid; align-content: start; gap: 0.9rem; }
+  .hz-pane[hidden] { display: none; }
+
+  .hz-link { border: 0; background: none; font: inherit; font-weight: 600; color: var(--hz-soft); cursor: pointer; padding: 0; }
+  .hz-link:hover { color: var(--hz-ink); text-decoration: underline; }
+  .hz-link[hidden] { display: none; }
+  .hz-restaurar { justify-self: end; }
+  .hz-vazio { color: var(--hz-muted); }
+  .hz-vazio[hidden] { display: none; }
+
+  .hz-knobs { display: grid; gap: 0.9rem; }
+  .hz-knobs[hidden] { display: none; }
+  .hz-knob { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.35rem 0.5rem; color: var(--hz-soft); }
+  .hz-knob > span:first-child { color: var(--hz-ink); font-weight: 600; }
+  .hz-knob input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--hz-ink); }
+  .hz-knob output { font-variant-numeric: tabular-nums; color: var(--hz-ink); grid-row: 1; grid-column: 2; }
+  .hz-knob .hz-seg { grid-column: 1 / -1; }
+  .hz-knob .hz-seg button { flex: 1; font: inherit; font-weight: 600; border: 0; background: transparent; padding: 0.35rem 0.5rem; border-radius: 6px; cursor: pointer; color: var(--hz-soft); }
+  .hz-knob .hz-seg button.is-active { background: var(--hz-surface); color: var(--hz-ink); box-shadow: 0 1px 2px rgb(17 24 39 / .14); }
+  .hz-knob input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--hz-ink); }
+  .hz-knobs .hz-nota { color: var(--hz-warn); }
+
+  .hz-direcao { display: grid; gap: 0.6rem; }
+  .hz-paleta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .hz-cor { display: grid; gap: 0.2rem; justify-items: center; font: 500 10px/1 ui-monospace, SFMono-Regular, monospace; color: var(--hz-soft); }
+  .hz-cor i { width: 30px; height: 30px; border-radius: 6px; border: 1px solid rgb(17 24 39 / .12); }
+  .hz-tipos { display: grid; gap: 0.2rem; color: var(--hz-soft); }
+  .hz-tipos b { color: var(--hz-ink); font-weight: 600; }
+  .hz-fontes { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 0.5rem; align-items: center; margin-top: 0.4rem; }
+  .hz-fontes label { color: var(--hz-soft); font-weight: 600; }
+  .hz-campo { height: 30px; font: inherit; padding: 0 0.5rem; border: 1px solid var(--hz-line); border-radius: 6px; background: var(--hz-surface); color: var(--hz-ink); min-width: 0; }
+  .hz-fonte-estado { grid-column: 1 / -1; color: var(--hz-muted); min-height: 1em; }
+  .hz-fonte-estado[data-erro] { color: var(--hz-bad); }
+
+  .hz-lista { list-style: none; display: grid; gap: 0.6rem; }
+  .hz-lista li { padding: 0.55rem 0.65rem; border-radius: 8px; background: var(--hz-chip); display: grid; gap: 0.2rem; }
+  .hz-lista li[data-local] { cursor: pointer; }
+  .hz-lista li[data-local]:hover { background: var(--hz-hover); }
+  .hz-lista .hz-li-topo { font-weight: 700; color: var(--hz-ink); display: flex; justify-content: space-between; gap: 0.5rem; }
+  .hz-lista .hz-li-topo small { font-weight: 600; }
+  .hz-lista li[data-sev="falha"] .hz-li-topo small { color: var(--hz-bad); }
+  .hz-lista li[data-sev="aviso"] .hz-li-topo small { color: var(--hz-warn); }
+  .hz-lista code { font: 12px/1.4 ui-monospace, SFMono-Regular, monospace; color: var(--hz-soft); overflow-wrap: anywhere; }
+  .hz-lista .hz-li-texto { color: var(--hz-soft); }
+  .hz-resumo { color: var(--hz-soft); margin-bottom: 0.6rem; }
+
+  body[data-limpo] .hz-toolbar, body[data-limpo] .hz-panel, body[data-limpo] .hz-pinos,
+  body[data-limpo] .hz-alca, body[data-limpo] .hz-medida { display: none !important; }
+  body[data-limpo] { grid-template-rows: 1fr; }
+  body[data-limpo] .hz-main { grid-template-columns: minmax(0, 1fr); }
+  body[data-limpo] .hz-stage-wrap { padding: 0; }
+  body[data-limpo] .hz-frame { min-height: 100vh; }
+
+  @media (max-width: 900px) {
+    .hz-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .hz-panel { border-left: 0; border-top: 1px solid var(--hz-line); max-height: 40vh; }
+    .hz-label-longa { display: none; }
+  }
+
+  /* Accessibility: respect reduced motion for any animation you add. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+
+  /* harness:fim */
+
+  /* ============================================================
+     DESIGN DO MOCKUP. Classes bl-* vêm do template_v3.html real do relatório
+     (painel, tags, barra), com mais respiro; classes v1-/v2-/v3- são o que cada variação propõe.
+     Peças comuns: .srv (área de um servidor ou banco), .grp (grupo com rótulo),
+     .kv (pares rótulo/valor), .fx (problema e o que fazer), .inf (informativo),
+     .mt (medidor com limite), .br (barras ordenadas), .qd (coleções do Qdrant).
+     Cores de gráfico: passos próprios por tema, validados com validate_palette.js
+     (claro sobre #ffffff: #22659e, #b7791f, #b02a37; escuro sobre #1a1a1d: #3f8fd0, #bf8a17, #cc3b4c).
+     ============================================================ */
+  [data-theme="light"] {
+    --m-acc:#22659e; --m-warn:#b7791f; --m-crit:#b02a37;
+    --m-trk:color-mix(in srgb,#22659e 13%,#ffffff); --m-lim:#3f4046; --m-grd:#e3e3e5;
+    --m-tx-warn:#7a4f0f; --m-tx-crit:#6e1520;
+  }
+  [data-theme="dark"] {
+    --m-acc:#3f8fd0; --m-warn:#bf8a17; --m-crit:#cc3b4c;
+    --m-trk:color-mix(in srgb,#3f8fd0 22%,#1a1a1d); --m-lim:#c2c3c7; --m-grd:#2c2c31;
+    --m-tx-warn:#f0c766; --m-tx-crit:#ffb3ba;
+  }
+  /* escala única de espaço: 4 · 8 · 12 · 16 · 24 · 32 · 48 px.
+     blocos 48 > servidores (faixa 16 + 32 de padding) > grupos 32 > itens 16-24 > linhas 12 */
+  .hz-frame { background: var(--papel); }
+  .rel { --r: 4px; --r2: 3px;
+    --disp: "Bricolage Grotesque", system-ui, sans-serif;
+    --sans: "Figtree", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    max-width: 880px; margin: 0 auto; color: var(--tinta); font-family: var(--sans);
+    font-size: 15px; line-height: 1.6; letter-spacing: -.003em; }
+  .rel ::selection { background: var(--tinta); color: var(--campo); }
+  .rel p, .rel h2, .rel h3, .rel h4, .rel h5, .rel dl, .rel dd { margin: 0; }
+  .rel ul, .rel ol { margin: 0; padding: 0; list-style: none; }
+  .rel .n { font-variant-numeric: tabular-nums; font-family: var(--mono); letter-spacing: -.02em; }
+  .rel code { font: 500 13px/1.5 var(--mono); color: var(--tinta); background: var(--papel); border: 1px solid var(--linha); padding: 0 4px; border-radius: var(--r2); overflow-wrap: anywhere; }
+  .ic { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
+
+  .rel-topo { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px;
+    padding-bottom: 16px; margin-bottom: 32px; border-bottom: 2px solid var(--tinta); }
+  .rel-topo h2 { font: 700 30px/1.1 var(--disp); letter-spacing: -.02em; }
+  .rel-d { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--fraco); }
+  .rel-pilha { display: grid; gap: 48px; }
+
+  /* --- painel bl-pn --- */
+  .bl-pn{border:1px solid var(--fio);border-radius:var(--r);overflow:hidden;background:var(--campo);min-width:0;overflow-wrap:anywhere;break-inside:auto}
+  .bl-pn>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 12px;padding:16px 32px;background:var(--papel);border-bottom:1px solid var(--fio)}
+  .pn-ic{display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--fio);border-radius:var(--r);background:var(--campo);color:var(--acc)}
+  .pn-ic .ic{width:19px;height:19px;stroke-width:1.5}
+  .bl-pn>header h3{font:700 20px/1.2 var(--disp);letter-spacing:-.012em}
+  .pn-r{font-size:14px;color:var(--fraco);text-align:right}
+  .bl-sd{color:var(--fraco);font-weight:400;font-family:var(--sans);letter-spacing:0}
+  .bl-c-ok{color:var(--ok)}.bl-c-warn{color:var(--warn)}.bl-c-crit{color:var(--crit)}
+  .bl-tag-ok,.bl-tag-warn,.bl-tag-crit,.bl-tag-neutro{display:inline-flex;align-items:center;gap:4px;font:600 13px/1.3 var(--sans);letter-spacing:0;padding:4px 8px;border-radius:var(--r2);white-space:nowrap;vertical-align:middle}
+  .bl-tag-ok .ic,.bl-tag-warn .ic,.bl-tag-crit .ic,.bl-tag-neutro .ic{width:14px;height:14px;vertical-align:0}
+  .bl-tag-ok{color:var(--ok);background:var(--oks)}
+  .bl-tag-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 13%,var(--campo))}
+  .bl-tag-crit{color:var(--crit);background:var(--crits)}
+  .bl-tag-neutro{color:var(--tinta2);background:color-mix(in srgb,var(--fraco) 13%,var(--campo))}
+  .st-ok{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-size:14px;color:var(--ok)}
+  .tec{font:500 12.5px/1.4 var(--mono);color:var(--fraco);letter-spacing:-.01em}
+
+  /* --- área de um servidor --- */
+  .srv{padding:32px;break-inside:auto}
+  .srv+.srv{border-top:16px solid var(--papel)}
+  .srv-h{display:grid;gap:12px;padding-bottom:24px;border-bottom:1px solid var(--fio);break-inside:avoid;break-after:avoid}
+  .srv-h h4{font:700 24px/1.2 var(--disp);letter-spacing:-.015em;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+  .srv-meta{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 16px;font-size:14px;color:var(--tinta2)}
+  .srv-meta dt{color:var(--fraco)}
+  .srv-meta dd.n{font-size:13px}
+  .srv-nota{font-size:15px;color:var(--tinta2)}
+  .srv-nota b{font-size:16px;color:var(--tinta)}
+  .veredito{font:500 19px/1.4 var(--disp);letter-spacing:-.01em;color:var(--tinta);max-width:54ch}
+
+  /* --- grupo com rótulo: título pequeno e fio que corre até a margem --- */
+  .grp{margin-top:32px}
+  .grp>h5,.kv-duas h5{display:flex;align-items:center;gap:12px;font:600 12.5px/1.3 var(--sans);color:var(--fraco);text-transform:uppercase;letter-spacing:.07em;margin-bottom:16px;break-after:avoid}
+  .grp>h5::after,.kv-duas h5::after{content:"";flex:1;height:1px;background:var(--linha)}
+  .sub-h{font:600 14px/1.3 var(--sans);color:var(--tinta2);margin:0 0 16px}
+  * + .sub-h{margin-top:24px}
+
+  /* --- números-herói --- */
+  .hn{font:600 44px/1 var(--sans);letter-spacing:-.03em;color:var(--tinta)}
+  .hd{font-size:.5em;font-weight:500;color:var(--fraco);letter-spacing:-.01em}
+  .hl{font-size:14.5px;color:var(--tinta2);line-height:1.45}
+  .heroi{display:grid;align-content:start;gap:8px}
+  .heroi-x{margin-top:4px}
+  .heroi-n{display:flex;align-items:center;gap:16px}
+  .heroi-n .hn{font-size:40px}
+  .heroi-n .hl{display:grid;gap:8px;justify-items:start}
+
+  /* --- pares rótulo/valor --- */
+  .kv{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:24px;margin-top:16px}
+  .kv dt,.kv dd{padding:12px 0;border-top:1px solid var(--linha)}
+  .kv dt:first-of-type,.kv dd:first-of-type{border-top:0}
+  .kv dt{color:var(--tinta2)}
+  .kv dd{text-align:right;font:600 15px/1.6 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .u{font:500 13px/1 var(--sans);color:var(--fraco);margin-left:4px;letter-spacing:0}
+  .kv-duas{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 32px}
+
+  /* --- marcas dos gráficos (SVG) --- */
+  .g{display:block;overflow:visible}
+  .g .trk{fill:var(--m-trk)}
+  .g .fil-acc{fill:var(--m-acc)}
+  .g .fil-warn{fill:var(--m-warn)}
+  .g .fil-crit{fill:var(--m-crit)}
+  .g .lim{fill:var(--m-lim)}
+  .g .grd{fill:var(--m-grd)}
+  .g .pt{stroke:var(--campo);stroke-width:2}
+  .g .tk{font:500 11.5px var(--mono);fill:var(--fraco)}
+  .tx-b-warn{fill:var(--m-warn)} .tx-l-warn{fill:var(--m-tx-warn)}
+  .tx-b-crit{fill:var(--m-crit)} .tx-l-crit{fill:var(--m-tx-crit)}
+
+  /* --- medidor com limite --- */
+  .mts{display:grid;gap:24px}
+  .mts.dois{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px 32px}
+  .mt{display:grid;gap:8px;min-width:0;break-inside:avoid}
+  .mt-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .mt-l{display:grid;font-weight:600;font-size:15px;color:var(--tinta)}
+  .mt-s{font-weight:400;font-size:13.5px;color:var(--fraco)}
+  .mt-v{font:600 22px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em;white-space:nowrap}
+  .mt-v .u{font-size:13px}
+  .mt-b{position:relative;padding-bottom:16px}
+  .mt-lim{position:absolute;bottom:0;transform:translateX(-100%);padding-right:4px;font-size:12px;line-height:1.2;color:var(--fraco);white-space:nowrap}
+  .mt-lim-t{bottom:auto;top:-2px;transform:translateX(8px);padding:0}
+  .esc .mt-b{padding-bottom:0}
+  .mt-st{display:block}
+
+  /* --- barras ordenadas: 18px, 2px de vão entre elas --- */
+  .br{display:grid;grid-template-columns:minmax(0,9.5rem) minmax(0,1fr) 5.5rem;row-gap:2px;column-gap:16px;align-items:center}
+  .br-r{display:contents}
+  .br-l{font:500 13.5px/18px var(--mono);color:var(--tinta2);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .br-v{text-align:right;font:600 14px/18px var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--tinta);white-space:nowrap}
+  .br-v .u{font-size:12.5px}
+  .br-v.bl-sd{font:400 13px/18px var(--sans)}
+  .br-sd{font-size:13px;color:var(--fraco);line-height:18px}
+
+  /* --- coleções do Qdrant: nome + estado em cima, barra embaixo --- */
+  .qd{display:grid;gap:16px}
+  .qd-r{display:grid;gap:8px;padding-bottom:16px;border-bottom:1px solid var(--linha)}
+  .qd-r:last-child{border-bottom:0;padding-bottom:0}
+  .qd-t{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
+  .qd-n{font:600 16px/1.3 var(--mono);letter-spacing:-.02em}
+  .qd-t .bl-tag-ok,.qd-t .bl-tag-warn,.qd-t .bl-tag-crit,.qd-t .bl-tag-neutro{margin-left:auto}
+  .qd-g{display:grid;grid-template-columns:minmax(0,1fr) 8.5rem;gap:16px;align-items:center}
+
+  /* --- linha de serviço --- */
+  .svcs{margin-top:24px}
+  .grp>h5+.svcs{margin-top:0}
+  .svc{padding:12px 0;border-top:1px solid var(--linha);break-inside:avoid}
+  .svc:first-child{border-top:0}
+  .svc-t{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 16px}
+  .svc-t b{font:600 16px/1.3 var(--mono);letter-spacing:-.02em}
+  .svc-t .tec{margin-left:8px}
+  .fatos{display:flex;flex-wrap:wrap;gap:4px 32px;margin-top:8px}
+  .fatos div{display:grid;gap:0;min-width:7.5rem}
+  .fatos dt{font-size:13px;color:var(--fraco)}
+  .fatos dd{font:600 15px/1.4 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .svc.quieto .svc-t b{font-weight:500;color:var(--tinta2)}
+  .rei-alto{display:inline-flex;align-items:center;gap:4px;font-size:20px;line-height:1}
+  .rei-alto .ic{width:16px;height:16px}
+
+  /* --- problema e o que fazer --- */
+  .fxs{display:grid;gap:16px}
+  .fx{display:grid;gap:16px;padding:24px;border-radius:var(--r);break-inside:avoid;
+      border:1px solid color-mix(in srgb,var(--warn) 32%,var(--fio));background:color-mix(in srgb,var(--warn) 5%,var(--campo))}
+  .fx.crit{border-color:color-mix(in srgb,var(--crit) 32%,var(--fio));background:color-mix(in srgb,var(--crit) 5%,var(--campo))}
+  .fx-p{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font:600 16.5px/1.4 var(--sans);color:var(--tinta)}
+  .fx-p .onde{font:500 13.5px/1.4 var(--sans);color:var(--fraco);margin-left:auto}
+  .fx-g{padding:16px;background:var(--campo);border:1px solid var(--fio);border-radius:var(--r)}
+  .fx-f{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:16px;border-radius:var(--r2);background:var(--campo);border:1px solid var(--linha)}
+  .fx-i{width:16px;height:16px;margin-top:3px;color:var(--acc)}
+  .fx-f p{font-size:15px;line-height:1.6;color:var(--tinta2)}
+  .fx-f b{display:block;font:600 13.5px/1.4 var(--sans);color:var(--tinta);margin-bottom:2px}
+  .fx-r{font:500 12px/1.4 var(--mono);color:var(--fraco)}
+
+  /* --- informativo --- */
+  .infs{display:grid;gap:12px}
+  .inf{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:16px;border:1px solid var(--fio);border-radius:var(--r);background:var(--papel);break-inside:avoid}
+  .inf-i{width:16px;height:16px;margin-top:3px;color:var(--fraco)}
+  .inf-p{font:600 15px/1.45 var(--sans);color:var(--tinta2)}
+  .inf-f{font-size:14.5px;line-height:1.6;color:var(--tinta2);margin-top:4px}
+  .inf-f b{font-weight:600;color:var(--tinta)}
+
+  /* ================= V1: problemas primeiro, dados depois ================= */
+  .v1 { --k-destaque: .6; }
+  .v1-agora{border:1px solid color-mix(in srgb,var(--crit) 28%,var(--fio));border-radius:var(--r);background:var(--campo);margin-bottom:48px;overflow:hidden}
+  .v1-agora>header{padding:24px 32px;background:color-mix(in srgb,var(--crit) calc(var(--k-destaque) * 7%),var(--campo));border-bottom:1px solid var(--fio)}
+  .v1-hero{display:flex;align-items:center;gap:24px}
+  .v1-hero .hn{font-size:60px}
+  .v1-hero .hl{display:grid;gap:2px;max-width:56ch}
+  .v1-hero .hl b{font:700 21px/1.25 var(--disp);letter-spacing:-.012em;color:var(--tinta)}
+  .rel .v1-lista{display:grid;padding:8px 32px}
+  .v1-lista li{display:grid;grid-template-columns:auto 7.5rem minmax(0,1fr) auto;align-items:center;gap:4px 16px;padding:12px 0;border-top:1px solid var(--linha)}
+  .v1-lista li:first-child{border-top:0}
+  .v1-lista .bl-tag-crit,.v1-lista .bl-tag-warn{justify-self:start}
+  .v1-pt{font-weight:600;color:var(--tinta)}
+  .v1-lista .onde{font:500 12.5px/1.4 var(--mono);color:var(--fraco);text-align:right}
+  .v1-num{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 8px;border-radius:var(--r2);background:var(--tinta);color:var(--campo);font:600 12.5px/1 var(--mono)}
+  .v1-est{display:grid;grid-template-columns:minmax(0,11rem) minmax(0,1fr);gap:24px 32px;padding:24px;border:1px solid var(--linha);border-radius:var(--r);background:var(--papel)}
+  .v1-est .mts{gap:16px}
+  .svc.alerta{background:color-mix(in srgb,var(--crit) calc(var(--k-destaque) * 6%),var(--campo));margin:0 -12px;padding-left:12px;padding-right:12px;border-radius:var(--r2)}
+  .svc.alerta.w{background:color-mix(in srgb,var(--warn) calc(var(--k-destaque) * 7%),var(--campo))}
+  .variation[data-k-densidade="compacta"] .svc{padding-top:8px;padding-bottom:8px}
+  .variation[data-k-densidade="compacta"] .srv{padding-top:24px;padding-bottom:24px}
+  .variation[data-k-densidade="compacta"] .grp{margin-top:24px}
+  .variation[data-k-densidade="compacta"] .mts{gap:12px}
+
+  /* ================= V2: tabela por servidor ================= */
+  .v2-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:48px;border:1px solid var(--fio);border-radius:var(--r);background:var(--campo)}
+  .v2-kpi>div{display:grid;gap:8px;align-content:start;justify-items:start;padding:24px}
+  .v2-kpi>div+div{border-left:1px solid var(--fio)}
+  .v2-kpi .hn{font-size:38px}
+  .v2-tb{width:100%;table-layout:fixed;border-collapse:collapse;font-size:15px}
+  .v2-tb th{padding:0 12px 12px;font:600 12.5px/1.3 var(--sans);color:var(--fraco);text-align:left;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--fio)}
+  .v2-tb td{padding:16px 12px;border-bottom:1px solid var(--linha);vertical-align:middle;line-height:1.45}
+  .v2-tb tr:last-child td{border-bottom:0}
+  .v2-tb th:first-child,.v2-tb td:first-child{padding-left:0}
+  .v2-tb th:last-child,.v2-tb td:last-child{padding-right:0}
+  .v2-tb .d{text-align:right;font:600 15px/1.45 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .v2-tb th.d{font:600 12.5px/1.3 var(--sans);letter-spacing:.06em}
+  .v2-tb .nome b{display:block;font:600 15.5px/1.3 var(--mono);letter-spacing:-.02em;margin-bottom:4px}
+  .v2-tb tr.crit td{background:color-mix(in srgb,var(--crit) 5%,var(--campo))}
+  .v2-tb tr.warn td{background:color-mix(in srgb,var(--warn) 6%,var(--campo))}
+  .v2-tb tr.crit td:first-child,.v2-tb tr.warn td:first-child{padding-left:12px}
+  .v2-tb tr{break-inside:avoid}
+  .v2-cmp td:first-child{color:var(--tinta2)}
+  .v2-cmp tr.secao td{padding-top:24px;font:600 12.5px/1.3 var(--sans);color:var(--fraco);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--fio)}
+  .cel-m{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
+  .cel-v{min-width:3.6rem;text-align:right}
+  .dm .cel-v{min-width:4.6rem}
+  .cel-s{display:block;font:400 13px/1.4 var(--sans);color:var(--fraco);letter-spacing:0;margin-top:4px}
+  .v2-tb td.d .bl-tag-warn{margin-top:4px}
+  .mm{display:block;min-width:0}
+  .variation[data-k-densidade="compacta"] .v2-tb td{padding-top:8px;padding-bottom:8px}
+  .variation[data-k-densidade="compacta"] .srv{padding-top:24px;padding-bottom:24px}
+
+  /* ================= V3: veredito, depois os grupos ================= */
+  .v3-sint{margin:0 0 48px;padding:0 0 32px;border-bottom:1px solid var(--fio)}
+  .v3-geral{font-size:22px;max-width:46ch}
+  .v3-cards{display:grid;grid-template-columns:minmax(0,1fr)}
+  .variation[data-k-arranjo="lado a lado"] .v3-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px;background:var(--papel)}
+  .variation[data-k-arranjo="lado a lado"] .v3-cards .srv{background:var(--campo)}
+  .variation[data-k-arranjo="lado a lado"] .v3-cards .srv+.srv{border-top:0}
+  .v3-resumo{display:grid;grid-template-columns:minmax(0,10rem) minmax(0,1fr);gap:24px 32px;margin-top:24px;align-items:start}
+  .v3-mts{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:24px 32px}
+  .v3-mts .mt-s{font-size:12.5px}
+  .v3-mts .mt{grid-template-rows:1fr auto}
+
+  @container (max-width: 640px) {
+    .rel-topo h2 { font-size: 24px; }
+    .srv { padding: 24px 16px; }
+    .bl-pn > header { padding-left: 16px; padding-right: 16px; grid-template-columns: auto minmax(0,1fr); }
+    .pn-r { grid-column: 1 / -1; text-align: left; }
+    .kv-duas { grid-template-columns: minmax(0,1fr); gap: 24px; }
+    .srv-meta { grid-template-columns: minmax(0,1fr); gap: 0; }
+    .srv-meta dd + dt { margin-top: 8px; }
+    .fx { padding: 16px; }
+    .fx-p .onde { margin-left: 0; flex-basis: 100%; }
+    .fatos { gap: 8px 24px; }
+    .fatos div { min-width: 6rem; }
+    .br { grid-template-columns: minmax(0,6.5rem) minmax(0,1fr) 4.6rem; column-gap: 12px; }
+    .qd-g { grid-template-columns: minmax(0,1fr) 7.5rem; }
+    .v1-hero { gap: 16px; align-items: flex-start; }
+    .v1-hero .hn { font-size: 48px; }
+    .v1-agora > header { padding: 24px 16px; }
+    .rel .v1-lista { padding: 8px 16px; }
+    .v1-lista li { grid-template-columns: auto minmax(0,1fr); }
+    .v1-lista li > .bl-tag-crit, .v1-lista li > .bl-tag-warn { grid-column: 2; grid-row: 1; }
+    .v1-lista .v1-pt, .v1-lista .onde { grid-column: 2; text-align: left; }
+    .v1-est, .v3-resumo { grid-template-columns: minmax(0,1fr); padding: 16px; }
+    .v3-resumo { padding: 0; }
+    .v2-kpi { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .v2-kpi > div { padding: 16px; }
+    .v2-kpi > div:nth-child(3) { border-left: 0; }
+    .v2-kpi > div:nth-child(n+3) { border-top: 1px solid var(--fio); }
+    .v2-kpi .hn { font-size: 32px; }
+    .v2-svc, .v2-svc tbody, .v2-svc tr, .v2-svc td, .v2-rec, .v2-rec tbody, .v2-rec tr, .v2-rec td { display: block; width: 100%; }
+    .v2-svc thead, .v2-svc colgroup, .v2-rec thead, .v2-rec colgroup { display: none; }
+    .v2-svc tr, .v2-rec tr { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 16px 0; border-bottom: 1px solid var(--linha); }
+    .v2-svc tr:last-child, .v2-rec tr:last-child { border-bottom: 0; }
+    .v2-svc td, .v2-rec td { width: auto; padding: 0 !important; border: 0; text-align: left !important; }
+    .v2-svc td:first-child, .v2-rec td:first-child { flex-basis: 100%; }
+    .v2-svc td.dm, .v2-rec td.d { flex-basis: 100%; }
+    .v2-svc td[data-l]::before, .v2-rec td[data-l]::before { content: attr(data-l); display: block; font: 500 12.5px/1.3 var(--sans); color: var(--fraco); letter-spacing: 0; margin-bottom: 4px; }
+    .v2-rec tr.secao { padding-bottom: 8px; }
+    .v2-svc tr.crit, .v2-svc tr.warn { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+    .v2-svc tr.crit { background: color-mix(in srgb,var(--crit) 5%,var(--campo)); }
+    .v2-svc tr.warn { background: color-mix(in srgb,var(--warn) 6%,var(--campo)); }
+    .v2-svc tr.crit td, .v2-svc tr.warn td { background: none; }
+    .v2-svc tr.crit, .v2-svc tr.warn { width: auto; }
+  }
+
+  @media print {
+    .rel { max-width: none; }
+    .fx, .inf, .svc, .srv-h, .mt, .qd-r { break-inside: avoid; }
+    .g .fil-warn { fill: url(#tx-warn); }
+    .g .fil-crit { fill: url(#tx-crit); }
+  }
+  @media (forced-colors: active) {
+    .g .fil-warn { fill: url(#tx-warn); }
+    .g .fil-crit { fill: url(#tx-crit); }
+  }
+
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="hz-i-mobile" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="hz-i-tablet" viewBox="0 0 24 24"><rect x="4.5" y="2.5" width="15" height="19" rx="2"/><path d="M11 18.5h2"/></symbol>
+  <symbol id="hz-i-desktop" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="hz-i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="hz-i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="hz-i-lua" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></symbol>
+  <symbol id="hz-i-comparar" viewBox="0 0 24 24"><rect x="3" y="4" width="7.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/></symbol>
+  <symbol id="hz-i-painel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="hz-i-comentar" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 8.5h7M8.5 11.5h4"/></symbol>
+</svg>
+
+<div class="hz-toolbar">
+  <div class="hz-group hz-group--tabs" id="hz-tabs"><!-- variation tabs injected here when >1 --></div>
+
+  <button class="hz-btn" id="hz-comparar" title="Comparar as variações lado a lado · C" aria-pressed="false">
+    <svg class="hz-ico"><use href="#hz-i-comparar"/></svg><span class="hz-label-longa">Comparar</span></button>
+  <span class="hz-sep"></span>
+  <div class="hz-seg" role="group" aria-label="Largura da tela">
+    <button class="hz-btn" data-vw="mobile"  title="Mobile (390px) · 1"><svg class="hz-ico"><use href="#hz-i-mobile"/></svg></button>
+    <button class="hz-btn" data-vw="tablet"  title="Tablet (768px) · 2"><svg class="hz-ico"><use href="#hz-i-tablet"/></svg></button>
+    <button class="hz-btn is-active" data-vw="desktop" title="Desktop (1280px) · 3"><svg class="hz-ico"><use href="#hz-i-desktop"/></svg></button>
+    <button class="hz-btn" data-vw="full" title="Largura total, sem moldura · 4"><svg class="hz-ico"><use href="#hz-i-full"/></svg></button>
+  </div>
+  <label class="hz-switch" title="Largura livre: arraste a borda do canvas · L">
+    <input type="checkbox" role="switch" id="hz-livre"><i></i><span class="hz-label-longa">Livre</span></label>
+  <span class="hz-sep"></span>
+  <button class="hz-btn" id="hz-comentar" title="Comentar: clique num elemento e escreva o ajuste · K" aria-pressed="false">
+    <svg class="hz-ico"><use href="#hz-i-comentar"/></svg><span class="hz-label-longa">Comentar</span></button>
+  <button class="hz-btn" id="hz-theme" title="Alternar tema do canvas · T"><svg class="hz-ico"><use href="#hz-i-sol"/></svg></button>
+  <span class="hz-sep"></span>
+  <button class="hz-btn hz-selo" id="hz-detector-selo" data-estado="carregando" title="Detector anti-slop"><i></i><span>Detector</span></button>
+  <button class="hz-btn" id="hz-painel-botao" title="Mostrar ou esconder o painel · P" aria-pressed="true"><svg class="hz-ico"><use href="#hz-i-painel"/></svg></button>
+</div>
+
+<div class="hz-main">
+  <div class="hz-stage-wrap">
+    <div class="hz-stage" data-vw="desktop">
+      <span class="hz-medida" id="hz-medida"></span>
+      <div class="hz-frame" data-theme="light">
+
+      <!-- ============================================================
+           4. VARIATIONS — one <section> per variation. They show ONE AT A
+           TIME via the top tabs (no vertical stacking), or all together in
+           Compare mode. Give each a short data-title (tab label) and
+           data-desc (trade-off, shown in the side panel).
+           For a single variation, the tabs bar stays hidden automatically.
+           ============================================================ -->
+
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="tx-warn" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="6" height="6" class="tx-b-warn"/><rect width="2" height="6" class="tx-l-warn"/></pattern>
+    <pattern id="tx-crit" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(135)"><rect width="6" height="6" class="tx-b-crit"/><rect width="2" height="6" class="tx-l-crit"/></pattern>
+  </defs>
+  <symbol id="i-crit" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M5.75 5.75l4.5 4.5M10.25 5.75l-4.5 4.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.25 14.25 13.25H1.75z"/><path d="M8 6.5v3.25M8 11.6v.15"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M5.25 8.25l1.9 1.9 3.6-3.9"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4M8 4.9v.15"/></symbol>
+  <symbol id="i-relogio" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.75V8l2.25 1.5"/></symbol>
+  <symbol id="i-seta" viewBox="0 0 16 16"><path d="M3 8h9.5M8.75 4.25 12.5 8l-3.75 3.75"/></symbol>
+  <symbol id="i-srv" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="5.5" rx="1.5"/><rect x="3" y="11.5" width="14" height="5.5" rx="1.5"/><path d="M6.5 5.75h.01M6.5 14.25h.01M10 5.75h4M10 14.25h4"/></symbol>
+  <symbol id="i-db" viewBox="0 0 20 20"><ellipse cx="10" cy="4.75" rx="6.25" ry="2.25"/><path d="M3.75 4.75v10.5c0 1.25 2.8 2.25 6.25 2.25s6.25-1 6.25-2.25V4.75M3.75 10c0 1.25 2.8 2.25 6.25 2.25s6.25-1 6.25-2.25"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 20 20"><circle cx="8.75" cy="8.75" r="5.25"/><path d="M12.75 12.75 17 17"/></symbol>
+</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="tx-warn" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="6" height="6" class="tx-b-warn"/><rect width="2" height="6" class="tx-l-warn"/></pattern>
+    <pattern id="tx-crit" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(135)"><rect width="6" height="6" class="tx-b-crit"/><rect width="2" height="6" class="tx-l-crit"/></pattern>
+  </defs>
+  <symbol id="i-crit" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M5.75 5.75l4.5 4.5M10.25 5.75l-4.5 4.5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.25 14.25 13.25H1.75z"/><path d="M8 6.5v3.25M8 11.6v.15"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M5.25 8.25l1.9 1.9 3.6-3.9"/></symbol>
+  <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4M8 4.9v.15"/></symbol>
+  <symbol id="i-relogio" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.25"/><path d="M8 4.75V8l2.25 1.5"/></symbol>
+  <symbol id="i-seta" viewBox="0 0 16 16"><path d="M3 8h9.5M8.75 4.25 12.5 8l-3.75 3.75"/></symbol>
+  <symbol id="i-srv" viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="5.5" rx="1.5"/><rect x="3" y="11.5" width="14" height="5.5" rx="1.5"/><path d="M6.5 5.75h.01M6.5 14.25h.01M10 5.75h4M10 14.25h4"/></symbol>
+  <symbol id="i-db" viewBox="0 0 20 20"><ellipse cx="10" cy="4.75" rx="6.25" ry="2.25"/><path d="M3.75 4.75v10.5c0 1.25 2.8 2.25 6.25 2.25s6.25-1 6.25-2.25V4.75M3.75 10c0 1.25 2.8 2.25 6.25 2.25s6.25-1 6.25-2.25"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 20 20"><circle cx="8.75" cy="8.75" r="5.25"/><path d="M12.75 12.75 17 17"/></symbol>
+</svg>
+<!-- KNOBS (opcional, 0 a 4 por variação): ajustes que o usuário mexe AO VIVO, sem
+           gerar de novo. Declare em data-knobs e escreva o CSS da variação contra eles:
+             range  → variável  --k-<id>        ex.: opacity: var(--k-acento, .5)
+             steps  → atributo  data-k-<id>     ex.: .variation[data-k-densidade="compacta"] .x {...}
+             toggle → --k-<id> (0|1) e o atributo data-k-<id> presente quando ligado
+           data-knobs='[
+             {"id":"acento","tipo":"range","min":0,"max":1,"passo":0.05,"padrao":0.5,"rotulo":"Acento"},
+             {"id":"densidade","tipo":"steps","opcoes":["arejada","compacta"],"padrao":"arejada","rotulo":"Densidade"},
+             {"id":"serifa","tipo":"toggle","padrao":false,"rotulo":"Título serifado"}]'
+           Na URL: ?k=acento:0.8,densidade:compacta abre direto nesse estado. -->
+<section class="variation is-active v1"
+         data-title="Problema primeiro"
+         data-desc="Cada área abre pelo problema e pela solução, e as áreas vêm da mais grave para a mais calma: quem só tem cinco minutos age sem rolar, mas o servidor saudável fica no fim e parece esquecido."
+         data-knobs='[{"id":"destaque","tipo":"range","min":0,"max":1,"passo":0.1,"padrao":0.6,"rotulo":"Força do destaque"},{"id":"densidade","tipo":"steps","opcoes":["confortável","compacta"],"padrao":"confortável","rotulo":"Densidade"}]'>
+  <div class="rel"><div class="rel-topo"><h2>Servidores, bancos e busca</h2><span class="rel-d"><svg class="ic" aria-hidden="true"><use href="#i-relogio"/></svg>Rodada de 14/11/2026, 09h12 · somente leitura</span></div><section class="v1-agora"><header><div class="v1-hero"><span class="hn">5</span><span class="hl"><b>problemas, cada um com o que fazer</b>3 graves e 2 de atenção. Cada um abre a área do seu servidor, logo abaixo; o informativo vem separado, no fim de cada área.</span></div></header><ol class="v1-lista"><li><span class="v1-num">1</span><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Parado</span><span class="v1-pt">pg declarado e não está rodando</span><span class="onde">banco-01</span></li><li><span class="v1-num">2</span><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Com erro</span><span class="v1-pt">logs-vetor vazia e com erro</span><span class="onde">busca-01 · qdrant</span></li><li><span class="v1-num">3</span><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Instável</span><span class="v1-pt">qdrant reiniciou 14 vezes</span><span class="onde">busca-01</span></li><li><span class="v1-num">4</span><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Atrasado</span><span class="v1-pt">último backup há 4 dias, limite de 2</span><span class="onde">banco-02</span></li><li><span class="v1-num">5</span><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Atenção</span><span class="v1-pt">86% das conexões em uso</span><span class="onde">banco-02</span></li></ol></section><div class="rel-pilha"><section class="bl-pn"><header><span class="pn-ic"><svg class="ic" aria-hidden="true"><use href="#i-srv"/></svg></span><h3>Serviços dos servidores</h3><span class="pn-r">2 servidores · 7 serviços · 1 parado</span></header><div class="srv"><div class="srv-h"><h4>banco-01 <span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>1 problema</span></h4><dl class="srv-meta"><dt>Sistema</dt><dd class="n">Debian GNU/Linux 12 (bookworm) · Linux 6.1.0-18-amd64</dd><dt>Acesso</dt><dd>SSH com a identidade de quem rodou a auditoria (root). A restrição de comandos é da skill, não do servidor.</dd></dl></div><div class="grp "><h5>Problemas e o que fazer</h5><div class="fxs"><div class="fx crit"><p class="fx-p"><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Parado</span><span class="fx-t">O serviço pg foi declarado e não está rodando</span><span class="onde">Serviços · banco-01</span></p><div class="fx-f"><svg class="ic fx-i" aria-hidden="true"><use href="#i-seta"/></svg><p><b>O que fazer</b>Veja o motivo com <code>journalctl -u pg -n 50</code> no banco-01 e resolva a causa antes de subir. Se foi desligado de propósito, tire o componente do <code>alvos.toml</code>.</p></div><p class="fx-r">regra servico_declarado_ausente · remediação completa no fim do relatório</p></div></div></div><div class="grp "><h5>Estado dos serviços</h5><div class="v1-est"><div class="heroi"><span class="hn">2<span class="hd"> de 3</span></span><span class="hl">serviços de pé</span><span class="heroi-x"><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>1 parado</span></span></div><div class="v1-rec"><p class="sub-h">Recursos do servidor</p><div class="mts"><div class="mt"><div class="mt-h"><span class="mt-l">Disco<span class="mt-s">356 de 500 GB em /</span></span><b class="mt-v">71%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Disco: 71%, limite 90%"><title>Disco: 71%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="71.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div><div class="mt"><div class="mt-h"><span class="mt-l">Memória<span class="mt-s">12,5 de 16 GB</span></span><b class="mt-v">78%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Memória: 78%, limite 90%"><title>Memória: 78%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="78.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div><div class="mt"><div class="mt-h"><span class="mt-l">Carga<span class="mt-s">1,9 em 8 núcleos, média de 15 min</span></span><b class="mt-v">24%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Carga: 24%, limite 90%"><title>Carga: 24%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="24.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div></div></div></div><div class="svcs"><div class="svc alerta"><div class="svc-t"><span><b>pg</b><span class="tec">declarado · systemd</span></span><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Não, ausente</span></div><dl class="fatos"><div><dt>De pé há</dt><dd><span class="bl-sd">sem dado</span></dd></div><div><dt>Reinícios</dt><dd><span class="bl-sd">sem dado</span></dd></div><div><dt>Memória</dt><dd><span class="bl-sd">sem dado</span></dd></div></dl></div><div class="svc quieto"><div class="svc-t"><span><b>mariadb</b><span class="tec">systemd</span></span><span class="st-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>De pé</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>41<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd>0</dd></div><div><dt>Memória</dt><dd>6,2<span class="u">GB</span></dd></div></dl></div><div class="svc quieto"><div class="svc-t"><span><b>node_exporter</b><span class="tec">systemd</span></span><span class="st-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>De pé</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>41<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd>0</dd></div><div><dt>Memória</dt><dd>38<span class="u">MB</span></dd></div></dl></div></div></div><div class="grp "><h5>Detalhes: memória por serviço</h5><div class="br" role="list" aria-label="Memória por serviço em banco-01"><div class="br-r" role="listitem"><span class="br-l">mariadb</span><svg class="g" width="100%" height="18" role="img" aria-label="mariadb: 6,2 GB "><title>mariadb: 6,2 GB </title><rect class="fil-acc" x="0" y="0" width="100.00%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">6,2<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">node_exporter</span><svg class="g" width="100%" height="18" role="img" aria-label="node_exporter: 38 MB "><title>node_exporter: 38 MB </title><rect class="fil-acc" x="0" y="0" width="1.20%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">38<span class="u">MB</span></span></div><div class="br-r" role="listitem"><span class="br-l">pg</span><span class="br-sd">sem dado</span><span class="br-v bl-sd">sem dado</span></div></div></div><div class="grp "><h5>Informativo</h5><div class="infs"><div class="inf"><svg class="ic inf-i" aria-hidden="true"><use href="#i-info"/></svg><div><p class="inf-p">Descoberto e não declarado: redis (container:cache-exemplo)</p><p class="inf-f"><b>Para auditar:</b> declare com <code>configurar.py descobrir --alvo banco-01</code>; até lá ele fica fora do relatório.</p></div></div></div></div></div><div class="srv"><div class="srv-h"><h4>busca-01 <span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>1 problema</span></h4><dl class="srv-meta"><dt>Sistema</dt><dd class="n">Ubuntu 22.04.4 LTS · Linux 5.15.0-105-generic</dd><dt>Acesso</dt><dd>SSH com a identidade de quem rodou a auditoria (root). A restrição de comandos é da skill, não do servidor.</dd></dl></div><div class="grp "><h5>Problemas e o que fazer</h5><div class="fxs"><div class="fx"><p class="fx-p"><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Instável</span><span class="fx-t">qdrant reiniciou 14 vezes</span><span class="onde">Serviços · busca-01</span></p><div class="fx-g"><div class="heroi-n"><span class="hn bl-c-warn">14</span><span class="hl">reinícios desde a última subida, há 3 dias<br><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Alto: mais de 3 é sinal de queda</span></span></div></div><div class="fx-f"><svg class="ic fx-i" aria-hidden="true"><use href="#i-seta"/></svg><p><b>O que fazer</b>Veja o motivo no log do serviço: <code>docker logs --tail 100 qdrant</code>. Falta de memória e disco cheio são as causas mais comuns.</p></div><p class="fx-r">sem regra própria · sinal para investigar</p></div></div></div><div class="grp "><h5>Estado dos serviços</h5><div class="v1-est"><div class="heroi"><span class="hn">4<span class="hd"> de 4</span></span><span class="hl">serviços de pé</span></div><div class="v1-rec"><p class="sub-h">Recursos do servidor</p><div class="mts"><div class="mt"><div class="mt-h"><span class="mt-l">Disco<span class="mt-s">128 de 200 GB em /</span></span><b class="mt-v">64%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Disco: 64%, limite 90%"><title>Disco: 64%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="64.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div><div class="mt"><div class="mt-h"><span class="mt-l">Memória<span class="mt-s">6,6 de 8 GB</span></span><b class="mt-v">83%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Memória: 83%, limite 90%"><title>Memória: 83%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="83.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div><div class="mt"><div class="mt-h"><span class="mt-l">Carga<span class="mt-s">1,6 em 4 núcleos, média de 15 min</span></span><b class="mt-v">41%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Carga: 41%, limite 90%"><title>Carga: 41%, limite 90%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="41.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="90%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:90%">limite 90%</span></div></div></div></div></div><div class="svcs"><div class="svc alerta w"><div class="svc-t"><span><b>qdrant</b><span class="tec">container:qdrant</span></span><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>De pé, instável</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>3<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd><span class="rei-alto bl-c-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>14</span></dd></div><div><dt>Memória</dt><dd>3,8<span class="u">GB</span></dd></div></dl></div><div class="svc quieto"><div class="svc-t"><span><b>indexador</b><span class="tec">só processo</span></span><span class="st-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>De pé</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>12<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd><span class="bl-sd">não medido</span></dd></div><div><dt>Memória</dt><dd>412<span class="u">MB</span></dd></div></dl></div><div class="svc quieto"><div class="svc-t"><span><b>nginx</b><span class="tec">systemd</span></span><span class="st-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>De pé</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>87<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd>0</dd></div><div><dt>Memória</dt><dd>24<span class="u">MB</span></dd></div></dl></div><div class="svc quieto"><div class="svc-t"><span><b>node_exporter</b><span class="tec">systemd</span></span><span class="st-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>De pé</span></div><dl class="fatos"><div><dt>De pé há</dt><dd>87<span class="u">dias</span></dd></div><div><dt>Reinícios</dt><dd>0</dd></div><div><dt>Memória</dt><dd>31<span class="u">MB</span></dd></div></dl></div></div></div><div class="grp "><h5>Detalhes: memória por serviço</h5><div class="br" role="list" aria-label="Memória por serviço em busca-01"><div class="br-r" role="listitem"><span class="br-l">qdrant</span><svg class="g" width="100%" height="18" role="img" aria-label="qdrant: 3,8 GB "><title>qdrant: 3,8 GB </title><rect class="fil-acc" x="0" y="0" width="100.00%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">3,8<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">indexador</span><svg class="g" width="100%" height="18" role="img" aria-label="indexador: 412 MB "><title>indexador: 412 MB </title><rect class="fil-acc" x="0" y="0" width="10.59%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">412<span class="u">MB</span></span></div><div class="br-r" role="listitem"><span class="br-l">node_exporter</span><svg class="g" width="100%" height="18" role="img" aria-label="node_exporter: 31 MB "><title>node_exporter: 31 MB </title><rect class="fil-acc" x="0" y="0" width="1.20%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">31<span class="u">MB</span></span></div><div class="br-r" role="listitem"><span class="br-l">nginx</span><svg class="g" width="100%" height="18" role="img" aria-label="nginx: 24 MB "><title>nginx: 24 MB </title><rect class="fil-acc" x="0" y="0" width="1.20%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">24<span class="u">MB</span></span></div></div></div><div class="grp "><h5>Informativo</h5><div class="infs"><div class="inf"><svg class="ic inf-i" aria-hidden="true"><use href="#i-info"/></svg><div><p class="inf-p">Reinícios do indexador: não medido</p><p class="inf-f"><b>Por quê:</b> ele roda como processo solto, e reinícios não existem para processo solto. <b>Para medir:</b> rode o indexador como unit systemd ou container.</p></div></div></div></div></div></section><section class="bl-pn"><header><span class="pn-ic"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg></span><h3>Bancos de dados</h3><span class="pn-r">2 medidos · 2 problemas em banco-02</span></header><div class="srv"><div class="srv-h"><h4>mariadb em banco-02 <span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>2 problemas</span></h4><dl class="srv-meta"><dt>Versão</dt><dd class="n">MariaDB 10.11.6</dd><dt>Leitura</dt><dd>pelo socket local, como root, só consultas de leitura</dd></dl></div><div class="grp "><h5>Problemas e o que fazer</h5><div class="fxs"><div class="fx crit"><p class="fx-p"><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Atrasado</span><span class="fx-t">Último backup há 4 dias, acima do limite de 2</span><span class="onde">Bancos · banco-02</span></p><div class="fx-g"><div class="mt esc"><div class="mt-h"><span class="mt-l">Último backup<span class="mt-s">limite de 2 dias · escala em dias</span></span><b class="mt-v bl-c-crit">4<span class="u">dias</span></b></div><div class="mt-b"><svg class="g" width="100%" height="48" role="img" aria-label="Último backup há 4 dias; limite de 2 dias"><title>Último backup há 4 dias; limite de 2 dias</title><rect class="trk" x="0" y="19" width="100%" height="6" rx="3"/><rect class="grd" x="14.29%" y="14" width="1" height="16"/><rect class="grd" x="28.57%" y="14" width="1" height="16"/><rect class="grd" x="42.86%" y="14" width="1" height="16"/><rect class="grd" x="57.14%" y="14" width="1" height="16"/><rect class="grd" x="71.43%" y="14" width="1" height="16"/><rect class="grd" x="85.71%" y="14" width="1" height="16"/><rect class="fil-crit" x="0" y="19" width="57.14%" height="6" rx="3"/><rect class="lim" x="28.57%" y="10" width="2" height="22" transform="translate(-1 0)"/><svg x="57.14%" overflow="visible"><circle class="pt fil-crit" cx="0" cy="22" r="7"/></svg><text class="tk" x="0.00%" y="44" text-anchor="start">0</text><text class="tk" x="14.29%" y="44" text-anchor="middle">1</text><text class="tk" x="28.57%" y="44" text-anchor="middle">2</text><text class="tk" x="42.86%" y="44" text-anchor="middle">3</text><text class="tk" x="57.14%" y="44" text-anchor="middle">4</text><text class="tk" x="71.43%" y="44" text-anchor="middle">5</text><text class="tk" x="85.71%" y="44" text-anchor="middle">6</text><text class="tk" x="100.00%" y="44" text-anchor="end">7</text></svg><span class="mt-lim mt-lim-t" style="left:28.57%">limite 2 dias</span></div><span class="mt-st"><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Atrasado, o dobro do limite</span></span></div></div><div class="fx-f"><svg class="ic fx-i" aria-hidden="true"><use href="#i-seta"/></svg><p><b>O que fazer</b>Confira se a rotina rodou (<code>systemctl list-timers</code> ou <code>crontab -l</code>) e leia o log dela. Depois rode um backup na hora e confira o arquivo novo na pasta.</p></div><p class="fx-r">regra backup_atrasado · remediação completa no fim do relatório</p></div><div class="fx"><p class="fx-p"><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Atenção</span><span class="fx-t">86% das conexões em uso: 130 de 151</span><span class="onde">Bancos · banco-02</span></p><div class="fx-g"><div class="mt"><div class="mt-h"><span class="mt-l">Conexões em uso<span class="mt-s">130 de 151 conexões</span></span><b class="mt-v bl-c-warn">86%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Conexões em uso: 86%, alerta em 80%"><title>Conexões em uso: 86%, alerta em 80%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-warn" x="0" y="5" width="86.00%" height="10" rx="4"/><rect class="fil-warn" x="0" y="5" width="4" height="10"/><rect class="lim" x="80%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:80%">alerta em 80%</span></div><span class="mt-st"><span class="bl-tag-warn"><svg class="ic" aria-hidden="true"><use href="#i-warn"/></svg>Acima do alerta</span></span></div></div><div class="fx-f"><svg class="ic fx-i" aria-hidden="true"><use href="#i-seta"/></svg><p><b>O que fazer</b>Veja quem está conectado com <code>SHOW PROCESSLIST</code> e confira o pool da aplicação. Se o uso é legítimo, suba <code>max_connections</code> com memória para isso ou ponha um ProxySQL na frente.</p></div><p class="fx-r">regra conexoes_no_limite · remediação completa no fim do relatório</p></div></div></div><div class="grp "><h5>Estado</h5><dl class="kv"><dt>Consultas lentas, 24 h</dt><dd>412</dd></dl></div><div class="grp "><h5>Detalhes</h5><p class="sub-h">Tamanho por banco · total 1,9 GB</p><div class="br" role="list" aria-label="Tamanho por banco em banco-02"><div class="br-r" role="listitem"><span class="br-l">relatorios</span><svg class="g" width="100%" height="18" role="img" aria-label="relatorios: 1,6 GB "><title>relatorios: 1,6 GB </title><rect class="fil-acc" x="0" y="0" width="100.00%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">1,6<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">auditoria</span><svg class="g" width="100%" height="18" role="img" aria-label="auditoria: 268 MB "><title>auditoria: 268 MB </title><rect class="fil-acc" x="0" y="0" width="16.36%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">268<span class="u">MB</span></span></div></div></div><div class="grp "><h5>Informativo</h5><div class="infs"><div class="inf"><svg class="ic inf-i" aria-hidden="true"><use href="#i-info"/></svg><div><p class="inf-p">Binlog desligado em banco-02</p><p class="inf-f"><b>O que significa:</b> o banco só volta até o último backup, sem recuperação até um minuto exato e sem réplica. <b>Quando ligar:</b> se ele ganhar réplica ou se perder um dia de dados não for aceitável.</p></div></div></div></div></div><div class="srv"><div class="srv-h"><h4>mariadb em banco-01 <span class="bl-tag-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>Sem problema</span></h4><dl class="srv-meta"><dt>Versão</dt><dd class="n">MariaDB 10.11.6</dd><dt>Leitura</dt><dd>pelo socket local, como root, só consultas de leitura</dd></dl></div><div class="grp "><h5>Estado</h5><div class="mts dois"><div class="mt"><div class="mt-h"><span class="mt-l">Conexões em uso<span class="mt-s">56 de 151 conexões</span></span><b class="mt-v">37%</b></div><div class="mt-b"><svg class="g" width="100%" height="20" role="img" aria-label="Conexões em uso: 37%, alerta em 80%"><title>Conexões em uso: 37%, alerta em 80%</title><rect class="trk" x="0" y="5" width="100%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="37.00%" height="10" rx="4"/><rect class="fil-acc" x="0" y="5" width="4" height="10"/><rect class="lim" x="80%" y="0" width="2" height="20" transform="translate(-1 0)"/></svg><span class="mt-lim" style="left:80%">alerta em 80%</span></div></div><div class="mt esc"><div class="mt-h"><span class="mt-l">Último backup<span class="mt-s">limite de 2 dias · escala em dias</span></span><b class="mt-v">1<span class="u">dia</span></b></div><div class="mt-b"><svg class="g" width="100%" height="48" role="img" aria-label="Último backup há 1 dia; limite de 2 dias"><title>Último backup há 1 dia; limite de 2 dias</title><rect class="trk" x="0" y="19" width="100%" height="6" rx="3"/><rect class="grd" x="14.29%" y="14" width="1" height="16"/><rect class="grd" x="28.57%" y="14" width="1" height="16"/><rect class="grd" x="42.86%" y="14" width="1" height="16"/><rect class="grd" x="57.14%" y="14" width="1" height="16"/><rect class="grd" x="71.43%" y="14" width="1" height="16"/><rect class="grd" x="85.71%" y="14" width="1" height="16"/><rect class="fil-acc" x="0" y="19" width="14.29%" height="6" rx="3"/><rect class="lim" x="28.57%" y="10" width="2" height="22" transform="translate(-1 0)"/><svg x="14.29%" overflow="visible"><circle class="pt fil-acc" cx="0" cy="22" r="7"/></svg><text class="tk" x="0.00%" y="44" text-anchor="start">0</text><text class="tk" x="14.29%" y="44" text-anchor="middle">1</text><text class="tk" x="28.57%" y="44" text-anchor="middle">2</text><text class="tk" x="42.86%" y="44" text-anchor="middle">3</text><text class="tk" x="57.14%" y="44" text-anchor="middle">4</text><text class="tk" x="71.43%" y="44" text-anchor="middle">5</text><text class="tk" x="85.71%" y="44" text-anchor="middle">6</text><text class="tk" x="100.00%" y="44" text-anchor="end">7</text></svg><span class="mt-lim mt-lim-t" style="left:28.57%">limite 2 dias</span></div><span class="mt-st"><span class="bl-tag-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>Dentro do limite</span></span></div></div><dl class="kv"><dt>Consultas lentas, 24 h</dt><dd>23</dd></dl></div><div class="grp "><h5>Detalhes</h5><p class="sub-h">Tamanho por banco · total 4,3 GB</p><div class="br" role="list" aria-label="Tamanho por banco em banco-01"><div class="br-r" role="listitem"><span class="br-l">loja</span><svg class="g" width="100%" height="18" role="img" aria-label="loja: 3,4 GB "><title>loja: 3,4 GB </title><rect class="fil-acc" x="0" y="0" width="100.00%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">3,4<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">financeiro</span><svg class="g" width="100%" height="18" role="img" aria-label="financeiro: 812 MB "><title>financeiro: 812 MB </title><rect class="fil-acc" x="0" y="0" width="23.32%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">812<span class="u">MB</span></span></div><div class="br-r" role="listitem"><span class="br-l">sessoes</span><svg class="g" width="100%" height="18" role="img" aria-label="sessoes: 46 MB "><title>sessoes: 46 MB </title><rect class="fil-acc" x="0" y="0" width="1.32%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">46<span class="u">MB</span></span></div></div><p class="sub-h">Binlog · 3 arquivos, 2,3 GB</p><div class="br" role="list" aria-label="Binlog por arquivo"><div class="br-r" role="listitem"><span class="br-l">mysql-bin.000412</span><svg class="g" width="100%" height="18" role="img" aria-label="mysql-bin.000412: 1,0 GB "><title>mysql-bin.000412: 1,0 GB </title><rect class="fil-acc" x="0" y="0" width="100.00%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">1,0<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">mysql-bin.000413</span><svg class="g" width="100%" height="18" role="img" aria-label="mysql-bin.000413: 1,0 GB "><title>mysql-bin.000413: 1,0 GB </title><rect class="fil-acc" x="0" y="0" width="99.90%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">1,0<span class="u">GB</span></span></div><div class="br-r" role="listitem"><span class="br-l">mysql-bin.000414</span><svg class="g" width="100%" height="18" role="img" aria-label="mysql-bin.000414: 318 MB "><title>mysql-bin.000414: 318 MB </title><rect class="fil-acc" x="0" y="0" width="31.05%" height="18" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="18"/></svg><span class="br-v">318<span class="u">MB</span></span></div></div></div></div></section><section class="bl-pn"><header><span class="pn-ic"><svg class="ic" aria-hidden="true"><use href="#i-busca"/></svg></span><h3>Busca</h3><span class="pn-r">Qdrant em busca-01 · 3 coleções · 1 com erro</span></header><div class="srv"><div class="srv-h"><h4>qdrant em busca-01 <span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>1 problema</span></h4><dl class="srv-meta"><dt>Versão</dt><dd class="n">Qdrant 1.9.2</dd><dt>Leitura</dt><dd>pela API local em busca-01, só consultas de leitura</dd></dl></div><div class="grp "><h5>Problemas e o que fazer</h5><div class="fxs"><div class="fx crit"><p class="fx-p"><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Com erro</span><span class="fx-t">logs-vetor está vazia e com erro (status red)</span><span class="onde">Busca · busca-01</span></p><div class="fx-f"><svg class="ic fx-i" aria-hidden="true"><use href="#i-seta"/></svg><p><b>O que fazer</b>Veja o motivo no log do qdrant (<code>docker logs qdrant</code>): ele reiniciou 14 vezes e pode ter levado a coleção junto. Depois recrie a coleção e reindexe a partir da origem.</p></div><p class="fx-r">sem regra própria · sinal para investigar</p></div></div></div><div class="grp "><h5>Estado das coleções</h5><div class="qd" role="list" aria-label="Pontos por coleção"><div class="qd-r" role="listitem"><div class="qd-t"><b class="qd-n">produtos</b><span class="tec">status green</span><span class="bl-tag-ok"><svg class="ic" aria-hidden="true"><use href="#i-ok"/></svg>Pronta</span></div><div class="qd-g"><svg class="g" width="100%" height="14" role="img" aria-label="produtos: 184.320 pontos"><title>produtos: 184.320 pontos</title><rect class="fil-acc" x="0" y="0" width="100.00%" height="14" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="14"/></svg><span class="br-v">184.320<span class="u">pontos</span></span></div></div><div class="qd-r" role="listitem"><div class="qd-t"><b class="qd-n">artigos</b><span class="tec">status yellow</span><span class="bl-tag-neutro"><svg class="ic" aria-hidden="true"><use href="#i-relogio"/></svg>Otimizando</span></div><div class="qd-g"><svg class="g" width="100%" height="14" role="img" aria-label="artigos: 12.907 pontos"><title>artigos: 12.907 pontos</title><rect class="fil-acc" x="0" y="0" width="7.00%" height="14" rx="4"/><rect class="fil-acc" x="0" y="0" width="4" height="14"/></svg><span class="br-v">12.907<span class="u">pontos</span></span></div></div><div class="qd-r" role="listitem"><div class="qd-t"><b class="qd-n">logs-vetor</b><span class="tec">status red</span><span class="bl-tag-crit"><svg class="ic" aria-hidden="true"><use href="#i-crit"/></svg>Com erro, vazia</span></div><div class="qd-g"><svg class="g" width="100%" height="14" role="img" aria-label="vazia"><title>vazia, 0 pontos</title><rect class="grd" x="0" y="0" width="2" height="14"/></svg><span class="br-v">0<span class="u">pontos</span></span></div></div></div></div><div class="grp "><h5>Informativo</h5><div class="infs"><div class="inf"><svg class="ic inf-i" aria-hidden="true"><use href="#i-info"/></svg><div><p class="inf-p">artigos está otimizando (status yellow)</p><p class="inf-f"><b>O que significa:</b> o Qdrant reorganiza o índice depois de muita escrita; a coleção responde, só pode ficar mais lenta. Não precisa agir; se seguir yellow na próxima rodada, veja o log do qdrant.</p></div></div></div></div></div></section></div></div>
+</section>
+
+      </div>
+      <div class="hz-pinos" id="hz-pinos"></div>
+      <div class="hz-alca" id="hz-alca" title="Arraste para mudar a largura"></div>
+    </div>
+  </div>
+
+  <aside class="hz-panel" aria-label="Painel da variação">
+    <div class="hz-panel-topo">
+      <div class="hz-caption" id="hz-caption"></div>
+      <p class="hz-dica" id="hz-dica-comparar" hidden>Clique numa coluna para ajustar aquela variação.</p>
+      <div class="hz-escolha" id="hz-escolha"></div>
+      <p class="hz-escolha-estado" id="hz-escolha-estado"></p>
+    </div>
+    <div class="hz-abas" role="tablist" aria-label="Seções do painel">
+      <button class="hz-aba" role="tab" id="hz-aba-ajustes" data-aba="ajustes" aria-controls="hz-pane-ajustes">Ajustes<span class="hz-conta" id="hz-conta-ajustes"></span></button>
+      <button class="hz-aba" role="tab" id="hz-aba-direcao" data-aba="direcao" aria-controls="hz-pane-direcao">Direção</button>
+      <button class="hz-aba" role="tab" id="hz-aba-comentarios" data-aba="comentarios" aria-controls="hz-pane-comentarios">Notas<span class="hz-conta" id="hz-conta-comentarios"></span></button>
+      <button class="hz-aba" role="tab" id="hz-aba-detector" data-aba="detector" aria-controls="hz-pane-detector">Detector<i class="hz-ponto" id="hz-ponto-detector"></i></button>
+    </div>
+    <section class="hz-pane" role="tabpanel" id="hz-pane-ajustes" aria-labelledby="hz-aba-ajustes">
+      <p class="hz-vazio" id="hz-knobs-vazio">Esta variação não declara knobs.</p>
+      <div class="hz-knobs" id="hz-knobs" hidden></div><!-- /hz-knobs -->
+      <button class="hz-link hz-restaurar" id="hz-knobs-restaurar" type="button" hidden>Restaurar padrões</button>
+    </section>
+    <section class="hz-pane" role="tabpanel" id="hz-pane-direcao" aria-labelledby="hz-aba-direcao" hidden>
+      <div class="hz-direcao" id="hz-direcao"></div>
+      <div class="hz-fontes">
+        <label for="hz-fonte-titulo">Título</label>
+        <input class="hz-campo" id="hz-fonte-titulo" list="hz-fontes-sugestoes" placeholder="Fonte do projeto" autocomplete="off" spellcheck="false">
+        <label for="hz-fonte-corpo">Corpo</label>
+        <input class="hz-campo" id="hz-fonte-corpo" list="hz-fontes-sugestoes" placeholder="Fonte do projeto" autocomplete="off" spellcheck="false">
+        <span class="hz-fonte-estado" id="hz-fonte-estado">Qualquer família do Google Fonts. Vazio volta à do projeto.</span>
+      </div>
+      <datalist id="hz-fontes-sugestoes"></datalist>
+    </section>
+    <section class="hz-pane" role="tabpanel" id="hz-pane-comentarios" aria-labelledby="hz-aba-comentarios" hidden>
+      <p class="hz-vazio" id="hz-com-vazio">Nenhum comentário. Ligue <b>Comentar</b> (tecla K) e clique num elemento.</p>
+      <ul class="hz-lista" id="hz-com-lista"></ul>
+    </section>
+    <section class="hz-pane" role="tabpanel" id="hz-pane-detector" aria-labelledby="hz-aba-detector" hidden>
+      <p class="hz-resumo" id="hz-det-resumo">Consultando…</p>
+      <ul class="hz-lista" id="hz-det-lista"></ul>
+    </section>
+  </aside>
+</div>
+
+<div class="hz-balao" id="hz-balao" hidden role="dialog" aria-label="Novo comentário">
+  <small id="hz-balao-alvo"></small>
+  <textarea id="hz-balao-texto" placeholder="O que ajustar aqui?"></textarea>
+  <div><button class="hz-btn" id="hz-balao-cancelar" type="button">Cancelar</button>
+       <button class="hz-btn is-on" id="hz-balao-salvar" type="button">Salvar</button></div>
+</div>
+
+<script>
+  // ---- harness behavior: tabs · compare · width · theme · fonts · knobs · direction ·
+  //      comments · choice · detector · panel · URL state · keys ----
+  let pronto = false;   // salvarEstado() só grava depois de ler a URL inicial, senão a apagaria
+  const $ = id => document.getElementById(id);
+  const frame    = document.querySelector('.hz-frame');
+  const stage    = document.querySelector('.hz-stage');
+  const caption  = $('hz-caption');
+  const tabsWrap = $('hz-tabs');
+  const variations = Array.from(document.querySelectorAll('.variation'));
+  const servido = location.protocol.startsWith('http');   // serve.py: detector, comentários, escolha
+
+  function el(tag, classe, texto) {
+    const n = document.createElement(tag);
+    if (classe) n.className = classe;
+    if (texto !== undefined) n.textContent = texto;
+    return n;
+  }
+
+  async function api(caminho, dados) {
+    const opcoes = dados === undefined ? { cache: 'no-store' }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) };
+    const r = await fetch(caminho, opcoes);
+    const corpo = await r.json();
+    if (!r.ok) throw new Error(corpo.erro || ('HTTP ' + r.status));
+    return corpo;
+  }
+
+  function showCaption(section) {
+    caption.replaceChildren();
+    const t = section.dataset.title || '';
+    const d = section.dataset.desc || '';
+    if (t) caption.appendChild(el('b', '', t));
+    if (d) caption.appendChild(document.createTextNode(d));
+  }
+
+  // ---- knobs: 0 a 4 ajustes por variação, declarados em data-knobs (JSON) ----
+  // Mexer num knob não gera nada de novo: ele só troca uma variável CSS ou um atributo na
+  // própria <section>, e o CSS da variação responde. Rótulo é sempre TEXTO (textContent).
+  const knobsWrap = $('hz-knobs');
+  const knobsVazio = $('hz-knobs-vazio');
+  const MAX_KNOBS = 4;
+  const ID_VALIDO = /^[a-z0-9][a-z0-9-]*$/;
+  const TIPOS = ['range', 'steps', 'toggle'];
+  // `!!"false"` é verdadeiro em JavaScript: um toggle com padrão "false" abria LIGADO.
+  const comoBool = v => v === true || ['1', 'true', 'on', 'sim'].includes(String(v).toLowerCase());
+  const valores = new Map();            // <section> -> { id: valor } (sobrevive à troca de aba)
+
+  function lerKnobs(section) {
+    const cru = section.dataset.knobs;
+    if (!cru) return { lista: [], notas: [] };
+    let lista;
+    try { lista = JSON.parse(cru); } catch (e) {
+      return { lista: [], notas: ['data-knobs inválido nesta variação (JSON quebrado)'] };
+    }
+    if (!Array.isArray(lista)) return { lista: [], notas: ['data-knobs precisa ser uma lista'] };
+    const notas = [];
+    const vistos = new Set();
+    const validos = lista.filter(k => {
+      if (!k || !ID_VALIDO.test(String(k.id || ''))) {
+        notas.push('knob com id inválido ignorado (use a-z, 0-9 e hífen)'); return false;
+      }
+      const tipo = k.tipo || 'range';
+      if (!TIPOS.includes(tipo)) {
+        notas.push('knob "' + k.id + '": tipo "' + tipo + '" não existe (range, steps ou toggle)'); return false;
+      }
+      if (tipo === 'steps' && !(Array.isArray(k.opcoes) && k.opcoes.length)) {
+        notas.push('knob "' + k.id + '": steps sem opções'); return false;
+      }
+      if (vistos.has(k.id)) {
+        notas.push('knob "' + k.id + '" repetido nesta variação: só o primeiro vale'); return false;
+      }
+      vistos.add(k.id);
+      return true;
+    });
+    if (validos.length > MAX_KNOBS) notas.push('mais de ' + MAX_KNOBS + ' knobs: só os ' + MAX_KNOBS + ' primeiros aparecem');
+    return { lista: validos.slice(0, MAX_KNOBS), notas };
+  }
+
+  // Todo valor passa por aqui antes de valer: faixa limitada ao min/max, opção dentro da lista,
+  // toggle como booleano. Sem isso, `?k=acento:7` gravava 7 e o slider mostrava 1.
+  function normalizar(k, bruto) {
+    if (k.tipo === 'toggle') return comoBool(bruto);
+    if (k.tipo === 'steps') return k.opcoes.includes(bruto) ? bruto : padraoDe(k);
+    const min = k.min !== undefined ? Number(k.min) : 0;
+    const max = k.max !== undefined ? Number(k.max) : 1;
+    const n = Number(bruto);
+    if (bruto === '' || bruto === null || Number.isNaN(n)) return padraoDe(k);
+    return Math.min(max, Math.max(min, n));
+  }
+
+  function padraoDe(k) {
+    if (k.tipo === 'toggle') return comoBool(k.padrao);
+    if (k.tipo === 'steps') return k.opcoes.includes(k.padrao) ? k.padrao : k.opcoes[0];
+    const min = k.min !== undefined ? Number(k.min) : 0;
+    const max = k.max !== undefined ? Number(k.max) : 1;
+    const n = Number(k.padrao);
+    return Number.isNaN(n) || k.padrao === undefined ? min : Math.min(max, Math.max(min, n));
+  }
+
+  function aplicarKnob(section, k, bruto) {
+    const valor = normalizar(k, bruto);
+    const nome = 'k-' + k.id;
+    if (k.tipo === 'steps') {
+      section.setAttribute('data-' + nome, valor);
+    } else if (k.tipo === 'toggle') {
+      section.style.setProperty('--' + nome, valor ? '1' : '0');
+      section.toggleAttribute('data-' + nome, !!valor);
+    } else {
+      section.style.setProperty('--' + nome, String(valor));
+    }
+    (valores.get(section) || valores.set(section, {}).get(section))[k.id] = valor;
+    salvarEstado();
+    depoisDeMudar();
+  }
+
+  function valorInicial(section, k) {
+    const guardado = (valores.get(section) || {})[k.id];
+    return guardado !== undefined ? guardado : padraoDe(k);
+  }
+
+  function controle(section, k) {
+    const rotulo = el('label', 'hz-knob');
+    rotulo.appendChild(el('span', '', k.rotulo || k.id));
+    const atual = valorInicial(section, k);
+    if (k.tipo === 'steps') {
+      const seg = el('span', 'hz-seg');
+      (k.opcoes || []).forEach(opcao => {
+        const b = el('button', '', opcao);
+        b.type = 'button';
+        b.classList.toggle('is-active', opcao === atual);
+        b.addEventListener('click', () => {
+          seg.querySelectorAll('button').forEach(x => x.classList.toggle('is-active', x === b));
+          aplicarKnob(section, k, opcao);
+        });
+        seg.appendChild(b);
+      });
+      rotulo.appendChild(seg);
+    } else if (k.tipo === 'toggle') {
+      const caixa = el('input');
+      caixa.type = 'checkbox';
+      caixa.checked = !!atual;
+      caixa.addEventListener('change', () => aplicarKnob(section, k, caixa.checked));
+      rotulo.appendChild(caixa);
+    } else {
+      const faixa = el('input');
+      faixa.type = 'range';
+      faixa.min = k.min !== undefined ? k.min : 0;
+      faixa.max = k.max !== undefined ? k.max : 1;
+      faixa.step = k.passo !== undefined ? k.passo : 0.05;
+      faixa.value = atual;
+      faixa.setAttribute('value', atual);
+      const saida = el('output', '', atual);
+      faixa.addEventListener('input', () => {
+        saida.textContent = faixa.value;
+        aplicarKnob(section, k, faixa.value);
+      });
+      rotulo.append(saida, faixa);
+    }
+    return rotulo;
+  }
+
+  // Desenha os knobs de uma ou de várias variações (no modo comparar, agrupados por título).
+  function desenharKnobs(secoes) {
+    knobsWrap.replaceChildren();
+    let algum = false;
+    secoes.forEach(section => {
+      const { lista, notas } = lerKnobs(section);
+      if (!lista.length && !notas.length) return;
+      lista.forEach(k => knobsWrap.appendChild(controle(section, k)));
+      notas.forEach(n => knobsWrap.appendChild(el('span', 'hz-nota', n)));
+      algum = true;
+    });
+    knobsWrap.hidden = !algum;
+    knobsVazio.hidden = algum;
+    $('hz-knobs-restaurar').hidden = !algum;
+    $('hz-conta-ajustes').textContent = secoes.reduce((n, sec) => n + lerKnobs(sec).lista.length, 0) || '';
+  }
+
+  // Todas as variações começam nos padrões: o CSS de cada uma tem valor desde o primeiro render.
+  variations.forEach(section => lerKnobs(section).lista.forEach(k => aplicarKnob(section, k, valorInicial(section, k))));
+
+  $('hz-knobs-restaurar').addEventListener('click', () => {
+    const alvo = [variations[foco]].filter(Boolean);
+    alvo.forEach(sec => lerKnobs(sec).lista.forEach(k => aplicarKnob(sec, k, padraoDe(k))));
+    desenharKnobs(alvo);
+  });
+
+  // ---- abas e comparar ----
+  // `ativa` é a aba (uma variação na tela); `foco` é a variação que o painel mostra. Fora do
+  // comparar são a mesma; no comparar, clicar numa coluna muda só o foco.
+  const compararBtn = $('hz-comparar');
+  let ativa = 0, foco = 0;
+  function comparando() { return frame.hasAttribute('data-comparar'); }
+
+  function focar(i) {
+    foco = i;
+    variations.forEach((v, j) => v.toggleAttribute('data-foco', comparando() && i === j));
+    if (variations[i]) { showCaption(variations[i]); desenharKnobs([variations[i]]); }
+    $('hz-dica-comparar').hidden = !comparando();
+    desenharEscolha();
+    depoisDeMudar();
+  }
+
+  function setComparar(ligar) {
+    frame.toggleAttribute('data-comparar', ligar);
+    stage.toggleAttribute('data-comparar', ligar);
+    compararBtn.classList.toggle('is-on', ligar);
+    compararBtn.setAttribute('aria-pressed', String(ligar));
+    if (ligar) {
+      tabsWrap.querySelectorAll('.hz-tab').forEach(b => b.classList.remove('is-active'));
+      focar(ativa);
+    } else {
+      activate(ativa);
+    }
+    salvarEstado();
+  }
+
+  function activate(i) {
+    ativa = i;
+    if (comparando()) { setComparar(false); return; }
+    variations.forEach((v, j) => v.classList.toggle('is-active', i === j));
+    tabsWrap.querySelectorAll('.hz-tab').forEach((b, j) => b.classList.toggle('is-active', i === j));
+    focar(i);
+    salvarEstado();
+  }
+
+  // No comparar, clicar numa coluna a põe em foco no painel (o clique segue para o mockup).
+  frame.addEventListener('pointerdown', e => {
+    if (!comparando() || document.body.hasAttribute('data-comentando')) return;
+    const i = variations.indexOf(e.target.closest('.variation'));
+    if (i >= 0 && i !== foco) focar(i);
+  });
+
+  // Tabs and compare only when there's more than one variation.
+  if (variations.length > 1) {
+    variations.forEach((v, i) => {
+      const b = el('button', 'hz-btn hz-tab' + (i === 0 ? ' is-active' : ''), v.dataset.title || ('Variação ' + (i + 1)));
+      b.addEventListener('click', () => activate(i));
+      tabsWrap.appendChild(b);
+    });
+    compararBtn.addEventListener('click', () => setComparar(!comparando()));
+  } else {
+    compararBtn.hidden = true;
+  }
+  if (variations[0]) { showCaption(variations[0]); desenharKnobs([variations[0]]); }
+
+  // ---- abas do painel: uma seção por vez; a última aberta fica lembrada neste navegador ----
+  const ABAS = ['ajustes', 'direcao', 'comentarios', 'detector'];
+  function abrirAba(nome) {
+    if (!ABAS.includes(nome)) nome = 'ajustes';
+    ABAS.forEach(a => {
+      $('hz-aba-' + a).setAttribute('aria-selected', String(a === nome));
+      $('hz-aba-' + a).tabIndex = a === nome ? 0 : -1;
+      $('hz-pane-' + a).hidden = a !== nome;
+    });
+    try { localStorage.setItem('hz-aba', nome); } catch (e) {}
+    depoisDeMudar();
+  }
+  ABAS.forEach((a, i) => {
+    const b = $('hz-aba-' + a);
+    b.addEventListener('click', () => abrirAba(a));
+    b.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault(); e.stopPropagation();
+      const prox = ABAS[(i + (e.key === 'ArrowRight' ? 1 : -1) + ABAS.length) % ABAS.length];
+      abrirAba(prox); $('hz-aba-' + prox).focus();
+    });
+  });
+
+  // ---- largura: 4 fixas + livre (switch), que mostra uma alça na borda do canvas ----
+  const livreSw = $('hz-livre');
+  const medida = $('hz-medida');
+  const LARGURAS = ['mobile', 'tablet', 'desktop', 'full'];
+  let larguraLivre = 1024;
+
+  function setVw(vw) {
+    const btn = document.querySelector('.hz-btn[data-vw="' + vw + '"]');
+    if (!btn) return;
+    document.querySelectorAll('.hz-btn[data-vw]').forEach(x => x.classList.toggle('is-active', x === btn));
+    stage.dataset.vw = vw;
+    livreSw.checked = false;
+    stage.style.removeProperty('width');
+    stage.style.removeProperty('--hz-col');
+    salvarEstado();
+    depoisDeMudar();
+  }
+  document.querySelectorAll('.hz-btn[data-vw]').forEach(btn => btn.addEventListener('click', () => setVw(btn.dataset.vw)));
+
+  function setLivre(px) {
+    const wrap = stage.parentElement;
+    const maximo = Math.max(320, wrap.clientWidth - 48);
+    larguraLivre = Math.round(Math.min(maximo, Math.max(280, px)));
+    stage.dataset.vw = 'livre';
+    livreSw.checked = true;
+    document.querySelectorAll('.hz-btn[data-vw]').forEach(x => x.classList.remove('is-active'));
+    stage.style.width = larguraLivre + 'px';
+    stage.style.setProperty('--hz-col', larguraLivre + 'px');
+    medida.textContent = larguraLivre + 'px';
+    salvarEstado();
+    depoisDeMudar();
+  }
+  livreSw.addEventListener('change', () => {
+    if (livreSw.checked) setLivre(stage.getBoundingClientRect().width || larguraLivre);
+    else setVw('desktop');
+  });
+
+  // A alça segue o ponteiro: o canvas é centralizado, então cada px arrastado vale dois de largura.
+  const alca = $('hz-alca');
+  alca.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    alca.setPointerCapture(e.pointerId);
+    alca.dataset.arrastando = '';
+    const x0 = e.clientX, w0 = stage.getBoundingClientRect().width;
+    const mover = ev => setLivre(w0 + (ev.clientX - x0) * 2);
+    const soltar = () => { delete alca.dataset.arrastando; alca.removeEventListener('pointermove', mover); };
+    alca.addEventListener('pointermove', mover);
+    alca.addEventListener('pointerup', soltar, { once: true });
+    alca.addEventListener('pointercancel', soltar, { once: true });
+  });
+
+  // ---- tema ----
+  const themeBtn = $('hz-theme');
+  function setTheme(t) {
+    frame.dataset.theme = t;
+    themeBtn.querySelector('use').setAttribute('href', t === 'dark' ? '#hz-i-lua' : '#hz-i-sol');
+    themeBtn.title = t === 'dark' ? 'Tema escuro (clique para claro) · T' : 'Tema claro (clique para escuro) · T';
+    salvarEstado();
+    depoisDeMudar();
+  }
+  themeBtn.addEventListener('click', () => setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark'));
+
+  // ---- fontes: QUALQUER família do Google Fonts, carregada na hora (título e corpo) ----
+  // Pede os pesos 400-800; família que não tem todos devolve erro, então tenta só o nome.
+  const SUGESTOES = ['Inter', 'DM Sans', 'Manrope', 'Plus Jakarta Sans', 'Figtree', 'Outfit', 'Sora',
+    'Space Grotesk', 'Bricolage Grotesque', 'IBM Plex Sans', 'Work Sans', 'Fraunces', 'Newsreader',
+    'Instrument Serif', 'Lora', 'Playfair Display', 'DM Serif Display', 'JetBrains Mono',
+    'IBM Plex Mono', 'system-ui'];
+  SUGESTOES.forEach(nome => { const o = el('option'); o.value = nome; $('hz-fontes-sugestoes').appendChild(o); });
+  const NOME_FONTE = /^[A-Za-z0-9][A-Za-z0-9 -]{0,59}$/;   // aspas e ; nunca entram no CSS
+  const fontesCarregadas = new Map();   // nome -> Promise
+  const fonteEstado = $('hz-fonte-estado');
+
+  function linkGoogle(familia) {
+    return new Promise((ok, falha) => {
+      const l = el('link');
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=' + familia + '&display=swap';
+      l.onload = () => ok();
+      l.onerror = () => { l.remove(); falha(); };
+      document.head.appendChild(l);
+    });
+  }
+  function carregarFonte(nome) {
+    if (nome === 'system-ui') return Promise.resolve();
+    if (!fontesCarregadas.has(nome)) {
+      const familia = nome.trim().replace(/ +/g, '+');
+      fontesCarregadas.set(nome, linkGoogle(familia + ':wght@400;500;600;700;800')
+        .catch(() => linkGoogle(familia))
+        .catch(() => { fontesCarregadas.delete(nome); throw new Error('não encontrada'); }));
+    }
+    return fontesCarregadas.get(nome);
+  }
+  function pilha(nome) {
+    return nome === 'system-ui' ? "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+                                : "'" + nome + "', system-ui, sans-serif";
+  }
+  const fonteAtual = { titulo: '', corpo: '' };
+  function guardarFonteDosTitulos() {
+    const antes = ['corpo', 'titulo'].map(p => [p, frame.getAttribute('data-fonte-' + p)]);
+    antes.forEach(([p]) => frame.removeAttribute('data-fonte-' + p));
+    frame.querySelectorAll('.variation :is(h1, h2, h3, h4, h5, h6, [data-titulo])')
+      .forEach(h => h.style.setProperty('--hz-fonte-original', getComputedStyle(h).fontFamily));
+    antes.forEach(([p, v]) => { if (v !== null) frame.setAttribute('data-fonte-' + p, v); });
+  }
+  async function aplicarFonte(papel, bruto) {
+    const nome = (bruto || '').trim().replace(/\s+/g, ' ');
+    const campo = $('hz-fonte-' + papel);
+    campo.value = nome;
+    delete fonteEstado.dataset.erro;
+    if (!nome) {
+      fonteAtual[papel] = '';
+      frame.removeAttribute('data-fonte-' + papel);
+      fonteEstado.textContent = 'Qualquer família do Google Fonts. Vazio volta à do projeto.';
+      salvarEstado(); depoisDeMudar();
+      return;
+    }
+    if (!NOME_FONTE.test(nome)) {
+      fonteEstado.dataset.erro = ''; fonteEstado.textContent = 'Nome de fonte inválido: use letras, números, espaço e hífen.';
+      return;
+    }
+    fonteEstado.textContent = 'Carregando ' + nome + '…';
+    try {
+      await carregarFonte(nome);
+    } catch (e) {
+      fonteEstado.dataset.erro = '';
+      fonteEstado.textContent = '"' + nome + '" não existe no Google Fonts (confira a grafia).';
+      return;
+    }
+    fonteAtual[papel] = nome;
+    guardarFonteDosTitulos();
+    frame.style.setProperty('--hz-fonte-' + papel, pilha(nome));
+    frame.setAttribute('data-fonte-' + papel, nome);
+    fonteEstado.textContent = 'Visualizando ' + [fonteAtual.titulo && 'título em ' + fonteAtual.titulo,
+      fonteAtual.corpo && 'corpo em ' + fonteAtual.corpo].filter(Boolean).join(' e ') + '.';
+    salvarEstado();
+    if (document.fonts) document.fonts.ready.then(depoisDeMudar); else depoisDeMudar();
+  }
+  ['titulo', 'corpo'].forEach(papel => $('hz-fonte-' + papel)
+    .addEventListener('change', e => aplicarFonte(papel, e.target.value)));
+
+  // ---- direção: paleta e tipografia lidas do CSS já renderizado de cada variação ----
+  function hex(cor) {
+    const m = cor.match(/rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[,/ ]+([\d.]+%?))?\)/);
+    if (!m) return null;
+    const a = m[4] === undefined ? 1 : (m[4].endsWith('%') ? parseFloat(m[4]) / 100 : Number(m[4]));
+    if (a < 0.35) return null;   // transparente ou véu: não é cor da paleta
+    return '#' + [m[1], m[2], m[3]].map(n => Math.round(Number(n)).toString(16).padStart(2, '0')).join('');
+  }
+  function lerDirecao(section) {
+    const cores = new Map(), titulo = new Map(), corpo = new Map();
+    const conta = (mapa, chave, peso) => chave && mapa.set(chave, (mapa.get(chave) || 0) + peso);
+    [section, ...section.querySelectorAll('*')].forEach(n => {
+      const s = getComputedStyle(n);
+      const temTexto = Array.from(n.childNodes).some(c => c.nodeType === 3 && c.textContent.trim());
+      if (temTexto) conta(cores, hex(s.color), 2);
+      conta(cores, hex(s.backgroundColor), 3);
+      if (parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none') conta(cores, hex(s.borderTopColor), 1);
+      if (temTexto) {
+        const familia = s.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        conta(n.matches('h1, h2, h3, h4, h5, h6, [data-titulo]') ? titulo : corpo,
+              familia + ' ' + s.fontWeight, 1);
+      }
+    });
+    // Sem fundo próprio (uma variação só), o fundo que se vê é o do canvas.
+    if (!hex(getComputedStyle(section).backgroundColor)) conta(cores, hex(getComputedStyle(frame).backgroundColor), 4);
+    const top = (mapa, n) => [...mapa.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
+    return { cores: top(cores, 8), titulo: top(titulo, 2), corpo: top(corpo, 2) };
+  }
+  function desenharDirecao() {
+    const wrap = $('hz-direcao');
+    wrap.replaceChildren();
+    [variations[foco]].filter(Boolean).forEach(section => {
+      const d = lerDirecao(section);
+      const paleta = el('div', 'hz-paleta');
+      d.cores.forEach(c => {
+        const item = el('span', 'hz-cor');
+        const amostra = el('i'); amostra.style.background = c;
+        item.title = c; item.append(amostra, el('span', '', c.slice(1)));
+        paleta.appendChild(item);
+      });
+      const tipos = el('div', 'hz-tipos');
+      if (d.titulo.length) { const t = el('span'); t.append(el('b', '', 'Título '), d.titulo.join(' · ')); tipos.appendChild(t); }
+      if (d.corpo.length) { const t = el('span'); t.append(el('b', '', 'Corpo '), d.corpo.join(' · ')); tipos.appendChild(t); }
+      if (!d.cores.length && !d.titulo.length && !d.corpo.length) tipos.appendChild(el('span', 'hz-vazio', 'Variação vazia.'));
+      wrap.append(paleta, tipos);
+    });
+  }
+
+  // ---- escolha: "Seguir com esta" grava .mockup/escolha.json para o agente ler ----
+  const escolhaWrap = $('hz-escolha');
+  const escolhaEstado = $('hz-escolha-estado');
+  function desenharEscolha() {
+    escolhaWrap.replaceChildren();
+    if (!variations.length) return;
+    [foco].forEach(i => {
+      const b = el('button', 'hz-btn hz-primario', 'Seguir com esta');
+      b.type = 'button';
+      if (!servido) { b.disabled = true; b.title = 'Precisa do scripts/serve.py: diga a escolha no chat.'; }
+      b.addEventListener('click', () => escolher(i));
+      escolhaWrap.appendChild(b);
+    });
+  }
+  async function escolher(i) {
+    const sec = variations[i];
+    try {
+      const r = await api('/__escolha', {
+        variacao: i + 1, titulo: sec.dataset.title || 'Variação ' + (i + 1),
+        knobs: Object.assign({}, valores.get(sec) || {}), vw: stage.dataset.vw,
+        theme: frame.dataset.theme, fonte_titulo: fonteAtual.titulo || null, fonte_corpo: fonteAtual.corpo || null });
+      escolhaEstado.textContent = 'Escolhida: ' + r.titulo + '. Volte ao chat e diga "escolhi".';
+    } catch (e) {
+      escolhaEstado.textContent = 'Não gravou (' + e.message + '). Diga a escolha no chat.';
+    }
+  }
+  if (servido) api('/__escolha').then(r => { if (r) escolhaEstado.textContent = 'Escolhida: ' + r.titulo + '.'; }).catch(() => {});
+
+  // ---- comentários: clique num elemento, escreva o ajuste; o agente lê .mockup/comentarios.json ----
+  const comentarBtn = $('hz-comentar');
+  const balao = $('hz-balao');
+  const balaoTexto = $('hz-balao-texto');
+  const pinos = $('hz-pinos');
+  let comentarios = [];
+  let alvoAtual = null, alvoBalao = null;
+
+  if (!servido) { comentarBtn.disabled = true; comentarBtn.title = 'Comentar precisa do scripts/serve.py'; }
+
+  function setComentando(ligar) {
+    if (!servido) return;
+    document.body.toggleAttribute('data-comentando', ligar);
+    comentarBtn.classList.toggle('is-on', ligar);
+    comentarBtn.setAttribute('aria-pressed', String(ligar));
+    if (ligar) abrirAba('comentarios');
+    else { marcarAlvo(null); fecharBalao(); }
+  }
+  comentarBtn.addEventListener('click', () => setComentando(!document.body.hasAttribute('data-comentando')));
+
+  function marcarAlvo(n) {
+    if (alvoAtual) alvoAtual.classList.remove('hz-alvo');
+    alvoAtual = n;
+    if (n) n.classList.add('hz-alvo');
+  }
+  // Caminho estável do elemento dentro da variação: tag, até 2 classes e a posição entre irmãos.
+  function seletorDe(n, section) {
+    const partes = [];
+    for (let atual = n; atual && atual !== section; atual = atual.parentElement) {
+      const classes = Array.from(atual.classList).filter(c => !c.startsWith('hz-')).slice(0, 2);
+      let parte = atual.tagName.toLowerCase() + classes.map(c => '.' + CSS.escape(c)).join('');
+      const irmaos = Array.from(atual.parentElement.children).filter(x => x.tagName === atual.tagName);
+      if (irmaos.length > 1) parte += ':nth-of-type(' + (irmaos.indexOf(atual) + 1) + ')';
+      partes.unshift(parte);
+    }
+    return partes.join(' > ');
+  }
+  function acharPorSeletor(section, seletor) {
+    if (!seletor) return section;
+    try { return section.querySelector(':scope > ' + seletor); } catch (e) { return null; }
+  }
+
+  frame.addEventListener('mouseover', e => {
+    if (!document.body.hasAttribute('data-comentando') || !balao.hidden) return;
+    const n = e.target.closest('.variation') ? e.target : null;
+    marcarAlvo(n);
+  });
+  frame.addEventListener('click', e => {
+    if (!document.body.hasAttribute('data-comentando')) return;
+    const section = e.target.closest('.variation');
+    if (!section) return;
+    e.preventDefault(); e.stopPropagation();
+    marcarAlvo(e.target);
+    alvoBalao = e.target;
+    const trecho = (e.target.textContent || '').trim().replace(/\s+/g, ' ');
+    $('hz-balao-alvo').textContent = (section.dataset.title || 'Variação') + (trecho ? ' · "' + trecho.slice(0, 60) + '"' : '');
+    balao.hidden = false;
+    const r = balao.getBoundingClientRect();
+    balao.style.left = Math.min(e.clientX + 12, innerWidth - r.width - 12) + 'px';
+    balao.style.top = Math.min(e.clientY + 12, innerHeight - r.height - 12) + 'px';
+    balaoTexto.value = '';
+    balaoTexto.focus();
+  }, true);
+
+  function fecharBalao() { balao.hidden = true; alvoBalao = null; }
+  $('hz-balao-cancelar').addEventListener('click', () => { fecharBalao(); marcarAlvo(null); });
+  async function salvarComentario() {
+    const texto = balaoTexto.value.trim();
+    if (!texto || !alvoBalao) return;
+    const section = alvoBalao.closest('.variation');
+    const i = variations.indexOf(section);
+    try {
+      await api('/__comentarios', {
+        variacao: i + 1, titulo: section.dataset.title || 'Variação ' + (i + 1),
+        seletor: seletorDe(alvoBalao, section),
+        trecho: (alvoBalao.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 200),
+        texto, vw: stage.dataset.vw, theme: frame.dataset.theme });
+      fecharBalao(); marcarAlvo(null);
+      carregarComentarios();
+    } catch (e) {
+      $('hz-balao-alvo').textContent = 'Não gravou: ' + e.message;
+    }
+  }
+  $('hz-balao-salvar').addEventListener('click', salvarComentario);
+  balaoTexto.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) salvarComentario();
+    if (e.key === 'Escape') { fecharBalao(); marcarAlvo(null); }
+  });
+
+  async function carregarComentarios() {
+    if (!servido) return;
+    try { comentarios = await api('/__comentarios'); } catch (e) { comentarios = []; }
+    desenharComentarios();
+  }
+  function alvoDoComentario(c) {
+    const section = variations[c.variacao - 1];
+    return section ? acharPorSeletor(section, c.seletor) : null;
+  }
+  function desenharComentarios() {
+    const lista = $('hz-com-lista');
+    lista.replaceChildren();
+    $('hz-com-vazio').hidden = comentarios.length > 0;
+    $('hz-conta-comentarios').textContent = comentarios.length || '';
+    comentarios.forEach((c, n) => {
+      const li = el('li');
+      const topo = el('span', 'hz-li-topo');
+      topo.append(el('span', '', (n + 1) + '. ' + (c.titulo || 'Variação ' + c.variacao)));
+      const resolver = el('button', 'hz-link', 'Resolver');
+      resolver.type = 'button';
+      resolver.addEventListener('click', async ev => {
+        ev.stopPropagation();
+        try { await api('/__comentarios/apagar', { id: c.id }); } catch (e) {}
+        carregarComentarios();
+      });
+      topo.appendChild(resolver);
+      li.append(topo);
+      if (c.trecho) li.append(el('code', '', '"' + c.trecho.slice(0, 80) + '"'));
+      li.append(el('span', 'hz-li-texto', c.texto));
+      if (alvoDoComentario(c)) {
+        li.dataset.local = '';
+        li.title = 'Mostrar no canvas';
+        li.addEventListener('click', () => mostrarNoCanvas(alvoDoComentario(c)));
+      }
+      lista.appendChild(li);
+    });
+    posicionarPinos();
+  }
+  function posicionarPinos() {
+    pinos.replaceChildren();
+    const base = stage.getBoundingClientRect();
+    comentarios.forEach((c, n) => {
+      const alvo = alvoDoComentario(c);
+      if (!alvo || !alvo.getClientRects().length) return;   // variação escondida
+      const r = alvo.getBoundingClientRect();
+      const pino = el('span', 'hz-pino', String(n + 1));
+      pino.title = c.texto;
+      pino.style.left = (r.left - base.left) + 'px';
+      pino.style.top = (r.top - base.top) + 'px';
+      pino.addEventListener('click', () => mostrarNoCanvas(alvo));
+      pinos.appendChild(pino);
+    });
+  }
+
+  function mostrarNoCanvas(alvo) {
+    if (!alvo) return;
+    const section = alvo.closest('.variation');
+    const i = variations.indexOf(section);
+    if (!comparando() && i >= 0 && i !== ativa) activate(i);
+    else if (comparando() && i >= 0 && i !== foco) focar(i);
+    alvo.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    alvo.classList.add('hz-destaque');
+    setTimeout(() => alvo.classList.remove('hz-destaque'), 1600);
+  }
+
+  // ---- painel lateral: lembra se estava aberto (conveniência deste navegador) ----
+  const painelBtn = $('hz-painel-botao');
+  function setPainel(aberto) {
+    document.body.dataset.painel = aberto ? 'aberto' : 'fechado';
+    painelBtn.classList.toggle('is-on', aberto);
+    painelBtn.setAttribute('aria-pressed', String(aberto));
+    try { localStorage.setItem('hz-painel', aberto ? '1' : '0'); } catch (e) {}
+    depoisDeMudar();
+  }
+  painelBtn.addEventListener('click', () => setPainel(document.body.dataset.painel === 'fechado'));
+
+  // ---- detector: o servidor de preview (serve.py) responde /__detector ----
+  // Cada achado aponta o elemento: a linha do index.html vira uma regra CSS (seletor) ou uma
+  // tag dentro de uma variação (contando as tags de abertura desde o <section>).
+  const selo = $('hz-detector-selo');
+  const detResumo = $('hz-det-resumo');
+  const detLista = $('hz-det-lista');
+  let fonteHtml = '';
+
+  function semComentarios(txt) { return txt.replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' ')); }
+  function localizarAchado(a) {
+    if (!fonteHtml || !a.linha) return null;
+    const src = semComentarios(fonteHtml);
+    const linhas = src.split('\n');
+    const inicio = linhas.slice(0, a.linha - 1).reduce((t, l) => t + l.length + 1, 0);
+    const fim = inicio + (linhas[a.linha - 1] || '').length;
+    // Dentro de <style>: acha a regra que contém a linha e usa o seletor dela.
+    const abreStyle = src.lastIndexOf('<style', inicio), fechaStyle = src.lastIndexOf('</style>', inicio);
+    if (abreStyle > fechaStyle) {
+      let prof = 0, abre = -1;
+      for (let p = fim; p > abreStyle; p--) {
+        if (src[p] === '}' && p < fim) prof++;
+        else if (src[p] === '{') { if (prof === 0) { abre = p; break; } prof--; }
+      }
+      if (abre < 0) return null;
+      const corte = Math.max(src.lastIndexOf('}', abre - 1), src.lastIndexOf('{', abre - 1),
+                             src.lastIndexOf('*/', abre - 1) + 1, src.indexOf('>', abreStyle));
+      const seletor = src.slice(corte + 1, abre).trim();
+      if (!seletor || seletor.startsWith('@')) return null;
+      try {
+        return Array.from(frame.querySelectorAll(seletor)).find(n => n.closest('.variation')) || null;
+      } catch (e) { return null; }
+    }
+    // No markup: qual variação contém a linha, e qual tag de abertura dela.
+    const re = /<section\b[^>]*\bclass="[^"]*\bvariation\b[^"]*"/g;
+    let m, secao = -1, inicioSecao = 0;
+    while ((m = re.exec(src)) && m.index <= fim) { secao++; inicioSecao = m.index; }
+    const section = variations[secao];
+    if (!section) return null;
+    const tags = src.slice(inicioSecao, inicio).match(/<[a-zA-Z][^>]*>/g) || [];
+    const naLinha = /<[a-zA-Z]/.test(linhas[a.linha - 1] || '');
+    const ordem = tags.length - 1 + (naLinha ? 1 : 0);   // 0 é o próprio <section>
+    const todos = [section, ...section.querySelectorAll('*')];
+    const candidato = todos[ordem] || section;
+    // Confere pelo trecho quando é texto: evita apontar o vizinho se o JS mexeu no DOM.
+    const pelaFrase = a.trecho && todos.reverse().find(n => (n.textContent || '').includes(a.trecho));
+    return candidato.textContent.includes(a.trecho) || !pelaFrase ? candidato : pelaFrase;
+  }
+
+  function mostrarDetector(r) {
+    detLista.replaceChildren();
+    if (r.erro) {
+      selo.dataset.estado = 'erro'; selo.querySelector('span').textContent = 'Detector: erro';
+      detResumo.textContent = r.erro; return;
+    }
+    const falhas = r.achados.filter(a => a.severidade === 'falha').length;
+    const avisos = r.achados.length - falhas;
+    selo.dataset.estado = $('hz-ponto-detector').dataset.estado = falhas ? 'falha' : (avisos ? 'aviso' : 'limpo');
+    selo.querySelector('span').textContent = falhas || avisos
+      ? [falhas && falhas + (falhas > 1 ? ' falhas' : ' falha'), avisos && avisos + (avisos > 1 ? ' avisos' : ' aviso')].filter(Boolean).join(' · ')
+      : 'Limpo';
+    detResumo.textContent = r.variacoes + (r.variacoes === 1 ? ' variação analisada. ' : ' variações analisadas. ')
+      + (r.achados.length ? 'Clique num achado para ver onde está.' : 'Nenhum padrão genérico encontrado.')
+      + (r.ignoradas && r.ignoradas.length ? ' Ignoradas por declaração: ' + r.ignoradas.join(', ') + '.' : '');
+    r.achados.forEach(a => {
+      const li = el('li');
+      li.dataset.sev = a.severidade;
+      const topo = el('span', 'hz-li-topo');
+      topo.append(el('span', '', a.regra), el('small', '', a.severidade + ' · linha ' + a.linha));
+      li.append(topo, el('code', '', a.trecho), el('span', 'hz-li-texto', a.dica));
+      const alvo = localizarAchado(a);
+      if (alvo) {
+        li.dataset.local = '';
+        li.title = 'Mostrar no canvas';
+        li.addEventListener('click', () => mostrarNoCanvas(localizarAchado(a)));
+      }
+      detLista.appendChild(li);
+    });
+  }
+  if (servido) {
+    Promise.all([api('/__detector'), fetch(location.pathname, { cache: 'no-store' }).then(r => r.text()).catch(() => '')])
+      .then(([r, html]) => { fonteHtml = html; mostrarDetector(r); })
+      .catch(() => { selo.dataset.estado = 'erro'; detResumo.textContent = 'O servidor não respondeu ao detector.'; });
+  } else {
+    detResumo.textContent = 'Aberto como arquivo: sirva com scripts/serve.py para ver o detector aqui, ou rode scripts/detectar.py no terminal.';
+  }
+  selo.addEventListener('click', () => {
+    setPainel(true);
+    abrirAba('detector');
+  });
+
+  // ---- depois de qualquer mudança visual: repinta a direção e reposiciona os pinos ----
+  let quadro = 0;
+  function depoisDeMudar() {
+    if (!pronto) return;
+    cancelAnimationFrame(quadro);
+    quadro = requestAnimationFrame(() => { desenharDirecao(); posicionarPinos(); });
+  }
+  new ResizeObserver(depoisDeMudar).observe(stage);
+
+  // ---- estado na URL: cada clique reescreve a URL (sem recarregar). O live-reload recarrega a
+  // MESMA URL, então aba, comparar, largura, tema, fontes e knobs sobrevivem a cada edição do
+  // index.html; e copiar a URL compartilha exatamente o que está na tela.
+  function salvarEstado() {
+    if (!pronto) return;
+    const q = new URLSearchParams();
+    if (stage.dataset.vw !== 'desktop') q.set('vw', stage.dataset.vw);
+    if (stage.dataset.vw === 'livre') q.set('w', String(larguraLivre));
+    if (frame.dataset.theme === 'dark') q.set('theme', 'dark');
+    if (comparando()) q.set('comparar', '1');
+    else if (ativa > 0) q.set('v', String(ativa + 1));
+    if (fonteAtual.corpo) q.set('font', fonteAtual.corpo);
+    if (fonteAtual.titulo) q.set('font-titulo', fonteAtual.titulo);
+    const sec = variations[ativa];
+    if (sec && !comparando()) {
+      const mudados = lerKnobs(sec).lista
+        .filter(k => (valores.get(sec) || {})[k.id] !== padraoDe(k))
+        .map(k => k.id + ':' + (valores.get(sec) || {})[k.id]);
+      if (mudados.length) q.set('k', mudados.join(','));
+    }
+    if (document.body.dataset.limpo) q.set('limpo', '1');
+    const texto = q.toString().replace(/%3A/g, ':').replace(/%2C/g, ',');
+    try { history.replaceState(null, '', location.pathname + (texto ? '?' + texto : '')); } catch (e) {}
+  }
+
+  // ---- atalhos ----
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.body.hasAttribute('data-comentando') && balao.hidden) { setComentando(false); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest('input, select, textarea, [contenteditable]')) return;
+    const tecla = e.key.toLowerCase();
+    if ((tecla === 'arrowright' || tecla === 'arrowleft') && variations.length > 1) {
+      const passo = tecla === 'arrowright' ? 1 : -1;
+      activate((ativa + passo + variations.length) % variations.length);
+    } else if (tecla === 'c' && variations.length > 1) setComparar(!comparando());
+    else if (tecla === 't') setTheme(frame.dataset.theme === 'dark' ? 'light' : 'dark');
+    else if (tecla === 'p') setPainel(document.body.dataset.painel === 'fechado');
+    else if (tecla === 'k') setComentando(!document.body.hasAttribute('data-comentando'));
+    else if (tecla === 'l') { livreSw.checked = !livreSw.checked; livreSw.dispatchEvent(new Event('change')); }
+    else if (/^[1-4]$/.test(tecla)) setVw(LARGURAS[Number(tecla) - 1]);
+    else return;
+    e.preventDefault();
+  });
+
+  // Initial state from the URL — ?vw=mobile&theme=dark&v=2 — so a screenshot or a
+  // shared link opens straight in that state, with NO clicks (fast auto-checks).
+  const p = new URLSearchParams(location.search);
+  if (p.get('vw') === 'livre') setLivre(Number(p.get('w')) || larguraLivre);
+  else if (p.get('vw')) setVw(p.get('vw'));
+  if (p.get('theme') === 'dark' || p.get('theme') === 'light') setTheme(p.get('theme'));
+  const vi = parseInt(p.get('v'), 10);
+  if (!Number.isNaN(vi) && variations[vi - 1]) activate(vi - 1);
+  let painelSalvo = null;
+  try { painelSalvo = localStorage.getItem('hz-painel'); } catch (e) {}
+  setPainel(p.get('painel') === '0' ? false : p.get('painel') === '1' ? true : painelSalvo !== '0');
+  // ?limpo=1 esconde a casca (barra e painel): screenshot só do design.
+  if (p.has('limpo')) document.body.dataset.limpo = '1';
+  // ?k=acento:0.8,densidade:compacta — ajusta os knobs da variação ativa, sem clique
+  const kp = p.get('k');
+  const ativaSec = variations.find(v => v.classList.contains('is-active'));
+  if (kp && ativaSec) {
+    const porId = Object.fromEntries(lerKnobs(ativaSec).lista.map(k => [k.id, k]));
+    kp.split(',').forEach(par => {
+      const corte = par.indexOf(':');
+      if (corte < 0) return;
+      const k = porId[par.slice(0, corte)];
+      if (k) aplicarKnob(ativaSec, k, par.slice(corte + 1));
+    });
+    desenharKnobs([ativaSec]);
+  }
+  if (p.get('comparar') === '1' && variations.length > 1) setComparar(true);
+  desenharEscolha();
+  let abaSalva = null;
+  try { abaSalva = localStorage.getItem('hz-aba'); } catch (e) {}
+  abrirAba(abaSalva || 'ajustes');
+  pronto = true;
+  if (p.get('font')) aplicarFonte('corpo', p.get('font'));
+  if (p.get('font-titulo')) aplicarFonte('titulo', p.get('font-titulo'));
+  carregarComentarios();
+  depoisDeMudar();
+</script>
+</body>
+</html>
