@@ -50,6 +50,7 @@ Cada linha da tabela abaixo já traz o comando exato de instalação.
 | [`sw-pr-message`](plugins/sw-pr-message/) | development | Gera o PR-MESSAGE.md de uma branch — a descrição do pull request pronta para colar no GitHub, com as mudanças agrupadas por tipo (Novas funcionalidades… | `/plugin install sw-pr-message@ai-marketplace` |
 | [`sw-refactor`](plugins/sw-refactor/) | development | Refatora seguindo os padrões do PRÓPRIO projeto: descobre como o código costuma resolver cada coisa (nomes, erros, validação, camadas, resposta, config… | `/plugin install sw-refactor@ai-marketplace` |
 | [`sw-skill-test`](plugins/sw-skill-test/) | development | Testa rápido se uma skill JÁ EXISTENTE funciona de verdade — sem navegador, sem benchmark pesado, sem API key. | `/plugin install sw-skill-test@ai-marketplace` |
+| [`sw-standards-php`](plugins/sw-standards-php/) | development | Impõe os padrões da systemweb em projetos PHP do framework system-web-framework-core (API e website Twig): validação no middleware, controller fino, banco só… | `/plugin install sw-standards-php@ai-marketplace` |
 | [`sw-study-buddy`](plugins/sw-study-buddy/) | productivity | Tutor de estudos para qualquer assunto de tecnologia — linguagens de programação, frameworks, bibliotecas, documentações, paradigmas (funcional, OO, reativo)… | `/plugin install sw-study-buddy@ai-marketplace` |
 
 <!-- SKILLS:END -->

@@ -1,0 +1,8 @@
+{
+  "name": "sw-standards-php",
+  "description": "Impõe os padrões da systemweb em projetos PHP do framework system-web-framework-core (API e website Twig): validação no middleware, controller fino, banco só no model, Services/<Domínio>, erro com status explícito, sem ruído defensivo, guard clause sem else, estilo da casa com fixer próprio e testes com banco próprio. Dois modos: guarda ao escrever e auditoria com correção por domínio, com teste antes de mexer. Use SEMPRE que for criar ou alterar PHP num projeto do framework, mesmo sem falar em padrão — \"cria o endpoint\", \"faz o service\", \"adiciona um middleware\", \"cria a model\", \"faz o job\", \"nova rota\", \"escreve os testes do service\" (a skill dá a estrutura de tests/ e a sw-auto-test escreve os testes), \"create the endpoint\", \"add a middleware\", \"write the service\" — ou padronizar um — \"padroniza este projeto\", \"audita o padrão\", \"o que está fora do padrão?\", \"segue o padrão systemweb\", \"prepara o projeto para os padrões\", \"audit this project against our standards\", \"enforce the systemweb PHP standards\". NÃO use para Vue, PHP fora do framework (Laravel, Symfony, WordPress), revisar um diff (sw-code-review), caçar código morto (sw-dead-code-scan) nem refatorar pelo padrão que o próprio projeto já tem (sw-refactor). Interação em português, toda decisão via AskUserQuestion.",
+  "version": "0.1.0",
+  "author": {
+    "name": "systemweb-dev"
+  }
+}

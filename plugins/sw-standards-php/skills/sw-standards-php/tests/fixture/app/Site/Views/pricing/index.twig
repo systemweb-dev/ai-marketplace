@@ -1,0 +1,14 @@
+{% extends "layout.twig" %}
+
+{% block content %}
+    <section class="pricing">
+        <h1>Planos</h1>
+
+        {% for plan in plans %}
+            <article class="pricing__plan">
+                <h2>{{ plan.name }}</h2>
+                <p class="pricing__price">R$ {{ (plan.amountInCents / 100)|number_format(2, ',', '.') }}{{ plan.periodLabel }}</p>
+            </article>
+        {% endfor %}
+    </section>
+{% endblock %}

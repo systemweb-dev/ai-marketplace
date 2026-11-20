@@ -23,7 +23,7 @@ ifdef FROM
 FLAGS += --from $(FROM)
 endif
 
-.PHONY: help list sync sync-dry import remove readme check hooks
+.PHONY: help list sync sync-dry import remove readme check hooks fixer-test
 
 help:
 	@echo "make list                      - lista skills locais e quais estão publicadas"
@@ -34,6 +34,7 @@ help:
 	@echo "make readme                    - regenera a tabela de skills do README"
 	@echo "make check                     - gate de segurança: escaneia o staged por segredos/dados pessoais"
 	@echo "make hooks                     - instala os git hooks (pre-commit/pre-push) deste repo"
+	@echo "make fixer-test                - testa o fixer de estilo da sw-standards-php"
 
 list:
 	@$(PY) $(SCRIPT) list
@@ -64,3 +65,6 @@ hooks:
 	@git config core.hooksPath .githooks
 	@chmod +x .githooks/pre-commit .githooks/pre-push
 	@echo "✓ git hooks instalados (core.hooksPath=.githooks): pre-commit + pre-push"
+
+fixer-test:
+	@bash $$(ls plugins/sw-standards-php/skills/sw-standards-php/tests/testar_fixer.sh 2>/dev/null || echo $(HOME)/.claude/skills/sw-standards-php/tests/testar_fixer.sh)

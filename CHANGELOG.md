@@ -8,6 +8,14 @@ versões de cada skill seguem [SemVer](https://semver.org/lang/pt-BR/) no
 ## [Não publicado]
 
 ### Adicionado
+- `sw-standards-php` (v0.1.0): **padrões da systemweb para PHP do framework** (API e website Twig). Dois modos:
+  escrever (carrega só as regras do que está sendo escrito e formata com o fixer da casa) e auditar e corrigir
+  (subagentes por família de regra, relatório e correção por domínio com teste antes). 19 regras com exemplo
+  certo e errado: validação no middleware, controller fino, banco só no model, Services/Integrations, erro com
+  status explícito, ruído defensivo, guard clause sem else, nomes, testes com banco próprio e mais. Etapa 0
+  prepara o projeto (core ≥ 1.10, banco de teste, tests/Support, fixer, tratador de exceção). Fixer próprio do
+  php-cs-fixer para `if(`/`){` e linha em branco depois de bloco (`make fixer-test`). Medida com a sw-skill-test
+  num projeto de teste: 18 de 18 violações achadas e 0 de 5 armadilhas acusadas.
 - `sw-infra-audit` (v0.22.0): **relatório com servidores host e dados por produto.** Bloco novo
   "Serviços dos servidores", com índice de problemas no topo e uma área por servidor (problemas e o que
   fazer, estado dos serviços com reinícios e memória, informativo com descobertos e não medidos). Bancos
